@@ -59,6 +59,9 @@ export async function getTenantSchema(tenantId: string, impersonating = false): 
   };
 }
 
+const MAX_OPTIONS_PER_FIELD = 15;
+const MAX_CUSTOM_FIELDS = 50;
+
 export async function addCustomField(
   tenantId: string,
   input: { label: string; type: CustomFieldType; options: string[]; required: boolean }
@@ -69,6 +72,8 @@ export async function addCustomField(
   const supabase = await createSupabaseServerClient();
   const repo = fieldConfigRepo(supabase);
   const existing = await repo.listCustomFields(tenantId);
+  if (existing.length >= MAX_CUSTOM_FIELDS)
+    throw new Error(`Workspaces are limited to ${MAX_CUSTOM_FIELDS} custom fields.`);
   if (existing.some((f) => f.key === key)) throw new Error(`A field called "${input.label}" already exists.`);
   await repo.addCustomField({
     tenant_id: tenantId,
@@ -93,6 +98,8 @@ export async function addFieldOption(tenantId: string, field: FieldName, label: 
   const supabase = await createSupabaseServerClient();
   const repo = fieldConfigRepo(supabase);
   const existing = (await repo.listOptions(tenantId)).filter((o) => o.field === field);
+  if (existing.length >= MAX_OPTIONS_PER_FIELD)
+    throw new Error(`Workspaces are limited to ${MAX_OPTIONS_PER_FIELD} ${field} options.`);
   if (existing.some((o) => o.key === key)) throw new Error(`A ${field} called "${label}" already exists.`);
   await repo.addOption({
     tenant_id: tenantId, field, key, label: label.trim(), color: null, position: existing.length,
