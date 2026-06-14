@@ -1,0 +1,113 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+// lead_user_id is the project "Owner" in the UI. start_date / target_go_live
+// come from the intake form — "dates trigger everything".
+export type Project = {
+  id: string;
+  key: string;
+  name: string;
+  lead_user_id: string | null;
+  start_date: string | null;
+  target_go_live: string | null;
+  created_at?: string;
+};
+
+const COLS = "id, key, name, lead_user_id, start_date, target_go_live, created_at";
+
+export type CreateProjectInput = {
+  tenant_id: string;
+  key: string;
+  name: string;
+  lead_user_id?: string | null;
+  start_date?: string | null;
+  target_go_live?: string | null;
+};
+
+/** Project data access. Always tenant-scoped. The only layer touching the DB. */
+export function projectsRepo(supabase: SupabaseClient) {
+  return {
+    async getByKey(tenantId: string, key: string): Promise<Project | null> {
+      const { data, error } = await supabase
+        .from("projects")
+        .select(COLS)
+        .eq("tenant_id", tenantId)
+        .eq("key", key)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as Project) ?? null;
+    },
+
+    async getById(tenantId: string, id: string): Promise<Project | null> {
+      const { data, error } = await supabase
+        .from("projects")
+        .select(COLS)
+        .eq("tenant_id", tenantId)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as Project) ?? null;
+    },
+
+    /** First project for the tenant — the default target when none is specified. */
+    async getDefault(tenantId: string): Promise<Project | null> {
+      const { data, error } = await supabase
+        .from("projects")
+        .select(COLS)
+        .eq("tenant_id", tenantId)
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return (data as Project) ?? null;
+    },
+
+    /** Every project in the tenant (admin view — they see all). */
+    async listByTenant(tenantId: string): Promise<Project[]> {
+      const { data, error } = await supabase
+        .from("projects")
+        .select(COLS)
+        .eq("tenant_id", tenantId)
+        .order("key");
+      if (error) throw error;
+      return (data ?? []) as Project[];
+    },
+
+    /** Projects a specific user is a team member of (non-admin landing view). */
+    async listForMember(tenantId: string, userId: string): Promise<Project[]> {
+      const { data, error } = await supabase
+        .from("projects")
+        .select(`${COLS}, project_members!inner(user_id)`)
+        .eq("tenant_id", tenantId)
+        .eq("project_members.user_id", userId)
+        .order("key");
+      if (error) throw error;
+      // Strip the joined relation off each row.
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        key: row.key,
+        name: row.name,
+        lead_user_id: row.lead_user_id,
+        start_date: row.start_date,
+        target_go_live: row.target_go_live,
+        created_at: row.created_at,
+      })) as Project[];
+    },
+
+    async create(input: CreateProjectInput): Promise<Project> {
+      const { data, error } = await supabase
+        .from("projects")
+        .insert({
+          tenant_id: input.tenant_id,
+          key: input.key,
+          name: input.name,
+          lead_user_id: input.lead_user_id ?? null,
+          start_date: input.start_date ?? null,
+          target_go_live: input.target_go_live ?? null,
+        })
+        .select(COLS)
+        .single();
+      if (error) throw error;
+      return data as Project;
+    },
+  };
+}

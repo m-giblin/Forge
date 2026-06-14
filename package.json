@@ -3,15 +3,34 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev -p 3100",
     "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "start": "next start -p 3100",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test:isolation": "node --env-file=.env.local scripts/isolation-test.mjs",
+    "seed:dev": "node --env-file=.env.local scripts/seed-dev.mjs",
+    "test:api": "node --env-file=.env.local scripts/api-test.mjs",
+    "issue:key": "node --env-file=.env.local scripts/issue-api-key.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check": "tsc --noEmit && npm run lint && vitest run",
+    "make:superadmin": "node --env-file=.env.local scripts/make-super-admin.mjs",
+    "seed:forge": "node --env-file=.env.local scripts/seed-forge-tenant.mjs",
+    "import": "node --env-file=.env.local scripts/import-issues.mjs",
+    "test:smoke": "node --env-file=.env.local scripts/smoke-test.mjs",
+    "db:status": "node --env-file=.env.local scripts/db-migrate.mjs status",
+    "db:migrate": "node --env-file=.env.local scripts/db-migrate.mjs migrate",
+    "db:verify": "node --env-file=.env.local scripts/db-migrate.mjs verify"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.12.0",
+    "@supabase/supabase-js": "^2.108.1",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "resend": "^6.12.4",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
@@ -21,6 +40,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.8"
   }
 }

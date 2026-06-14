@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # Fast, always-on gate: types, lint, unit tests. No external services.
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm run lint
+      - run: npx vitest run
+
+  # Security gates: tenant isolation + API isolation/scopes against a REAL
+  # Supabase DB. These are the regression-proof for multi-tenant data isolation.
+  #
+  # Disabled by default. To enable: create a DEDICATED test Supabase project
+  # (never prod — these tests create & delete data), add its secrets, and set
+  # repository variable RUN_INTEGRATION=true.
+  integration:
+    needs: unit
+    if: ${{ vars.RUN_INTEGRATION == 'true' }}
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      FORGE_BASE_URL: http://localhost:3100
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Start server
+        run: |
+          npm start &
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3100 >/dev/null && break
+            sleep 1
+          done
+      - name: Tenant isolation gate
+        run: node scripts/isolation-test.mjs
+      - name: API security gate
+        run: node scripts/api-test.mjs
+      # Smoke test needs the dev founder + Forge tenant data to exist.
+      - name: Seed dev data
+        run: node scripts/seed-dev.mjs && node scripts/seed-forge-tenant.mjs
+      - name: Board data smoke gate
+        run: node scripts/smoke-test.mjs
