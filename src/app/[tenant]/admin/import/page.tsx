@@ -36,6 +36,7 @@ export default async function ImportPage({ params }: { params: Promise<{ tenant:
           priorities={schema.priorities}
           types={schema.types}
           categories={schema.categories}
+          customFields={schema.customFields}
         />
       )}
     </div>

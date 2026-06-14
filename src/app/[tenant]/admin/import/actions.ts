@@ -12,6 +12,7 @@ export type ImportRow = {
   category?: string;
   subcategory?: string;
   external_id?: string | null;
+  custom_values?: Record<string, string>;
 };
 
 export type NewCategory = {
@@ -38,9 +39,10 @@ export async function importIssuesAction(
   const svc = createSupabaseServiceClient();
   const cfg = fieldConfigRepo(svc);
 
-  const [options, existingCats] = await Promise.all([
+  const [options, existingCats, customFields] = await Promise.all([
     cfg.listOptions(ctx.tenant.id),
     cfg.listCategories(ctx.tenant.id),
+    cfg.listCustomFields(ctx.tenant.id),
   ]);
 
   const { data: project } = await svc
@@ -145,6 +147,25 @@ export async function importIssuesAction(
       continue;
     }
 
+    // Build custom_values: validate selects, pass text/number/date through as-is.
+    // Invalid select values are dropped silently — a bad custom value shouldn't
+    // block the row from importing.
+    const custom_values: Record<string, string> = {};
+    if (row.custom_values) {
+      for (const [key, val] of Object.entries(row.custom_values)) {
+        if (!val?.trim()) continue;
+        const field = customFields.find((f) => f.key === key);
+        if (!field) continue;
+        if (field.type === "select") {
+          if (field.options.map((o) => o.toLowerCase()).includes(val.trim().toLowerCase())) {
+            custom_values[key] = field.options.find((o) => o.toLowerCase() === val.trim().toLowerCase())!;
+          }
+        } else {
+          custom_values[key] = val.trim();
+        }
+      }
+    }
+
     const { error } = await svc.from("issues").insert({
       tenant_id: ctx.tenant.id,
       project_id: projectId,
@@ -154,7 +175,7 @@ export async function importIssuesAction(
       priority: resolveOpt("priority", row.priority) ?? defaultOpt("priority"),
       type: resolveOpt("type", row.type) ?? defaultOpt("type"),
       category_id,
-      custom_values: {},
+      custom_values,
       reporter_id: null,
       source: "web",
       external_id: row.external_id?.trim() || null,

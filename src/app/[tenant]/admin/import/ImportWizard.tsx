@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { type FieldOption, type Category } from "@/lib/repositories/fieldConfig";
+import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { importIssuesAction, type ImportRow, type NewCategory, type ImportResult } from "./actions";
 
 type Project = { id: string; key: string; name: string };
@@ -26,7 +26,7 @@ function parseCSV(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
-const IMPORTABLE_FIELDS = [
+const BUILTIN_FIELDS = [
   { key: "", label: "— Ignore —" },
   { key: "title", label: "Title *" },
   { key: "description", label: "Description" },
@@ -38,7 +38,7 @@ const IMPORTABLE_FIELDS = [
   { key: "external_id", label: "External ID (idempotency key)" },
 ];
 
-const AUTO_MAP: Record<string, string> = {
+const BUILTIN_AUTO_MAP: Record<string, string> = {
   title: "title", name: "title",
   description: "description", desc: "description", body: "description",
   status: "status",
@@ -49,15 +49,21 @@ const AUTO_MAP: Record<string, string> = {
   external_id: "external_id", ext_id: "external_id", id: "external_id", external: "external_id",
 };
 
-function autoMap(header: string): string {
-  const key = header.trim().toLowerCase().replace(/[\s-]/g, "_").replace(/[^a-z_]/g, "");
-  return AUTO_MAP[key] ?? "";
+function buildAutoMapper(customFields: CustomField[]) {
+  return function autoMap(header: string): string {
+    const key = header.trim().toLowerCase().replace(/[\s-]/g, "_").replace(/[^a-z_]/g, "");
+    if (BUILTIN_AUTO_MAP[key]) return BUILTIN_AUTO_MAP[key];
+    const cf = customFields.find(
+      (f) => f.key === key || f.label.trim().toLowerCase().replace(/[\s-]/g, "_").replace(/[^a-z_]/g, "") === key
+    );
+    return cf ? `custom:${cf.key}` : "";
+  };
 }
 
 type NewCatEntry = { parent: string; sub: string | null; key: string };
 
 export default function ImportWizard({
-  slug, projects, statuses, priorities, types, categories,
+  slug, projects, statuses, priorities, types, categories, customFields,
 }: {
   slug: string;
   projects: Project[];
@@ -65,7 +71,15 @@ export default function ImportWizard({
   priorities: FieldOption[];
   types: FieldOption[];
   categories: Category[];
+  customFields: CustomField[];
 }) {
+  const importableFields = useMemo(() => [
+    ...BUILTIN_FIELDS,
+    ...customFields.map((f) => ({ key: `custom:${f.key}`, label: `${f.label} (custom)` })),
+  ], [customFields]);
+
+  const autoMap = useMemo(() => buildAutoMapper(customFields), [customFields]);
+
   const [step, setStep] = useState<1 | 2 | 3 | "done">(1);
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
   const [headers, setHeaders] = useState<string[]>([]);
@@ -158,6 +172,15 @@ export default function ImportWizard({
         }
       }
 
+      // Collect custom field values from any columns mapped to custom:*
+      const custom_values: Record<string, string> = {};
+      for (const [col, fieldKey] of Object.entries(mapping)) {
+        if (!fieldKey.startsWith("custom:")) continue;
+        const cfKey = fieldKey.slice(7);
+        const val = (row[Number(col)] ?? "").trim();
+        if (val) custom_values[cfKey] = val;
+      }
+
       mappedRows.push({
         title,
         description: get(row, "description") || undefined,
@@ -167,6 +190,7 @@ export default function ImportWizard({
         category: catVal || undefined,
         subcategory: subVal || undefined,
         external_id: get(row, "external_id") || undefined,
+        custom_values: Object.keys(custom_values).length > 0 ? custom_values : undefined,
       });
     }
 
@@ -286,6 +310,7 @@ export default function ImportWizard({
               <p className="text-sm font-medium text-neutral-700">Drop a CSV here, or click to choose a file</p>
               <p className="mt-1 text-xs text-neutral-400">
                 Supported columns: title, description, status, priority, type, category, subcategory, external_id
+                {customFields.length > 0 && `, plus ${customFields.length} custom field${customFields.length !== 1 ? "s" : ""}`}
               </p>
             </div>
             <input
@@ -326,7 +351,7 @@ export default function ImportWizard({
                       onChange={(e) => setMapping((m) => ({ ...m, [i]: e.target.value }))}
                       className={selectCls}
                     >
-                      {IMPORTABLE_FIELDS.map((f) => (
+                      {importableFields.map((f) => (
                         <option key={f.key} value={f.key}>{f.label}</option>
                       ))}
                     </select>
