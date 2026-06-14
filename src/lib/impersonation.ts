@@ -16,7 +16,10 @@ const TTL_SECONDS = 30 * 60;
 export type Impersonation = { tenantId: string; tenantSlug: string; exp: number; by: string };
 
 function secret(): string {
-  return serverEnv().SUPABASE_SERVICE_ROLE_KEY; // server-only; never exposed
+  // Prefer a dedicated secret so rotating the Supabase key doesn't invalidate
+  // active impersonation sessions. Falls back to service-role key if not set.
+  const env = serverEnv();
+  return env.IMPERSONATION_SECRET ?? env.SUPABASE_SERVICE_ROLE_KEY;
 }
 function sign(payloadB64: string): string {
   return createHmac("sha256", secret()).update(payloadB64).digest("base64url");

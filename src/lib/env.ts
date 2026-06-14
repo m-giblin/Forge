@@ -17,6 +17,7 @@ const publicSchema = z.object({
 
 const serverSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  IMPERSONATION_SECRET: z.string().optional(),
   AI_PROVIDER: z.string().default("grok"),
   GROK_API_KEY: z.string().optional(),
   RATE_LIMIT_REDIS_URL: z.string().optional(),
@@ -44,6 +45,7 @@ export function serverEnv() {
   if (_server) return _server;
   const parsed = serverSchema.safeParse({
     SUPABASE_SERVICE_ROLE_KEY: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    IMPERSONATION_SECRET: process.env.IMPERSONATION_SECRET,
     AI_PROVIDER: process.env.AI_PROVIDER,
     GROK_API_KEY: process.env.GROK_API_KEY,
     RATE_LIMIT_REDIS_URL: process.env.RATE_LIMIT_REDIS_URL,
