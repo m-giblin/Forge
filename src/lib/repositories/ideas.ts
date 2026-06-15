@@ -4,6 +4,7 @@ export interface IdeaRow {
   id: string;
   tenant_id: string;
   think_tank_id: string;
+  number: number | null;
   title: string;
   description: string | null;
   status: string;
