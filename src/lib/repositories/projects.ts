@@ -9,10 +9,11 @@ export type Project = {
   lead_user_id: string | null;
   start_date: string | null;
   target_go_live: string | null;
+  linked_idea_id: string | null;
   created_at?: string;
 };
 
-const COLS = "id, key, name, lead_user_id, start_date, target_go_live, created_at";
+const COLS = "id, key, name, lead_user_id, start_date, target_go_live, linked_idea_id, created_at";
 
 export type CreateProjectInput = {
   tenant_id: string;

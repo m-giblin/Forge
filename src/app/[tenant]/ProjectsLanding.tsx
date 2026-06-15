@@ -63,7 +63,7 @@ export default function ProjectsLanding({
           members={members}
           onDone={(key) => {
             setShowForm(false);
-            router.push(`/${slug}/board?project=${key}`);
+            router.push(`/${slug}/projects/${key}`);
           }}
         />
       )}
@@ -81,7 +81,7 @@ export default function ProjectsLanding({
             return (
               <li key={p.id}>
                 <Link
-                  href={`/${slug}/board?project=${p.key}`}
+                  href={`/${slug}/projects/${p.key}`}
                   className="block rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-neutral-300 hover:shadow"
                 >
                   <div className="flex items-center justify-between">

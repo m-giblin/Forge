@@ -170,5 +170,17 @@ export function issuesRepo(supabase: SupabaseClient) {
       if (error) throw error;
       return count ?? 0;
     },
+
+    async countForProject(tenantId: string, projectId: string): Promise<{ total: number; done: number }> {
+      const [totalRes, doneRes] = await Promise.all([
+        supabase.from("issues").select("id", { count: "exact", head: true })
+          .eq("tenant_id", tenantId).eq("project_id", projectId),
+        supabase.from("issues").select("id", { count: "exact", head: true })
+          .eq("tenant_id", tenantId).eq("project_id", projectId).eq("status", "done"),
+      ]);
+      if (totalRes.error) throw totalRes.error;
+      if (doneRes.error) throw doneRes.error;
+      return { total: totalRes.count ?? 0, done: doneRes.count ?? 0 };
+    },
   };
 }

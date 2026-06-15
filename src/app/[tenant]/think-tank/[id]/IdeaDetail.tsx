@@ -279,7 +279,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
             <span>
               ✅ Converted to project{" "}
               <a
-                href={`/${slug}/board?project=${convertedProject.key}`}
+                href={`/${slug}/projects/${convertedProject.key}`}
                 className="font-semibold underline hover:no-underline"
               >
                 {convertedProject.key} — View Project →
@@ -292,7 +292,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
                 <>
                   {" "}
                   <a
-                    href={`/${slug}/board?project=${linkedProjectKey}`}
+                    href={`/${slug}/projects/${linkedProjectKey}`}
                     className="font-semibold underline hover:no-underline"
                   >
                     View Project →
