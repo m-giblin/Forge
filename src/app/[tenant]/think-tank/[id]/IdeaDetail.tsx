@@ -33,9 +33,10 @@ interface Props {
   isAdmin: boolean;
   isViewer: boolean;
   lastAiTurn: IdeaAiTurn | null;
+  linkedProjectKey: string | null;
 }
 
-export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, lastAiTurn }: Props) {
+export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, lastAiTurn, linkedProjectKey }: Props) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -278,7 +279,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
             <span>
               ✅ Converted to project{" "}
               <a
-                href={`/${slug}/projects/${convertedProject.id}`}
+                href={`/${slug}/board?project=${convertedProject.key}`}
                 className="font-semibold underline hover:no-underline"
               >
                 {convertedProject.key} — View Project →
@@ -287,11 +288,11 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
           ) : idea.status === "converted" ? (
             <span>
               ✅ This idea has been converted to a project.
-              {idea.linked_project_id && (
+              {linkedProjectKey && (
                 <>
                   {" "}
                   <a
-                    href={`/${slug}/projects/${idea.linked_project_id}`}
+                    href={`/${slug}/board?project=${linkedProjectKey}`}
                     className="font-semibold underline hover:no-underline"
                   >
                     View Project →

@@ -2,6 +2,7 @@ import { redirect, notFound } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo } from "@/lib/repositories/ideas";
 import { membersRepo } from "@/lib/repositories/members";
+import { projectsRepo } from "@/lib/repositories/projects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import IdeaDetail from "./IdeaDetail";
@@ -55,6 +56,13 @@ export default async function IdeaPage({
   const isAdmin = ctx.role === "owner" || ctx.role === "admin";
   const canEdit = (isCreator || isAdmin) && !ctx.impersonating;
 
+  // Fetch linked project key so the "View Project →" link can use /?project=KEY
+  let linkedProjectKey: string | null = null;
+  if (idea.linked_project_id) {
+    const linked = await projectsRepo(supabase).getById(ctx.tenant.id, idea.linked_project_id);
+    linkedProjectKey = linked?.key ?? null;
+  }
+
   return (
     <IdeaDetail
       slug={slug}
@@ -67,6 +75,7 @@ export default async function IdeaPage({
       isAdmin={isAdmin}
       isViewer={ctx.role === "viewer"}
       lastAiTurn={lastAiTurn}
+      linkedProjectKey={linkedProjectKey}
     />
   );
 }
