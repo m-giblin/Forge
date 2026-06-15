@@ -1,18 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { createIdea, updateIdea } from "@/lib/services/thinkTank";
 import { ideasRepo } from "@/lib/repositories/ideas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
 
+/** Returns the new idea's ID so the client can navigate to it. */
 export async function createIdeaAction(
   slug: string,
   thinkTankId: string,
   formData: FormData
-) {
+): Promise<string> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot create ideas.");
@@ -43,7 +43,7 @@ export async function createIdeaAction(
   });
 
   revalidatePath(`/${slug}/think-tank`);
-  redirect(`/${slug}/think-tank/${idea.id}`);
+  return idea.id;
 }
 
 export async function updateIdeaAction(

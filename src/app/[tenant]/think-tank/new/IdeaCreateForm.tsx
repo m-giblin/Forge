@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { createIdeaAction } from "../actions";
 
 interface Props {
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export default function IdeaCreateForm({ slug, thinkTankId, members }: Props) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
@@ -20,7 +22,8 @@ export default function IdeaCreateForm({ slug, thinkTankId, members }: Props) {
     const data = new FormData(e.currentTarget);
     startTransition(async () => {
       try {
-        await createIdeaAction(slug, thinkTankId, data);
+        const ideaId = await createIdeaAction(slug, thinkTankId, data);
+        router.push(`/${slug}/think-tank/${ideaId}`);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Something went wrong.");
       }
