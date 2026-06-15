@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -8,6 +8,15 @@ function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/";
+
+  // Supabase password reset emails land here with #access_token=...&type=recovery.
+  // Forward to the dedicated reset page so the user can set a new password.
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    if (hash.includes("type=recovery")) {
+      router.replace(`/auth/reset-password${window.location.hash}`);
+    }
+  }, [router]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
