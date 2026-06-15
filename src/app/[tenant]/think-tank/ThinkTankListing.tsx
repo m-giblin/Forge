@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import type { IdeaSummary } from "@/lib/repositories/ideas";
 
@@ -26,22 +26,32 @@ interface Props {
 
 export default function ThinkTankListing({ slug, ideas, allTags, members, canCreate }: Props) {
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterTag, setFilterTag] = useState<string>("");
   const [filterAssignee, setFilterAssignee] = useState<string>("");
   const [showArchived, setShowArchived] = useState(false);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
+    const q = debouncedSearch.toLowerCase().trim();
     return ideas.filter((idea) => {
       if (!showArchived && idea.status === "archived") return false;
       if (filterStatus && idea.status !== filterStatus) return false;
       if (filterTag && !idea.tags.includes(filterTag)) return false;
       if (filterAssignee && idea.assigned_to !== filterAssignee) return false;
-      if (q && !idea.title.toLowerCase().includes(q) && !(idea.description ?? "").toLowerCase().includes(q)) return false;
+      if (q &&
+        !idea.title.toLowerCase().includes(q) &&
+        !(idea.description ?? "").toLowerCase().includes(q) &&
+        !idea.tags.some((t) => t.toLowerCase().includes(q))
+      ) return false;
       return true;
     });
-  }, [ideas, search, filterStatus, filterTag, filterAssignee, showArchived]);
+  }, [ideas, debouncedSearch, filterStatus, filterTag, filterAssignee, showArchived]);
 
   const hasIdeas = ideas.length > 0;
 
@@ -150,7 +160,7 @@ export default function ThinkTankListing({ slug, ideas, allTags, members, canCre
           </div>
 
           {/* Results count */}
-          {(search || filterStatus || filterTag || filterAssignee) && (
+          {(debouncedSearch || filterStatus || filterTag || filterAssignee) && (
             <p className="mb-3 text-xs text-neutral-400">
               {filtered.length} of {ideas.length} ideas
             </p>
@@ -164,7 +174,7 @@ export default function ThinkTankListing({ slug, ideas, allTags, members, canCre
           ) : (
             <div className="space-y-2">
               {filtered.map((idea) => (
-                <IdeaCard key={idea.id} idea={idea} slug={slug} />
+                <IdeaCard key={idea.id} idea={idea} slug={slug} query={debouncedSearch} />
               ))}
             </div>
           )}
@@ -174,7 +184,7 @@ export default function ThinkTankListing({ slug, ideas, allTags, members, canCre
   );
 }
 
-function IdeaCard({ idea, slug }: { idea: IdeaSummary; slug: string }) {
+function IdeaCard({ idea, slug, query }: { idea: IdeaSummary; slug: string; query: string }) {
   const meta = STATUS_META[idea.status] ?? STATUS_META.new;
   const lastActivity = formatRelative(idea.updated_at);
 
@@ -191,7 +201,9 @@ function IdeaCard({ idea, slug }: { idea: IdeaSummary; slug: string }) {
       {/* Main content */}
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline gap-2">
-          <span className="truncate font-medium text-neutral-900">{idea.title}</span>
+          <span className="truncate font-medium text-neutral-900">
+            <HighlightText text={idea.title} query={query} />
+          </span>
           <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${meta.color}`}>
             {meta.label}
           </span>
@@ -204,7 +216,7 @@ function IdeaCard({ idea, slug }: { idea: IdeaSummary; slug: string }) {
                 key={tag}
                 className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500"
               >
-                {tag}
+                <HighlightText text={tag} query={query} />
               </span>
             ))}
           </div>
@@ -222,6 +234,27 @@ function IdeaCard({ idea, slug }: { idea: IdeaSummary; slug: string }) {
         <span title="Last activity">{lastActivity}</span>
       </div>
     </Link>
+  );
+}
+
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function HighlightText({ text, query }: { text: string; query: string }) {
+  const q = query.trim();
+  if (!q) return <>{text}</>;
+  const parts = text.split(new RegExp(`(${escapeRegex(q)})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === q.toLowerCase() ? (
+          <mark key={i} className="rounded bg-yellow-100 px-0.5 text-yellow-900">{part}</mark>
+        ) : (
+          part
+        )
+      )}
+    </>
   );
 }
 
