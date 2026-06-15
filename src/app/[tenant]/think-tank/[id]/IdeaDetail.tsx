@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { updateIdeaAction, advanceStatusAction } from "../actions";
-import type { IdeaRow, IdeaComment } from "@/lib/repositories/ideas";
+import type { IdeaRow, IdeaComment, IdeaAiTurn } from "@/lib/repositories/ideas";
 import IdeaComments from "./IdeaComments";
+import SoundingBoard from "./SoundingBoard";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -30,9 +31,11 @@ interface Props {
   comments: IdeaComment[];
   currentUserId: string;
   isAdmin: boolean;
+  isViewer: boolean;
+  lastAiTurn: IdeaAiTurn | null;
 }
 
-export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin }: Props) {
+export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, lastAiTurn }: Props) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -225,6 +228,13 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
             : "📦 This idea is archived."}
         </div>
       )}
+
+      <SoundingBoard
+        slug={slug}
+        ideaId={idea.id}
+        isViewer={isViewer}
+        lastTurn={lastAiTurn}
+      />
 
       <IdeaComments
         slug={slug}

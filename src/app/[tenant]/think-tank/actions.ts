@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import { createIdea, updateIdea } from "@/lib/services/thinkTank";
-import { ideasRepo, ideaCommentsRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo } from "@/lib/repositories/ideas";
+import { callSoundingBoard, AIRateLimitError, type IdeaContext } from "@/lib/ai/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
 
@@ -164,6 +165,69 @@ export async function deleteIdeaCommentAction(
 
   await repo.softDelete(ctx.tenant.id, commentId);
   revalidatePath(`/${slug}/think-tank/${comment.ideaId}`);
+}
+
+export async function soundingBoardAction(
+  slug: string,
+  ideaId: string,
+  pillIds: string[],
+  userInput: string
+): Promise<{ text: string }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot use the AI Sounding Board.");
+  if (pillIds.length === 0 && !userInput.trim())
+    throw new Error("Select at least one lens or add a question.");
+
+  const supabase = await createSupabaseServerClient();
+
+  const [idea, comments] = await Promise.all([
+    ideasRepo(supabase).getById(ctx.tenant.id, ideaId),
+    ideaCommentsRepo(supabase).list(ctx.tenant.id, ideaId),
+  ]);
+  if (!idea) throw new Error("Idea not found.");
+
+  const recentComments = comments
+    .filter((c) => !c.isDeleted)
+    .slice(-20)
+    .map((c) => ({ author: c.authorName ?? "Unknown", body: c.body, createdAt: c.createdAt }));
+
+  const ideaContext: IdeaContext = {
+    title: idea.title,
+    description: idea.description,
+    tags: idea.tags,
+    status: idea.status,
+    recentComments,
+  };
+
+  let result;
+  try {
+    result = await callSoundingBoard({
+      tenantId: ctx.tenant.id,
+      idea: ideaContext,
+      pills: pillIds,
+      userInput: userInput.trim() || undefined,
+    });
+  } catch (err) {
+    if (err instanceof AIRateLimitError) {
+      const mins = Math.ceil(err.resetMs / 60_000);
+      throw new Error(`AI rate limit reached. Resets in ~${mins} minute${mins === 1 ? "" : "s"}.`);
+    }
+    throw err;
+  }
+
+  await ideaAiTurnsRepo(supabase).add({
+    tenantId: ctx.tenant.id,
+    ideaId,
+    userId: ctx.appUserId,
+    pills: pillIds,
+    userInput: userInput.trim() || null,
+    promptSent: result.promptSent,
+    aiResponse: result.text,
+    provider: result.provider,
+  });
+
+  return { text: result.text };
 }
 
 export async function advanceStatusAction(slug: string, ideaId: string, newStatus: string) {

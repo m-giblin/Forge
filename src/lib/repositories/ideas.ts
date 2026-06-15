@@ -1,5 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export interface IdeaAiTurn {
+  id: string;
+  ideaId: string;
+  userId: string | null;
+  pills: string[];
+  userInput: string | null;
+  aiResponse: string;
+  provider: string;
+  createdAt: string;
+}
+
 export interface IdeaComment {
   id: string;
   ideaId: string;
@@ -259,6 +270,56 @@ export function ideaCommentsRepo(supabase: SupabaseClient) {
         authorId: data.author_id,
         createdAt: data.created_at,
         isDeleted: data.is_deleted,
+      };
+    },
+  };
+}
+
+export function ideaAiTurnsRepo(supabase: SupabaseClient) {
+  return {
+    async add(input: {
+      tenantId: string;
+      ideaId: string;
+      userId: string;
+      pills: string[];
+      userInput?: string | null;
+      promptSent: string;
+      aiResponse: string;
+      provider: string;
+    }): Promise<void> {
+      const { error } = await supabase.from("idea_ai_turns").insert({
+        tenant_id: input.tenantId,
+        idea_id: input.ideaId,
+        user_id: input.userId,
+        pills: input.pills,
+        user_input: input.userInput ?? null,
+        prompt_sent: input.promptSent,
+        ai_response: input.aiResponse,
+        provider: input.provider,
+      });
+      if (error) throw error;
+    },
+
+    async getLatest(tenantId: string, ideaId: string): Promise<IdeaAiTurn | null> {
+      const { data, error } = await supabase
+        .from("idea_ai_turns")
+        .select("id, idea_id, user_id, pills, user_input, ai_response, provider, created_at")
+        .eq("tenant_id", tenantId)
+        .eq("idea_id", ideaId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        id: data.id,
+        ideaId: data.idea_id,
+        userId: data.user_id,
+        pills: data.pills,
+        userInput: data.user_input,
+        aiResponse: data.ai_response,
+        provider: data.provider,
+        createdAt: data.created_at,
       };
     },
   };
