@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import { createIdea, updateIdea } from "@/lib/services/thinkTank";
+import { createProject } from "@/lib/services/projects";
+import { projectsRepo } from "@/lib/repositories/projects";
 import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo } from "@/lib/repositories/ideas";
 import { callSoundingBoard, AIRateLimitError, type IdeaContext } from "@/lib/ai/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -228,6 +230,56 @@ export async function soundingBoardAction(
   });
 
   return { text: result.text };
+}
+
+export async function convertIdeaAction(
+  slug: string,
+  ideaId: string
+): Promise<{ projectId: string; projectKey: string }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.impersonating) throw new Error("Cannot convert ideas while impersonating.");
+
+  const supabase = await createSupabaseServerClient();
+  const idea = await ideasRepo(supabase).getById(ctx.tenant.id, ideaId);
+  if (!idea) throw new Error("Idea not found.");
+  if (idea.status !== "ready") throw new Error("Only ideas in 'ready' status can be converted.");
+  if (idea.linked_project_id) throw new Error("This idea has already been converted to a project.");
+
+  const isCreator = idea.created_by === ctx.appUserId;
+  const isAdmin = ctx.role === "owner" || ctx.role === "admin";
+  if (!isCreator && !isAdmin) throw new Error("Only the creator or an admin can convert this idea.");
+
+  // 1. Create the project — if this fails nothing else changes.
+  const project = await createProject({
+    tenantId: ctx.tenant.id,
+    name: idea.title,
+    ownerUserId: ctx.appUserId,
+  });
+
+  // 2. Set reverse link on project.
+  await projectsRepo(supabase).setLinkedIdea(ctx.tenant.id, project.id, ideaId);
+
+  // 3. Mark idea as converted with forward link.
+  await updateIdea(ctx.tenant.id, ideaId, {
+    status: "converted",
+    converted_at: new Date().toISOString(),
+    linked_project_id: project.id,
+  });
+
+  await recordAudit({
+    tenantId: ctx.tenant.id,
+    actorUserId: ctx.appUserId,
+    action: "idea.convert",
+    target: ideaId,
+    metadata: { projectId: project.id, projectKey: project.key, title: idea.title },
+  });
+
+  revalidatePath(`/${slug}/think-tank/${ideaId}`);
+  revalidatePath(`/${slug}/think-tank`);
+  revalidatePath(`/${slug}/projects`);
+
+  return { projectId: project.id, projectKey: project.key };
 }
 
 export async function advanceStatusAction(slug: string, ideaId: string, newStatus: string) {

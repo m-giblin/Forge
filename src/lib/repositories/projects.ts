@@ -109,5 +109,14 @@ export function projectsRepo(supabase: SupabaseClient) {
       if (error) throw error;
       return data as Project;
     },
+
+    async setLinkedIdea(tenantId: string, projectId: string, ideaId: string): Promise<void> {
+      const { error } = await supabase
+        .from("projects")
+        .update({ linked_idea_id: ideaId })
+        .eq("tenant_id", tenantId)
+        .eq("id", projectId);
+      if (error) throw error;
+    },
   };
 }

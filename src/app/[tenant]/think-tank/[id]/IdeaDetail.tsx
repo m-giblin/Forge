@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateIdeaAction, advanceStatusAction } from "../actions";
+import { updateIdeaAction, advanceStatusAction, convertIdeaAction } from "../actions";
 import type { IdeaRow, IdeaComment, IdeaAiTurn } from "@/lib/repositories/ideas";
 import IdeaComments from "./IdeaComments";
 import SoundingBoard from "./SoundingBoard";
@@ -19,7 +19,7 @@ const NEXT_STATUS: Record<string, { label: string; value: string }[]> = {
   new:         [{ label: "Start researching →", value: "researching" }, { label: "Archive", value: "archived" }],
   researching: [{ label: "Mark as maturing →", value: "maturing" },    { label: "Archive", value: "archived" }],
   maturing:    [{ label: "Mark as ready →",     value: "ready" },       { label: "Archive", value: "archived" }],
-  ready:       [{ label: "Convert to project →", value: "converted" },  { label: "Archive", value: "archived" }],
+  ready:       [{ label: "Archive", value: "archived" }],
 };
 
 interface Props {
@@ -40,6 +40,8 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showConvertModal, setShowConvertModal] = useState(false);
+  const [convertedProject, setConvertedProject] = useState<{ id: string; key: string } | null>(null);
 
   const meta = STATUS_META[idea.status] ?? STATUS_META.new;
   const nextOptions = NEXT_STATUS[idea.status] ?? [];
@@ -58,6 +60,19 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         setTimeout(() => setSuccessMsg(null), 2500);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Save failed.");
+      }
+    });
+  }
+
+  function handleConvert() {
+    setError(null);
+    setShowConvertModal(false);
+    startTransition(async () => {
+      try {
+        const result = await convertIdeaAction(slug, idea.id);
+        setConvertedProject({ id: result.projectId, key: result.projectKey });
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Conversion failed.");
       }
     });
   }
@@ -195,10 +210,19 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
       )}
 
       {/* Status workflow */}
-      {!isTerminal && nextOptions.length > 0 && (
+      {!isTerminal && (nextOptions.length > 0 || idea.status === "ready") && (
         <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">Move idea forward</p>
           <div className="flex flex-wrap gap-2">
+            {idea.status === "ready" && (
+              <button
+                onClick={() => setShowConvertModal(true)}
+                disabled={isPending}
+                className="rounded-lg bg-purple-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+              >
+                Convert to project →
+              </button>
+            )}
             {nextOptions.map((opt) => (
               <button
                 key={opt.value}
@@ -217,15 +241,67 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         </div>
       )}
 
-      {isTerminal && (
+      {/* Convert confirmation modal */}
+      {showConvertModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="mb-2 text-base font-semibold text-neutral-900">Convert to project?</h2>
+            <p className="mb-5 text-sm text-neutral-500">
+              A new project will be created from <strong>{idea.title}</strong>. The idea will be marked as converted and locked from further editing.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={handleConvert}
+                disabled={isPending}
+                className="rounded-lg bg-purple-600 px-4 py-2 text-sm font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+              >
+                {isPending ? "Converting…" : "Yes, convert"}
+              </button>
+              <button
+                onClick={() => setShowConvertModal(false)}
+                className="text-sm text-neutral-500 hover:text-neutral-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(isTerminal || convertedProject) && (
         <div className={`mb-6 rounded-xl border p-4 text-sm ${
-          idea.status === "converted"
+          idea.status === "converted" || convertedProject
             ? "border-purple-200 bg-purple-50 text-purple-700"
             : "border-neutral-200 bg-neutral-50 text-neutral-500"
         }`}>
-          {idea.status === "converted"
-            ? "✅ This idea has been converted to a project."
-            : "📦 This idea is archived."}
+          {convertedProject ? (
+            <span>
+              ✅ Converted to project{" "}
+              <a
+                href={`/${slug}/projects/${convertedProject.id}`}
+                className="font-semibold underline hover:no-underline"
+              >
+                {convertedProject.key} — View Project →
+              </a>
+            </span>
+          ) : idea.status === "converted" ? (
+            <span>
+              ✅ This idea has been converted to a project.
+              {idea.linked_project_id && (
+                <>
+                  {" "}
+                  <a
+                    href={`/${slug}/projects/${idea.linked_project_id}`}
+                    className="font-semibold underline hover:no-underline"
+                  >
+                    View Project →
+                  </a>
+                </>
+              )}
+            </span>
+          ) : (
+            "📦 This idea is archived."
+          )}
         </div>
       )}
 
