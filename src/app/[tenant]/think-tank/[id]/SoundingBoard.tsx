@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import ReactMarkdown from "react-markdown";
 import { soundingBoardAction } from "../actions";
 import { PILLS } from "@/lib/ai/pills";
@@ -21,10 +21,13 @@ export default function SoundingBoard({ slug, ideaId, isViewer, lastTurn }: Prop
   const [response, setResponse] = useState<string | null>(lastTurn?.aiResponse ?? null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [disclosureDismissed, setDisclosureDismissed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return true;
-    return localStorage.getItem(DISCLOSURE_KEY) === "1";
-  });
+  const [disclosureDismissed, setDisclosureDismissed] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem(DISCLOSURE_KEY) === "1") {
+      startTransition(() => setDisclosureDismissed(true));
+    }
+  }, []);
 
   function dismissDisclosure() {
     localStorage.setItem(DISCLOSURE_KEY, "1");
