@@ -69,6 +69,12 @@ export default async function TenantLayout({
               >
                 Board
               </Link>
+              <Link
+                href={`/${slug}/think-tank`}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
+              >
+                Think Tank
+              </Link>
               {(ctx.role === "owner" || ctx.role === "admin" || ctx.impersonating) && (
                 <Link
                   href={`/${slug}/admin`}
