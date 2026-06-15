@@ -13,12 +13,23 @@ interface Props {
   lastTurn: IdeaAiTurn | null;
 }
 
+const DISCLOSURE_KEY = "tt_ai_disclosure_dismissed";
+
 export default function SoundingBoard({ slug, ideaId, isViewer, lastTurn }: Props) {
   const [selectedPills, setSelectedPills] = useState<string[]>(lastTurn?.pills ?? []);
   const [userInput, setUserInput] = useState("");
   const [response, setResponse] = useState<string | null>(lastTurn?.aiResponse ?? null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [disclosureDismissed, setDisclosureDismissed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return true;
+    return localStorage.getItem(DISCLOSURE_KEY) === "1";
+  });
+
+  function dismissDisclosure() {
+    localStorage.setItem(DISCLOSURE_KEY, "1");
+    setDisclosureDismissed(true);
+  }
 
   function togglePill(id: string) {
     setSelectedPills((prev) =>
@@ -56,6 +67,22 @@ export default function SoundingBoard({ slug, ideaId, isViewer, lastTurn }: Prop
         </p>
       ) : (
         <>
+          {/* Data residency disclosure */}
+          {!disclosureDismissed && (
+            <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+              <span className="mt-0.5 shrink-0">⚠️</span>
+              <span className="flex-1">
+                Your idea content will be sent to <strong>Grok (xAI)</strong> for analysis. Do not include information you are not authorized to share externally.
+              </span>
+              <button
+                onClick={dismissDisclosure}
+                className="shrink-0 font-medium underline hover:no-underline"
+              >
+                Got it
+              </button>
+            </div>
+          )}
+
           {/* Pill selector */}
           <div className="mb-3">
             <p className="mb-2 text-xs font-medium uppercase tracking-wide text-neutral-400">
