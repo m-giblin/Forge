@@ -1,5 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export interface IdeaComment {
+  id: string;
+  ideaId: string;
+  body: string;
+  isDeleted: boolean;
+  authorId: string | null;
+  authorName: string | null;
+  parentId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface IdeaRow {
   id: string;
   tenant_id: string;
@@ -150,6 +162,104 @@ export function ideasRepo(supabase: SupabaseClient) {
         .eq("tenant_id", tenantId);
       const all = (data ?? []).flatMap((r: { tags?: string[] }) => r.tags ?? []);
       return [...new Set(all)].sort();
+    },
+  };
+}
+
+export function ideaCommentsRepo(supabase: SupabaseClient) {
+  return {
+    async list(tenantId: string, ideaId: string): Promise<IdeaComment[]> {
+      const { data, error } = await supabase
+        .from("idea_comments")
+        .select(`
+          id, idea_id, body, is_deleted, author_id, parent_id, created_at, updated_at,
+          author:users!idea_comments_author_id_fkey(id, name)
+        `)
+        .eq("tenant_id", tenantId)
+        .eq("idea_id", ideaId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
+        id: row.id as string,
+        ideaId: row.idea_id as string,
+        body: row.body as string,
+        isDeleted: row.is_deleted as boolean,
+        authorId: row.author_id as string | null,
+        authorName: (row.author as { name?: string } | null)?.name ?? null,
+        parentId: row.parent_id as string | null,
+        createdAt: row.created_at as string,
+        updatedAt: row.updated_at as string,
+      }));
+    },
+
+    async add(input: {
+      tenantId: string;
+      ideaId: string;
+      authorId: string;
+      body: string;
+      parentId?: string | null;
+    }): Promise<IdeaComment> {
+      const { data, error } = await supabase
+        .from("idea_comments")
+        .insert({
+          tenant_id: input.tenantId,
+          idea_id: input.ideaId,
+          author_id: input.authorId,
+          body: input.body,
+          parent_id: input.parentId ?? null,
+        })
+        .select("id, idea_id, body, is_deleted, author_id, parent_id, created_at, updated_at")
+        .single();
+      if (error) throw error;
+      return {
+        id: data.id,
+        ideaId: data.idea_id,
+        body: data.body,
+        isDeleted: data.is_deleted,
+        authorId: data.author_id,
+        authorName: null,
+        parentId: data.parent_id,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at,
+      };
+    },
+
+    async edit(tenantId: string, id: string, body: string): Promise<void> {
+      const { error } = await supabase
+        .from("idea_comments")
+        .update({ body })
+        .eq("tenant_id", tenantId)
+        .eq("id", id);
+      if (error) throw error;
+    },
+
+    async softDelete(tenantId: string, id: string): Promise<void> {
+      const { error } = await supabase
+        .from("idea_comments")
+        .update({ is_deleted: true })
+        .eq("tenant_id", tenantId)
+        .eq("id", id);
+      if (error) throw error;
+    },
+
+    async getById(
+      tenantId: string,
+      id: string
+    ): Promise<{ ideaId: string; authorId: string | null; createdAt: string; isDeleted: boolean } | null> {
+      const { data, error } = await supabase
+        .from("idea_comments")
+        .select("id, idea_id, author_id, created_at, is_deleted")
+        .eq("tenant_id", tenantId)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        ideaId: data.idea_id,
+        authorId: data.author_id,
+        createdAt: data.created_at,
+        isDeleted: data.is_deleted,
+      };
     },
   };
 }

@@ -2,7 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { updateIdeaAction, advanceStatusAction } from "../actions";
-import type { IdeaRow } from "@/lib/repositories/ideas";
+import type { IdeaRow, IdeaComment } from "@/lib/repositories/ideas";
+import IdeaComments from "./IdeaComments";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -26,9 +27,12 @@ interface Props {
   canEdit: boolean;
   members: Array<{ id: string; name: string | null; email: string }>;
   thinkTankName: string;
+  comments: IdeaComment[];
+  currentUserId: string;
+  isAdmin: boolean;
 }
 
-export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName }: Props) {
+export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin }: Props) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -222,11 +226,13 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         </div>
       )}
 
-      {/* Comments placeholder — TT-6 */}
-      <div className="rounded-xl border border-dashed border-neutral-200 p-5">
-        <p className="text-sm font-medium text-neutral-500">💬 Discussion</p>
-        <p className="mt-1 text-xs text-neutral-400">Comments coming in TT-6.</p>
-      </div>
+      <IdeaComments
+        slug={slug}
+        ideaId={idea.id}
+        currentUserId={currentUserId}
+        isAdmin={isAdmin}
+        initialComments={comments}
+      />
     </div>
   );
 }

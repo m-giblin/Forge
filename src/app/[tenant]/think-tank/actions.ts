@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import { createIdea, updateIdea } from "@/lib/services/thinkTank";
-import { ideasRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaCommentsRepo } from "@/lib/repositories/ideas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
 
@@ -86,6 +86,84 @@ export async function updateIdeaAction(
 
   revalidatePath(`/${slug}/think-tank/${ideaId}`);
   revalidatePath(`/${slug}/think-tank`);
+}
+
+const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
+export async function addIdeaCommentAction(
+  slug: string,
+  ideaId: string,
+  body: string,
+  parentId: string | null
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot comment.");
+
+  const trimmed = body.trim();
+  if (!trimmed) throw new Error("Comment cannot be empty.");
+  if (trimmed.length > 10000) throw new Error("Comment is too long.");
+
+  const supabase = await createSupabaseServerClient();
+  await ideaCommentsRepo(supabase).add({
+    tenantId: ctx.tenant.id,
+    ideaId,
+    authorId: ctx.appUserId,
+    body: trimmed,
+    parentId,
+  });
+
+  revalidatePath(`/${slug}/think-tank/${ideaId}`);
+}
+
+export async function editIdeaCommentAction(
+  slug: string,
+  commentId: string,
+  body: string
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+
+  const trimmed = body.trim();
+  if (!trimmed) throw new Error("Comment cannot be empty.");
+
+  const supabase = await createSupabaseServerClient();
+  const repo = ideaCommentsRepo(supabase);
+  const comment = await repo.getById(ctx.tenant.id, commentId);
+  if (!comment) throw new Error("Comment not found.");
+  if (comment.isDeleted) throw new Error("Cannot edit a deleted comment.");
+
+  const isAuthor = comment.authorId === ctx.appUserId;
+  const isAdmin = ctx.role === "owner" || ctx.role === "admin";
+  if (!isAuthor && !isAdmin) throw new Error("Not allowed.");
+
+  if (isAuthor && !isAdmin) {
+    const age = Date.now() - new Date(comment.createdAt).getTime();
+    if (age > EDIT_WINDOW_MS) throw new Error("Comments can only be edited within 15 minutes of posting.");
+  }
+
+  await repo.edit(ctx.tenant.id, commentId, trimmed);
+  revalidatePath(`/${slug}/think-tank/${comment.ideaId}`);
+}
+
+export async function deleteIdeaCommentAction(
+  slug: string,
+  commentId: string
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+
+  const supabase = await createSupabaseServerClient();
+  const repo = ideaCommentsRepo(supabase);
+  const comment = await repo.getById(ctx.tenant.id, commentId);
+  if (!comment) throw new Error("Comment not found.");
+
+  const isAuthor = comment.authorId === ctx.appUserId;
+  const isAdmin = ctx.role === "owner" || ctx.role === "admin";
+  if (!isAuthor && !isAdmin) throw new Error("Not allowed.");
+
+  await repo.softDelete(ctx.tenant.id, commentId);
+  revalidatePath(`/${slug}/think-tank/${comment.ideaId}`);
 }
 
 export async function advanceStatusAction(slug: string, ideaId: string, newStatus: string) {

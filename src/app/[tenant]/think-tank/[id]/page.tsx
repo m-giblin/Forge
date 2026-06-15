@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
-import { ideasRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaCommentsRepo } from "@/lib/repositories/ideas";
 import { membersRepo } from "@/lib/repositories/members";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
@@ -19,9 +19,10 @@ export default async function IdeaPage({
     ? createSupabaseServiceClient()
     : await createSupabaseServerClient();
 
-  const [rawIdea, members] = await Promise.all([
+  const [rawIdea, members, comments] = await Promise.all([
     ideasRepo(supabase).getById(ctx.tenant.id, id),
     membersRepo(supabase).list(ctx.tenant.id),
+    ideaCommentsRepo(supabase).list(ctx.tenant.id, id),
   ]);
 
   if (!rawIdea) notFound();
@@ -60,6 +61,9 @@ export default async function IdeaPage({
       canEdit={canEdit}
       members={members.map((m) => ({ id: m.userId, name: m.name, email: m.email }))}
       thinkTankName="TT"
+      comments={comments}
+      currentUserId={ctx.appUserId}
+      isAdmin={isAdmin}
     />
   );
 }
