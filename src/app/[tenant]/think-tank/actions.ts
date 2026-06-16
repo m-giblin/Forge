@@ -621,3 +621,27 @@ export async function deleteDecisionAction(
   await ideaDecisionsRepo(svc).softDelete(ctx.tenant.id, decisionId);
   revalidatePath(`/${slug}/think-tank/${ideaId}`);
 }
+
+// ---------------------------------------------------------------------------
+// Similar ideas search (for create form duplicate detection)
+// ---------------------------------------------------------------------------
+
+export async function searchSimilarIdeasAction(
+  slug: string,
+  query: string
+): Promise<Array<{ id: string; title: string; status: string }>> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) return [];
+  const q = query.trim();
+  if (q.length < 3) return [];
+
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc
+    .from("ideas")
+    .select("id, title, status")
+    .eq("tenant_id", ctx.tenant.id)
+    .neq("status", "archived")
+    .ilike("title", `%${q}%`)
+    .limit(4);
+  return (data ?? []) as Array<{ id: string; title: string; status: string }>;
+}

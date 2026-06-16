@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
 import { getOrCreateDefaultThinkTank } from "@/lib/services/thinkTank";
 import { membersRepo } from "@/lib/repositories/members";
+import { tenantIdeaTemplatesRepo } from "@/lib/repositories/ideas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import IdeaCreateForm from "./IdeaCreateForm";
@@ -21,9 +22,10 @@ export default async function NewIdeaPage({
     ? createSupabaseServiceClient()
     : await createSupabaseServerClient();
 
-  const [thinkTank, members] = await Promise.all([
+  const [thinkTank, members, tenantTemplates] = await Promise.all([
     getOrCreateDefaultThinkTank(ctx.tenant.id, ctx.appUserId, ctx.impersonating),
     membersRepo(supabase).list(ctx.tenant.id),
+    tenantIdeaTemplatesRepo(supabase).list(ctx.tenant.id),
   ]);
 
   const memberOptions = members.map((m) => ({
@@ -49,6 +51,7 @@ export default async function NewIdeaPage({
           slug={slug}
           thinkTankId={thinkTank.id}
           members={memberOptions}
+          tenantTemplates={tenantTemplates}
         />
       </div>
     </div>

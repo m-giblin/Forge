@@ -307,6 +307,7 @@ function IdeaCard({
               ))}
             </div>
           )}
+          <MaturityBar idea={idea} />
         </div>
 
         {/* Meta */}
@@ -343,6 +344,42 @@ function HighlightText({ text, query }: { text: string; query: string }) {
         )
       )}
     </>
+  );
+}
+
+const STATUS_SCORES: Record<string, number> = {
+  new: 0, researching: 1, maturing: 2, ready: 3, converted: 3, archived: 0,
+};
+
+function maturityScore(idea: IdeaSummary): { score: number; max: number; hint: string } {
+  let score = 0;
+  const missing: string[] = [];
+  if (idea.description && idea.description.trim().length > 20) score++;
+  else missing.push("add a description");
+  if (idea.comment_count > 0) score++;
+  else missing.push("start a discussion");
+  if (idea.ai_turn_count > 0) score++;
+  else missing.push("run the AI Sounding Board");
+  if (idea.assigned_to) score++;
+  else missing.push("assign an owner");
+  if (STATUS_SCORES[idea.status] >= 1) score++;
+  else missing.push("advance the status");
+  const hint = missing.length > 0 ? `Next: ${missing[0]}` : "Fully matured";
+  return { score, max: 5, hint };
+}
+
+function MaturityBar({ idea }: { idea: IdeaSummary }) {
+  if (idea.status === "archived" || idea.status === "converted") return null;
+  const { score, max, hint } = maturityScore(idea);
+  const pct = Math.round((score / max) * 100);
+  const color = pct >= 80 ? "bg-emerald-400" : pct >= 40 ? "bg-amber-400" : "bg-neutral-300";
+  return (
+    <div className="mt-1.5 flex items-center gap-2" title={hint}>
+      <div className="h-1 w-16 overflow-hidden rounded-full bg-neutral-100">
+        <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+      <span className="text-xs text-neutral-400">{score}/{max}</span>
+    </div>
   );
 }
 

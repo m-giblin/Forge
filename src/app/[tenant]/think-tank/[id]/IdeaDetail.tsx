@@ -51,6 +51,18 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
   const meta = STATUS_META[idea.status] ?? STATUS_META.new;
   const nextOptions = NEXT_STATUS[idea.status] ?? [];
   const isTerminal = idea.status === "converted" || idea.status === "archived";
+  const daysSinceUpdate = (new Date().getTime() - new Date(idea.updated_at).getTime()) / 86_400_000;
+  const activeCommentCount = comments.filter((c) => !c.isDeleted).length;
+
+  // Maturity hint — computed from available props
+  const maturityHint = (() => {
+    if (isTerminal) return null;
+    if (!idea.description || idea.description.trim().length <= 20) return "Add a description to help the team understand this idea.";
+    if (comments.filter(c => !c.isDeleted).length === 0) return "Start a discussion — add the first comment.";
+    if (recentAiTurns.length === 0) return "Run the AI Sounding Board to get an outside perspective.";
+    if (!idea.assigned_to) return "Assign an owner to move this idea forward.";
+    return null;
+  })();
   const ideaKey = idea.number != null ? `${thinkTankName.slice(0, 2).toUpperCase()}-${idea.number}` : null;
 
   function handleEdit(e: React.FormEvent<HTMLFormElement>) {
@@ -126,6 +138,12 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
               </div>
             )}
           </div>
+          {maturityHint && (
+            <div className="mt-2 flex items-center gap-1.5 text-xs text-neutral-400">
+              <span>💡</span>
+              <span>{maturityHint}</span>
+            </div>
+          )}
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -339,6 +357,18 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         initialTurns={recentAiTurns}
         customPills={customPills}
       />
+
+      {/* AI Facilitator hints — shown when AI hasn't been used and conditions are met */}
+      {!isViewer && !isTerminal && recentAiTurns.length === 0 && activeCommentCount >= 20 && (
+        <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          <span className="font-medium">🤖 AI suggestion:</span> Your discussion has {activeCommentCount} comments — the Sounding Board can help synthesize key themes and surface next steps.
+        </div>
+      )}
+      {!isViewer && !isTerminal && recentAiTurns.length === 0 && activeCommentCount < 20 && daysSinceUpdate >= 14 && (
+        <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          <span className="font-medium">🤖 AI suggestion:</span> This idea hasn&apos;t had AI input yet. Try the Sounding Board below — pick a lens to challenge or sharpen it.
+        </div>
+      )}
 
       <IdeaDecisions
         slug={slug}

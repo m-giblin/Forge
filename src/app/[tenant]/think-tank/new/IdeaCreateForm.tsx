@@ -1,32 +1,63 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { createIdeaAction } from "../actions";
+import { createIdeaAction, searchSimilarIdeasAction } from "../actions";
 import { IDEA_TEMPLATES } from "@/lib/ideaTemplates";
 import { PILL_MAP } from "@/lib/ai/pills";
+import type { TenantIdeaTemplate } from "@/lib/repositories/ideas";
 
 interface Props {
   slug: string;
   thinkTankId: string;
   members: Array<{ id: string; name: string | null; email: string }>;
+  tenantTemplates?: TenantIdeaTemplate[];
 }
 
-export default function IdeaCreateForm({ slug, thinkTankId, members }: Props) {
+const STATUS_LABELS: Record<string, string> = {
+  new: "New", researching: "Researching", maturing: "Maturing",
+  ready: "Ready", converted: "Converted",
+};
+
+export default function IdeaCreateForm({ slug, thinkTankId, members, tenantTemplates = [] }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
+  const [titleValue, setTitleValue] = useState("");
+  const [similarIdeas, setSimilarIdeas] = useState<Array<{ id: string; title: string; status: string }>>([]);
   const formRef = useRef<HTMLFormElement>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      if (cancelled) return;
+      if (titleValue.trim().length < 3) {
+        setSimilarIdeas([]);
+        return;
+      }
+      const results = await searchSimilarIdeasAction(slug, titleValue);
+      if (!cancelled) setSimilarIdeas(results);
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [titleValue, slug]);
+
   function applyTemplate(templateId: string) {
-    const tpl = IDEA_TEMPLATES.find((t) => t.id === templateId);
-    if (!tpl) return;
-    setDescription(tpl.description);
-    setSelectedTemplate(templateId);
-    setShowTemplates(false);
+    const builtin = IDEA_TEMPLATES.find((t) => t.id === templateId);
+    if (builtin) {
+      setDescription(builtin.description);
+      setSelectedTemplate(templateId);
+      setShowTemplates(false);
+      return;
+    }
+    const custom = tenantTemplates.find((t) => t.id === templateId);
+    if (custom) {
+      setDescription(custom.description);
+      setSelectedTemplate(templateId);
+      setShowTemplates(false);
+    }
   }
 
   function clearTemplate() {
@@ -48,7 +79,11 @@ export default function IdeaCreateForm({ slug, thinkTankId, members }: Props) {
     });
   }
 
-  const activeTpl = selectedTemplate ? IDEA_TEMPLATES.find((t) => t.id === selectedTemplate) : null;
+  const activeTpl = selectedTemplate
+    ? (IDEA_TEMPLATES.find((t) => t.id === selectedTemplate) ??
+       tenantTemplates.find((t) => t.id === selectedTemplate) ??
+       null)
+    : null;
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
@@ -62,9 +97,34 @@ export default function IdeaCreateForm({ slug, thinkTankId, members }: Props) {
           type="text"
           required
           autoFocus
+          value={titleValue}
+          onChange={(e) => setTitleValue(e.target.value)}
           placeholder="What's the idea?"
           className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
         />
+        {similarIdeas.length > 0 && (
+          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <p className="mb-1.5 text-xs font-medium text-amber-700">Similar ideas already exist — check before creating:</p>
+            <ul className="space-y-1">
+              {similarIdeas.map((s) => (
+                <li key={s.id}>
+                  <a
+                    href={`/${slug}/think-tank/${s.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-xs text-amber-800 hover:underline"
+                  >
+                    <span className="font-medium">{s.title}</span>
+                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-amber-600">
+                      {STATUS_LABELS[s.status] ?? s.status}
+                    </span>
+                    <span className="text-amber-400">↗</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Template picker */}
@@ -92,24 +152,54 @@ export default function IdeaCreateForm({ slug, thinkTankId, members }: Props) {
         </div>
 
         {showTemplates && (
-          <div className="mb-3 grid grid-cols-2 gap-2">
-            {IDEA_TEMPLATES.map((tpl) => (
-              <button
-                key={tpl.id}
-                type="button"
-                onClick={() => applyTemplate(tpl.id)}
-                className={`rounded-lg border p-3 text-left text-sm transition hover:border-neutral-400 hover:bg-neutral-50 ${
-                  selectedTemplate === tpl.id
-                    ? "border-neutral-900 bg-neutral-50"
-                    : "border-neutral-200"
-                }`}
-              >
-                <span className="font-medium text-neutral-800">{tpl.label}</span>
-                <p className="mt-0.5 text-xs text-neutral-400 line-clamp-1">
-                  Suggested: {tpl.suggestedPillIds.map((id) => PILL_MAP.get(id)?.label ?? id).join(", ")}
-                </p>
-              </button>
-            ))}
+          <div className="mb-3 space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              {IDEA_TEMPLATES.map((tpl) => (
+                <button
+                  key={tpl.id}
+                  type="button"
+                  onClick={() => applyTemplate(tpl.id)}
+                  className={`rounded-lg border p-3 text-left text-sm transition hover:border-neutral-400 hover:bg-neutral-50 ${
+                    selectedTemplate === tpl.id
+                      ? "border-neutral-900 bg-neutral-50"
+                      : "border-neutral-200"
+                  }`}
+                >
+                  <span className="font-medium text-neutral-800">{tpl.label}</span>
+                  {tpl.suggestedPillIds.length > 0 && (
+                    <p className="mt-0.5 text-xs text-neutral-400 line-clamp-1">
+                      Suggested: {tpl.suggestedPillIds.map((id) => PILL_MAP.get(id)?.label ?? id).join(", ")}
+                    </p>
+                  )}
+                </button>
+              ))}
+            </div>
+            {tenantTemplates.length > 0 && (
+              <>
+                <p className="text-xs font-medium text-neutral-400">Custom templates</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {tenantTemplates.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      onClick={() => applyTemplate(tpl.id)}
+                      className={`rounded-lg border p-3 text-left text-sm transition hover:border-neutral-400 hover:bg-neutral-50 ${
+                        selectedTemplate === tpl.id
+                          ? "border-neutral-900 bg-neutral-50"
+                          : "border-neutral-200"
+                      }`}
+                    >
+                      <span className="font-medium text-neutral-800">{tpl.label}</span>
+                      {tpl.suggestedPillIds.length > 0 && (
+                        <p className="mt-0.5 text-xs text-neutral-400 line-clamp-1">
+                          Suggested: {tpl.suggestedPillIds.map((id) => PILL_MAP.get(id)?.label ?? id).join(", ")}
+                        </p>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 

@@ -67,6 +67,7 @@ export interface IdeaSummary extends IdeaRow {
   comment_count: number;
   vote_count: number;
   user_has_voted: boolean;
+  ai_turn_count: number;
 }
 
 export interface ThinkTankRow {
@@ -118,7 +119,8 @@ export function ideasRepo(supabase: SupabaseClient) {
           creator:users!ideas_created_by_fkey(id, name),
           assignee:users!ideas_assigned_to_fkey(id, name),
           idea_comments(count),
-          idea_votes(count)
+          idea_votes(count),
+          idea_ai_turns(count)
         `)
         .eq("tenant_id", tenantId)
         .order("updated_at", { ascending: false });
@@ -148,6 +150,10 @@ export function ideasRepo(supabase: SupabaseClient) {
         vote_count:
           Array.isArray(row.idea_votes) && row.idea_votes.length > 0
             ? (row.idea_votes[0] as { count?: number }).count ?? 0
+            : 0,
+        ai_turn_count:
+          Array.isArray(row.idea_ai_turns) && row.idea_ai_turns.length > 0
+            ? (row.idea_ai_turns[0] as { count?: number }).count ?? 0
             : 0,
         user_has_voted: votedIds.has((row as unknown as IdeaRow).id),
       }));
@@ -627,6 +633,79 @@ export function ideaDecisionsRepo(supabase: SupabaseClient) {
       const { error } = await supabase
         .from("idea_decisions")
         .update({ is_deleted: true })
+        .eq("tenant_id", tenantId)
+        .eq("id", id);
+      if (error) throw error;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Tenant idea templates repo
+// ---------------------------------------------------------------------------
+
+export interface TenantIdeaTemplate {
+  id: string;
+  label: string;
+  description: string;
+  suggestedPillIds: string[];
+  sortOrder: number;
+  createdAt: string;
+}
+
+export function tenantIdeaTemplatesRepo(supabase: SupabaseClient) {
+  return {
+    async list(tenantId: string): Promise<TenantIdeaTemplate[]> {
+      const { data, error } = await supabase
+        .from("tenant_idea_templates")
+        .select("id, label, description, suggested_pill_ids, sort_order, created_at")
+        .eq("tenant_id", tenantId)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        label: row.label,
+        description: row.description,
+        suggestedPillIds: row.suggested_pill_ids ?? [],
+        sortOrder: row.sort_order,
+        createdAt: row.created_at,
+      }));
+    },
+
+    async create(tenantId: string, userId: string, input: { label: string; description: string; suggestedPillIds: string[] }): Promise<string> {
+      const { data, error } = await supabase
+        .from("tenant_idea_templates")
+        .insert({
+          tenant_id: tenantId,
+          label: input.label.trim(),
+          description: input.description.trim(),
+          suggested_pill_ids: input.suggestedPillIds,
+          created_by: userId,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id;
+    },
+
+    async update(tenantId: string, id: string, input: { label: string; description: string; suggestedPillIds: string[] }): Promise<void> {
+      const { error } = await supabase
+        .from("tenant_idea_templates")
+        .update({
+          label: input.label.trim(),
+          description: input.description.trim(),
+          suggested_pill_ids: input.suggestedPillIds,
+        })
+        .eq("tenant_id", tenantId)
+        .eq("id", id);
+      if (error) throw error;
+    },
+
+    async remove(tenantId: string, id: string): Promise<void> {
+      const { error } = await supabase
+        .from("tenant_idea_templates")
+        .delete()
         .eq("tenant_id", tenantId)
         .eq("id", id);
       if (error) throw error;
