@@ -169,6 +169,30 @@ export default function IssueDetail({
     });
   }
 
+  function moveStatus(newStatus: string) {
+    setError(null);
+    setStatus(newStatus);
+    setSaved(false);
+    startTransition(async () => {
+      try {
+        await updateIssueAction(slug, issue.id, {
+          title: title.trim(),
+          description: description || null,
+          status: newStatus,
+          priority,
+          type,
+          categoryId: categoryId || null,
+          assigneeId: assigneeId || null,
+          customValues,
+        });
+        setSaved(true);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to update status");
+        setStatus(status);
+      }
+    });
+  }
+
   function postComment() {
     const body = commentBody.trim();
     if (!body) return;
@@ -217,11 +241,42 @@ export default function IssueDetail({
             {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
           </select>
         </label>
-        <label className="flex flex-col gap-1 text-xs text-neutral-500">Status
-          <select value={status} disabled={readOnly} onChange={(e) => { setStatus(e.target.value); setSaved(false); }} className={fieldCls}>
-            {orderedStatuses.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-          </select>
-        </label>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-neutral-500">Status
+            <select value={status} disabled={readOnly} onChange={(e) => { setStatus(e.target.value); setSaved(false); }} className={`mt-1 ${fieldCls}`}>
+              {orderedStatuses.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </label>
+          {!readOnly && (() => {
+            const idx = orderedStatuses.findIndex((o) => o.key === status);
+            const prev = orderedStatuses[idx - 1];
+            const next = orderedStatuses[idx + 1];
+            if (!prev && !next) return null;
+            return (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  disabled={!prev || pending}
+                  onClick={() => prev && moveStatus(prev.key)}
+                  title={prev ? `← ${prev.label}` : undefined}
+                  className="rounded px-2 py-0.5 text-xs text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
+                >
+                  ←
+                </button>
+                <span className="text-xs text-neutral-400">move</span>
+                <button
+                  type="button"
+                  disabled={!next || pending}
+                  onClick={() => next && moveStatus(next.key)}
+                  title={next ? `${next.label} →` : undefined}
+                  className="rounded px-2 py-0.5 text-xs text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
+                >
+                  →
+                </button>
+              </div>
+            );
+          })()}
+        </div>
         <label className="flex flex-col gap-1 text-xs text-neutral-500">Priority
           <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); setSaved(false); }} className={fieldCls}>
             {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
