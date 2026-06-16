@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import { createIdea, updateIdea } from "@/lib/services/thinkTank";
 import { createProject } from "@/lib/services/projects";
-import { projectsRepo } from "@/lib/repositories/projects";
+import { projectsRepo, projectWikiPagesRepo } from "@/lib/repositories/projects";
 import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo, thinkTankPillsRepo, ideaDecisionsRepo } from "@/lib/repositories/ideas";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { callSoundingBoard, AIRateLimitError, type IdeaContext, type ConversationTurn } from "@/lib/ai/service";
@@ -374,6 +374,28 @@ export async function convertIdeaAction(
 
   // 2. Set reverse link on project.
   await projectsRepo(supabase).setLinkedIdea(ctx.tenant.id, project.id, ideaId);
+
+  // 2b. Seed the project wiki with the idea's content.
+  try {
+    const decisions = await ideaDecisionsRepo(supabase).list(ctx.tenant.id, ideaId);
+    let wikiBody = `# ${idea.title}\n\n`;
+    if (idea.description?.trim()) {
+      wikiBody += `## Background\n\n${idea.description.trim()}\n\n`;
+    }
+    if (decisions.length > 0) {
+      wikiBody += `## Decisions from Think Tank\n\n`;
+      for (const d of decisions) {
+        wikiBody += `- **${d.title}**${d.body ? `: ${d.body}` : ""}\n`;
+      }
+      wikiBody += "\n";
+    }
+    wikiBody += `## Goals\n\n_Define the project goals here._\n\n## Scope\n\n_What's in and out of scope._\n`;
+    await projectWikiPagesRepo(supabase).createForProject(
+      ctx.tenant.id, project.id, ctx.appUserId, "Overview", wikiBody.trim()
+    );
+  } catch {
+    // Wiki creation is best-effort — don't fail the conversion if it errors.
+  }
 
   // 3. Mark idea as converted with forward link.
   await updateIdea(ctx.tenant.id, ideaId, {

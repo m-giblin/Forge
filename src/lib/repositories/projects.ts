@@ -121,3 +121,67 @@ export function projectsRepo(supabase: SupabaseClient) {
     },
   };
 }
+
+export interface ProjectWikiPage {
+  id: string;
+  projectId: string;
+  title: string;
+  body: string;
+  updatedBy: string | null;
+  updatedAt: string;
+}
+
+export function projectWikiPagesRepo(supabase: SupabaseClient) {
+  return {
+    async getForProject(tenantId: string, projectId: string): Promise<ProjectWikiPage | null> {
+      const { data, error } = await supabase
+        .from("project_wiki_pages")
+        .select("id, project_id, title, body, updated_by, updated_at")
+        .eq("tenant_id", tenantId)
+        .eq("project_id", projectId)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        id: data.id,
+        projectId: data.project_id,
+        title: data.title,
+        body: data.body,
+        updatedBy: data.updated_by,
+        updatedAt: data.updated_at,
+      };
+    },
+
+    async createForProject(
+      tenantId: string,
+      projectId: string,
+      userId: string,
+      title: string,
+      body: string,
+    ): Promise<void> {
+      const { error } = await supabase.from("project_wiki_pages").insert({
+        tenant_id: tenantId,
+        project_id: projectId,
+        title,
+        body,
+        created_by: userId,
+        updated_by: userId,
+      });
+      if (error) throw error;
+    },
+
+    async update(
+      tenantId: string,
+      projectId: string,
+      userId: string,
+      body: string,
+    ): Promise<void> {
+      const { error } = await supabase
+        .from("project_wiki_pages")
+        .update({ body, updated_by: userId })
+        .eq("tenant_id", tenantId)
+        .eq("project_id", projectId);
+      if (error) throw error;
+    },
+  };
+}

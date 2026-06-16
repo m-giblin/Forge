@@ -1,11 +1,12 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
-import { projectsRepo } from "@/lib/repositories/projects";
+import { projectsRepo, projectWikiPagesRepo } from "@/lib/repositories/projects";
 import { issuesRepo } from "@/lib/repositories/issues";
 import { ideasRepo, ideaDecisionsRepo } from "@/lib/repositories/ideas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import WikiPanel from "./WikiPanel";
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -41,7 +42,7 @@ export default async function ProjectDetailPage({
   const project = await projectsRepo(supabase).getByKey(ctx.tenant.id, key);
   if (!project) notFound();
 
-  const [issueCounts, leadUser, linkedIdea] = await Promise.all([
+  const [issueCounts, leadUser, linkedIdea, wiki] = await Promise.all([
     issuesRepo(supabase).countForProject(ctx.tenant.id, project.id),
     project.lead_user_id
       ? supabase
@@ -54,6 +55,7 @@ export default async function ProjectDetailPage({
     project.linked_idea_id
       ? ideasRepo(supabase).getById(ctx.tenant.id, project.linked_idea_id)
       : Promise.resolve(null),
+    projectWikiPagesRepo(supabase).getForProject(ctx.tenant.id, project.id),
   ]);
 
   const linkedIdeaDecisions = linkedIdea
@@ -62,6 +64,7 @@ export default async function ProjectDetailPage({
 
   const chip = goLiveChip(project.target_go_live);
   const openCount = issueCounts.total - issueCounts.done;
+  const canEdit = ctx.role !== "viewer" && !ctx.impersonating;
 
   return (
     <div className="mx-auto max-w-3xl px-6 py-8">
@@ -177,6 +180,16 @@ export default async function ProjectDetailPage({
           </div>
         </div>
       )}
+
+      {/* Wiki */}
+      <div className="mb-6">
+        <WikiPanel
+          slug={slug}
+          projectKey={project.key}
+          wiki={wiki}
+          canEdit={canEdit}
+        />
+      </div>
 
       {/* Quick actions */}
       <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
