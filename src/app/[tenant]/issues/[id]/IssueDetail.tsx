@@ -33,7 +33,7 @@ function durMin(ms: number): string {
   return `${Math.floor(h / 24)}d ${h % 24}h`;
 }
 
-// ── Inline SVG icons (no icon-library dependency) ──
+// ── Inline SVG icons ──
 const ICON_PATHS: Record<string, React.ReactNode> = {
   check: <polyline points="20 6 9 17 4 12" />,
   play: <polygon points="6 4 20 12 6 20" fill="currentColor" stroke="none" />,
@@ -135,7 +135,6 @@ export default function IssueDetail({
     ...categories.filter((c) => c.parent_id === t.id).map((s) => ({ id: s.id, label: `— ${s.name}` })),
   ]);
 
-  // Label maps for the timeline (events store raw keys/ids).
   const labelFor = useMemo(() => {
     const m = new Map<string, string>();
     [...statuses, ...priorities, ...types].forEach((o) => m.set(`opt:${o.key}`, o.label));
@@ -234,7 +233,6 @@ export default function IssueDetail({
     });
   }
 
-  // Governance facts.
   const overdue = isUnassignedOverdue(issue);
   const thresholdLabel = durMin(unassignedThresholdMs(issue.priority));
 
@@ -251,66 +249,67 @@ export default function IssueDetail({
 
   const typeIsBug = type.toLowerCase().includes("bug");
   const sidebarSelect =
-    "w-full rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm text-neutral-700 outline-none focus:border-neutral-400 disabled:bg-neutral-50 disabled:text-neutral-500";
-  const sideLabel = "mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400";
+    "w-full rounded-lg border border-neutral-200 bg-white px-2.5 py-2 text-sm text-neutral-700 outline-none focus:border-neutral-400 disabled:bg-neutral-50 disabled:text-neutral-500";
+  const sideLabel = "mb-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500";
+  const sideSection = "rounded-lg border border-neutral-200 bg-white p-4";
 
   const boardHref = `/${slug}/board?project=${projectKey}`;
 
   return (
     <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
-      {/* ── Header strip: breadcrumb ── */}
-      <div className="flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm">
+      {/* ── Header: breadcrumb ── */}
+      <div className="flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-sm">
         <Link href={boardHref} className="text-neutral-400 hover:text-neutral-700" aria-label="Back to board">
           <Icon name="chevronLeft" size={16} />
         </Link>
-        <Link href={boardHref} className="text-neutral-500 hover:text-neutral-800">{projectKey || "Board"}</Link>
+        <Link href={boardHref} className="text-neutral-600 hover:text-neutral-900 font-medium">{projectKey}</Link>
         <span className="text-neutral-300">/</span>
-        <Link href={boardHref} className="text-neutral-500 hover:text-neutral-800">Issues</Link>
+        <Link href={boardHref} className="text-neutral-600 hover:text-neutral-900">Issues</Link>
         <span className="text-neutral-300">/</span>
-        <span className="font-medium text-neutral-800">{issueKey}</span>
+        <span className="font-semibold text-neutral-900">{issueKey}</span>
         <div className="ml-auto flex items-center gap-3">
-          {readOnly && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">read-only</span>}
-          {saved && !dirty && <span className="text-xs text-green-600">Saved ✓</span>}
+          {readOnly && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs text-amber-700">read-only</span>}
+          {saved && !dirty && <span className="text-xs text-green-600 font-medium">Saved ✓</span>}
         </div>
       </div>
 
-      {/* ── Two-column body ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_240px]">
+      {/* ── Two-column grid ── */}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_270px] gap-0">
         {/* ── LEFT: main content ── */}
-        <div className="p-6 md:border-r md:border-neutral-200">
+        <div className="bg-white p-6 space-y-6 md:border-r md:border-neutral-200">
           {overdue && (
-            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               Unassigned for over {thresholdLabel} — assign an owner.
             </div>
           )}
 
-          {/* Badges */}
-          <div className="mb-2.5 flex items-center gap-2">
-            {type && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-                <Icon name={typeIsBug ? "bug" : "circle"} size={12} />
-                {types.find((t) => t.key === type)?.label ?? type}
-              </span>
-            )}
-            {priority && (
-              <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${priorityCls}`}>
-                {isHotPriority && <Icon name="flame" size={12} />}
-                {priorities.find((p) => p.key === priority)?.label ?? priority}
-              </span>
-            )}
-            <span className="font-mono text-xs text-neutral-400">{issueKey}</span>
+          {/* ─ Title + badges ─ */}
+          <div>
+            <div className="mb-3 flex items-center gap-2">
+              {type && (
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-50 px-2.5 py-1 text-xs font-medium text-blue-700">
+                  <Icon name={typeIsBug ? "bug" : "circle"} size={13} />
+                  {types.find((t) => t.key === type)?.label ?? type}
+                </span>
+              )}
+              {priority && (
+                <span className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium ${priorityCls}`}>
+                  {isHotPriority && <Icon name="flame" size={13} />}
+                  {priorities.find((p) => p.key === priority)?.label ?? priority}
+                </span>
+              )}
+              <span className="text-xs text-neutral-500 font-mono">{issueKey}</span>
+            </div>
+            <input
+              value={title}
+              disabled={readOnly}
+              onChange={(e) => { setTitle(e.target.value); setSaved(false); }}
+              className="w-full text-2xl font-semibold text-neutral-900 outline-none border-0 p-0 disabled:bg-white"
+            />
           </div>
 
-          {/* Title — heading-style but editable inline */}
-          <input
-            value={title}
-            disabled={readOnly}
-            onChange={(e) => { setTitle(e.target.value); setSaved(false); }}
-            className="-mx-2 mb-1 w-[calc(100%+1rem)] rounded-md border border-transparent px-2 py-1 text-lg font-medium text-neutral-900 outline-none hover:border-neutral-200 focus:border-neutral-300 focus:bg-white disabled:hover:border-transparent"
-          />
-
-          {/* ═══ STATUS PIPELINE STEPPER ═══ */}
-          <div className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+          {/* ─ Status stepper section ─ */}
+          <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
             <div className="flex items-start">
               {orderedStatuses.flatMap((s, i) => {
                 const position = i < statusIdx ? "done" : i === statusIdx ? "current" : "pending";
@@ -319,7 +318,7 @@ export default function IssueDetail({
 
                 const connector =
                   i > 0 ? (
-                    <div key={`conn-${s.key}`} className="mt-[14px] h-px shrink-0" style={{ flex: "0.4", background: connectorBg }} />
+                    <div key={`conn-${s.key}`} className="mt-[15px] h-px shrink-0" style={{ flex: "0.35", background: connectorBg }} />
                   ) : null;
 
                 const node = (
@@ -330,30 +329,30 @@ export default function IssueDetail({
                     onClick={() => isJumpable && moveStatus(s.key)}
                     onKeyDown={(e) => { if (isJumpable && (e.key === "Enter" || e.key === " ")) moveStatus(s.key); }}
                     title={isJumpable ? `Move to "${s.label}"` : undefined}
-                    className={["flex min-w-0 flex-1 flex-col items-center gap-1.5", isJumpable ? "cursor-pointer" : "cursor-default"].join(" ")}
+                    className={["flex min-w-0 flex-1 flex-col items-center gap-2", isJumpable ? "cursor-pointer" : "cursor-default"].join(" ")}
                   >
                     <div
                       className={[
-                        "flex items-center justify-center rounded-full transition-colors",
+                        "flex items-center justify-center rounded-full transition-all",
                         position === "done"
-                          ? "h-7 w-7 bg-emerald-600 text-white"
+                          ? "h-8 w-8 bg-emerald-600 text-white shadow-sm"
                           : position === "current"
-                          ? "h-9 w-9 bg-blue-600 text-white ring-4 ring-blue-100"
+                          ? "h-10 w-10 bg-blue-600 text-white ring-4 ring-blue-100 shadow-md"
                           : isJumpable
-                          ? "h-7 w-7 border border-neutral-300 bg-white text-neutral-400 hover:border-neutral-400 hover:text-neutral-500"
-                          : "h-7 w-7 border border-neutral-200 bg-white text-neutral-300",
+                          ? "h-8 w-8 border-2 border-neutral-300 bg-white text-neutral-400 hover:border-neutral-400 hover:text-neutral-500 hover:shadow-sm"
+                          : "h-8 w-8 border-2 border-neutral-200 bg-white text-neutral-300",
                       ].join(" ")}
                     >
-                      <Icon name={position === "done" ? "check" : statusIconName(s.key)} size={position === "current" ? 16 : 14} />
+                      <Icon name={position === "done" ? "check" : statusIconName(s.key)} size={position === "current" ? 18 : 16} />
                     </div>
                     <span
                       className={[
-                        "text-center text-[11px] leading-tight",
+                        "text-center text-xs font-medium leading-tight",
                         position === "done"
-                          ? "font-medium text-emerald-700"
+                          ? "text-emerald-700"
                           : position === "current"
-                          ? "font-medium text-blue-600"
-                          : "text-neutral-400",
+                          ? "text-blue-700"
+                          : "text-neutral-500",
                       ].join(" ")}
                     >
                       {s.label}
@@ -365,94 +364,93 @@ export default function IssueDetail({
               })}
             </div>
 
-            {/* Back / step count / Next */}
             {!readOnly && (
-              <div className="mt-4 flex items-center justify-between border-t border-neutral-200 pt-3">
+              <div className="mt-5 flex items-center justify-between border-t border-neutral-200 pt-4">
                 <button
                   type="button"
                   disabled={!statusPrev || pending}
                   onClick={() => statusPrev && moveStatus(statusPrev.key)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3.5 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-40 transition"
                 >
                   <Icon name="arrowLeft" size={14} />
-                  {statusPrev ? statusPrev.label : "Start"}
+                  {statusPrev?.label || "Start"}
                 </button>
-                <span className="text-[11px] text-neutral-400">
+                <span className="text-xs text-neutral-500 font-medium">
                   Step {statusIdx + 1} of {orderedStatuses.length}
                 </span>
                 <button
                   type="button"
                   disabled={!statusNext || pending}
                   onClick={() => statusNext && moveStatus(statusNext.key)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40 transition"
                 >
-                  {statusNext ? statusNext.label : "Done"}
+                  {statusNext?.label || "Done"}
                   <Icon name="arrowRight" size={14} />
                 </button>
               </div>
             )}
           </div>
 
-          {/* Description */}
-          <div className="mt-6">
-            <p className={sideLabel}>Description</p>
+          {/* ─ Description section ─ */}
+          <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">Description</p>
             <textarea
               value={description}
               disabled={readOnly}
               onChange={(e) => { setDescription(e.target.value); setSaved(false); }}
-              rows={6}
-              placeholder="Add a description…"
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700 outline-none focus:border-neutral-400 disabled:bg-neutral-50"
+              rows={7}
+              placeholder="Add a detailed description…"
+              className="w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 disabled:bg-neutral-50"
             />
           </div>
 
-          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+          {error && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>}
 
           {!readOnly && (
-            <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center justify-between">
               <button
                 onClick={save}
                 disabled={pending || !dirty || !title.trim()}
-                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
+                className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-neutral-300 disabled:cursor-not-allowed transition"
               >
                 {pending ? "Saving…" : "Save changes"}
               </button>
               {canDelete && (
-                <button onClick={remove} disabled={pending} className="text-sm font-medium text-red-600 hover:underline disabled:opacity-40">
+                <button onClick={remove} disabled={pending} className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-40">
                   Delete issue
                 </button>
               )}
             </div>
           )}
 
-          {/* Activity */}
-          <section className="mt-8 border-t border-neutral-200 pt-5">
-            <p className={sideLabel}>Activity</p>
-            <ul className="mt-2 space-y-2.5">
+          {/* ─ Activity section ─ */}
+          <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
+            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-600">Activity</p>
+            <div className="space-y-3">
               {events.map((e) => (
-                <li key={e.id} className="text-xs text-neutral-500">
-                  <span className="font-medium text-neutral-700">{e.actorLabel ?? "Someone"}</span>{" "}
+                <div key={e.id} className="text-xs text-neutral-600">
+                  <span className="font-medium text-neutral-800">{e.actorLabel ?? "Someone"}</span>{" "}
                   {e.field === "details" ? (
                     "edited the details"
                   ) : (
-                    <>changed {e.field} from <span className="text-neutral-700">{eventValue(e.field, e.oldValue)}</span> to <span className="text-neutral-700">{eventValue(e.field, e.newValue)}</span></>
+                    <>changed {e.field} from <span className="text-neutral-800">{eventValue(e.field, e.oldValue)}</span> to <span className="text-neutral-800">{eventValue(e.field, e.newValue)}</span></>
                   )}{" "}
                   · <span title={new Date(e.createdAt).toLocaleString()}>{relTime(e.createdAt)}</span>
-                </li>
+                </div>
               ))}
               {comments.map((c) => (
-                <li key={c.id} className="rounded-lg border border-neutral-200 bg-white p-3">
-                  <div className="mb-1 flex items-center gap-2 text-xs">
+                <div key={c.id} className="rounded-lg border border-neutral-200 bg-white p-3">
+                  <div className="mb-2 flex items-center gap-2 text-xs">
                     <span className="font-medium text-neutral-800">{c.authorLabel ?? "Someone"}</span>
-                    <span className="text-neutral-400" title={new Date(c.createdAt).toLocaleString()}>{relTime(c.createdAt)}</span>
+                    <span className="text-neutral-500" title={new Date(c.createdAt).toLocaleString()}>{relTime(c.createdAt)}</span>
                   </div>
                   <p className="whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
-                </li>
+                </div>
               ))}
               {events.length === 0 && comments.length === 0 && (
-                <li className="text-xs text-neutral-400">No activity yet.</li>
+                <p className="text-xs text-neutral-500">No activity yet.</p>
               )}
-            </ul>
+            </div>
 
             {!readOnly && (
               <div className="mt-4">
@@ -461,25 +459,25 @@ export default function IssueDetail({
                   onChange={(e) => setCommentBody(e.target.value)}
                   rows={2}
                   placeholder="Add a comment…"
-                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+                  className="w-full rounded-lg border border-neutral-200 px-3.5 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
                 />
-                <div className="mt-2 flex justify-end">
+                <div className="mt-2.5 flex justify-end">
                   <button
                     onClick={postComment}
                     disabled={commenting || !commentBody.trim()}
-                    className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:bg-neutral-300 disabled:cursor-not-allowed transition"
                   >
-                    {commenting ? "Posting…" : "Comment"}
+                    {commenting ? "Posting…" : "Post"}
                   </button>
                 </div>
               </div>
             )}
-          </section>
+          </div>
         </div>
 
         {/* ── RIGHT: sidebar ── */}
-        <aside className="space-y-4 bg-neutral-50 p-5">
-          <div>
+        <aside className="bg-neutral-50 p-5 space-y-4 md:border-l md:border-neutral-200">
+          <div className={sideSection}>
             <p className={sideLabel}>Assignee</p>
             <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); setSaved(false); }} className={sidebarSelect}>
               <option value="">Unassigned</option>
@@ -487,14 +485,14 @@ export default function IssueDetail({
             </select>
           </div>
 
-          <div>
+          <div className={sideSection}>
             <p className={sideLabel}>Priority</p>
             <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); setSaved(false); }} className={sidebarSelect}>
               {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
           </div>
 
-          <div>
+          <div className={sideSection}>
             <p className={sideLabel}>Type</p>
             <select value={type} disabled={readOnly} onChange={(e) => { setType(e.target.value); setSaved(false); }} className={sidebarSelect}>
               {types.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
@@ -502,7 +500,7 @@ export default function IssueDetail({
           </div>
 
           {catOptions.length > 0 && (
-            <div>
+            <div className={sideSection}>
               <p className={sideLabel}>Category</p>
               <select value={categoryId} disabled={readOnly} onChange={(e) => { setCategoryId(e.target.value); setSaved(false); }} className={sidebarSelect}>
                 <option value="">None</option>
@@ -512,8 +510,8 @@ export default function IssueDetail({
           )}
 
           {customFields.map((f) => (
-            <div key={f.key}>
-              <p className={sideLabel}>{f.label}{f.required && <span className="text-red-400"> *</span>}</p>
+            <div key={f.key} className={sideSection}>
+              <p className={sideLabel}>{f.label}{f.required && <span className="text-red-500"> *</span>}</p>
               {f.type === "select" ? (
                 <select
                   value={customValues[f.key] ?? ""}
@@ -536,18 +534,18 @@ export default function IssueDetail({
             </div>
           ))}
 
-          <div className="border-t border-neutral-200 pt-4 space-y-3">
+          <div className={`${sideSection} space-y-3`}>
             <div>
               <p className={sideLabel}>Created</p>
-              <p className="text-sm text-neutral-600" title={new Date(issue.created_at).toLocaleString()}>{relTime(issue.created_at)}</p>
+              <p className="text-sm text-neutral-700 font-medium" title={new Date(issue.created_at).toLocaleString()}>{relTime(issue.created_at)}</p>
             </div>
-            <div>
+            <div className="border-t border-neutral-200 pt-3">
               <p className={sideLabel}>Last update</p>
-              <p className="text-sm text-neutral-600" title={new Date(issue.updated_at).toLocaleString()}>{relTime(issue.updated_at)}</p>
+              <p className="text-sm text-neutral-700 font-medium" title={new Date(issue.updated_at).toLocaleString()}>{relTime(issue.updated_at)}</p>
             </div>
-            <div>
+            <div className="border-t border-neutral-200 pt-3">
               <p className={sideLabel}>Age</p>
-              <p className="text-sm text-neutral-600">{ageSince(issue.created_at)}</p>
+              <p className="text-sm text-neutral-700 font-medium">{ageSince(issue.created_at)}</p>
             </div>
           </div>
         </aside>
