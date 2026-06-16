@@ -57,6 +57,7 @@ export async function createIdea(
     tags?: string[];
     is_private?: boolean;
     assigned_to?: string | null;
+    review_by?: string | null;
   }
 ): Promise<IdeaRow> {
   const supabase = await createSupabaseServerClient();
@@ -71,7 +72,7 @@ export async function createIdea(
 export async function updateIdea(
   tenantId: string,
   ideaId: string,
-  patch: Partial<Pick<IdeaRow, "title" | "description" | "status" | "is_private" | "tags" | "assigned_to" | "linked_project_id" | "converted_at">>
+  patch: Partial<Pick<IdeaRow, "title" | "description" | "status" | "is_private" | "tags" | "assigned_to" | "linked_project_id" | "converted_at" | "review_by">>
 ): Promise<IdeaRow> {
   const supabase = await createSupabaseServerClient();
   return ideasRepo(supabase).update(tenantId, ideaId, patch);

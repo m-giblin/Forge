@@ -37,6 +37,7 @@ export interface IdeaRow {
   assigned_to: string | null;
   linked_project_id: string | null;
   converted_at: string | null;
+  review_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -152,6 +153,7 @@ export function ideasRepo(supabase: SupabaseClient) {
       tags?: string[];
       is_private?: boolean;
       assigned_to?: string | null;
+      review_by?: string | null;
       created_by: string;
     }): Promise<IdeaRow> {
       const { data, error } = await supabase
@@ -166,7 +168,7 @@ export function ideasRepo(supabase: SupabaseClient) {
     async update(
       tenantId: string,
       id: string,
-      patch: Partial<Pick<IdeaRow, "title" | "description" | "status" | "is_private" | "tags" | "assigned_to" | "linked_project_id" | "converted_at">>
+      patch: Partial<Pick<IdeaRow, "title" | "description" | "status" | "is_private" | "tags" | "assigned_to" | "linked_project_id" | "converted_at" | "review_by">>
     ): Promise<IdeaRow> {
       const { data, error } = await supabase
         .from("ideas")

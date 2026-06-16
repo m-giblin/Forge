@@ -29,12 +29,14 @@ export async function createIdeaAction(
     .map((t) => t.trim())
     .filter(Boolean);
 
+  const rawReviewBy = (formData.get("review_by") as string)?.trim() || null;
   const idea = await createIdea(ctx.tenant.id, thinkTankId, ctx.appUserId, {
     title,
     description: (formData.get("description") as string)?.trim() || null,
     tags,
     is_private: formData.get("is_private") === "on",
     assigned_to: (formData.get("assigned_to") as string) || null,
+    review_by: rawReviewBy || null,
   });
 
   await recordAudit({
@@ -71,12 +73,14 @@ export async function updateIdeaAction(
     .map((t) => t.trim())
     .filter(Boolean);
 
+  const rawReviewBy = (formData.get("review_by") as string)?.trim() || null;
   await updateIdea(ctx.tenant.id, ideaId, {
     title: (formData.get("title") as string)?.trim() || idea.title,
     description: (formData.get("description") as string)?.trim() || null,
     tags,
     is_private: formData.get("is_private") === "on",
     assigned_to: (formData.get("assigned_to") as string) || null,
+    review_by: rawReviewBy,
   });
 
   await recordAudit({

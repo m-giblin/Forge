@@ -113,6 +113,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
             </span>
             {idea.creator_name && <span>by {idea.creator_name}</span>}
             {idea.assignee_name && <span>· assigned to {idea.assignee_name}</span>}
+            {idea.review_by && <ReviewByChip reviewBy={idea.review_by} />}
             {idea.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {idea.tags.map((t) => (
@@ -186,6 +187,16 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
               </select>
             </div>
           )}
+          <div>
+            <label className="mb-1 block text-sm font-medium text-neutral-700">Review by</label>
+            <input
+              name="review_by"
+              type="date"
+              defaultValue={idea.review_by ?? ""}
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+            />
+            <p className="mt-1 text-xs text-neutral-400">Optional. Clear to remove.</p>
+          </div>
           <label className="flex cursor-pointer items-center gap-3">
             <input type="checkbox" name="is_private" defaultChecked={idea.is_private} className="h-4 w-4 rounded border-neutral-300" />
             <span className="text-sm text-neutral-700">🔒 Private</span>
@@ -322,4 +333,19 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
       />
     </div>
   );
+}
+
+function ReviewByChip({ reviewBy }: { reviewBy: string }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const isOverdue = reviewBy < today;
+  const isToday = reviewBy === today;
+  const label = isOverdue
+    ? `⚠ Review overdue · ${new Date(reviewBy + "T12:00:00").toLocaleDateString()}`
+    : isToday
+    ? `⚠ Review today`
+    : `📅 Review by ${new Date(reviewBy + "T12:00:00").toLocaleDateString()}`;
+  const cls = isOverdue || isToday
+    ? "rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700"
+    : "rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-medium text-blue-600";
+  return <span className={cls}>{label}</span>;
 }

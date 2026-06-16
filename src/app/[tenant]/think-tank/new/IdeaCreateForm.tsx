@@ -92,6 +92,17 @@ export default function IdeaCreateForm({ slug, thinkTankId, members }: Props) {
         </div>
       )}
 
+      {/* Review by date */}
+      <div>
+        <label className="mb-1 block text-sm font-medium text-neutral-700">Review by</label>
+        <input
+          name="review_by"
+          type="date"
+          className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+        />
+        <p className="mt-1 text-xs text-neutral-400">Optional. Sets a date to revisit this idea.</p>
+      </div>
+
       {/* Private toggle */}
       <label className="flex cursor-pointer items-center gap-3">
         <input

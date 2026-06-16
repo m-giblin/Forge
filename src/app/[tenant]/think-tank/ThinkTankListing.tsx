@@ -311,6 +311,7 @@ function IdeaCard({
 
         {/* Meta */}
         <div className="flex shrink-0 items-center gap-4 text-xs text-neutral-400">
+          {idea.review_by && <ReviewDueChip reviewBy={idea.review_by} />}
           {idea.comment_count > 0 && (
             <span title="Comments">💬 {idea.comment_count}</span>
           )}
@@ -342,6 +343,27 @@ function HighlightText({ text, query }: { text: string; query: string }) {
         )
       )}
     </>
+  );
+}
+
+function ReviewDueChip({ reviewBy }: { reviewBy: string }) {
+  const today = new Date().toISOString().slice(0, 10);
+  const isOverdue = reviewBy < today;
+  const isToday = reviewBy === today;
+  if (isOverdue || isToday) {
+    return (
+      <span
+        title={`Review due ${reviewBy}`}
+        className="rounded-full bg-red-100 px-1.5 py-0.5 font-medium text-red-700"
+      >
+        {isToday ? "⚠ Today" : "⚠ Overdue"}
+      </span>
+    );
+  }
+  return (
+    <span title={`Review by ${reviewBy}`} className="text-blue-500">
+      📅 {new Date(reviewBy + "T12:00:00").toLocaleDateString()}
+    </span>
   );
 }
 
