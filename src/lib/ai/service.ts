@@ -9,6 +9,9 @@
 import { serverEnv } from "@/lib/env";
 import { getRateLimiter } from "@/lib/providers/rate-limiter";
 import { resolvePills, type Pill } from "./pills";
+import type { AIProvider } from "@/lib/repositories/aiKeys";
+
+export type { AIProvider };
 
 export interface IdeaContext {
   title: string;
@@ -50,7 +53,7 @@ export class AIProviderError extends Error {
 
 type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
 
-/** 20 calls per tenant per hour. Super-admin can override per-tenant in future. */
+/** 20 calls per tenant per hour. */
 const AI_LIMIT = 20;
 const AI_WINDOW_MS = 60 * 60 * 1000;
 
@@ -61,8 +64,10 @@ export async function callSoundingBoard(params: {
   userInput?: string;
   history?: ConversationTurn[];
   customPills?: Pill[];
+  /** When set, use the tenant's BYO key instead of the platform default. */
+  byoKey?: { provider: AIProvider; apiKey: string };
 }): Promise<AIResponse> {
-  const { tenantId, idea, pills, userInput, history = [], customPills = [] } = params;
+  const { tenantId, idea, pills, userInput, history = [], customPills = [], byoKey } = params;
 
   const rl = getRateLimiter();
   const { allowed, resetMs } = await rl.check(
@@ -73,21 +78,47 @@ export async function callSoundingBoard(params: {
   if (!allowed) throw new AIRateLimitError(resetMs);
 
   const messages = buildMessages({ idea, pills, userInput, history, customPills });
-  const env = serverEnv();
-  const provider = env.AI_PROVIDER ?? "grok";
 
   let text: string;
-  if (provider === "grok") {
-    text = await callGrok(messages, env.GROK_API_KEY);
-  } else if (provider === "claude") {
-    throw new AIProviderError("Claude provider is not yet configured. Set AI_PROVIDER=grok.");
+  let providerLabel: string;
+
+  if (byoKey) {
+    providerLabel = `byo:${byoKey.provider}`;
+    text = await dispatchBYO(messages, byoKey.provider, byoKey.apiKey);
   } else {
-    throw new AIProviderError(`Unknown AI provider: ${provider}`);
+    const env = serverEnv();
+    if (!env.GROK_API_KEY) {
+      throw new AIProviderError("GROK_API_KEY is not set. Add it to .env.local.");
+    }
+    text = await callOpenAICompat(messages, env.GROK_API_KEY, "https://api.x.ai/v1", "grok-3-mini");
+    providerLabel = "platform:grok";
   }
 
-  // Serialize messages for audit trail.
   const promptSent = JSON.stringify(messages);
-  return { text, provider, promptSent };
+  return { text, provider: providerLabel, promptSent };
+}
+
+// ---------------------------------------------------------------------------
+// Provider dispatch
+// ---------------------------------------------------------------------------
+
+async function dispatchBYO(
+  messages: ChatMessage[],
+  provider: AIProvider,
+  apiKey: string
+): Promise<string> {
+  switch (provider) {
+    case "xai":
+      return callOpenAICompat(messages, apiKey, "https://api.x.ai/v1", "grok-3-mini");
+    case "openai":
+      return callOpenAICompat(messages, apiKey, "https://api.openai.com/v1", "gpt-4o");
+    case "anthropic":
+      return callAnthropic(messages, apiKey);
+    case "gemini":
+      return callGemini(messages, apiKey);
+    default:
+      throw new AIProviderError(`Unknown BYO provider: ${provider}`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -104,7 +135,6 @@ function buildMessages(params: {
   const { idea, pills, userInput, history, customPills = [] } = params;
   const messages: ChatMessage[] = [];
 
-  // Merged pill resolver: static defaults + tenant custom pills
   const customPillMap = new Map(customPills.map((p) => [p.id, p]));
   const resolve = (ids: string[]): Pill[] =>
     ids.flatMap((id) => {
@@ -114,19 +144,13 @@ function buildMessages(params: {
       return c ? [c] : [];
     });
 
-  // SYSTEM — hardcoded persona + idea context (no user content in system role)
-  messages.push({
-    role: "system",
-    content: buildSystemMessage(idea),
-  });
+  messages.push({ role: "system", content: buildSystemMessage(idea) });
 
-  // HISTORY — prior turns as proper user/assistant pairs
   for (const turn of history) {
     messages.push({ role: "user", content: buildUserTurnContent(turn.pills, turn.userInput, resolve) });
     messages.push({ role: "assistant", content: turn.aiResponse });
   }
 
-  // CURRENT TURN — the new user message
   messages.push({ role: "user", content: buildUserTurnContent(pills, userInput ?? null, resolve) });
 
   return messages;
@@ -164,7 +188,11 @@ function buildSystemMessage(idea: IdeaContext): string {
   return sections.join("\n\n");
 }
 
-function buildUserTurnContent(pillIds: string[], userInput: string | null, resolve?: (ids: string[]) => Pill[]): string {
+function buildUserTurnContent(
+  pillIds: string[],
+  userInput: string | null,
+  resolve?: (ids: string[]) => Pill[]
+): string {
   const resolvedPills = resolve ? resolve(pillIds) : resolvePills(pillIds);
   const parts: string[] = [];
 
@@ -190,10 +218,6 @@ function buildUserTurnContent(pillIds: string[], userInput: string | null, resol
   return parts.join("\n\n");
 }
 
-/**
- * Strips content that could escape the data context and become instructions.
- * Removes "---" section delimiters and trims excessive whitespace.
- */
 function sanitize(text: string): string {
   return text
     .replace(/---+/g, "—")
@@ -202,28 +226,25 @@ function sanitize(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// Grok (xAI) provider — OpenAI-compatible chat completions API
+// Provider implementations
 // ---------------------------------------------------------------------------
 
-async function callGrok(messages: ChatMessage[], apiKey: string | undefined): Promise<string> {
-  if (!apiKey) {
-    throw new AIProviderError("GROK_API_KEY is not set. Add it to .env.local.");
-  }
-
+/** OpenAI-compatible chat completions (covers platform Grok, BYO xAI, BYO OpenAI). */
+async function callOpenAICompat(
+  messages: ChatMessage[],
+  apiKey: string,
+  baseUrl: string,
+  model: string
+): Promise<string> {
   let res: Response;
   try {
-    res = await fetch("https://api.x.ai/v1/chat/completions", {
+    res = await fetch(`${baseUrl}/chat/completions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        model: "grok-3-mini",
-        messages,
-        temperature: 0.7,
-        max_tokens: 2048,
-      }),
+      body: JSON.stringify({ model, messages, temperature: 0.7, max_tokens: 2048 }),
       signal: AbortSignal.timeout(30_000),
     });
   } catch (e) {
@@ -235,14 +256,102 @@ async function callGrok(messages: ChatMessage[], apiKey: string | undefined): Pr
 
   if (!res.ok) {
     const body = await res.text().catch(() => "");
-    throw new AIProviderError(`Grok API error ${res.status}: ${body.slice(0, 200)}`);
+    throw new AIProviderError(`AI API error ${res.status}: ${body.slice(0, 200)}`);
   }
 
   const json = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
   };
-
   const text = json.choices?.[0]?.message?.content;
-  if (!text) throw new AIProviderError("Grok returned an empty response.");
+  if (!text) throw new AIProviderError("AI provider returned an empty response.");
+  return text;
+}
+
+/** Anthropic Messages API — system is a top-level param, not a message role. */
+async function callAnthropic(messages: ChatMessage[], apiKey: string): Promise<string> {
+  const systemContent = messages.find((m) => m.role === "system")?.content ?? "";
+  const chatMessages = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role as "user" | "assistant", content: m.content }));
+
+  let res: Response;
+  try {
+    res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        system: systemContent,
+        messages: chatMessages,
+        max_tokens: 2048,
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+  } catch (e) {
+    if (e instanceof Error && e.name === "TimeoutError") {
+      throw new AIProviderError("Anthropic request timed out. Please try again.");
+    }
+    throw new AIProviderError("Failed to reach Anthropic API. Check your connection.");
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new AIProviderError(`Anthropic API error ${res.status}: ${body.slice(0, 200)}`);
+  }
+
+  const json = (await res.json()) as {
+    content?: Array<{ type: string; text?: string }>;
+  };
+  const text = json.content?.find((b) => b.type === "text")?.text;
+  if (!text) throw new AIProviderError("Anthropic returned an empty response.");
+  return text;
+}
+
+/** Google Gemini generateContent API. */
+async function callGemini(messages: ChatMessage[], apiKey: string): Promise<string> {
+  const systemContent = messages.find((m) => m.role === "system")?.content ?? "";
+  const contents = messages
+    .filter((m) => m.role !== "system")
+    .map((m) => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: [{ text: m.content }],
+    }));
+
+  let res: Response;
+  try {
+    res = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          systemInstruction: { parts: [{ text: systemContent }] },
+          contents,
+          generationConfig: { temperature: 0.7, maxOutputTokens: 2048 },
+        }),
+        signal: AbortSignal.timeout(30_000),
+      }
+    );
+  } catch (e) {
+    if (e instanceof Error && e.name === "TimeoutError") {
+      throw new AIProviderError("Gemini request timed out. Please try again.");
+    }
+    throw new AIProviderError("Failed to reach Gemini API. Check your connection.");
+  }
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new AIProviderError(`Gemini API error ${res.status}: ${body.slice(0, 200)}`);
+  }
+
+  const json = (await res.json()) as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) throw new AIProviderError("Gemini returned an empty response.");
   return text;
 }

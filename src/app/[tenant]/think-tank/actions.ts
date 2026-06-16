@@ -12,6 +12,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
 import { notifyIdeaComment, notifyIdeaStatusChange, notifyIdeaConverted } from "@/lib/services/notifications";
 import { PILL_MAP } from "@/lib/ai/pills";
+import { tenantAiKeysRepo } from "@/lib/repositories/aiKeys";
 
 /** Returns the new idea's ID so the client can navigate to it. */
 export async function createIdeaAction(
@@ -260,12 +261,14 @@ export async function soundingBoardAction(
     throw new Error("Select at least one lens or add a question.");
 
   const supabase = await createSupabaseServerClient();
+  const svc = createSupabaseServiceClient();
 
-  const [idea, comments, priorTurns, customPillRows] = await Promise.all([
+  const [idea, comments, priorTurns, customPillRows, byoKey] = await Promise.all([
     ideasRepo(supabase).getById(ctx.tenant.id, ideaId),
     ideaCommentsRepo(supabase).list(ctx.tenant.id, ideaId),
     ideaAiTurnsRepo(supabase).listRecent(ctx.tenant.id, ideaId, 5),
     thinkTankPillsRepo(supabase).list(ctx.tenant.id),
+    tenantAiKeysRepo(svc).getSelectedKey(ctx.tenant.id),
   ]);
   if (!idea) throw new Error("Idea not found.");
 
@@ -303,6 +306,7 @@ export async function soundingBoardAction(
       userInput: userInput.trim() || undefined,
       history,
       customPills,
+      byoKey: byoKey ?? undefined,
     });
   } catch (err) {
     if (err instanceof AIRateLimitError) {

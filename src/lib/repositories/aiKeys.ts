@@ -4,7 +4,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type AIProvider = "openai" | "anthropic" | "xai" | "gemini";
 
-export const AI_PROVIDERS: AIProvider[] = ["openai", "anthropic", "xai", "gemini"];
+export const AI_PROVIDERS: { value: AIProvider; label: string; hint: string }[] = [
+  { value: "xai",       label: "xAI (Grok)",          hint: "api.x.ai" },
+  { value: "openai",    label: "OpenAI (GPT-4o)",      hint: "platform.openai.com" },
+  { value: "anthropic", label: "Anthropic (Claude)",   hint: "console.anthropic.com" },
+  { value: "gemini",    label: "Google (Gemini Flash)", hint: "aistudio.google.com" },
+];
 
 // ---------------------------------------------------------------------------
 // Encryption helpers — AES-256-GCM
@@ -13,7 +18,9 @@ export const AI_PROVIDERS: AIProvider[] = ["openai", "anthropic", "xai", "gemini
 function getEncKey(): Buffer {
   const raw = process.env.FORGE_AI_KEY_SECRET ?? "";
   if (raw.length !== 64) {
-    throw new Error("FORGE_AI_KEY_SECRET must be a 64-char hex string (32 bytes). Generate: openssl rand -hex 32");
+    throw new Error(
+      "FORGE_AI_KEY_SECRET must be a 64-char hex string (32 bytes). Generate: openssl rand -hex 32"
+    );
   }
   return Buffer.from(raw, "hex");
 }
@@ -50,8 +57,27 @@ function decrypt(enc: string, nonce: string, tag: string): string {
 // Repository — always use service-role client (bypasses RLS by design)
 // ---------------------------------------------------------------------------
 
+export interface SavedKeyInfo {
+  provider: AIProvider;
+  keyHint: string | null;
+  isSelected: boolean;
+}
+
 export function tenantAiKeysRepo(svc: SupabaseClient) {
   return {
+    /** Returns saved (active) key metadata — never decrypts. */
+    async listSavedKeys(tenantId: string): Promise<SavedKeyInfo[]> {
+      const { data } = await svc
+        .from("tenant_ai_keys")
+        .select("provider, key_hint, is_selected")
+        .eq("tenant_id", tenantId)
+        .eq("is_active", true)
+        .order("updated_at", { ascending: false });
+      return ((data ?? []) as { provider: AIProvider; key_hint: string | null; is_selected: boolean }[]).map(
+        (r) => ({ provider: r.provider, keyHint: r.key_hint, isSelected: r.is_selected })
+      );
+    },
+
     /** Returns true if the tenant has an active key for this provider. */
     async hasKey(tenantId: string, provider: AIProvider): Promise<boolean> {
       const { data } = await svc
@@ -64,17 +90,34 @@ export function tenantAiKeysRepo(svc: SupabaseClient) {
       return !!data;
     },
 
-    /** Returns list of providers for which the tenant has an active key. */
-    async listProviders(tenantId: string): Promise<AIProvider[]> {
+    /**
+     * Decrypts and returns the currently selected BYO key.
+     * Returns null if no BYO key is selected (fall back to platform default).
+     * The plaintext key must never be logged or included in any API response.
+     */
+    async getSelectedKey(
+      tenantId: string
+    ): Promise<{ provider: AIProvider; apiKey: string } | null> {
       const { data } = await svc
         .from("tenant_ai_keys")
-        .select("provider")
+        .select("provider, key_enc, key_nonce, key_tag")
         .eq("tenant_id", tenantId)
-        .eq("is_active", true);
-      return ((data ?? []) as { provider: AIProvider }[]).map((r) => r.provider);
+        .eq("is_active", true)
+        .eq("is_selected", true)
+        .maybeSingle();
+      if (!data) return null;
+      const apiKey = decrypt(
+        data.key_enc as string,
+        data.key_nonce as string,
+        data.key_tag as string
+      );
+      return { provider: data.provider as AIProvider, apiKey };
     },
 
-    /** Encrypts and saves (upserts) an API key for this provider. */
+    /**
+     * Encrypts and upserts an API key. The saved key is auto-selected
+     * (replaces any previous selection).
+     */
     async setKey(
       tenantId: string,
       provider: AIProvider,
@@ -82,6 +125,14 @@ export function tenantAiKeysRepo(svc: SupabaseClient) {
       createdBy: string
     ): Promise<void> {
       const { enc, nonce, tag } = encrypt(apiKey);
+      const keyHint = apiKey.length >= 4 ? `****${apiKey.slice(-4)}` : "****";
+
+      // Deselect all existing keys for this tenant.
+      await svc
+        .from("tenant_ai_keys")
+        .update({ is_selected: false })
+        .eq("tenant_id", tenantId);
+
       const { error } = await svc.from("tenant_ai_keys").upsert(
         {
           tenant_id: tenantId,
@@ -89,7 +140,9 @@ export function tenantAiKeysRepo(svc: SupabaseClient) {
           key_enc: enc,
           key_nonce: nonce,
           key_tag: tag,
+          key_hint: keyHint,
           is_active: true,
+          is_selected: true,
           created_by: createdBy,
         },
         { onConflict: "tenant_id,provider" }
@@ -97,32 +150,26 @@ export function tenantAiKeysRepo(svc: SupabaseClient) {
       if (error) throw error;
     },
 
-    /**
-     * Decrypts and returns the active API key for this provider.
-     * Returns null if none is set. The plaintext key must never be logged
-     * or included in any API response.
-     */
-    async getKey(tenantId: string, provider: AIProvider): Promise<string | null> {
-      const { data } = await svc
+    /** Switches which saved key is active (key must already exist). */
+    async selectProvider(tenantId: string, provider: AIProvider): Promise<void> {
+      await svc
         .from("tenant_ai_keys")
-        .select("key_enc, key_nonce, key_tag")
+        .update({ is_selected: false })
+        .eq("tenant_id", tenantId);
+      const { error } = await svc
+        .from("tenant_ai_keys")
+        .update({ is_selected: true })
         .eq("tenant_id", tenantId)
         .eq("provider", provider)
-        .eq("is_active", true)
-        .maybeSingle();
-      if (!data) return null;
-      return decrypt(
-        data.key_enc as string,
-        data.key_nonce as string,
-        data.key_tag as string
-      );
+        .eq("is_active", true);
+      if (error) throw error;
     },
 
-    /** Soft-deactivates a key (keeps audit trail). */
+    /** Soft-deactivates a key (preserves audit trail). */
     async deleteKey(tenantId: string, provider: AIProvider): Promise<void> {
       const { error } = await svc
         .from("tenant_ai_keys")
-        .update({ is_active: false })
+        .update({ is_active: false, is_selected: false })
         .eq("tenant_id", tenantId)
         .eq("provider", provider);
       if (error) throw error;
