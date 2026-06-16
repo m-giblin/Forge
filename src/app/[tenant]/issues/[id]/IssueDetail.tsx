@@ -189,11 +189,21 @@ export default function IssueDetail({
     });
   }
 
-  const fieldCls = "rounded-lg border border-neutral-300 px-2 py-1.5 text-sm disabled:bg-neutral-50 disabled:text-neutral-500";
-
   // Governance facts.
   const overdue = isUnassignedOverdue(issue);
   const thresholdLabel = durMin(unassignedThresholdMs(issue.priority));
+
+  const priorityCls = ["critical", "urgent"].includes(priority)
+    ? "bg-red-50 text-red-700"
+    : priority === "high"
+    ? "bg-orange-50 text-orange-700"
+    : priority === "medium"
+    ? "bg-amber-50 text-amber-700"
+    : priority === "low"
+    ? "bg-blue-50 text-blue-700"
+    : "bg-neutral-100 text-neutral-600";
+
+  const sidebarSelect = "w-full rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-700 disabled:bg-neutral-50 disabled:text-neutral-500";
 
   return (
     <div className="mt-3">
@@ -209,11 +219,25 @@ export default function IssueDetail({
         </div>
       )}
 
+      {/* Type + Priority badges */}
+      <div className="mb-2 flex items-center gap-2">
+        {type && (
+          <span className="inline-flex rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+            {types.find((t) => t.key === type)?.label ?? type}
+          </span>
+        )}
+        {priority && (
+          <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${priorityCls}`}>
+            {priorities.find((p) => p.key === priority)?.label ?? priority}
+          </span>
+        )}
+      </div>
+
       <input
         value={title}
         disabled={readOnly}
         onChange={(e) => { setTitle(e.target.value); setSaved(false); }}
-        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base font-medium outline-none focus:border-neutral-900 disabled:bg-neutral-50"
+        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-lg font-medium outline-none focus:border-neutral-900 disabled:bg-neutral-50"
       />
 
       {/* ═══ STATUS PIPELINE STEPPER ═══ */}
@@ -306,44 +330,138 @@ export default function IssueDetail({
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap gap-2">
-        <label className="flex flex-col gap-1 text-xs text-neutral-500">Assignee
-          <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); setSaved(false); }} className={fieldCls}>
-            <option value="">Unassigned</option>
-            {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-neutral-500">Priority
-          <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); setSaved(false); }} className={fieldCls}>
-            {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-          </select>
-        </label>
-        <label className="flex flex-col gap-1 text-xs text-neutral-500">Type
-          <select value={type} disabled={readOnly} onChange={(e) => { setType(e.target.value); setSaved(false); }} className={fieldCls}>
-            {types.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-          </select>
-        </label>
-        {catOptions.length > 0 && (
-          <label className="flex flex-col gap-1 text-xs text-neutral-500">Category
-            <select value={categoryId} disabled={readOnly} onChange={(e) => { setCategoryId(e.target.value); setSaved(false); }} className={fieldCls}>
-              <option value="">None</option>
-              {catOptions.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-            </select>
-          </label>
-        )}
-      </div>
+      {/* ── TWO-COLUMN BODY: main content + sidebar ── */}
+      <div className="mt-4 grid grid-cols-[minmax(0,1fr)_220px] gap-5">
 
-      {customFields.length > 0 && (
-        <div className="mt-3 flex flex-wrap gap-2">
+        {/* ── LEFT: Description + Save + Activity ── */}
+        <div>
+          <div className="mb-4">
+            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400">Description</p>
+            <textarea
+              value={description}
+              disabled={readOnly}
+              onChange={(e) => { setDescription(e.target.value); setSaved(false); }}
+              rows={7}
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 disabled:bg-neutral-50"
+            />
+          </div>
+
+          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+
+          {!readOnly && (
+            <div className="mb-6 flex items-center justify-between">
+              <button
+                onClick={save}
+                disabled={pending || !dirty || !title.trim()}
+                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
+              >
+                {pending ? "Saving…" : "Save changes"}
+              </button>
+              {canDelete && (
+                <button onClick={remove} disabled={pending} className="text-sm font-medium text-red-600 hover:underline disabled:opacity-40">
+                  Delete issue
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Activity */}
+          <section className="border-t border-neutral-200 pt-5">
+            <h2 className="mb-3 text-[11px] font-medium uppercase tracking-wide text-neutral-400">Activity</h2>
+            <ul className="space-y-2.5">
+              {events.map((e) => (
+                <li key={e.id} className="text-xs text-neutral-500">
+                  <span className="font-medium text-neutral-700">{e.actorLabel ?? "Someone"}</span>{" "}
+                  {e.field === "details" ? (
+                    "edited the details"
+                  ) : (
+                    <>changed {e.field} from <span className="text-neutral-700">{eventValue(e.field, e.oldValue)}</span> to <span className="text-neutral-700">{eventValue(e.field, e.newValue)}</span></>
+                  )}{" "}
+                  · <span title={new Date(e.createdAt).toLocaleString()}>{relTime(e.createdAt)}</span>
+                </li>
+              ))}
+              {comments.map((c) => (
+                <li key={c.id} className="rounded-lg border border-neutral-200 bg-white p-3">
+                  <div className="mb-1 flex items-center gap-2 text-xs">
+                    <span className="font-medium text-neutral-800">{c.authorLabel ?? "Someone"}</span>
+                    <span className="text-neutral-400" title={new Date(c.createdAt).toLocaleString()}>{relTime(c.createdAt)}</span>
+                  </div>
+                  <p className="whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
+                </li>
+              ))}
+              {events.length === 0 && comments.length === 0 && (
+                <li className="text-xs text-neutral-400">No activity yet.</li>
+              )}
+            </ul>
+            {!readOnly && (
+              <div className="mt-4">
+                <textarea
+                  value={commentBody}
+                  onChange={(e) => setCommentBody(e.target.value)}
+                  rows={2}
+                  placeholder="Add a comment…"
+                  className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+                />
+                <div className="mt-2 flex justify-end">
+                  <button
+                    onClick={postComment}
+                    disabled={commenting || !commentBody.trim()}
+                    className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
+                  >
+                    {commenting ? "Posting…" : "Comment"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </section>
+        </div>
+
+        {/* ── RIGHT: Sidebar ── */}
+        <div className="space-y-4 self-start rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+
+          <div>
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Assignee</p>
+            <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); setSaved(false); }} className={sidebarSelect}>
+              <option value="">Unassigned</option>
+              {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Priority</p>
+            <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); setSaved(false); }} className={sidebarSelect}>
+              {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </div>
+
+          <div>
+            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Type</p>
+            <select value={type} disabled={readOnly} onChange={(e) => { setType(e.target.value); setSaved(false); }} className={sidebarSelect}>
+              {types.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+            </select>
+          </div>
+
+          {catOptions.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Category</p>
+              <select value={categoryId} disabled={readOnly} onChange={(e) => { setCategoryId(e.target.value); setSaved(false); }} className={sidebarSelect}>
+                <option value="">None</option>
+                {catOptions.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+          )}
+
           {customFields.map((f) => (
-            <label key={f.key} className="flex flex-col gap-1 text-xs text-neutral-500">
-              {f.label}{f.required && <span className="text-red-500"> *</span>}
+            <div key={f.key}>
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">
+                {f.label}{f.required && <span className="text-red-400"> *</span>}
+              </p>
               {f.type === "select" ? (
                 <select
                   value={customValues[f.key] ?? ""}
                   disabled={readOnly}
                   onChange={(e) => { setCustomValues((v) => ({ ...v, [f.key]: e.target.value })); setSaved(false); }}
-                  className={fieldCls}
+                  className={sidebarSelect}
                 >
                   <option value="">—</option>
                   {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -354,104 +472,28 @@ export default function IssueDetail({
                   value={customValues[f.key] ?? ""}
                   disabled={readOnly}
                   onChange={(e) => { setCustomValues((v) => ({ ...v, [f.key]: e.target.value })); setSaved(false); }}
-                  className={fieldCls}
+                  className={sidebarSelect}
                 />
               )}
-            </label>
-          ))}
-        </div>
-      )}
-
-      <label className="mt-3 block text-xs text-neutral-500">Description
-        <textarea
-          value={description}
-          disabled={readOnly}
-          onChange={(e) => { setDescription(e.target.value); setSaved(false); }}
-          rows={6}
-          className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 disabled:bg-neutral-50"
-        />
-      </label>
-
-      {/* Governance facts */}
-      <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-1.5 rounded-lg bg-neutral-50 p-3 text-xs sm:grid-cols-4">
-        <div><dt className="text-neutral-400">Created</dt><dd className="text-neutral-700" title={new Date(issue.created_at).toLocaleString()}>{relTime(issue.created_at)}</dd></div>
-        <div><dt className="text-neutral-400">Last update</dt><dd className="text-neutral-700" title={new Date(issue.updated_at).toLocaleString()}>{relTime(issue.updated_at)}</dd></div>
-        <div><dt className="text-neutral-400">Age</dt><dd className="text-neutral-700">{ageSince(issue.created_at)}</dd></div>
-        <div><dt className="text-neutral-400">Assignee</dt><dd className="text-neutral-700">{assigneeId ? (members.find((m) => m.userId === assigneeId)?.label ?? "—") : "Unassigned"}</dd></div>
-      </dl>
-
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-
-      {!readOnly && (
-        <div className="mt-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={save}
-              disabled={pending || !dirty || !title.trim()}
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
-            >
-              {pending ? "Saving…" : "Save changes"}
-            </button>
             </div>
-          {canDelete && (
-            <button onClick={remove} disabled={pending} className="text-sm font-medium text-red-600 hover:underline disabled:opacity-40">
-              Delete issue
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Activity: append-only governance timeline + comments */}
-      <section className="mt-8 border-t border-neutral-200 pt-5">
-        <h2 className="mb-3 text-sm font-semibold text-neutral-900">Activity</h2>
-
-        <ul className="space-y-2.5">
-          {events.map((e) => (
-            <li key={e.id} className="text-xs text-neutral-500">
-              <span className="font-medium text-neutral-700">{e.actorLabel ?? "Someone"}</span>{" "}
-              {e.field === "details" ? (
-                "edited the details"
-              ) : (
-                <>changed {e.field} from <span className="text-neutral-700">{eventValue(e.field, e.oldValue)}</span> to <span className="text-neutral-700">{eventValue(e.field, e.newValue)}</span></>
-              )}{" "}
-              · <span title={new Date(e.createdAt).toLocaleString()}>{relTime(e.createdAt)}</span>
-            </li>
           ))}
-          {comments.map((c) => (
-            <li key={c.id} className="rounded-lg border border-neutral-200 bg-white p-3">
-              <div className="mb-1 flex items-center gap-2 text-xs">
-                <span className="font-medium text-neutral-800">{c.authorLabel ?? "Someone"}</span>
-                <span className="text-neutral-400" title={new Date(c.createdAt).toLocaleString()}>{relTime(c.createdAt)}</span>
-              </div>
-              <p className="whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
-            </li>
-          ))}
-          {events.length === 0 && comments.length === 0 && (
-            <li className="text-xs text-neutral-400">No activity yet.</li>
-          )}
-        </ul>
 
-        {!readOnly && (
-          <div className="mt-4">
-            <textarea
-              value={commentBody}
-              onChange={(e) => setCommentBody(e.target.value)}
-              rows={2}
-              placeholder="Add a comment…"
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-            />
-            <div className="mt-2 flex justify-end">
-              <button
-                onClick={postComment}
-                disabled={commenting || !commentBody.trim()}
-                className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
-              >
-                {commenting ? "Posting…" : "Comment"}
-              </button>
-            </div>
+          <div className="border-t border-neutral-200" />
+
+          <div>
+            <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Created</p>
+            <p className="text-sm text-neutral-600" title={new Date(issue.created_at).toLocaleString()}>{relTime(issue.created_at)}</p>
           </div>
-        )}
-      </section>
+          <div>
+            <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Last update</p>
+            <p className="text-sm text-neutral-600" title={new Date(issue.updated_at).toLocaleString()}>{relTime(issue.updated_at)}</p>
+          </div>
+          <div>
+            <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Age</p>
+            <p className="text-sm text-neutral-600">{ageSince(issue.created_at)}</p>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
