@@ -385,3 +385,82 @@ export function ideaVotesRepo(supabase: SupabaseClient) {
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Custom pills repo
+// ---------------------------------------------------------------------------
+
+export interface CustomPillRow {
+  id: string;
+  tenantId: string;
+  label: string;
+  instruction: string;
+  sortOrder: number;
+  createdAt: string;
+}
+
+export function thinkTankPillsRepo(supabase: SupabaseClient) {
+  return {
+    async list(tenantId: string): Promise<CustomPillRow[]> {
+      const { data, error } = await supabase
+        .from("think_tank_pills")
+        .select("id, tenant_id, label, instruction, sort_order, created_at")
+        .eq("tenant_id", tenantId)
+        .order("sort_order", { ascending: true })
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((r: Record<string, unknown>) => ({
+        id: r.id as string,
+        tenantId: r.tenant_id as string,
+        label: r.label as string,
+        instruction: r.instruction as string,
+        sortOrder: r.sort_order as number,
+        createdAt: r.created_at as string,
+      }));
+    },
+
+    async create(input: { tenantId: string; label: string; instruction: string; sortOrder?: number }): Promise<CustomPillRow> {
+      const { data, error } = await supabase
+        .from("think_tank_pills")
+        .insert({
+          tenant_id: input.tenantId,
+          label: input.label,
+          instruction: input.instruction,
+          sort_order: input.sortOrder ?? 0,
+        })
+        .select("id, tenant_id, label, instruction, sort_order, created_at")
+        .single();
+      if (error) throw error;
+      return {
+        id: data.id,
+        tenantId: data.tenant_id,
+        label: data.label,
+        instruction: data.instruction,
+        sortOrder: data.sort_order,
+        createdAt: data.created_at,
+      };
+    },
+
+    async update(tenantId: string, id: string, patch: { label?: string; instruction?: string; sortOrder?: number }): Promise<void> {
+      const { error } = await supabase
+        .from("think_tank_pills")
+        .update({
+          ...(patch.label !== undefined && { label: patch.label }),
+          ...(patch.instruction !== undefined && { instruction: patch.instruction }),
+          ...(patch.sortOrder !== undefined && { sort_order: patch.sortOrder }),
+        })
+        .eq("tenant_id", tenantId)
+        .eq("id", id);
+      if (error) throw error;
+    },
+
+    async delete(tenantId: string, id: string): Promise<void> {
+      const { error } = await supabase
+        .from("think_tank_pills")
+        .delete()
+        .eq("tenant_id", tenantId)
+        .eq("id", id);
+      if (error) throw error;
+    },
+  };
+}

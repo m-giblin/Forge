@@ -8,7 +8,7 @@
  */
 import { serverEnv } from "@/lib/env";
 import { getRateLimiter } from "@/lib/providers/rate-limiter";
-import { resolvePills } from "./pills";
+import { resolvePills, type Pill } from "./pills";
 
 export interface IdeaContext {
   title: string;
@@ -60,8 +60,9 @@ export async function callSoundingBoard(params: {
   pills: string[];
   userInput?: string;
   history?: ConversationTurn[];
+  customPills?: Pill[];
 }): Promise<AIResponse> {
-  const { tenantId, idea, pills, userInput, history = [] } = params;
+  const { tenantId, idea, pills, userInput, history = [], customPills = [] } = params;
 
   const rl = getRateLimiter();
   const { allowed, resetMs } = await rl.check(
@@ -71,7 +72,7 @@ export async function callSoundingBoard(params: {
   );
   if (!allowed) throw new AIRateLimitError(resetMs);
 
-  const messages = buildMessages({ idea, pills, userInput, history });
+  const messages = buildMessages({ idea, pills, userInput, history, customPills });
   const env = serverEnv();
   const provider = env.AI_PROVIDER ?? "grok";
 
@@ -98,9 +99,20 @@ function buildMessages(params: {
   pills: string[];
   userInput?: string;
   history: ConversationTurn[];
+  customPills?: Pill[];
 }): ChatMessage[] {
-  const { idea, pills, userInput, history } = params;
+  const { idea, pills, userInput, history, customPills = [] } = params;
   const messages: ChatMessage[] = [];
+
+  // Merged pill resolver: static defaults + tenant custom pills
+  const customPillMap = new Map(customPills.map((p) => [p.id, p]));
+  const resolve = (ids: string[]): Pill[] =>
+    ids.flatMap((id) => {
+      const p = resolvePills([id]);
+      if (p.length > 0) return p;
+      const c = customPillMap.get(id);
+      return c ? [c] : [];
+    });
 
   // SYSTEM — hardcoded persona + idea context (no user content in system role)
   messages.push({
@@ -110,12 +122,12 @@ function buildMessages(params: {
 
   // HISTORY — prior turns as proper user/assistant pairs
   for (const turn of history) {
-    messages.push({ role: "user", content: buildUserTurnContent(turn.pills, turn.userInput) });
+    messages.push({ role: "user", content: buildUserTurnContent(turn.pills, turn.userInput, resolve) });
     messages.push({ role: "assistant", content: turn.aiResponse });
   }
 
   // CURRENT TURN — the new user message
-  messages.push({ role: "user", content: buildUserTurnContent(pills, userInput ?? null) });
+  messages.push({ role: "user", content: buildUserTurnContent(pills, userInput ?? null, resolve) });
 
   return messages;
 }
@@ -152,8 +164,8 @@ function buildSystemMessage(idea: IdeaContext): string {
   return sections.join("\n\n");
 }
 
-function buildUserTurnContent(pillIds: string[], userInput: string | null): string {
-  const resolvedPills = resolvePills(pillIds);
+function buildUserTurnContent(pillIds: string[], userInput: string | null, resolve?: (ids: string[]) => Pill[]): string {
+  const resolvedPills = resolve ? resolve(pillIds) : resolvePills(pillIds);
   const parts: string[] = [];
 
   if (resolvedPills.length > 0) {

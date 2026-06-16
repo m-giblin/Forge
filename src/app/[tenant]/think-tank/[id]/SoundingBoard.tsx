@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import { soundingBoardAction } from "../actions";
-import { PILLS, PILL_MAP } from "@/lib/ai/pills";
+import { PILLS, type Pill } from "@/lib/ai/pills";
 import type { IdeaAiTurn } from "@/lib/repositories/ideas";
 
 interface Props {
@@ -11,16 +11,17 @@ interface Props {
   ideaId: string;
   isViewer: boolean;
   initialTurns: IdeaAiTurn[];
+  customPills?: Pill[];
 }
 
 const DISCLOSURE_KEY = "tt_ai_disclosure_dismissed";
 
-function PillChips({ pillIds }: { pillIds: string[] }) {
+function PillChips({ pillIds, pillMap }: { pillIds: string[]; pillMap: Map<string, Pill> }) {
   if (pillIds.length === 0) return null;
   return (
     <div className="mb-2 flex flex-wrap gap-1">
       {pillIds.map((id) => {
-        const pill = PILL_MAP.get(id);
+        const pill = pillMap.get(id);
         return pill ? (
           <span key={id} className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600">
             {pill.label}
@@ -31,7 +32,10 @@ function PillChips({ pillIds }: { pillIds: string[] }) {
   );
 }
 
-export default function SoundingBoard({ slug, ideaId, isViewer, initialTurns }: Props) {
+export default function SoundingBoard({ slug, ideaId, isViewer, initialTurns, customPills = [] }: Props) {
+  // Merged pill list: defaults + tenant custom additions
+  const allPills: Pill[] = [...PILLS, ...customPills];
+  const allPillMap = new Map<string, Pill>(allPills.map((p) => [p.id, p]));
   const [selectedPills, setSelectedPills] = useState<string[]>([]);
   const [userInput, setUserInput] = useState("");
   const [turns, setTurns] = useState<IdeaAiTurn[]>(initialTurns);
@@ -113,7 +117,7 @@ export default function SoundingBoard({ slug, ideaId, isViewer, initialTurns }: 
                 <div key={turn.id} className="px-5 py-4">
                   {/* Turn header */}
                   <div className="mb-2 flex items-center justify-between">
-                    <PillChips pillIds={turn.pills} />
+                    <PillChips pillIds={turn.pills} pillMap={allPillMap} />
                     <span className="shrink-0 text-xs text-neutral-400">
                       Turn {i + 1}
                     </span>
@@ -159,7 +163,7 @@ export default function SoundingBoard({ slug, ideaId, isViewer, initialTurns }: 
                 {hasTurns ? "Follow-up lens" : "Choose your lens"}
               </p>
               <div className="flex flex-wrap gap-2">
-                {PILLS.map((pill) => (
+                {allPills.map((pill) => (
                   <button
                     key={pill.id}
                     onClick={() => togglePill(pill.id)}

@@ -5,7 +5,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createIdea, updateIdea } from "@/lib/services/thinkTank";
 import { createProject } from "@/lib/services/projects";
 import { projectsRepo } from "@/lib/repositories/projects";
-import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo, thinkTankPillsRepo } from "@/lib/repositories/ideas";
 import { callSoundingBoard, AIRateLimitError, type IdeaContext, type ConversationTurn } from "@/lib/ai/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
@@ -245,10 +245,11 @@ export async function soundingBoardAction(
 
   const supabase = await createSupabaseServerClient();
 
-  const [idea, comments, priorTurns] = await Promise.all([
+  const [idea, comments, priorTurns, customPillRows] = await Promise.all([
     ideasRepo(supabase).getById(ctx.tenant.id, ideaId),
     ideaCommentsRepo(supabase).list(ctx.tenant.id, ideaId),
     ideaAiTurnsRepo(supabase).listRecent(ctx.tenant.id, ideaId, 5),
+    thinkTankPillsRepo(supabase).list(ctx.tenant.id),
   ]);
   if (!idea) throw new Error("Idea not found.");
 
@@ -271,6 +272,12 @@ export async function soundingBoardAction(
     aiResponse: t.aiResponse,
   }));
 
+  const customPills = customPillRows.map((r) => ({
+    id: r.id,
+    label: r.label,
+    instruction: r.instruction,
+  }));
+
   let result;
   try {
     result = await callSoundingBoard({
@@ -279,6 +286,7 @@ export async function soundingBoardAction(
       pills: pillIds,
       userInput: userInput.trim() || undefined,
       history,
+      customPills,
     });
   } catch (err) {
     if (err instanceof AIRateLimitError) {

@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateIdeaAction, advanceStatusAction, convertIdeaAction } from "../actions";
 import type { IdeaRow, IdeaComment, IdeaAiTurn } from "@/lib/repositories/ideas";
+import type { Pill } from "@/lib/ai/pills";
 import IdeaComments from "./IdeaComments";
 import SoundingBoard from "./SoundingBoard";
 
@@ -34,9 +35,10 @@ interface Props {
   isViewer: boolean;
   recentAiTurns: IdeaAiTurn[];
   linkedProjectKey: string | null;
+  customPills: Pill[];
 }
 
-export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey }: Props) {
+export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey, customPills }: Props) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -322,6 +324,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         ideaId={idea.id}
         isViewer={isViewer}
         initialTurns={recentAiTurns}
+        customPills={customPills}
       />
 
       <IdeaComments
