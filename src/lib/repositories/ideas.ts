@@ -301,26 +301,29 @@ export function ideaAiTurnsRepo(supabase: SupabaseClient) {
     },
 
     async getLatest(tenantId: string, ideaId: string): Promise<IdeaAiTurn | null> {
+      const turns = await this.listRecent(tenantId, ideaId, 1);
+      return turns[0] ?? null;
+    },
+
+    async listRecent(tenantId: string, ideaId: string, limit = 5): Promise<IdeaAiTurn[]> {
       const { data, error } = await supabase
         .from("idea_ai_turns")
         .select("id, idea_id, user_id, pills, user_input, ai_response, provider, created_at")
         .eq("tenant_id", tenantId)
         .eq("idea_id", ideaId)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .limit(limit);
       if (error) throw error;
-      if (!data) return null;
-      return {
-        id: data.id,
-        ideaId: data.idea_id,
-        userId: data.user_id,
-        pills: data.pills,
-        userInput: data.user_input,
-        aiResponse: data.ai_response,
-        provider: data.provider,
-        createdAt: data.created_at,
-      };
+      return (data ?? []).reverse().map((row) => ({
+        id: row.id,
+        ideaId: row.idea_id,
+        userId: row.user_id,
+        pills: row.pills,
+        userInput: row.user_input,
+        aiResponse: row.ai_response,
+        provider: row.provider,
+        createdAt: row.created_at,
+      }));
     },
   };
 }

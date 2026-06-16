@@ -32,11 +32,11 @@ interface Props {
   currentUserId: string;
   isAdmin: boolean;
   isViewer: boolean;
-  lastAiTurn: IdeaAiTurn | null;
+  recentAiTurns: IdeaAiTurn[];
   linkedProjectKey: string | null;
 }
 
-export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, lastAiTurn, linkedProjectKey }: Props) {
+export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey }: Props) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -310,7 +310,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         slug={slug}
         ideaId={idea.id}
         isViewer={isViewer}
-        lastTurn={lastAiTurn}
+        initialTurns={recentAiTurns}
       />
 
       <IdeaComments

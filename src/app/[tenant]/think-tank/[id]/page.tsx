@@ -20,11 +20,11 @@ export default async function IdeaPage({
     ? createSupabaseServiceClient()
     : await createSupabaseServerClient();
 
-  const [rawIdea, members, comments, lastAiTurn] = await Promise.all([
+  const [rawIdea, members, comments, recentAiTurns] = await Promise.all([
     ideasRepo(supabase).getById(ctx.tenant.id, id),
     membersRepo(supabase).list(ctx.tenant.id),
     ideaCommentsRepo(supabase).list(ctx.tenant.id, id),
-    ideaAiTurnsRepo(supabase).getLatest(ctx.tenant.id, id),
+    ideaAiTurnsRepo(supabase).listRecent(ctx.tenant.id, id, 5),
   ]);
 
   if (!rawIdea) notFound();
@@ -74,7 +74,7 @@ export default async function IdeaPage({
       currentUserId={ctx.appUserId}
       isAdmin={isAdmin}
       isViewer={ctx.role === "viewer"}
-      lastAiTurn={lastAiTurn}
+      recentAiTurns={recentAiTurns}
       linkedProjectKey={linkedProjectKey}
     />
   );
