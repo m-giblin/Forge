@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { saveAiKeyAction, selectAiProviderAction, deleteAiKeyAction, resetToDefaultAction } from "./actions";
-import { AI_PROVIDERS, type AIProvider, type SavedKeyInfo } from "@/lib/repositories/aiKeys";
+import { AI_PROVIDERS, type AIProvider, type SavedKeyInfo } from "@/lib/ai/providers";
 
 interface Props {
   slug: string;

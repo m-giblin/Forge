@@ -1,15 +1,9 @@
 import "server-only";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
-
-export type AIProvider = "openai" | "anthropic" | "xai" | "gemini";
-
-export const AI_PROVIDERS: { value: AIProvider; label: string; hint: string }[] = [
-  { value: "xai",       label: "xAI (Grok)",          hint: "api.x.ai" },
-  { value: "openai",    label: "OpenAI (GPT-4o)",      hint: "platform.openai.com" },
-  { value: "anthropic", label: "Anthropic (Claude)",   hint: "console.anthropic.com" },
-  { value: "gemini",    label: "Google (Gemini Flash)", hint: "aistudio.google.com" },
-];
+export type { AIProvider, SavedKeyInfo } from "@/lib/ai/providers";
+export { AI_PROVIDERS } from "@/lib/ai/providers";
+import type { AIProvider, SavedKeyInfo } from "@/lib/ai/providers";
 
 // ---------------------------------------------------------------------------
 // Encryption helpers — AES-256-GCM
@@ -57,11 +51,7 @@ function decrypt(enc: string, nonce: string, tag: string): string {
 // Repository — always use service-role client (bypasses RLS by design)
 // ---------------------------------------------------------------------------
 
-export interface SavedKeyInfo {
-  provider: AIProvider;
-  keyHint: string | null;
-  isSelected: boolean;
-}
+
 
 export function tenantAiKeysRepo(svc: SupabaseClient) {
   return {
