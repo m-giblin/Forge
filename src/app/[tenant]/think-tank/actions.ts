@@ -6,6 +6,7 @@ import { createIdea, updateIdea } from "@/lib/services/thinkTank";
 import { createProject } from "@/lib/services/projects";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo, thinkTankPillsRepo } from "@/lib/repositories/ideas";
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { callSoundingBoard, AIRateLimitError, type IdeaContext, type ConversationTurn } from "@/lib/ai/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
@@ -102,8 +103,9 @@ export async function addIdeaCommentAction(
   slug: string,
   ideaId: string,
   body: string,
-  parentId: string | null
-): Promise<void> {
+  parentId: string | null,
+  attachmentIds?: string[]
+): Promise<{ commentId: string }> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot comment.");
@@ -113,7 +115,9 @@ export async function addIdeaCommentAction(
   if (trimmed.length > 10000) throw new Error("Comment is too long.");
 
   const supabase = await createSupabaseServerClient();
-  const [, idea] = await Promise.all([
+  const svc = createSupabaseServiceClient();
+
+  const [comment, idea] = await Promise.all([
     ideaCommentsRepo(supabase).add({
       tenantId: ctx.tenant.id,
       ideaId,
@@ -123,6 +127,16 @@ export async function addIdeaCommentAction(
     }),
     ideasRepo(supabase).getById(ctx.tenant.id, ideaId),
   ]);
+
+  // Link any pre-uploaded attachments to the new comment.
+  if (attachmentIds && attachmentIds.length > 0) {
+    await svc
+      .from("idea_comment_attachments")
+      .update({ comment_id: comment.id })
+      .in("id", attachmentIds)
+      .eq("tenant_id", ctx.tenant.id)
+      .is("comment_id", null);
+  }
 
   // Fire-and-forget — don't block the response on notification delivery.
   void notifyIdeaComment({
@@ -136,6 +150,7 @@ export async function addIdeaCommentAction(
   });
 
   revalidatePath(`/${slug}/think-tank/${ideaId}`);
+  return { commentId: comment.id };
 }
 
 export async function editIdeaCommentAction(
@@ -433,4 +448,104 @@ export async function toggleVoteAction(
 
   revalidatePath(`/${slug}/think-tank`);
   return { voted };
+}
+
+// ---------------------------------------------------------------------------
+// Attachment upload / download
+// ---------------------------------------------------------------------------
+
+const ALLOWED_TYPES = new Set([
+  "image/png", "image/jpeg", "image/gif", "image/webp",
+  "application/pdf",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/msword",
+  "application/vnd.ms-excel",
+]);
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const MONTHLY_QUOTA_BYTES = 100 * 1024 * 1024; // 100 MB
+const STORAGE_BUCKET = "idea-attachments";
+
+/**
+ * Validates file type/size/quota and creates a signed upload URL.
+ * Returns the attachment record ID and signed URL — client uploads directly.
+ */
+export async function prepareAttachmentUploadAction(
+  slug: string,
+  ideaId: string,
+  filename: string,
+  contentType: string,
+  sizeBytes: number
+): Promise<{ attachmentId: string; signedUrl: string; token: string }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot upload files.");
+
+  if (!ALLOWED_TYPES.has(contentType)) throw new Error("File type not allowed.");
+  if (sizeBytes > MAX_FILE_BYTES) throw new Error("File exceeds 10 MB limit.");
+
+  const svc = createSupabaseServiceClient();
+
+  // Monthly quota check
+  const monthStart = new Date();
+  monthStart.setDate(1);
+  monthStart.setHours(0, 0, 0, 0);
+  const { data: usageData } = await svc
+    .from("idea_comment_attachments")
+    .select("size_bytes")
+    .eq("tenant_id", ctx.tenant.id)
+    .gte("created_at", monthStart.toISOString());
+  const usedBytes = (usageData ?? []).reduce((sum, r: Record<string, unknown>) => sum + (r.size_bytes as number), 0);
+  if (usedBytes + sizeBytes > MONTHLY_QUOTA_BYTES) {
+    throw new Error("Monthly attachment storage limit (100 MB) reached.");
+  }
+
+  const attachmentId = crypto.randomUUID();
+  const storagePath = `${ctx.tenant.id}/${ideaId}/${attachmentId}-${filename.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+
+  // Create pending metadata row (comment_id null until comment is submitted).
+  await svc.from("idea_comment_attachments").insert({
+    id: attachmentId,
+    tenant_id: ctx.tenant.id,
+    idea_id: ideaId,
+    comment_id: null,
+    storage_path: storagePath,
+    filename,
+    content_type: contentType,
+    size_bytes: sizeBytes,
+  });
+
+  // Generate signed upload URL (expires in 5 minutes — enough time to upload).
+  const { data: uploadData, error } = await svc.storage
+    .from(STORAGE_BUCKET)
+    .createSignedUploadUrl(storagePath);
+  if (error || !uploadData) {
+    // Clean up the pending row on error.
+    await svc.from("idea_comment_attachments").delete().eq("id", attachmentId);
+    throw new Error("Could not generate upload URL.");
+  }
+
+  return { attachmentId, signedUrl: uploadData.signedUrl, token: uploadData.token };
+}
+
+/**
+ * Returns a 24-hour signed download URL for an attachment.
+ * Only callable by tenant members (verified by getTenantContext).
+ */
+export async function getAttachmentUrlAction(
+  slug: string,
+  storagePath: string
+): Promise<{ url: string }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+
+  // Verify path belongs to this tenant (path starts with tenantId/).
+  if (!storagePath.startsWith(`${ctx.tenant.id}/`)) throw new Error("Access denied.");
+
+  const svc = createSupabaseServiceClient();
+  const { data, error } = await svc.storage
+    .from(STORAGE_BUCKET)
+    .createSignedUrl(storagePath, 60 * 60 * 24); // 24 hours
+  if (error || !data) throw new Error("Could not generate download URL.");
+  return { url: data.signedUrl };
 }

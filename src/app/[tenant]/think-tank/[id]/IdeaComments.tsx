@@ -1,15 +1,23 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   addIdeaCommentAction,
   editIdeaCommentAction,
   deleteIdeaCommentAction,
+  prepareAttachmentUploadAction,
+  getAttachmentUrlAction,
 } from "../actions";
-import type { IdeaComment } from "@/lib/repositories/ideas";
+import type { IdeaComment, IdeaCommentAttachment } from "@/lib/repositories/ideas";
 
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
+
+const ACCEPT_TYPES =
+  "image/png,image/jpeg,image/gif,image/webp,application/pdf," +
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document," +
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet," +
+  "application/msword,application/vnd.ms-excel";
 
 function relTime(iso: string): string {
   const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
@@ -24,6 +32,56 @@ function relTime(iso: string): string {
 function avatar(name: string | null) {
   return (name ?? "?")[0].toUpperCase();
 }
+
+function fmtBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`;
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function fileIcon(contentType: string): string {
+  if (contentType.startsWith("image/")) return "🖼️";
+  if (contentType === "application/pdf") return "📄";
+  return "📎";
+}
+
+// ---------------------------------------------------------------------------
+// Attachment chip — lazy-loads signed download URL on click
+// ---------------------------------------------------------------------------
+
+function AttachmentChip({ slug, attachment }: { slug: string; attachment: IdeaCommentAttachment }) {
+  const [fetching, setFetching] = useState(false);
+
+  async function handleOpen() {
+    if (fetching) return;
+    setFetching(true);
+    try {
+      const { url } = await getAttachmentUrlAction(slug, attachment.storagePath);
+      window.open(url, "_blank");
+    } catch {
+      // silently fail — URL is already expired or missing
+    } finally {
+      setFetching(false);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleOpen}
+      disabled={fetching}
+      title={`${attachment.filename} (${fmtBytes(attachment.sizeBytes)})`}
+      className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-0.5 text-xs text-neutral-600 hover:border-neutral-300 hover:bg-neutral-100 disabled:opacity-50"
+    >
+      <span>{fileIcon(attachment.contentType)}</span>
+      <span className="max-w-[160px] truncate">{attachment.filename}</span>
+      {fetching && <span className="text-neutral-400">…</span>}
+    </button>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// CommentCard
+// ---------------------------------------------------------------------------
 
 interface CardProps {
   comment: IdeaComment;
@@ -174,6 +232,15 @@ function CommentCard({
           </p>
         )}
 
+        {/* Attachments */}
+        {!comment.isDeleted && comment.attachments.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {comment.attachments.map((att) => (
+              <AttachmentChip key={att.id} slug={slug} attachment={att} />
+            ))}
+          </div>
+        )}
+
         {error && !editing && <p className="mt-1 text-xs text-red-600">{error}</p>}
 
         {/* Reply button — only on top-level comments */}
@@ -227,6 +294,15 @@ function CommentCard({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Main export
+// ---------------------------------------------------------------------------
+
+interface StagedFile {
+  localId: string;
+  file: File;
+}
+
 interface Props {
   slug: string;
   ideaId: string;
@@ -243,8 +319,10 @@ export default function IdeaComments({
   initialComments,
 }: Props) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [body, setBody] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   const topLevel = initialComments.filter((c) => c.parentId === null);
@@ -261,20 +339,61 @@ export default function IdeaComments({
     router.refresh();
   }
 
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
+    const newEntries: StagedFile[] = files.map((file) => ({
+      localId: crypto.randomUUID(),
+      file,
+    }));
+    setStagedFiles((prev) => [...prev, ...newEntries]);
+    // Reset input so the same file can be re-selected after removal.
+    e.target.value = "";
+  }
+
+  function removeStagedFile(localId: string) {
+    setStagedFiles((prev) => prev.filter((f) => f.localId !== localId));
+  }
+
   function handleSubmit() {
     const trimmed = body.trim();
     if (!trimmed) return;
-    setError(null);
+    setSubmitError(null);
     startTransition(async () => {
       try {
-        await addIdeaCommentAction(slug, ideaId, trimmed, null);
+        // Upload each staged file and collect attachment IDs.
+        const attachmentIds: string[] = [];
+        for (const sf of stagedFiles) {
+          const { attachmentId, signedUrl } = await prepareAttachmentUploadAction(
+            slug,
+            ideaId,
+            sf.file.name,
+            sf.file.type,
+            sf.file.size
+          );
+          const res = await fetch(signedUrl, {
+            method: "PUT",
+            body: sf.file,
+            headers: { "Content-Type": sf.file.type },
+          });
+          if (!res.ok) throw new Error(`Upload failed for ${sf.file.name}.`);
+          attachmentIds.push(attachmentId);
+        }
+
+        await addIdeaCommentAction(slug, ideaId, trimmed, null, attachmentIds);
         setBody("");
+        setStagedFiles([]);
         router.refresh();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to post comment.");
+        setSubmitError(err instanceof Error ? err.message : "Failed to post comment.");
       }
     });
   }
+
+  const submitLabel = isPending
+    ? stagedFiles.length > 0
+      ? "Uploading…"
+      : "Posting…"
+    : "Post comment";
 
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -323,14 +442,56 @@ export default function IdeaComments({
           placeholder="Add a comment…"
           className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
         />
-        {error && <p className="mt-1 text-xs text-red-600">{error}</p>}
-        <div className="mt-2 flex justify-end">
+
+        {/* Staged files */}
+        {stagedFiles.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {stagedFiles.map((sf) => (
+              <div
+                key={sf.localId}
+                className="inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-0.5 text-xs text-neutral-600"
+              >
+                <span>{fileIcon(sf.file.type)}</span>
+                <span className="max-w-[140px] truncate">{sf.file.name}</span>
+                <span className="text-neutral-400">({fmtBytes(sf.file.size)})</span>
+                <button
+                  onClick={() => removeStagedFile(sf.localId)}
+                  disabled={isPending}
+                  className="ml-0.5 rounded-full text-neutral-400 hover:text-red-500 disabled:opacity-50"
+                  aria-label="Remove file"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {submitError && <p className="mt-1 text-xs text-red-600">{submitError}</p>}
+
+        <div className="mt-2 flex items-center justify-between">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isPending}
+            className="flex items-center gap-1 text-xs text-neutral-400 hover:text-neutral-600 disabled:opacity-50"
+          >
+            📎 Attach files
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={ACCEPT_TYPES}
+            onChange={handleFileChange}
+            className="hidden"
+          />
           <button
             onClick={handleSubmit}
             disabled={isPending || !body.trim()}
             className="rounded-lg bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
           >
-            {isPending ? "Posting…" : "Post comment"}
+            {submitLabel}
           </button>
         </div>
       </div>

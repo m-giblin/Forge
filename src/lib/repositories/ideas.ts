@@ -11,6 +11,14 @@ export interface IdeaAiTurn {
   createdAt: string;
 }
 
+export interface IdeaCommentAttachment {
+  id: string;
+  filename: string;
+  contentType: string;
+  sizeBytes: number;
+  storagePath: string;
+}
+
 export interface IdeaComment {
   id: string;
   ideaId: string;
@@ -21,6 +29,7 @@ export interface IdeaComment {
   parentId: string | null;
   createdAt: string;
   updatedAt: string;
+  attachments: IdeaCommentAttachment[];
 }
 
 export interface IdeaRow {
@@ -199,7 +208,8 @@ export function ideaCommentsRepo(supabase: SupabaseClient) {
         .from("idea_comments")
         .select(`
           id, idea_id, body, is_deleted, author_id, parent_id, created_at, updated_at,
-          author:users!idea_comments_author_id_fkey(id, name)
+          author:users!idea_comments_author_id_fkey(id, name),
+          idea_comment_attachments(id, filename, content_type, size_bytes, storage_path)
         `)
         .eq("tenant_id", tenantId)
         .eq("idea_id", ideaId)
@@ -215,6 +225,13 @@ export function ideaCommentsRepo(supabase: SupabaseClient) {
         parentId: row.parent_id as string | null,
         createdAt: row.created_at as string,
         updatedAt: row.updated_at as string,
+        attachments: ((row.idea_comment_attachments as Record<string, unknown>[] | null) ?? []).map((a) => ({
+          id: a.id as string,
+          filename: a.filename as string,
+          contentType: a.content_type as string,
+          sizeBytes: a.size_bytes as number,
+          storagePath: a.storage_path as string,
+        })),
       }));
     },
 
@@ -247,6 +264,7 @@ export function ideaCommentsRepo(supabase: SupabaseClient) {
         parentId: data.parent_id,
         createdAt: data.created_at,
         updatedAt: data.updated_at,
+        attachments: [],
       };
     },
 
