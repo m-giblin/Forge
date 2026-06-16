@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
@@ -32,10 +33,54 @@ function durMin(ms: number): string {
   return `${Math.floor(h / 24)}d ${h % 24}h`;
 }
 
+// ── Inline SVG icons (no icon-library dependency) ──
+const ICON_PATHS: Record<string, React.ReactNode> = {
+  check: <polyline points="20 6 9 17 4 12" />,
+  play: <polygon points="6 4 20 12 6 20" fill="currentColor" stroke="none" />,
+  inbox: <><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" /></>,
+  circle: <circle cx="12" cy="12" r="9" />,
+  eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></>,
+  circleCheck: <><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.5 2.5 4.5-5" /></>,
+  arrowLeft: <><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></>,
+  arrowRight: <><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></>,
+  chevronLeft: <path d="m15 18-6-6 6-6" />,
+  bug: <><path d="M9 9V8a3 3 0 0 1 6 0v1" /><path d="M8 9h8a5 5 0 0 1 1 3v2a5 5 0 0 1-10 0v-2a5 5 0 0 1 1-3" /><path d="M3 13h4" /><path d="M17 13h4" /><path d="M12 20v-6" /><path d="m4 19 3-2" /><path d="m20 19-3-2" /><path d="m4 8 3 1.5" /><path d="m20 8-3 1.5" /></>,
+  flame: <path d="M12 12c2-3 0-7-1-8 0 3-1.8 4.7-3 6s-2 3.2-2 5a6 6 0 1 0 12 0c0-1.5-1-3.9-2-5-1.8 3-2.8 3-4 2Z" />,
+};
+
+function Icon({ name, size = 16, className, strokeWidth = 2 }: { name: string; size?: number; className?: string; strokeWidth?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={strokeWidth}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      {ICON_PATHS[name]}
+    </svg>
+  );
+}
+
+function statusIconName(key: string): string {
+  const k = key.toLowerCase();
+  if (k.includes("backlog")) return "inbox";
+  if (k.includes("progress") || k === "doing") return "play";
+  if (k.includes("review")) return "eye";
+  if (k.includes("done") || k.includes("closed") || k.includes("complete") || k.includes("resolved")) return "circleCheck";
+  return "circle";
+}
+
 export default function IssueDetail({
   slug,
   issue,
   issueKey,
+  projectKey,
   statuses,
   priorities,
   types,
@@ -50,6 +95,7 @@ export default function IssueDetail({
   slug: string;
   issue: Issue;
   issueKey: string;
+  projectKey: string;
   statuses: FieldOption[];
   priorities: FieldOption[];
   types: FieldOption[];
@@ -150,7 +196,6 @@ export default function IssueDetail({
     });
   }
 
-
   function moveStatus(newStatus: string) {
     setError(null);
     setStatus(newStatus);
@@ -193,6 +238,7 @@ export default function IssueDetail({
   const overdue = isUnassignedOverdue(issue);
   const thresholdLabel = durMin(unassignedThresholdMs(issue.priority));
 
+  const isHotPriority = ["critical", "urgent", "high"].includes(priority);
   const priorityCls = ["critical", "urgent"].includes(priority)
     ? "bg-red-50 text-red-700"
     : priority === "high"
@@ -203,153 +249,167 @@ export default function IssueDetail({
     ? "bg-blue-50 text-blue-700"
     : "bg-neutral-100 text-neutral-600";
 
-  const sidebarSelect = "w-full rounded-lg border border-neutral-200 bg-white px-2 py-1.5 text-sm text-neutral-700 disabled:bg-neutral-50 disabled:text-neutral-500";
+  const typeIsBug = type.toLowerCase().includes("bug");
+  const sidebarSelect =
+    "w-full rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm text-neutral-700 outline-none focus:border-neutral-400 disabled:bg-neutral-50 disabled:text-neutral-500";
+  const sideLabel = "mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400";
+
+  const boardHref = `/${slug}/board?project=${projectKey}`;
 
   return (
-    <div className="mt-3">
-      <div className="mb-3 flex items-center gap-3">
-        <span className="font-mono text-sm text-neutral-400">{issueKey}</span>
-        {readOnly && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">read-only</span>}
-        {saved && !dirty && <span className="text-xs text-green-600">Saved ✓</span>}
+    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+      {/* ── Header strip: breadcrumb ── */}
+      <div className="flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-4 py-2.5 text-sm">
+        <Link href={boardHref} className="text-neutral-400 hover:text-neutral-700" aria-label="Back to board">
+          <Icon name="chevronLeft" size={16} />
+        </Link>
+        <Link href={boardHref} className="text-neutral-500 hover:text-neutral-800">{projectKey || "Board"}</Link>
+        <span className="text-neutral-300">/</span>
+        <Link href={boardHref} className="text-neutral-500 hover:text-neutral-800">Issues</Link>
+        <span className="text-neutral-300">/</span>
+        <span className="font-medium text-neutral-800">{issueKey}</span>
+        <div className="ml-auto flex items-center gap-3">
+          {readOnly && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs text-amber-700">read-only</span>}
+          {saved && !dirty && <span className="text-xs text-green-600">Saved ✓</span>}
+        </div>
       </div>
 
-      {overdue && (
-        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          Unassigned for over {thresholdLabel} — assign an owner.
-        </div>
-      )}
+      {/* ── Two-column body ── */}
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_240px]">
+        {/* ── LEFT: main content ── */}
+        <div className="p-6 md:border-r md:border-neutral-200">
+          {overdue && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              Unassigned for over {thresholdLabel} — assign an owner.
+            </div>
+          )}
 
-      {/* Type + Priority badges */}
-      <div className="mb-2 flex items-center gap-2">
-        {type && (
-          <span className="inline-flex rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
-            {types.find((t) => t.key === type)?.label ?? type}
-          </span>
-        )}
-        {priority && (
-          <span className={`inline-flex rounded-md px-2 py-0.5 text-xs font-medium ${priorityCls}`}>
-            {priorities.find((p) => p.key === priority)?.label ?? priority}
-          </span>
-        )}
-      </div>
-
-      <input
-        value={title}
-        disabled={readOnly}
-        onChange={(e) => { setTitle(e.target.value); setSaved(false); }}
-        className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-lg font-medium outline-none focus:border-neutral-900 disabled:bg-neutral-50"
-      />
-
-      {/* ═══ STATUS PIPELINE STEPPER ═══ */}
-      <div className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 p-4">
-        {/* Node row — flex with interleaved connectors */}
-        <div className="flex items-start">
-          {orderedStatuses.flatMap((s, i) => {
-            const position = i < statusIdx ? "done" : i === statusIdx ? "current" : "pending";
-            const isJumpable = !readOnly && !pending && position !== "current";
-            const connectorBg =
-              i === statusIdx ? "#2563EB" : i < statusIdx ? "#059669" : "#E5E7EB";
-
-            const connector = i > 0 ? (
-              <div
-                key={`conn-${s.key}`}
-                className="mt-[14px] h-px shrink-0"
-                style={{ flex: "0.4", background: connectorBg }}
-              />
-            ) : null;
-
-            const node = (
-              <div
-                key={s.key}
-                role={isJumpable ? "button" : undefined}
-                tabIndex={isJumpable ? 0 : undefined}
-                onClick={() => isJumpable && moveStatus(s.key)}
-                onKeyDown={(e) => { if (isJumpable && (e.key === "Enter" || e.key === " ")) moveStatus(s.key); }}
-                title={isJumpable ? `Move to "${s.label}"` : undefined}
-                className={[
-                  "flex min-w-0 flex-1 flex-col items-center gap-1.5",
-                  isJumpable ? "cursor-pointer" : "cursor-default",
-                ].join(" ")}
-              >
-                <div
-                  className={[
-                    "flex items-center justify-center rounded-full select-none",
-                    position === "done"
-                      ? "h-7 w-7 bg-emerald-600 text-white text-xs font-medium"
-                      : position === "current"
-                      ? "h-9 w-9 bg-blue-600 text-white text-xs font-bold ring-4 ring-blue-100"
-                      : isJumpable
-                      ? "h-7 w-7 border border-neutral-300 bg-white text-neutral-400 text-xs hover:border-neutral-400"
-                      : "h-7 w-7 border border-neutral-200 bg-white text-neutral-300 text-xs",
-                  ].join(" ")}
-                >
-                  {position === "done" ? "✓" : i + 1}
-                </div>
-                <span
-                  className={[
-                    "text-center text-[10px] leading-tight",
-                    position === "done"
-                      ? "font-medium text-emerald-700"
-                      : position === "current"
-                      ? "font-medium text-blue-600"
-                      : "text-neutral-400",
-                  ].join(" ")}
-                >
-                  {s.label}
-                </span>
-              </div>
-            );
-
-            return connector ? [connector, node] : [node];
-          })}
-        </div>
-
-        {/* Back / step count / Next */}
-        {!readOnly && (
-          <div className="mt-3.5 flex items-center justify-between border-t border-neutral-200 pt-3">
-            <button
-              type="button"
-              disabled={!statusPrev || pending}
-              onClick={() => statusPrev && moveStatus(statusPrev.key)}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              ← {statusPrev ? `"${statusPrev.label}"` : ""}
-            </button>
-            <span className="text-[11px] text-neutral-400">
-              Step {statusIdx + 1} of {orderedStatuses.length}
-            </span>
-            <button
-              type="button"
-              disabled={!statusNext || pending}
-              onClick={() => statusNext && moveStatus(statusNext.key)}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
-            >
-              {statusNext ? `"${statusNext.label}"` : ""} →
-            </button>
+          {/* Badges */}
+          <div className="mb-2.5 flex items-center gap-2">
+            {type && (
+              <span className="inline-flex items-center gap-1 rounded-md bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                <Icon name={typeIsBug ? "bug" : "circle"} size={12} />
+                {types.find((t) => t.key === type)?.label ?? type}
+              </span>
+            )}
+            {priority && (
+              <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${priorityCls}`}>
+                {isHotPriority && <Icon name="flame" size={12} />}
+                {priorities.find((p) => p.key === priority)?.label ?? priority}
+              </span>
+            )}
+            <span className="font-mono text-xs text-neutral-400">{issueKey}</span>
           </div>
-        )}
-      </div>
 
-      {/* ── TWO-COLUMN BODY: main content + sidebar ── */}
-      <div className="mt-4 grid grid-cols-[minmax(0,1fr)_220px] gap-5">
+          {/* Title — heading-style but editable inline */}
+          <input
+            value={title}
+            disabled={readOnly}
+            onChange={(e) => { setTitle(e.target.value); setSaved(false); }}
+            className="-mx-2 mb-1 w-[calc(100%+1rem)] rounded-md border border-transparent px-2 py-1 text-lg font-medium text-neutral-900 outline-none hover:border-neutral-200 focus:border-neutral-300 focus:bg-white disabled:hover:border-transparent"
+          />
 
-        {/* ── LEFT: Description + Save + Activity ── */}
-        <div>
-          <div className="mb-4">
-            <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-400">Description</p>
+          {/* ═══ STATUS PIPELINE STEPPER ═══ */}
+          <div className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+            <div className="flex items-start">
+              {orderedStatuses.flatMap((s, i) => {
+                const position = i < statusIdx ? "done" : i === statusIdx ? "current" : "pending";
+                const isJumpable = !readOnly && !pending && position !== "current";
+                const connectorBg = i === statusIdx ? "#2563EB" : i < statusIdx ? "#059669" : "#E5E7EB";
+
+                const connector =
+                  i > 0 ? (
+                    <div key={`conn-${s.key}`} className="mt-[14px] h-px shrink-0" style={{ flex: "0.4", background: connectorBg }} />
+                  ) : null;
+
+                const node = (
+                  <div
+                    key={s.key}
+                    role={isJumpable ? "button" : undefined}
+                    tabIndex={isJumpable ? 0 : undefined}
+                    onClick={() => isJumpable && moveStatus(s.key)}
+                    onKeyDown={(e) => { if (isJumpable && (e.key === "Enter" || e.key === " ")) moveStatus(s.key); }}
+                    title={isJumpable ? `Move to "${s.label}"` : undefined}
+                    className={["flex min-w-0 flex-1 flex-col items-center gap-1.5", isJumpable ? "cursor-pointer" : "cursor-default"].join(" ")}
+                  >
+                    <div
+                      className={[
+                        "flex items-center justify-center rounded-full transition-colors",
+                        position === "done"
+                          ? "h-7 w-7 bg-emerald-600 text-white"
+                          : position === "current"
+                          ? "h-9 w-9 bg-blue-600 text-white ring-4 ring-blue-100"
+                          : isJumpable
+                          ? "h-7 w-7 border border-neutral-300 bg-white text-neutral-400 hover:border-neutral-400 hover:text-neutral-500"
+                          : "h-7 w-7 border border-neutral-200 bg-white text-neutral-300",
+                      ].join(" ")}
+                    >
+                      <Icon name={position === "done" ? "check" : statusIconName(s.key)} size={position === "current" ? 16 : 14} />
+                    </div>
+                    <span
+                      className={[
+                        "text-center text-[11px] leading-tight",
+                        position === "done"
+                          ? "font-medium text-emerald-700"
+                          : position === "current"
+                          ? "font-medium text-blue-600"
+                          : "text-neutral-400",
+                      ].join(" ")}
+                    >
+                      {s.label}
+                    </span>
+                  </div>
+                );
+
+                return connector ? [connector, node] : [node];
+              })}
+            </div>
+
+            {/* Back / step count / Next */}
+            {!readOnly && (
+              <div className="mt-4 flex items-center justify-between border-t border-neutral-200 pt-3">
+                <button
+                  type="button"
+                  disabled={!statusPrev || pending}
+                  onClick={() => statusPrev && moveStatus(statusPrev.key)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  <Icon name="arrowLeft" size={14} />
+                  {statusPrev ? statusPrev.label : "Start"}
+                </button>
+                <span className="text-[11px] text-neutral-400">
+                  Step {statusIdx + 1} of {orderedStatuses.length}
+                </span>
+                <button
+                  type="button"
+                  disabled={!statusNext || pending}
+                  onClick={() => statusNext && moveStatus(statusNext.key)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
+                >
+                  {statusNext ? statusNext.label : "Done"}
+                  <Icon name="arrowRight" size={14} />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Description */}
+          <div className="mt-6">
+            <p className={sideLabel}>Description</p>
             <textarea
               value={description}
               disabled={readOnly}
               onChange={(e) => { setDescription(e.target.value); setSaved(false); }}
-              rows={7}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 disabled:bg-neutral-50"
+              rows={6}
+              placeholder="Add a description…"
+              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-700 outline-none focus:border-neutral-400 disabled:bg-neutral-50"
             />
           </div>
 
-          {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
+          {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
 
           {!readOnly && (
-            <div className="mb-6 flex items-center justify-between">
+            <div className="mt-4 flex items-center justify-between">
               <button
                 onClick={save}
                 disabled={pending || !dirty || !title.trim()}
@@ -366,9 +426,9 @@ export default function IssueDetail({
           )}
 
           {/* Activity */}
-          <section className="border-t border-neutral-200 pt-5">
-            <h2 className="mb-3 text-[11px] font-medium uppercase tracking-wide text-neutral-400">Activity</h2>
-            <ul className="space-y-2.5">
+          <section className="mt-8 border-t border-neutral-200 pt-5">
+            <p className={sideLabel}>Activity</p>
+            <ul className="mt-2 space-y-2.5">
               {events.map((e) => (
                 <li key={e.id} className="text-xs text-neutral-500">
                   <span className="font-medium text-neutral-700">{e.actorLabel ?? "Someone"}</span>{" "}
@@ -393,6 +453,7 @@ export default function IssueDetail({
                 <li className="text-xs text-neutral-400">No activity yet.</li>
               )}
             </ul>
+
             {!readOnly && (
               <div className="mt-4">
                 <textarea
@@ -416,11 +477,10 @@ export default function IssueDetail({
           </section>
         </div>
 
-        {/* ── RIGHT: Sidebar ── */}
-        <div className="space-y-4 self-start rounded-xl border border-neutral-100 bg-neutral-50 p-4">
-
+        {/* ── RIGHT: sidebar ── */}
+        <aside className="space-y-4 bg-neutral-50 p-5">
           <div>
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Assignee</p>
+            <p className={sideLabel}>Assignee</p>
             <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); setSaved(false); }} className={sidebarSelect}>
               <option value="">Unassigned</option>
               {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
@@ -428,14 +488,14 @@ export default function IssueDetail({
           </div>
 
           <div>
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Priority</p>
+            <p className={sideLabel}>Priority</p>
             <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); setSaved(false); }} className={sidebarSelect}>
               {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
           </div>
 
           <div>
-            <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Type</p>
+            <p className={sideLabel}>Type</p>
             <select value={type} disabled={readOnly} onChange={(e) => { setType(e.target.value); setSaved(false); }} className={sidebarSelect}>
               {types.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
@@ -443,7 +503,7 @@ export default function IssueDetail({
 
           {catOptions.length > 0 && (
             <div>
-              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Category</p>
+              <p className={sideLabel}>Category</p>
               <select value={categoryId} disabled={readOnly} onChange={(e) => { setCategoryId(e.target.value); setSaved(false); }} className={sidebarSelect}>
                 <option value="">None</option>
                 {catOptions.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
@@ -453,9 +513,7 @@ export default function IssueDetail({
 
           {customFields.map((f) => (
             <div key={f.key}>
-              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">
-                {f.label}{f.required && <span className="text-red-400"> *</span>}
-              </p>
+              <p className={sideLabel}>{f.label}{f.required && <span className="text-red-400"> *</span>}</p>
               {f.type === "select" ? (
                 <select
                   value={customValues[f.key] ?? ""}
@@ -478,21 +536,21 @@ export default function IssueDetail({
             </div>
           ))}
 
-          <div className="border-t border-neutral-200" />
-
-          <div>
-            <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Created</p>
-            <p className="text-sm text-neutral-600" title={new Date(issue.created_at).toLocaleString()}>{relTime(issue.created_at)}</p>
+          <div className="border-t border-neutral-200 pt-4 space-y-3">
+            <div>
+              <p className={sideLabel}>Created</p>
+              <p className="text-sm text-neutral-600" title={new Date(issue.created_at).toLocaleString()}>{relTime(issue.created_at)}</p>
+            </div>
+            <div>
+              <p className={sideLabel}>Last update</p>
+              <p className="text-sm text-neutral-600" title={new Date(issue.updated_at).toLocaleString()}>{relTime(issue.updated_at)}</p>
+            </div>
+            <div>
+              <p className={sideLabel}>Age</p>
+              <p className="text-sm text-neutral-600">{ageSince(issue.created_at)}</p>
+            </div>
           </div>
-          <div>
-            <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Last update</p>
-            <p className="text-sm text-neutral-600" title={new Date(issue.updated_at).toLocaleString()}>{relTime(issue.updated_at)}</p>
-          </div>
-          <div>
-            <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-neutral-400">Age</p>
-            <p className="text-sm text-neutral-600">{ageSince(issue.created_at)}</p>
-          </div>
-        </div>
+        </aside>
       </div>
     </div>
   );
