@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
-import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, thinkTankPillsRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, thinkTankPillsRepo, ideaDecisionsRepo } from "@/lib/repositories/ideas";
 import { membersRepo } from "@/lib/repositories/members";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -20,12 +20,13 @@ export default async function IdeaPage({
     ? createSupabaseServiceClient()
     : await createSupabaseServerClient();
 
-  const [rawIdea, members, comments, recentAiTurns, customPillRows] = await Promise.all([
+  const [rawIdea, members, comments, recentAiTurns, customPillRows, decisions] = await Promise.all([
     ideasRepo(supabase).getById(ctx.tenant.id, id),
     membersRepo(supabase).list(ctx.tenant.id),
     ideaCommentsRepo(supabase).list(ctx.tenant.id, id),
     ideaAiTurnsRepo(supabase).listRecent(ctx.tenant.id, id, 5),
     thinkTankPillsRepo(supabase).list(ctx.tenant.id),
+    ideaDecisionsRepo(supabase).list(ctx.tenant.id, id),
   ]);
 
   if (!rawIdea) notFound();
@@ -78,6 +79,7 @@ export default async function IdeaPage({
       recentAiTurns={recentAiTurns}
       linkedProjectKey={linkedProjectKey}
       customPills={customPillRows.map((r) => ({ id: r.id, label: r.label, instruction: r.instruction }))}
+      decisions={decisions}
     />
   );
 }

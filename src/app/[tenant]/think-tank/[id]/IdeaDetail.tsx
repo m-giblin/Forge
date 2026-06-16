@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react";
 import { updateIdeaAction, advanceStatusAction, convertIdeaAction } from "../actions";
-import type { IdeaRow, IdeaComment, IdeaAiTurn } from "@/lib/repositories/ideas";
+import type { IdeaRow, IdeaComment, IdeaAiTurn, IdeaDecision } from "@/lib/repositories/ideas";
 import type { Pill } from "@/lib/ai/pills";
 import IdeaComments from "./IdeaComments";
 import SoundingBoard from "./SoundingBoard";
+import IdeaDecisions from "./IdeaDecisions";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -36,9 +37,10 @@ interface Props {
   recentAiTurns: IdeaAiTurn[];
   linkedProjectKey: string | null;
   customPills: Pill[];
+  decisions: IdeaDecision[];
 }
 
-export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey, customPills }: Props) {
+export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey, customPills, decisions }: Props) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -336,6 +338,13 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         isViewer={isViewer}
         initialTurns={recentAiTurns}
         customPills={customPills}
+      />
+
+      <IdeaDecisions
+        slug={slug}
+        ideaId={idea.id}
+        decisions={decisions}
+        isAdmin={isAdmin}
       />
 
       <IdeaComments

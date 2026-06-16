@@ -1,5 +1,15 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export interface IdeaDecision {
+  id: string;
+  ideaId: string;
+  title: string;
+  body: string | null;
+  decidedBy: string | null;
+  decidedByName: string | null;
+  createdAt: string;
+}
+
 export interface IdeaAiTurn {
   id: string;
   ideaId: string;
@@ -531,6 +541,92 @@ export function thinkTankPillsRepo(supabase: SupabaseClient) {
       const { error } = await supabase
         .from("think_tank_pills")
         .delete()
+        .eq("tenant_id", tenantId)
+        .eq("id", id);
+      if (error) throw error;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Decisions repo
+// ---------------------------------------------------------------------------
+
+export function ideaDecisionsRepo(supabase: SupabaseClient) {
+  return {
+    async list(tenantId: string, ideaId: string): Promise<IdeaDecision[]> {
+      const { data, error } = await supabase
+        .from("idea_decisions")
+        .select("id, idea_id, title, body, decided_by, created_at, users:decided_by(name, email)")
+        .eq("tenant_id", tenantId)
+        .eq("idea_id", ideaId)
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((row) => {
+        const u = row.users as { name?: string | null; email?: string | null } | null;
+        return {
+          id: row.id,
+          ideaId: row.idea_id,
+          title: row.title,
+          body: row.body,
+          decidedBy: row.decided_by,
+          decidedByName: u?.name ?? u?.email ?? null,
+          createdAt: row.created_at,
+        };
+      });
+    },
+
+    async listForIdeas(tenantId: string, ideaIds: string[]): Promise<IdeaDecision[]> {
+      if (ideaIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("idea_decisions")
+        .select("id, idea_id, title, body, decided_by, created_at, users:decided_by(name, email)")
+        .eq("tenant_id", tenantId)
+        .in("idea_id", ideaIds)
+        .eq("is_deleted", false)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((row) => {
+        const u = row.users as { name?: string | null; email?: string | null } | null;
+        return {
+          id: row.id,
+          ideaId: row.idea_id,
+          title: row.title,
+          body: row.body,
+          decidedBy: row.decided_by,
+          decidedByName: u?.name ?? u?.email ?? null,
+          createdAt: row.created_at,
+        };
+      });
+    },
+
+    async add(input: {
+      tenantId: string;
+      ideaId: string;
+      title: string;
+      body: string | null;
+      decidedBy: string;
+    }): Promise<string> {
+      const { data, error } = await supabase
+        .from("idea_decisions")
+        .insert({
+          tenant_id: input.tenantId,
+          idea_id: input.ideaId,
+          title: input.title.trim(),
+          body: input.body?.trim() || null,
+          decided_by: input.decidedBy,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id;
+    },
+
+    async softDelete(tenantId: string, id: string): Promise<void> {
+      const { error } = await supabase
+        .from("idea_decisions")
+        .update({ is_deleted: true })
         .eq("tenant_id", tenantId)
         .eq("id", id);
       if (error) throw error;

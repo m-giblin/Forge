@@ -3,7 +3,7 @@ import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { issuesRepo } from "@/lib/repositories/issues";
-import { ideasRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaDecisionsRepo } from "@/lib/repositories/ideas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -55,6 +55,10 @@ export default async function ProjectDetailPage({
       ? ideasRepo(supabase).getById(ctx.tenant.id, project.linked_idea_id)
       : Promise.resolve(null),
   ]);
+
+  const linkedIdeaDecisions = linkedIdea
+    ? await ideaDecisionsRepo(supabase).list(ctx.tenant.id, linkedIdea.id)
+    : [];
 
   const chip = goLiveChip(project.target_go_live);
   const openCount = issueCounts.total - issueCounts.done;
@@ -147,6 +151,30 @@ export default async function ProjectDetailPage({
               </p>
             </div>
           </Link>
+        </div>
+      )}
+
+      {/* Decisions from the originating idea */}
+      {linkedIdeaDecisions.length > 0 && (
+        <div className="mb-6">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
+            Decisions from Think Tank
+          </p>
+          <div className="space-y-2">
+            {linkedIdeaDecisions.map((d) => (
+              <div key={d.id} className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                <span className="mt-0.5 text-base">✅</span>
+                <div>
+                  <p className="text-sm font-semibold text-neutral-900">{d.title}</p>
+                  {d.body && <p className="mt-1 text-sm text-neutral-600">{d.body}</p>}
+                  <p className="mt-1 text-xs text-neutral-400">
+                    {d.decidedByName ? `${d.decidedByName} · ` : ""}
+                    {new Date(d.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

@@ -5,7 +5,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createIdea, updateIdea } from "@/lib/services/thinkTank";
 import { createProject } from "@/lib/services/projects";
 import { projectsRepo } from "@/lib/repositories/projects";
-import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo, thinkTankPillsRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo, thinkTankPillsRepo, ideaDecisionsRepo } from "@/lib/repositories/ideas";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { callSoundingBoard, AIRateLimitError, type IdeaContext, type ConversationTurn } from "@/lib/ai/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -570,4 +570,54 @@ export async function getAttachmentUrlAction(
     .createSignedUrl(storagePath, 60 * 60 * 24); // 24 hours
   if (error || !data) throw new Error("Could not generate download URL.");
   return { url: data.signedUrl };
+}
+
+// ---------------------------------------------------------------------------
+// Decisions
+// ---------------------------------------------------------------------------
+
+export async function addDecisionAction(
+  slug: string,
+  ideaId: string,
+  title: string,
+  body: string
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role !== "owner" && ctx.role !== "admin") throw new Error("Only admins can record decisions.");
+
+  const title_ = title.trim();
+  if (!title_) throw new Error("Decision title is required.");
+
+  const svc = createSupabaseServiceClient();
+  await ideaDecisionsRepo(svc).add({
+    tenantId: ctx.tenant.id,
+    ideaId,
+    title: title_,
+    body: body.trim() || null,
+    decidedBy: ctx.appUserId,
+  });
+
+  void recordAudit({
+    tenantId: ctx.tenant.id,
+    actorUserId: ctx.appUserId,
+    action: "idea.decision_added",
+    target: title_,
+  });
+
+  revalidatePath(`/${slug}/think-tank/${ideaId}`);
+}
+
+export async function deleteDecisionAction(
+  slug: string,
+  ideaId: string,
+  decisionId: string
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role !== "owner" && ctx.role !== "admin") throw new Error("Only admins can remove decisions.");
+
+  const svc = createSupabaseServiceClient();
+  await ideaDecisionsRepo(svc).softDelete(ctx.tenant.id, decisionId);
+  revalidatePath(`/${slug}/think-tank/${ideaId}`);
 }
