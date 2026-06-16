@@ -5,7 +5,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createIdea, updateIdea } from "@/lib/services/thinkTank";
 import { createProject } from "@/lib/services/projects";
 import { projectsRepo } from "@/lib/repositories/projects";
-import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo } from "@/lib/repositories/ideas";
 import { callSoundingBoard, AIRateLimitError, type IdeaContext, type ConversationTurn } from "@/lib/ai/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
@@ -370,4 +370,18 @@ export async function advanceStatusAction(slug: string, ideaId: string, newStatu
 
   revalidatePath(`/${slug}/think-tank/${ideaId}`);
   revalidatePath(`/${slug}/think-tank`);
+}
+
+export async function toggleVoteAction(
+  slug: string,
+  ideaId: string
+): Promise<{ voted: boolean }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+
+  const supabase = await createSupabaseServerClient();
+  const { voted } = await ideaVotesRepo(supabase).toggle(ctx.tenant.id, ideaId, ctx.appUserId);
+
+  revalidatePath(`/${slug}/think-tank`);
+  return { voted };
 }

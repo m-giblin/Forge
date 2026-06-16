@@ -45,6 +45,8 @@ export interface IdeaSummary extends IdeaRow {
   creator_name: string | null;
   assignee_name: string | null;
   comment_count: number;
+  vote_count: number;
+  user_has_voted: boolean;
 }
 
 export interface ThinkTankRow {
@@ -88,14 +90,15 @@ export function ideasRepo(supabase: SupabaseClient) {
       return created as ThinkTankRow;
     },
 
-    async list(tenantId: string, opts: ListIdeasOpts = {}): Promise<IdeaSummary[]> {
+    async list(tenantId: string, opts: ListIdeasOpts & { userId?: string } = {}): Promise<IdeaSummary[]> {
       let q = supabase
         .from("ideas")
         .select(`
           *,
           creator:users!ideas_created_by_fkey(id, name),
           assignee:users!ideas_assigned_to_fkey(id, name),
-          idea_comments(count)
+          idea_comments(count),
+          idea_votes(count)
         `)
         .eq("tenant_id", tenantId)
         .order("updated_at", { ascending: false });
@@ -106,7 +109,12 @@ export function ideasRepo(supabase: SupabaseClient) {
       if (opts.assignedTo) q = q.eq("assigned_to", opts.assignedTo);
       if (opts.excludeArchived) q = q.neq("status", "archived");
 
-      const { data, error } = await q;
+      const [{ data, error }, votedIds] = await Promise.all([
+        q,
+        opts.userId
+          ? ideaVotesRepo(supabase).getVotedIdeaIds(tenantId, opts.userId)
+          : Promise.resolve(new Set<string>()),
+      ]);
       if (error) throw error;
 
       return ((data ?? []) as Record<string, unknown>[]).map((row) => ({
@@ -117,6 +125,11 @@ export function ideasRepo(supabase: SupabaseClient) {
           Array.isArray(row.idea_comments) && row.idea_comments.length > 0
             ? (row.idea_comments[0] as { count?: number }).count ?? 0
             : 0,
+        vote_count:
+          Array.isArray(row.idea_votes) && row.idea_votes.length > 0
+            ? (row.idea_votes[0] as { count?: number }).count ?? 0
+            : 0,
+        user_has_voted: votedIds.has((row as unknown as IdeaRow).id),
       }));
     },
 
@@ -324,6 +337,49 @@ export function ideaAiTurnsRepo(supabase: SupabaseClient) {
         provider: row.provider,
         createdAt: row.created_at,
       }));
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Votes repo
+// ---------------------------------------------------------------------------
+
+export function ideaVotesRepo(supabase: SupabaseClient) {
+  return {
+    /** Returns the set of idea IDs the given user has voted on in this tenant. */
+    async getVotedIdeaIds(tenantId: string, userId: string): Promise<Set<string>> {
+      const { data } = await supabase
+        .from("idea_votes")
+        .select("idea_id")
+        .eq("tenant_id", tenantId)
+        .eq("user_id", userId);
+      return new Set((data ?? []).map((r: { idea_id: string }) => r.idea_id));
+    },
+
+    /** Toggles the current user's vote. Returns whether the user is now voted. */
+    async toggle(tenantId: string, ideaId: string, userId: string): Promise<{ voted: boolean }> {
+      const { data: existing } = await supabase
+        .from("idea_votes")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .eq("idea_id", ideaId)
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.from("idea_votes").delete()
+          .eq("id", existing.id)
+          .eq("user_id", userId);
+        return { voted: false };
+      }
+
+      await supabase.from("idea_votes").insert({
+        tenant_id: tenantId,
+        idea_id: ideaId,
+        user_id: userId,
+      });
+      return { voted: true };
     },
   };
 }

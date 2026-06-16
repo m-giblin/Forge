@@ -34,7 +34,7 @@ export async function loadThinkTankPage(
 
   const [thinkTank, ideas, allTags, members] = await Promise.all([
     repo.getOrCreateDefaultThinkTank(tenantId, userId),
-    repo.list(tenantId, { excludeArchived: false }),
+    repo.list(tenantId, { excludeArchived: false, userId }),
     repo.getAllTags(tenantId),
     membersRepo(supabase).list(tenantId),
   ]);

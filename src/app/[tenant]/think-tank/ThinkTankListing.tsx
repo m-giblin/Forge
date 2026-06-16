@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useTransition } from "react";
 import Link from "next/link";
 import type { IdeaSummary } from "@/lib/repositories/ideas";
+import { toggleVoteAction } from "./actions";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -24,13 +25,17 @@ interface Props {
   canCreate: boolean;
 }
 
-export default function ThinkTankListing({ slug, ideas, allTags, members, canCreate }: Props) {
+type SortMode = "recent" | "votes";
+
+export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, members, canCreate }: Props) {
+  const [ideas, setIdeas] = useState(initialIdeas);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("");
   const [filterTag, setFilterTag] = useState<string>("");
   const [filterAssignee, setFilterAssignee] = useState<string>("");
   const [showArchived, setShowArchived] = useState(false);
+  const [sortBy, setSortBy] = useState<SortMode>("recent");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -39,7 +44,7 @@ export default function ThinkTankListing({ slug, ideas, allTags, members, canCre
 
   const filtered = useMemo(() => {
     const q = debouncedSearch.toLowerCase().trim();
-    return ideas.filter((idea) => {
+    let list = ideas.filter((idea) => {
       if (!showArchived && idea.status === "archived") return false;
       if (filterStatus && idea.status !== filterStatus) return false;
       if (filterTag && !idea.tags.includes(filterTag)) return false;
@@ -51,7 +56,41 @@ export default function ThinkTankListing({ slug, ideas, allTags, members, canCre
       ) return false;
       return true;
     });
-  }, [ideas, debouncedSearch, filterStatus, filterTag, filterAssignee, showArchived]);
+    if (sortBy === "votes") {
+      list = [...list].sort((a, b) => b.vote_count - a.vote_count);
+    }
+    return list;
+  }, [ideas, debouncedSearch, filterStatus, filterTag, filterAssignee, showArchived, sortBy]);
+
+  function handleVoteToggle(ideaId: string) {
+    // Optimistic update
+    setIdeas((prev) =>
+      prev.map((idea) =>
+        idea.id === ideaId
+          ? {
+              ...idea,
+              user_has_voted: !idea.user_has_voted,
+              vote_count: idea.user_has_voted ? idea.vote_count - 1 : idea.vote_count + 1,
+            }
+          : idea
+      )
+    );
+    // Fire and forget — server syncs in background
+    toggleVoteAction(slug, ideaId).catch(() => {
+      // Revert on error
+      setIdeas((prev) =>
+        prev.map((idea) =>
+          idea.id === ideaId
+            ? {
+                ...idea,
+                user_has_voted: !idea.user_has_voted,
+                vote_count: idea.user_has_voted ? idea.vote_count - 1 : idea.vote_count + 1,
+              }
+            : idea
+        )
+      );
+    });
+  }
 
   const hasIdeas = ideas.length > 0;
 
@@ -148,6 +187,14 @@ export default function ThinkTankListing({ slug, ideas, allTags, members, canCre
                 ))}
               </select>
             )}
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortMode)}
+              className="h-9 rounded-lg border border-neutral-200 px-2 text-sm text-neutral-600 outline-none focus:border-neutral-400"
+            >
+              <option value="recent">Sort: Recent</option>
+              <option value="votes">Sort: Most voted</option>
+            </select>
             <label className="flex cursor-pointer items-center gap-1.5 text-sm text-neutral-500">
               <input
                 type="checkbox"
@@ -174,7 +221,13 @@ export default function ThinkTankListing({ slug, ideas, allTags, members, canCre
           ) : (
             <div className="space-y-2">
               {filtered.map((idea) => (
-                <IdeaCard key={idea.id} idea={idea} slug={slug} query={debouncedSearch} />
+                <IdeaCard
+                  key={idea.id}
+                  idea={idea}
+                  slug={slug}
+                  query={debouncedSearch}
+                  onVote={() => handleVoteToggle(idea.id)}
+                />
               ))}
             </div>
           )}
@@ -184,56 +237,90 @@ export default function ThinkTankListing({ slug, ideas, allTags, members, canCre
   );
 }
 
-function IdeaCard({ idea, slug, query }: { idea: IdeaSummary; slug: string; query: string }) {
+function IdeaCard({
+  idea,
+  slug,
+  query,
+  onVote,
+}: {
+  idea: IdeaSummary;
+  slug: string;
+  query: string;
+  onVote: () => void;
+}) {
   const meta = STATUS_META[idea.status] ?? STATUS_META.new;
   const lastActivity = formatRelative(idea.updated_at);
+  const [pending, startTransition] = useTransition();
+
+  function handleVoteClick(e: React.MouseEvent) {
+    e.preventDefault();
+    startTransition(() => { onVote(); });
+  }
 
   return (
-    <Link
-      href={`/${slug}/think-tank/${idea.id}`}
-      className="flex items-start gap-4 rounded-xl border border-neutral-200 bg-white px-4 py-3.5 shadow-sm transition hover:border-neutral-300 hover:shadow"
-    >
-      {/* Private lock */}
-      <div className="mt-0.5 w-4 shrink-0 text-center text-neutral-300">
-        {idea.is_private && <span title="Private idea">🔒</span>}
-      </div>
+    <div className="flex items-stretch gap-0 rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:border-neutral-300 hover:shadow">
+      {/* Vote button */}
+      <button
+        onClick={handleVoteClick}
+        disabled={pending}
+        title={idea.user_has_voted ? "Remove vote" : "Vote for this idea"}
+        className={`flex w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-l-xl border-r border-neutral-100 px-2 py-3 text-xs font-medium transition disabled:opacity-50 ${
+          idea.user_has_voted
+            ? "bg-neutral-900 text-white"
+            : "text-neutral-400 hover:bg-neutral-50 hover:text-neutral-700"
+        }`}
+      >
+        <span className="text-base leading-none">▲</span>
+        <span>{idea.vote_count}</span>
+      </button>
 
-      {/* Main content */}
-      <div className="min-w-0 flex-1">
-        <div className="flex items-baseline gap-2">
-          <span className="truncate font-medium text-neutral-900">
-            <HighlightText text={idea.title} query={query} />
-          </span>
-          <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${meta.color}`}>
-            {meta.label}
-          </span>
+      {/* Card link */}
+      <Link
+        href={`/${slug}/think-tank/${idea.id}`}
+        className="flex min-w-0 flex-1 items-start gap-4 px-4 py-3.5"
+      >
+        {/* Private lock */}
+        <div className="mt-0.5 w-4 shrink-0 text-center text-neutral-300">
+          {idea.is_private && <span title="Private idea">🔒</span>}
         </div>
 
-        {idea.tags.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {idea.tags.map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500"
-              >
-                <HighlightText text={tag} query={query} />
-              </span>
-            ))}
+        {/* Main content */}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2">
+            <span className="truncate font-medium text-neutral-900">
+              <HighlightText text={idea.title} query={query} />
+            </span>
+            <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${meta.color}`}>
+              {meta.label}
+            </span>
           </div>
-        )}
-      </div>
 
-      {/* Meta */}
-      <div className="flex shrink-0 items-center gap-4 text-xs text-neutral-400">
-        {idea.comment_count > 0 && (
-          <span title="Comments">💬 {idea.comment_count}</span>
-        )}
-        {idea.assignee_name && (
-          <span title="Assigned to">{idea.assignee_name}</span>
-        )}
-        <span title="Last activity">{lastActivity}</span>
-      </div>
-    </Link>
+          {idea.tags.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {idea.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500"
+                >
+                  <HighlightText text={tag} query={query} />
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Meta */}
+        <div className="flex shrink-0 items-center gap-4 text-xs text-neutral-400">
+          {idea.comment_count > 0 && (
+            <span title="Comments">💬 {idea.comment_count}</span>
+          )}
+          {idea.assignee_name && (
+            <span title="Assigned to">{idea.assignee_name}</span>
+          )}
+          <span title="Last activity">{lastActivity}</span>
+        </div>
+      </Link>
+    </div>
   );
 }
 
