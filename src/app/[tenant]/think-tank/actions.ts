@@ -169,6 +169,49 @@ export async function deleteIdeaCommentAction(
   revalidatePath(`/${slug}/think-tank/${comment.ideaId}`);
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const RECENT_COMMENT_COUNT = 10;
+const SUMMARY_THRESHOLD = 15;
+
+/**
+ * When a discussion has grown large, condenses older comments into a compact
+ * summary block so the AI prompt stays focused on the most recent context.
+ * No AI call needed — rule-based condensation keeps cost and latency low.
+ */
+function buildCommentContext(nonDeletedComments: Array<{ authorName: string | null; body: string; createdAt: string }>) {
+  if (nonDeletedComments.length <= SUMMARY_THRESHOLD) {
+    return {
+      recentComments: nonDeletedComments.map((c) => ({
+        author: c.authorName ?? "Unknown",
+        body: c.body,
+        createdAt: c.createdAt,
+      })),
+      commentSummary: undefined,
+    };
+  }
+
+  const olderComments = nonDeletedComments.slice(0, -RECENT_COMMENT_COUNT);
+  const recent = nonDeletedComments.slice(-RECENT_COMMENT_COUNT);
+
+  const summaryLines = olderComments.map((c) => {
+    const author = c.authorName ?? "Unknown";
+    const snippet = c.body.length > 80 ? c.body.slice(0, 80).trimEnd() + "…" : c.body;
+    return `${author}: ${snippet}`;
+  });
+
+  return {
+    recentComments: recent.map((c) => ({
+      author: c.authorName ?? "Unknown",
+      body: c.body,
+      createdAt: c.createdAt,
+    })),
+    commentSummary: `${olderComments.length} earlier comment${olderComments.length === 1 ? "" : "s"}: ${summaryLines.join(" | ")}`,
+  };
+}
+
 export async function soundingBoardAction(
   slug: string,
   ideaId: string,
@@ -190,10 +233,9 @@ export async function soundingBoardAction(
   ]);
   if (!idea) throw new Error("Idea not found.");
 
-  const recentComments = comments
-    .filter((c) => !c.isDeleted)
-    .slice(-20)
-    .map((c) => ({ author: c.authorName ?? "Unknown", body: c.body, createdAt: c.createdAt }));
+  const { recentComments, commentSummary } = buildCommentContext(
+    comments.filter((c) => !c.isDeleted)
+  );
 
   const ideaContext: IdeaContext = {
     title: idea.title,
@@ -201,6 +243,7 @@ export async function soundingBoardAction(
     tags: idea.tags,
     status: idea.status,
     recentComments,
+    commentSummary,
   };
 
   const history: ConversationTurn[] = priorTurns.map((t) => ({
