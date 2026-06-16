@@ -114,7 +114,7 @@ function CommentCard({
 
   const isOwn = comment.authorId === currentUserId;
   const withinWindow = mountedAt - new Date(comment.createdAt).getTime() < EDIT_WINDOW_MS;
-  const canEdit = !comment.isDeleted && (isAdmin || (isOwn && withinWindow));
+  const canEdit = !comment.isDeleted && isOwn && withinWindow;
   const canDelete = !comment.isDeleted && (isOwn || isAdmin);
 
   function handleReply() {
