@@ -126,14 +126,25 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
           </div>
         </div>
 
-        {canEdit && !isTerminal && !editing && (
-          <button
-            onClick={() => setEditing(true)}
-            className="shrink-0 rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+        <div className="flex shrink-0 items-center gap-2">
+          <a
+            href={`/${slug}/think-tank/${idea.id}/print`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+            title="Open print view — save as PDF from browser"
           >
-            Edit
-          </button>
-        )}
+            Export
+          </a>
+          {canEdit && !isTerminal && !editing && (
+            <button
+              onClick={() => setEditing(true)}
+              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50"
+            >
+              Edit
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Feedback */}
