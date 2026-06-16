@@ -35,6 +35,8 @@ export interface AIResponse {
   text: string;
   provider: string;
   promptSent: string;
+  tokensInput: number | null;
+  tokensOutput: number | null;
 }
 
 export class AIRateLimitError extends Error {
@@ -79,34 +81,36 @@ export async function callSoundingBoard(params: {
 
   const messages = buildMessages({ idea, pills, userInput, history, customPills });
 
-  let text: string;
+  let result: ProviderResult;
   let providerLabel: string;
 
   if (byoKey) {
     providerLabel = `byo:${byoKey.provider}`;
-    text = await dispatchBYO(messages, byoKey.provider, byoKey.apiKey);
+    result = await dispatchBYO(messages, byoKey.provider, byoKey.apiKey);
   } else {
     const env = serverEnv();
     if (!env.GROK_API_KEY) {
       throw new AIProviderError("GROK_API_KEY is not set. Add it to .env.local.");
     }
-    text = await callOpenAICompat(messages, env.GROK_API_KEY, "https://api.x.ai/v1", "grok-3-mini");
+    result = await callOpenAICompat(messages, env.GROK_API_KEY, "https://api.x.ai/v1", "grok-3-mini");
     providerLabel = "platform:grok";
   }
 
   const promptSent = JSON.stringify(messages);
-  return { text, provider: providerLabel, promptSent };
+  return { text: result.text, provider: providerLabel, promptSent, tokensInput: result.tokensInput, tokensOutput: result.tokensOutput };
 }
 
 // ---------------------------------------------------------------------------
 // Provider dispatch
 // ---------------------------------------------------------------------------
 
+type ProviderResult = { text: string; tokensInput: number | null; tokensOutput: number | null };
+
 async function dispatchBYO(
   messages: ChatMessage[],
   provider: AIProvider,
   apiKey: string
-): Promise<string> {
+): Promise<ProviderResult> {
   switch (provider) {
     case "xai":
       return callOpenAICompat(messages, apiKey, "https://api.x.ai/v1", "grok-3-mini");
@@ -235,7 +239,7 @@ async function callOpenAICompat(
   apiKey: string,
   baseUrl: string,
   model: string
-): Promise<string> {
+): Promise<ProviderResult> {
   let res: Response;
   try {
     res = await fetch(`${baseUrl}/chat/completions`, {
@@ -261,14 +265,19 @@ async function callOpenAICompat(
 
   const json = (await res.json()) as {
     choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number };
   };
   const text = json.choices?.[0]?.message?.content;
   if (!text) throw new AIProviderError("AI provider returned an empty response.");
-  return text;
+  return {
+    text,
+    tokensInput: json.usage?.prompt_tokens ?? null,
+    tokensOutput: json.usage?.completion_tokens ?? null,
+  };
 }
 
 /** Anthropic Messages API — system is a top-level param, not a message role. */
-async function callAnthropic(messages: ChatMessage[], apiKey: string): Promise<string> {
+async function callAnthropic(messages: ChatMessage[], apiKey: string): Promise<ProviderResult> {
   const systemContent = messages.find((m) => m.role === "system")?.content ?? "";
   const chatMessages = messages
     .filter((m) => m.role !== "system")
@@ -305,14 +314,19 @@ async function callAnthropic(messages: ChatMessage[], apiKey: string): Promise<s
 
   const json = (await res.json()) as {
     content?: Array<{ type: string; text?: string }>;
+    usage?: { input_tokens?: number; output_tokens?: number };
   };
   const text = json.content?.find((b) => b.type === "text")?.text;
   if (!text) throw new AIProviderError("Anthropic returned an empty response.");
-  return text;
+  return {
+    text,
+    tokensInput: json.usage?.input_tokens ?? null,
+    tokensOutput: json.usage?.output_tokens ?? null,
+  };
 }
 
 /** Google Gemini generateContent API. */
-async function callGemini(messages: ChatMessage[], apiKey: string): Promise<string> {
+async function callGemini(messages: ChatMessage[], apiKey: string): Promise<ProviderResult> {
   const systemContent = messages.find((m) => m.role === "system")?.content ?? "";
   const contents = messages
     .filter((m) => m.role !== "system")
@@ -350,8 +364,13 @@ async function callGemini(messages: ChatMessage[], apiKey: string): Promise<stri
 
   const json = (await res.json()) as {
     candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+    usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
   };
   const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new AIProviderError("Gemini returned an empty response.");
-  return text;
+  return {
+    text,
+    tokensInput: json.usageMetadata?.promptTokenCount ?? null,
+    tokensOutput: json.usageMetadata?.candidatesTokenCount ?? null,
+  };
 }

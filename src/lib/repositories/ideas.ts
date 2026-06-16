@@ -319,6 +319,8 @@ export function ideaAiTurnsRepo(supabase: SupabaseClient) {
       promptSent: string;
       aiResponse: string;
       provider: string;
+      tokensInput?: number | null;
+      tokensOutput?: number | null;
     }): Promise<void> {
       const { error } = await supabase.from("idea_ai_turns").insert({
         tenant_id: input.tenantId,
@@ -329,6 +331,8 @@ export function ideaAiTurnsRepo(supabase: SupabaseClient) {
         prompt_sent: input.promptSent,
         ai_response: input.aiResponse,
         provider: input.provider,
+        tokens_input: input.tokensInput ?? null,
+        tokens_output: input.tokensOutput ?? null,
       });
       if (error) throw error;
     },
@@ -357,6 +361,57 @@ export function ideaAiTurnsRepo(supabase: SupabaseClient) {
         provider: row.provider,
         createdAt: row.created_at,
       }));
+    },
+
+    async getUsageSummary(tenantId: string, sinceIso: string): Promise<{
+      totalCalls: number;
+      totalTokensInput: number;
+      totalTokensOutput: number;
+      byProvider: Array<{ provider: string; calls: number; tokensInput: number; tokensOutput: number }>;
+      byUser: Array<{ userId: string | null; calls: number; tokensInput: number; tokensOutput: number }>;
+    }> {
+      const { data, error } = await supabase
+        .from("idea_ai_turns")
+        .select("provider, user_id, tokens_input, tokens_output")
+        .eq("tenant_id", tenantId)
+        .gte("created_at", sinceIso);
+      if (error) throw error;
+
+      const rows = data ?? [];
+      const providerMap = new Map<string, { calls: number; tokensInput: number; tokensOutput: number }>();
+      const userMap = new Map<string | null, { calls: number; tokensInput: number; tokensOutput: number }>();
+      let totalCalls = 0, totalTokensInput = 0, totalTokensOutput = 0;
+
+      for (const row of rows) {
+        const tin = row.tokens_input ?? 0;
+        const tout = row.tokens_output ?? 0;
+        const provider = row.provider ?? "unknown";
+        const userId = row.user_id as string | null;
+
+        totalCalls++;
+        totalTokensInput += tin;
+        totalTokensOutput += tout;
+
+        const p = providerMap.get(provider) ?? { calls: 0, tokensInput: 0, tokensOutput: 0 };
+        p.calls++; p.tokensInput += tin; p.tokensOutput += tout;
+        providerMap.set(provider, p);
+
+        const u = userMap.get(userId) ?? { calls: 0, tokensInput: 0, tokensOutput: 0 };
+        u.calls++; u.tokensInput += tin; u.tokensOutput += tout;
+        userMap.set(userId, u);
+      }
+
+      return {
+        totalCalls,
+        totalTokensInput,
+        totalTokensOutput,
+        byProvider: Array.from(providerMap.entries())
+          .map(([provider, s]) => ({ provider, ...s }))
+          .sort((a, b) => b.calls - a.calls),
+        byUser: Array.from(userMap.entries())
+          .map(([userId, s]) => ({ userId, ...s }))
+          .sort((a, b) => b.calls - a.calls),
+      };
     },
   };
 }

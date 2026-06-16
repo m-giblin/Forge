@@ -325,6 +325,8 @@ export async function soundingBoardAction(
     promptSent: result.promptSent,
     aiResponse: result.text,
     provider: result.provider,
+    tokensInput: result.tokensInput,
+    tokensOutput: result.tokensOutput,
   });
 
   // Audit so admins can see AI usage in the Activity log.

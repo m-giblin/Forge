@@ -13,6 +13,7 @@ const SECTIONS = [
   { seg: "import", label: "Import issues" },
   { seg: "think-tank", label: "Think Tank" },
   { seg: "settings/ai", label: "AI settings" },
+  { seg: "usage", label: "AI usage" },
   { seg: "activity", label: "Activity log" },
 ];
 
