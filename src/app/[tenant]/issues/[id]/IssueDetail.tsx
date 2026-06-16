@@ -80,6 +80,9 @@ export default function IssueDetail({
   const [commenting, startComment] = useTransition();
 
   const orderedStatuses = [...statuses].sort((a, b) => a.position - b.position);
+  const statusIdx = orderedStatuses.findIndex((o) => o.key === status);
+  const statusPrev = orderedStatuses[statusIdx - 1];
+  const statusNext = orderedStatuses[statusIdx + 1];
   const tops = categories.filter((c) => !c.parent_id);
   const catOptions = tops.flatMap((t) => [
     { id: t.id, label: t.name },
@@ -147,27 +150,6 @@ export default function IssueDetail({
     });
   }
 
-  function moveToDone() {
-    setError(null);
-    startTransition(async () => {
-      try {
-        await updateIssueAction(slug, issue.id, {
-          title: title.trim(),
-          description: description || null,
-          status: "done",
-          priority,
-          type,
-          categoryId: categoryId || null,
-          assigneeId: assigneeId || null,
-          customValues,
-        });
-        setStatus("done");
-        setSaved(true);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to update status");
-      }
-    });
-  }
 
   function moveStatus(newStatus: string) {
     setError(null);
@@ -234,6 +216,96 @@ export default function IssueDetail({
         className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-base font-medium outline-none focus:border-neutral-900 disabled:bg-neutral-50"
       />
 
+      {/* ═══ STATUS PIPELINE STEPPER ═══ */}
+      <div className="mt-4 rounded-xl border border-neutral-100 bg-neutral-50 p-4">
+        {/* Node row — flex with interleaved connectors */}
+        <div className="flex items-start">
+          {orderedStatuses.flatMap((s, i) => {
+            const position = i < statusIdx ? "done" : i === statusIdx ? "current" : "pending";
+            const isJumpable = !readOnly && !pending && position !== "current";
+            const connectorBg =
+              i === statusIdx ? "#2563EB" : i < statusIdx ? "#059669" : "#E5E7EB";
+
+            const connector = i > 0 ? (
+              <div
+                key={`conn-${s.key}`}
+                className="mt-[14px] h-px shrink-0"
+                style={{ flex: "0.4", background: connectorBg }}
+              />
+            ) : null;
+
+            const node = (
+              <div
+                key={s.key}
+                role={isJumpable ? "button" : undefined}
+                tabIndex={isJumpable ? 0 : undefined}
+                onClick={() => isJumpable && moveStatus(s.key)}
+                onKeyDown={(e) => { if (isJumpable && (e.key === "Enter" || e.key === " ")) moveStatus(s.key); }}
+                title={isJumpable ? `Move to "${s.label}"` : undefined}
+                className={[
+                  "flex min-w-0 flex-1 flex-col items-center gap-1.5",
+                  isJumpable ? "cursor-pointer" : "cursor-default",
+                ].join(" ")}
+              >
+                <div
+                  className={[
+                    "flex items-center justify-center rounded-full select-none",
+                    position === "done"
+                      ? "h-7 w-7 bg-emerald-600 text-white text-xs font-medium"
+                      : position === "current"
+                      ? "h-9 w-9 bg-blue-600 text-white text-xs font-bold ring-4 ring-blue-100"
+                      : isJumpable
+                      ? "h-7 w-7 border border-neutral-300 bg-white text-neutral-400 text-xs hover:border-neutral-400"
+                      : "h-7 w-7 border border-neutral-200 bg-white text-neutral-300 text-xs",
+                  ].join(" ")}
+                >
+                  {position === "done" ? "✓" : i + 1}
+                </div>
+                <span
+                  className={[
+                    "text-center text-[10px] leading-tight",
+                    position === "done"
+                      ? "font-medium text-emerald-700"
+                      : position === "current"
+                      ? "font-medium text-blue-600"
+                      : "text-neutral-400",
+                  ].join(" ")}
+                >
+                  {s.label}
+                </span>
+              </div>
+            );
+
+            return connector ? [connector, node] : [node];
+          })}
+        </div>
+
+        {/* Back / step count / Next */}
+        {!readOnly && (
+          <div className="mt-3.5 flex items-center justify-between border-t border-neutral-200 pt-3">
+            <button
+              type="button"
+              disabled={!statusPrev || pending}
+              onClick={() => statusPrev && moveStatus(statusPrev.key)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-600 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              ← {statusPrev ? `"${statusPrev.label}"` : ""}
+            </button>
+            <span className="text-[11px] text-neutral-400">
+              Step {statusIdx + 1} of {orderedStatuses.length}
+            </span>
+            <button
+              type="button"
+              disabled={!statusNext || pending}
+              onClick={() => statusNext && moveStatus(statusNext.key)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-30"
+            >
+              {statusNext ? `"${statusNext.label}"` : ""} →
+            </button>
+          </div>
+        )}
+      </div>
+
       <div className="mt-3 flex flex-wrap gap-2">
         <label className="flex flex-col gap-1 text-xs text-neutral-500">Assignee
           <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); setSaved(false); }} className={fieldCls}>
@@ -241,42 +313,6 @@ export default function IssueDetail({
             {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
           </select>
         </label>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-neutral-500">Status
-            <select value={status} disabled={readOnly} onChange={(e) => { setStatus(e.target.value); setSaved(false); }} className={`mt-1 ${fieldCls}`}>
-              {orderedStatuses.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-            </select>
-          </label>
-          {!readOnly && (() => {
-            const idx = orderedStatuses.findIndex((o) => o.key === status);
-            const prev = orderedStatuses[idx - 1];
-            const next = orderedStatuses[idx + 1];
-            if (!prev && !next) return null;
-            return (
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  disabled={!prev || pending}
-                  onClick={() => prev && moveStatus(prev.key)}
-                  title={prev ? `← ${prev.label}` : undefined}
-                  className="rounded px-2 py-0.5 text-xs text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
-                >
-                  ←
-                </button>
-                <span className="text-xs text-neutral-400">move</span>
-                <button
-                  type="button"
-                  disabled={!next || pending}
-                  onClick={() => next && moveStatus(next.key)}
-                  title={next ? `${next.label} →` : undefined}
-                  className="rounded px-2 py-0.5 text-xs text-neutral-500 hover:bg-neutral-100 disabled:opacity-30"
-                >
-                  →
-                </button>
-              </div>
-            );
-          })()}
-        </div>
         <label className="flex flex-col gap-1 text-xs text-neutral-500">Priority
           <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); setSaved(false); }} className={fieldCls}>
             {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
@@ -356,16 +392,7 @@ export default function IssueDetail({
             >
               {pending ? "Saving…" : "Save changes"}
             </button>
-            {status === "in_review" && (
-              <button
-                onClick={moveToDone}
-                disabled={pending}
-                className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-40"
-              >
-                Move to Done
-              </button>
-            )}
-          </div>
+            </div>
           {canDelete && (
             <button onClick={remove} disabled={pending} className="text-sm font-medium text-red-600 hover:underline disabled:opacity-40">
               Delete issue
