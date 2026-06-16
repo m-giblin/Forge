@@ -80,6 +80,7 @@ export default function NotificationBell({
               title: row.title as string,
               body: (row.body as string | null) ?? null,
               issueId: (row.issue_id as string | null) ?? null,
+              linkPath: (row.link_path as string | null) ?? null,
               readAt: null,
               createdAt: row.created_at as string,
             };
@@ -104,7 +105,11 @@ export default function NotificationBell({
 
   function handleNotificationClick(n: Notification) {
     setOpen(false);
-    if (n.issueId) router.push(`/${slug}/issues/${n.issueId}`);
+    if (n.linkPath) {
+      router.push(n.linkPath);
+    } else if (n.issueId) {
+      router.push(`/${slug}/issues/${n.issueId}`);
+    }
   }
 
   return (

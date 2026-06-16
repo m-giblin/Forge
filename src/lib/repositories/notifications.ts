@@ -8,6 +8,7 @@ export type Notification = {
   title: string;
   body: string | null;
   issueId: string | null;
+  linkPath: string | null;
   readAt: string | null;
   createdAt: string;
 };
@@ -21,6 +22,7 @@ export function notificationsRepo(supabase: SupabaseClient) {
       title: string;
       body?: string | null;
       issueId?: string | null;
+      linkPath?: string | null;
     }): Promise<Notification> {
       const { data, error } = await supabase
         .from("notifications")
@@ -31,8 +33,9 @@ export function notificationsRepo(supabase: SupabaseClient) {
           title: input.title,
           body: input.body ?? null,
           issue_id: input.issueId ?? null,
+          link_path: input.linkPath ?? null,
         })
-        .select("id, tenant_id, user_id, type, title, body, issue_id, read_at, created_at")
+        .select("id, tenant_id, user_id, type, title, body, issue_id, link_path, read_at, created_at")
         .single();
       if (error) throw error;
       return mapRow(data);
@@ -44,7 +47,7 @@ export function notificationsRepo(supabase: SupabaseClient) {
     ): Promise<Notification[]> {
       let q = supabase
         .from("notifications")
-        .select("id, tenant_id, user_id, type, title, body, issue_id, read_at, created_at")
+        .select("id, tenant_id, user_id, type, title, body, issue_id, link_path, read_at, created_at")
         .eq("user_id", userId);
       // Filters must come before transform methods (order/limit).
       if (!opts.includeRead) q = q.is("read_at", null);
@@ -94,6 +97,7 @@ function mapRow(r: Record<string, unknown>): Notification {
     title: r.title as string,
     body: (r.body as string | null) ?? null,
     issueId: (r.issue_id as string | null) ?? null,
+    linkPath: (r.link_path as string | null) ?? null,
     readAt: (r.read_at as string | null) ?? null,
     createdAt: r.created_at as string,
   };

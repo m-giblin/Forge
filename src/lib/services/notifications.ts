@@ -5,6 +5,8 @@ import { getTenantSettings } from "@/lib/tenantSettings";
 import { buildAssignmentEmail, type OpenTicket } from "@/lib/emailTemplate";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { notificationsRepo } from "@/lib/repositories/notifications";
+import { ideasRepo } from "@/lib/repositories/ideas";
+import { membersRepo } from "@/lib/repositories/members";
 
 async function getResendClient(): Promise<Resend | null> {
   const dbKey = await getSetting("resend_api_key");
@@ -123,4 +125,122 @@ export async function sendAssignedEmail(opts: {
     subject,
     html,
   });
+}
+
+// ---------------------------------------------------------------------------
+// Think Tank notifications — in-app only (no email in Phase 2)
+// ---------------------------------------------------------------------------
+
+/** Parse @name mentions from comment body. Returns lower-cased names. */
+function extractMentions(body: string): string[] {
+  const matches = body.match(/@([\w.-]+)/g) ?? [];
+  return matches.map((m) => m.slice(1).toLowerCase());
+}
+
+/**
+ * Fires after a new comment is posted on an idea.
+ * Notifies: idea creator + assignee (if different from commenter), plus any @mentions.
+ */
+export async function notifyIdeaComment(opts: {
+  tenantId: string;
+  slug: string;
+  ideaId: string;
+  ideaTitle: string;
+  authorId: string;
+  authorName: string | null;
+  commentBody: string;
+}): Promise<void> {
+  const supabase = createSupabaseServiceClient();
+  const repo = notificationsRepo(supabase);
+
+  const [idea, members] = await Promise.all([
+    ideasRepo(supabase).getById(opts.tenantId, opts.ideaId),
+    membersRepo(supabase).list(opts.tenantId),
+  ]);
+  if (!idea) return;
+
+  const notify = new Set<string>();
+  if (idea.created_by && idea.created_by !== opts.authorId) notify.add(idea.created_by);
+  if (idea.assigned_to && idea.assigned_to !== opts.authorId) notify.add(idea.assigned_to);
+
+  // @mention resolution — match against member names (case-insensitive)
+  const mentions = extractMentions(opts.commentBody);
+  if (mentions.length > 0) {
+    for (const m of members) {
+      const name = (m.name ?? m.email ?? "").toLowerCase();
+      if (mentions.some((mention) => name.includes(mention))) {
+        if (m.userId !== opts.authorId) notify.add(m.userId);
+      }
+    }
+  }
+
+  const linkPath = `/${opts.slug}/think-tank/${opts.ideaId}`;
+  const actorLabel = opts.authorName ?? "Someone";
+  const title = `💬 New comment on "${opts.ideaTitle}"`;
+  const body = `${actorLabel} commented`;
+
+  await Promise.all(
+    [...notify].map((userId) =>
+      repo.create({ tenantId: opts.tenantId, userId, type: "idea_comment", title, body, linkPath })
+        .catch((e) => console.error("idea_comment notification failed", e))
+    )
+  );
+}
+
+/**
+ * Fires when an idea's status changes.
+ * Notifies: idea creator (if not the one who changed it).
+ */
+export async function notifyIdeaStatusChange(opts: {
+  tenantId: string;
+  slug: string;
+  ideaId: string;
+  ideaTitle: string;
+  creatorId: string | null;
+  actorId: string;
+  actorName: string | null;
+  newStatus: string;
+}): Promise<void> {
+  if (!opts.creatorId || opts.creatorId === opts.actorId) return;
+  const supabase = createSupabaseServiceClient();
+  const linkPath = `/${opts.slug}/think-tank/${opts.ideaId}`;
+  await notificationsRepo(supabase)
+    .create({
+      tenantId: opts.tenantId,
+      userId: opts.creatorId,
+      type: "idea_status",
+      title: `📋 "${opts.ideaTitle}" moved to ${opts.newStatus}`,
+      body: `Updated by ${opts.actorName ?? "someone"}`,
+      linkPath,
+    })
+    .catch((e) => console.error("idea_status notification failed", e));
+}
+
+/**
+ * Fires when an idea is converted to a project.
+ * Notifies: idea creator (if not the converter).
+ */
+export async function notifyIdeaConverted(opts: {
+  tenantId: string;
+  slug: string;
+  ideaId: string;
+  ideaTitle: string;
+  creatorId: string | null;
+  actorId: string;
+  actorName: string | null;
+  projectKey: string;
+}): Promise<void> {
+  if (!opts.creatorId || opts.creatorId === opts.actorId) return;
+  const supabase = createSupabaseServiceClient();
+  const linkPath = `/${opts.slug}/projects/${opts.projectKey}`;
+  await notificationsRepo(supabase)
+    .create({
+      tenantId: opts.tenantId,
+      userId: opts.creatorId,
+      type: "idea_converted",
+      title: `🚀 "${opts.ideaTitle}" converted to project ${opts.projectKey}`,
+      body: `Converted by ${opts.actorName ?? "someone"}`,
+      linkPath,
+    })
+    .catch((e) => console.error("idea_converted notification failed", e));
 }

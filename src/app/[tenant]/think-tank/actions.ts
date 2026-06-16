@@ -9,6 +9,7 @@ import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo } from "@/l
 import { callSoundingBoard, AIRateLimitError, type IdeaContext, type ConversationTurn } from "@/lib/ai/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
+import { notifyIdeaComment, notifyIdeaStatusChange, notifyIdeaConverted } from "@/lib/services/notifications";
 
 /** Returns the new idea's ID so the client can navigate to it. */
 export async function createIdeaAction(
@@ -112,12 +113,26 @@ export async function addIdeaCommentAction(
   if (trimmed.length > 10000) throw new Error("Comment is too long.");
 
   const supabase = await createSupabaseServerClient();
-  await ideaCommentsRepo(supabase).add({
+  const [, idea] = await Promise.all([
+    ideaCommentsRepo(supabase).add({
+      tenantId: ctx.tenant.id,
+      ideaId,
+      authorId: ctx.appUserId,
+      body: trimmed,
+      parentId,
+    }),
+    ideasRepo(supabase).getById(ctx.tenant.id, ideaId),
+  ]);
+
+  // Fire-and-forget — don't block the response on notification delivery.
+  void notifyIdeaComment({
     tenantId: ctx.tenant.id,
+    slug,
     ideaId,
+    ideaTitle: idea?.title ?? "an idea",
     authorId: ctx.appUserId,
-    body: trimmed,
-    parentId,
+    authorName: null,
+    commentBody: trimmed,
   });
 
   revalidatePath(`/${slug}/think-tank/${ideaId}`);
@@ -330,6 +345,17 @@ export async function convertIdeaAction(
     metadata: { projectId: project.id, projectKey: project.key, title: idea.title },
   });
 
+  void notifyIdeaConverted({
+    tenantId: ctx.tenant.id,
+    slug,
+    ideaId,
+    ideaTitle: idea.title,
+    creatorId: idea.created_by,
+    actorId: ctx.appUserId,
+    actorName: null,
+    projectKey: project.key,
+  });
+
   revalidatePath(`/${slug}/think-tank/${ideaId}`);
   revalidatePath(`/${slug}/think-tank`);
   revalidatePath(`/${slug}/projects`);
@@ -370,6 +396,17 @@ export async function advanceStatusAction(slug: string, ideaId: string, newStatu
     action: "idea.status_change",
     target: ideaId,
     metadata: { from: idea.status, to: newStatus },
+  });
+
+  void notifyIdeaStatusChange({
+    tenantId: ctx.tenant.id,
+    slug,
+    ideaId,
+    ideaTitle: idea.title,
+    creatorId: idea.created_by,
+    actorId: ctx.appUserId,
+    actorName: null,
+    newStatus,
   });
 
   revalidatePath(`/${slug}/think-tank/${ideaId}`);
