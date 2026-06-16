@@ -11,6 +11,7 @@ import { callSoundingBoard, AIRateLimitError, type IdeaContext, type Conversatio
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
 import { notifyIdeaComment, notifyIdeaStatusChange, notifyIdeaConverted } from "@/lib/services/notifications";
+import { PILL_MAP } from "@/lib/ai/pills";
 
 /** Returns the new idea's ID so the client can navigate to it. */
 export async function createIdeaAction(
@@ -320,6 +321,21 @@ export async function soundingBoardAction(
     promptSent: result.promptSent,
     aiResponse: result.text,
     provider: result.provider,
+  });
+
+  // Audit so admins can see AI usage in the Activity log.
+  const pillLabels = pillIds
+    .map((id) => {
+      const p = PILL_MAP.get(id) ?? customPills.find((c) => c.id === id);
+      return p?.label ?? id;
+    })
+    .join(", ");
+  void recordAudit({
+    tenantId: ctx.tenant.id,
+    actorUserId: ctx.appUserId,
+    action: "idea.ai_turn",
+    target: pillLabels ? `${idea.title} · lenses: ${pillLabels}` : idea.title,
+    metadata: { ideaId, pills: pillIds, hasQuestion: !!(userInput.trim()) },
   });
 
   return { text: result.text };
