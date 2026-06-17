@@ -641,6 +641,84 @@ export function ideaDecisionsRepo(supabase: SupabaseClient) {
 }
 
 // ---------------------------------------------------------------------------
+// Sign-offs repo (Design C — cross-functional readiness)
+// ---------------------------------------------------------------------------
+
+export const SIGNOFF_ROLES = ["design", "product", "engineering"] as const;
+export type SignoffRole = (typeof SIGNOFF_ROLES)[number];
+
+export interface IdeaSignoff {
+  id: string;
+  ideaId: string;
+  role: SignoffRole;
+  approvedBy: string | null;
+  approvedByName: string | null;
+  note: string | null;
+  createdAt: string;
+}
+
+export function ideaSignoffsRepo(supabase: SupabaseClient) {
+  return {
+    async list(tenantId: string, ideaId: string): Promise<IdeaSignoff[]> {
+      const { data, error } = await supabase
+        .from("idea_signoffs")
+        .select("id, idea_id, role, approved_by, note, created_at, users:approved_by(name, email)")
+        .eq("tenant_id", tenantId)
+        .eq("idea_id", ideaId)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map((row) => {
+        const u = (Array.isArray(row.users) ? row.users[0] : row.users) as
+          | { name?: string | null; email?: string | null }
+          | null;
+        return {
+          id: row.id,
+          ideaId: row.idea_id,
+          role: row.role as SignoffRole,
+          approvedBy: row.approved_by,
+          approvedByName: u?.name ?? u?.email ?? null,
+          note: row.note,
+          createdAt: row.created_at,
+        };
+      });
+    },
+
+    /** Record (or move) a role's approval. Idempotent on (idea_id, role). */
+    async approve(input: {
+      tenantId: string;
+      ideaId: string;
+      role: SignoffRole;
+      approvedBy: string;
+      note: string | null;
+    }): Promise<void> {
+      const { error } = await supabase
+        .from("idea_signoffs")
+        .upsert(
+          {
+            tenant_id: input.tenantId,
+            idea_id: input.ideaId,
+            role: input.role,
+            approved_by: input.approvedBy,
+            note: input.note?.trim() || null,
+          },
+          { onConflict: "idea_id,role" }
+        );
+      if (error) throw error;
+    },
+
+    async revoke(tenantId: string, ideaId: string, role: SignoffRole): Promise<void> {
+      const { error } = await supabase
+        .from("idea_signoffs")
+        .delete()
+        .eq("tenant_id", tenantId)
+        .eq("idea_id", ideaId)
+        .eq("role", role);
+      if (error) throw error;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Tenant idea templates repo
 // ---------------------------------------------------------------------------
 

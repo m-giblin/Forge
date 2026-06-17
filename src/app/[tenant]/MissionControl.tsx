@@ -119,8 +119,9 @@ export default function MissionControl({ slug, data }: { slug: string; data: Mis
           <ThroughputBars data={data.throughput} />
         </div>
 
-        {/* Needs you (real) */}
-        <div className="bg-white rounded-xl border border-neutral-200 p-5">
+        {/* Needs you (real). self-start + capped scroll so a long list never
+            stretches the row and pushes the portfolio below the fold. */}
+        <div className="self-start bg-white rounded-xl border border-neutral-200 p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-semibold text-neutral-900">Needs you</h2>
             {data.attention.some((a) => a.urgent) && (
@@ -134,25 +135,33 @@ export default function MissionControl({ slug, data }: { slug: string; data: Mis
               🎉 You&rsquo;re all clear. Nothing needs your attention.
             </div>
           ) : (
-            <div className="space-y-2.5">
-              {data.attention.map((a) => {
-                const t = TAG_STYLE[a.tag];
-                return (
-                  <Link
-                    key={a.issueId}
-                    href={`/${slug}/issues/${a.issueId}`}
-                    className="block p-2.5 rounded-lg border border-neutral-200 bg-white transition hover:shadow-sm hover:border-neutral-300"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${t.cls}`}>{t.label}</span>
-                      <span className="text-[11px] font-mono text-neutral-400">{a.ref}</span>
-                    </div>
-                    <p className="text-sm font-medium text-neutral-900 mt-1.5 leading-snug">{a.title}</p>
-                    <p className="text-xs text-neutral-500 mt-0.5">{a.meta}</p>
-                  </Link>
-                );
-              })}
-            </div>
+            <>
+              <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+                {data.attention.map((a) => {
+                  const t = TAG_STYLE[a.tag];
+                  return (
+                    <Link
+                      key={a.issueId}
+                      href={`/${slug}/issues/${a.issueId}`}
+                      className="block p-2.5 rounded-lg border border-neutral-200 bg-white transition hover:shadow-sm hover:border-neutral-300"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${t.cls}`}>{t.label}</span>
+                        <span className="text-[11px] font-mono text-neutral-400">{a.ref}</span>
+                      </div>
+                      <p className="text-sm font-medium text-neutral-900 mt-1.5 leading-snug">{a.title}</p>
+                      <p className="text-xs text-neutral-500 mt-0.5">{a.meta}</p>
+                    </Link>
+                  );
+                })}
+              </div>
+              <Link
+                href={`/${slug}/issues`}
+                className="mt-3 block text-center text-xs font-medium text-neutral-600 hover:text-neutral-900"
+              >
+                View all in Issues →
+              </Link>
+            </>
           )}
         </div>
       </div>

@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from "react";
 import { updateIdeaAction, advanceStatusAction, convertIdeaAction } from "../actions";
-import type { IdeaRow, IdeaComment, IdeaAiTurn, IdeaDecision } from "@/lib/repositories/ideas";
+import type { IdeaRow, IdeaComment, IdeaAiTurn, IdeaDecision, IdeaSignoff } from "@/lib/repositories/ideas";
+import { SIGNOFF_ROLES } from "@/lib/repositories/ideas";
 import type { Pill } from "@/lib/ai/pills";
 import IdeaComments from "./IdeaComments";
 import SoundingBoard from "./SoundingBoard";
 import IdeaDecisions from "./IdeaDecisions";
+import IdeaSignoffs from "./IdeaSignoffs";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -38,9 +40,10 @@ interface Props {
   linkedProjectKey: string | null;
   customPills: Pill[];
   decisions: IdeaDecision[];
+  signoffs: IdeaSignoff[];
 }
 
-export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey, customPills, decisions }: Props) {
+export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey, customPills, decisions, signoffs }: Props) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +56,8 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
   const isTerminal = idea.status === "converted" || idea.status === "archived";
   const daysSinceUpdate = (new Date().getTime() - new Date(idea.updated_at).getTime()) / 86_400_000;
   const activeCommentCount = comments.filter((c) => !c.isDeleted).length;
+  const approvedSignoffs = signoffs.length;
+  const signoffsComplete = approvedSignoffs >= SIGNOFF_ROLES.length;
 
   // Maturity hint — computed from available props
   const maturityHint = (() => {
@@ -175,6 +180,15 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         <div className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</div>
       )}
 
+      {/* Decision-driven pipeline (Design C) */}
+      <PipelineStepper
+        status={idea.status}
+        hasDiscussion={activeCommentCount > 0}
+        hasDecisions={decisions.length > 0}
+        approvedSignoffs={approvedSignoffs}
+        totalSignoffs={SIGNOFF_ROLES.length}
+      />
+
       {/* Edit form */}
       {editing ? (
         <form onSubmit={handleEdit} className="mb-6 space-y-4 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
@@ -258,6 +272,12 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
       {!isTerminal && (nextOptions.length > 0 || idea.status === "ready") && (
         <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">Move idea forward</p>
+          {(idea.status === "maturing" || idea.status === "ready") && !signoffsComplete && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              {approvedSignoffs} of {SIGNOFF_ROLES.length} sign-offs collected
+              {decisions.length === 0 && " · no decisions logged yet"} — you can still proceed, but alignment isn&apos;t complete.
+            </div>
+          )}
           <div className="flex flex-wrap gap-2">
             {idea.status === "ready" && (
               <button
@@ -377,6 +397,13 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         isAdmin={isAdmin}
       />
 
+      <IdeaSignoffs
+        slug={slug}
+        ideaId={idea.id}
+        signoffs={signoffs}
+        canSign={!isViewer && !isTerminal}
+      />
+
       <IdeaComments
         slug={slug}
         ideaId={idea.id}
@@ -384,6 +411,70 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         isAdmin={isAdmin}
         initialComments={comments}
       />
+    </div>
+  );
+}
+
+// The decision-driven flow, made visible: Discuss → Decide → Sign off → Ready
+// → Converted. Each step shows done (✓), active (ring), or pending.
+function PipelineStepper({
+  status,
+  hasDiscussion,
+  hasDecisions,
+  approvedSignoffs,
+  totalSignoffs,
+}: {
+  status: string;
+  hasDiscussion: boolean;
+  hasDecisions: boolean;
+  approvedSignoffs: number;
+  totalSignoffs: number;
+}) {
+  const isReady = status === "ready" || status === "converted";
+  const isConverted = status === "converted";
+  const terminal = isConverted || status === "archived";
+  const signoffsComplete = approvedSignoffs >= totalSignoffs;
+
+  // A converted idea reached the end — show the whole journey complete.
+  const steps = [
+    { key: "discuss", label: "Discuss", done: hasDiscussion || isConverted },
+    { key: "decide", label: "Decide", done: hasDecisions || isConverted },
+    { key: "signoff", label: "Sign off", done: signoffsComplete || isConverted, note: `${approvedSignoffs}/${totalSignoffs}` },
+    { key: "ready", label: "Ready", done: isReady },
+    { key: "converted", label: "Converted", done: isConverted },
+  ];
+  // First not-done step is "active" — but a terminal idea has no current step.
+  const activeIdx = terminal ? -1 : steps.findIndex((s) => !s.done);
+
+  return (
+    <div className="mb-6 flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-sm">
+      {steps.map((s, i) => {
+        const active = i === activeIdx;
+        return (
+          <div key={s.key} className="flex flex-1 items-center last:flex-none">
+            <div className="flex flex-col items-center">
+              <div
+                className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                  s.done
+                    ? "bg-green-600 text-white"
+                    : active
+                    ? "border-2 border-neutral-900 text-neutral-900"
+                    : "border border-neutral-300 text-neutral-400"
+                }`}
+              >
+                {s.done ? "✓" : i + 1}
+              </div>
+              <span className={`mt-1 text-[11px] ${active ? "font-semibold text-neutral-900" : "text-neutral-500"}`}>
+                {s.label}
+              </span>
+              {s.note && !s.done && <span className="text-[10px] text-neutral-400">{s.note}</span>}
+            </div>
+            {i < steps.length - 1 && (
+              <div className={`mx-2 h-0.5 flex-1 ${s.done ? "bg-green-500" : "bg-neutral-200"}`} />
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
