@@ -4,7 +4,7 @@
 import { useState } from "react";
 
 export default function DesignPage() {
-  const [activeDesign, setActiveDesign] = useState<"c" | "d" | "e" | "f">("e");
+  const [activeDesign, setActiveDesign] = useState<"c" | "d" | "e" | "f" | "g">("g");
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -16,6 +16,7 @@ export default function DesignPage() {
         </div>
         <div className="flex gap-2">
           {[
+            { id: "g" as const, label: "G: Project Portal" },
             { id: "e" as const, label: "E: Mission Control" },
             { id: "f" as const, label: "F: Delivery Intel" },
             { id: "c" as const, label: "C: Decision-Driven" },
@@ -38,6 +39,7 @@ export default function DesignPage() {
 
       {/* Content */}
       <div className="p-6">
+        {activeDesign === "g" && <DesignG />}
         {activeDesign === "e" && <DesignE />}
         {activeDesign === "f" && <DesignF />}
         {activeDesign === "c" && <DesignC />}
@@ -1141,6 +1143,297 @@ function DesignF() {
       )}
 
       <p className="text-sm text-neutral-500 text-center">Switch tabs: Forecast · Flow &amp; Speed · Investment</p>
+    </div>
+  );
+}
+
+/* ============================================================
+   DESIGN G — PROJECT PORTAL (the single-project "where are we" home)
+   ============================================================ */
+
+function StatusBattery({ segments }: { segments: { label: string; count: number; color: string }[] }) {
+  const total = segments.reduce((s, x) => s + x.count, 0) || 1;
+  return (
+    <div>
+      <div className="flex h-4 w-full overflow-hidden rounded-full bg-neutral-100">
+        {segments.map((s) => (
+          <div key={s.label} className={s.color} style={{ width: `${(s.count / total) * 100}%` }} title={`${s.label}: ${s.count}`} />
+        ))}
+      </div>
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+        {segments.map((s) => (
+          <div key={s.label} className="flex items-center gap-1.5">
+            <span className={`h-2.5 w-2.5 rounded-sm ${s.color}`} />
+            <span className="text-xs text-neutral-600">{s.label} <span className="font-semibold text-neutral-900">{s.count}</span></span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function DesignG() {
+  const [mode, setMode] = useState<"active" | "new">("active");
+  const isNew = mode === "new";
+
+  const battery = [
+    { label: "Backlog", count: 14, color: "bg-neutral-300" },
+    { label: "Todo", count: 8, color: "bg-sky-400" },
+    { label: "In progress", count: 5, color: "bg-indigo-500" },
+    { label: "In review", count: 2, color: "bg-amber-400" },
+    { label: "Done", count: 18, color: "bg-emerald-500" },
+  ];
+  const total = battery.reduce((s, x) => s + x.count, 0);
+  const done = battery.find((b) => b.label === "Done")!.count;
+  const pct = Math.round((done / total) * 100);
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-5">
+      {/* Mode toggle (prototype only) */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-neutral-400">
+          <span className="hover:text-neutral-600">Projects</span>
+          <span>/</span>
+          <span className="font-mono text-neutral-500">PER</span>
+        </div>
+        <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-1">
+          {(["active", "new"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition ${
+                mode === m ? "bg-neutral-900 text-white" : "text-neutral-600 hover:text-neutral-900"
+              }`}
+            >
+              {m === "active" ? "Active project" : "New project"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Header */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">PER</span>
+            {isNew ? (
+              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-500">Not started</span>
+            ) : (
+              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">● At risk</span>
+            )}
+            {isNew ? (
+              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-500">Set a go-live date</span>
+            ) : (
+              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">Go-live in 42d</span>
+            )}
+          </div>
+          <h1 className="mt-2 text-2xl font-bold text-neutral-900">Personal Finance SaaS App</h1>
+          <p className="mt-1 text-sm text-neutral-500">Owner: Matt Giblin · 4 members</p>
+        </div>
+        <button className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">Open board →</button>
+      </div>
+
+      {isNew ? (
+        /* ---------- NEW PROJECT: guided setup, no dead zeros ---------- */
+        <>
+          <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-5">
+            <p className="text-sm font-semibold text-indigo-800">Let&rsquo;s set this project up</p>
+            <p className="mt-1 text-sm text-neutral-600">A few steps to get from idea to in-flight. Each one unlocks the live dashboard.</p>
+            <div className="mt-4 space-y-2">
+              {[
+                { done: true, label: "Linked from Think Tank decision", sub: "Origin + decisions carried over automatically" },
+                { done: false, label: "Add the first issue", sub: "Break the work into trackable pieces" },
+                { done: false, label: "Set a go-live date", sub: "Drives the countdown + burnup projection" },
+                { done: false, label: "Post the first status update", sub: "Sets the health and tells the team where we are" },
+                { done: false, label: "Invite the team", sub: "Assign a lead and contributors" },
+              ].map((s) => (
+                <div key={s.label} className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3">
+                  <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${s.done ? "bg-emerald-500 text-white" : "border border-neutral-300 text-neutral-400"}`}>
+                    {s.done ? "✓" : "+"}
+                  </span>
+                  <div className="flex-1">
+                    <p className={`text-sm font-medium ${s.done ? "text-neutral-400 line-through" : "text-neutral-900"}`}>{s.label}</p>
+                    <p className="text-xs text-neutral-500">{s.sub}</p>
+                  </div>
+                  {!s.done && <button className="rounded-md bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-neutral-800">Do it</button>}
+                </div>
+              ))}
+            </div>
+          </div>
+          <ProvenancePanel />
+        </>
+      ) : (
+        /* ---------- ACTIVE PROJECT: the live portal ---------- */
+        <>
+          {/* What needs attention — explainable risk */}
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 flex items-start gap-3">
+            <span className="text-xl">⚠️</span>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-900">This project needs attention</p>
+              <p className="text-sm text-amber-800">3 issues overdue · 38% done with go-live 42 days out (behind pace) · no status update in 9 days. Forecast: <strong>~8 days late</strong> at current velocity.</p>
+            </div>
+            <button className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700">Post update</button>
+          </div>
+
+          <div className="grid grid-cols-3 gap-5">
+            {/* Left column */}
+            <div className="col-span-2 space-y-5">
+              {/* Latest status update (pinned) */}
+              <div className="rounded-xl border border-neutral-200 bg-white p-5">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-semibold text-neutral-900">Latest update</h3>
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">AT RISK</span>
+                  </div>
+                  <button className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100">✦ Draft with AI</button>
+                </div>
+                <p className="text-sm text-neutral-700">
+                  <strong>TL;DR:</strong> Core ledger + auth shipped; budgeting module is the long pole. Review queue is backing up — 2 PRs waiting. We&rsquo;ll likely slip ~1 week unless we pull in a reviewer.
+                </p>
+                <p className="mt-2 text-xs text-neutral-400">Matt Giblin · 9 days ago</p>
+              </div>
+
+              {/* Progress battery */}
+              <div className="rounded-xl border border-neutral-200 bg-white p-5">
+                <div className="mb-3 flex items-center justify-between">
+                  <h3 className="font-semibold text-neutral-900">Progress</h3>
+                  <span className="text-sm text-neutral-500"><strong className="text-neutral-900">{done}</strong> of {total} done · {pct}%</span>
+                </div>
+                <StatusBattery segments={battery} />
+              </div>
+
+              {/* Burnup */}
+              <div className="rounded-xl border border-neutral-200 bg-white p-5">
+                <div className="mb-1 flex items-center justify-between">
+                  <h3 className="font-semibold text-neutral-900">Burnup to go-live</h3>
+                  <span className="text-xs text-neutral-500">scope vs completed · projection</span>
+                </div>
+                <p className="mb-3 text-sm text-neutral-500">Dotted line projects completion from current velocity; it lands past the target — hence &ldquo;at risk.&rdquo;</p>
+                <BurnupChart />
+              </div>
+            </div>
+
+            {/* Right column */}
+            <div className="space-y-5">
+              {/* Go-live countdown + track */}
+              <div className="rounded-xl border border-neutral-200 bg-white p-5">
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Go-live</p>
+                <p className="mt-1 text-3xl font-bold text-neutral-900">42 <span className="text-base font-normal text-neutral-500">days</span></p>
+                <div className="mt-4 h-1.5 rounded-full bg-neutral-100">
+                  <div className="h-full rounded-full bg-indigo-500" style={{ width: "55%" }} />
+                </div>
+                <div className="mt-1.5 flex justify-between text-[11px] text-neutral-400">
+                  <span>May 1 · start</span>
+                  <span>Aug 28 · go-live</span>
+                </div>
+              </div>
+
+              {/* Team */}
+              <div className="rounded-xl border border-neutral-200 bg-white p-5">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">Team</p>
+                <div className="space-y-2.5">
+                  {[
+                    { n: "Matt Giblin", r: "Lead" },
+                    { n: "Sarah Kim", r: "Design" },
+                    { n: "Alex Chen", r: "Engineering" },
+                    { n: "Jordan Lee", r: "Product" },
+                  ].map((p) => (
+                    <div key={p.n} className="flex items-center gap-2.5">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-xs font-semibold text-neutral-600">{p.n.split(" ").map((x) => x[0]).join("")}</span>
+                      <span className="text-sm text-neutral-700">{p.n}</span>
+                      <span className="ml-auto text-xs text-neutral-400">{p.r}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <ProvenancePanel />
+
+          {/* Project brief */}
+          <div className="rounded-xl border border-neutral-200 bg-white p-5">
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="font-semibold text-neutral-900">Project brief</h3>
+              <button className="text-xs font-medium text-neutral-500 hover:text-neutral-900">Edit</button>
+            </div>
+            <p className="text-sm text-neutral-600 leading-relaxed">
+              A personal-finance companion: connect accounts, auto-categorize spend, and surface a weekly money story. v1 scope is ledger + budgeting + insights; bank sync is fast-follow. Success = a user can see &ldquo;where did my money go&rdquo; in under 10 seconds.
+            </p>
+          </div>
+
+          {/* Recent activity */}
+          <div className="rounded-xl border border-neutral-200 bg-white p-5">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">Recent activity</p>
+            <div className="space-y-2.5 text-sm">
+              {[
+                { who: "Alex Chen", what: "moved PER-31 to In review", when: "2h ago" },
+                { who: "Sarah Kim", what: "completed PER-28 · Budget category chips", when: "5h ago" },
+                { who: "Jordan Lee", what: "commented on PER-33", when: "yesterday" },
+                { who: "Matt Giblin", what: "created PER-34 · Weekly money story email", when: "2d ago" },
+              ].map((a, i) => (
+                <div key={i} className="flex items-center gap-2 text-neutral-600">
+                  <span className="h-1.5 w-1.5 rounded-full bg-neutral-300" />
+                  <span><strong className="text-neutral-800">{a.who}</strong> {a.what}</span>
+                  <span className="ml-auto text-xs text-neutral-400">{a.when}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      <p className="text-center text-sm text-neutral-500">Toggle Active / New project to see the live portal vs the guided empty state</p>
+    </div>
+  );
+}
+
+/* The differentiator: why this project exists — origin, decisions, sign-offs,
+   carried forward from Think Tank onto the project home. */
+function ProvenancePanel() {
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-5">
+      <div className="mb-1 flex items-center gap-2">
+        <h3 className="font-semibold text-neutral-900">Why this project exists</h3>
+        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700">PROVENANCE</span>
+      </div>
+      <p className="mb-4 text-sm text-neutral-500">The origin, decisions, and sign-offs that led here — carried from Think Tank so the &ldquo;why&rdquo; never gets lost.</p>
+
+      <div className="grid grid-cols-3 gap-4">
+        {/* Origin */}
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Origin</p>
+          <p className="mt-2 text-sm font-medium text-neutral-900">💡 Personal finance for real people</p>
+          <p className="mt-1 text-xs text-neutral-500">Raised by Jordan Lee · discussed 3 weeks · converted Jun 2</p>
+          <button className="mt-2 text-xs font-medium text-indigo-600 hover:underline">View in Think Tank →</button>
+        </div>
+
+        {/* Decisions */}
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Decisions</p>
+          <ul className="mt-2 space-y-2">
+            <li className="text-sm text-neutral-700">✅ <strong>Scope v1 to ledger + budgeting</strong><span className="block text-xs text-neutral-500">bank sync deferred — too much compliance for v1</span></li>
+            <li className="text-sm text-neutral-700">✅ <strong>Estimated costs, not live booking</strong><span className="block text-xs text-neutral-500">matches the AI-planner model</span></li>
+          </ul>
+        </div>
+
+        {/* Sign-offs */}
+        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Sign-offs</p>
+          <div className="mt-2 space-y-1.5">
+            {[
+              { r: "🎨 Design", who: "Sarah Kim" },
+              { r: "📊 Product", who: "Jordan Lee" },
+              { r: "⚙️ Engineering", who: "Alex Chen" },
+            ].map((s) => (
+              <div key={s.r} className="flex items-center justify-between text-sm">
+                <span className="text-neutral-700">{s.r}</span>
+                <span className="text-xs font-semibold text-green-700">✓ {s.who}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
