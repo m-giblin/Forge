@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { projectsRepo } from "@/lib/repositories/projects";
+import { projectsRepo, projectSpendRepo, type ProjectSpend } from "@/lib/repositories/projects";
 import { issuesRepo } from "@/lib/repositories/issues";
 import { projectMembersRepo } from "@/lib/repositories/projectMembers";
 import {
@@ -262,4 +262,38 @@ function relTime(iso: string): string {
   if (d < 1) return `${Math.round(d * 24)}h ago`;
   if (d < 2) return "yesterday";
   return `${Math.round(d)}d ago`;
+}
+
+// ---------------------------------------------------------------------------
+// Costs tab data — simple budget + spend
+// ---------------------------------------------------------------------------
+
+export type ProjectCostsData = {
+  projectId: string;
+  budgetCents: number | null;
+  spentCents: number;
+  remainingCents: number;
+  pct: number;
+  entries: ProjectSpend[];
+};
+
+export async function loadProjectCosts(input: {
+  tenantId: string;
+  projectKey: string;
+  impersonating: boolean;
+}): Promise<ProjectCostsData | null> {
+  const supabase = input.impersonating
+    ? createSupabaseServiceClient()
+    : await createSupabaseServerClient();
+
+  const project = await projectsRepo(supabase).getByKey(input.tenantId, input.projectKey);
+  if (!project) return null;
+
+  const entries = await projectSpendRepo(supabase).list(input.tenantId, project.id);
+  const spentCents = entries.reduce((s, e) => s + e.amountCents, 0);
+  const budgetCents = project.budget_cents;
+  const remainingCents = budgetCents != null ? budgetCents - spentCents : 0;
+  const pct = budgetCents && budgetCents > 0 ? Math.round((spentCents / budgetCents) * 100) : 0;
+
+  return { projectId: project.id, budgetCents, spentCents, remainingCents, pct, entries };
 }

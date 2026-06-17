@@ -10,10 +10,11 @@ export type Project = {
   start_date: string | null;
   target_go_live: string | null;
   linked_idea_id: string | null;
+  budget_cents: number | null;
   created_at?: string;
 };
 
-const COLS = "id, key, name, lead_user_id, start_date, target_go_live, linked_idea_id, created_at";
+const COLS = "id, key, name, lead_user_id, start_date, target_go_live, linked_idea_id, budget_cents, created_at";
 
 export type CreateProjectInput = {
   tenant_id: string;
@@ -90,6 +91,8 @@ export function projectsRepo(supabase: SupabaseClient) {
         lead_user_id: row.lead_user_id,
         start_date: row.start_date,
         target_go_live: row.target_go_live,
+        linked_idea_id: row.linked_idea_id,
+        budget_cents: row.budget_cents,
         created_at: row.created_at,
       })) as Project[];
     },
@@ -117,6 +120,76 @@ export function projectsRepo(supabase: SupabaseClient) {
         .update({ linked_idea_id: ideaId })
         .eq("tenant_id", tenantId)
         .eq("id", projectId);
+      if (error) throw error;
+    },
+
+    async setBudget(tenantId: string, projectId: string, budgetCents: number | null): Promise<void> {
+      const { error } = await supabase
+        .from("projects")
+        .update({ budget_cents: budgetCents })
+        .eq("tenant_id", tenantId)
+        .eq("id", projectId);
+      if (error) throw error;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Project spend repo (Costs tab) — simple budget + spend, money in integer cents
+// ---------------------------------------------------------------------------
+
+export type ProjectSpend = {
+  id: string;
+  item: string;
+  category: string | null;
+  amountCents: number;
+  spentOn: string;
+  createdAt: string;
+};
+
+export function projectSpendRepo(supabase: SupabaseClient) {
+  return {
+    async list(tenantId: string, projectId: string): Promise<ProjectSpend[]> {
+      const { data, error } = await supabase
+        .from("project_spend")
+        .select("id, item, category, amount_cents, spent_on, created_at")
+        .eq("tenant_id", tenantId)
+        .eq("project_id", projectId)
+        .order("spent_on", { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map((r) => ({
+        id: r.id,
+        item: r.item,
+        category: r.category,
+        amountCents: r.amount_cents,
+        spentOn: r.spent_on,
+        createdAt: r.created_at,
+      }));
+    },
+
+    async add(input: {
+      tenantId: string;
+      projectId: string;
+      item: string;
+      category: string | null;
+      amountCents: number;
+      spentOn: string | null;
+      createdBy: string;
+    }): Promise<void> {
+      const { error } = await supabase.from("project_spend").insert({
+        tenant_id: input.tenantId,
+        project_id: input.projectId,
+        item: input.item,
+        category: input.category,
+        amount_cents: input.amountCents,
+        spent_on: input.spentOn || undefined,
+        created_by: input.createdBy,
+      });
+      if (error) throw error;
+    },
+
+    async remove(tenantId: string, id: string): Promise<void> {
+      const { error } = await supabase.from("project_spend").delete().eq("tenant_id", tenantId).eq("id", id);
       if (error) throw error;
     },
   };

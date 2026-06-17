@@ -4,8 +4,9 @@ import { getTenantContext } from "@/lib/auth";
 import { projectWikiPagesRepo } from "@/lib/repositories/projects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { loadProjectPortal, type Health } from "@/lib/services/projectPortal";
+import { loadProjectPortal, loadProjectCosts, type Health } from "@/lib/services/projectPortal";
 import ProjectOverview from "./ProjectOverview";
+import CostsTab from "./CostsTab";
 
 const HEALTH_META: Record<Health, { label: string; cls: string; dot: string }> = {
   on_track: { label: "On track", cls: "bg-emerald-100 text-emerald-700", dot: "●" },
@@ -102,15 +103,27 @@ export default async function ProjectDetailPage({
           needs="Needs start/due dates on issues (migration 0030)."
         />
       )}
-      {tab === "costs" && (
-        <ComingSoon
-          title="Costs"
-          body="Simple budget vs. spend — set a project budget, log spend as it happens, and watch the burn toward go-live."
-          needs="Needs a project budget + spend table (migration 0031)."
-        />
-      )}
+      {tab === "costs" && <CostsTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} canEdit={canEdit} />}
     </div>
   );
+}
+
+async function CostsTabPanel({
+  slug,
+  projectKey,
+  tenantId,
+  impersonating,
+  canEdit,
+}: {
+  slug: string;
+  projectKey: string;
+  tenantId: string;
+  impersonating: boolean;
+  canEdit: boolean;
+}) {
+  const costs = await loadProjectCosts({ tenantId, projectKey, impersonating });
+  if (!costs) return null;
+  return <CostsTab slug={slug} projectKey={projectKey} data={costs} canEdit={canEdit} />;
 }
 
 function ComingSoon({ title, body, needs }: { title: string; body: string; needs: string }) {
