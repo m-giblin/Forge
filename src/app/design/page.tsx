@@ -1174,6 +1174,7 @@ function StatusBattery({ segments }: { segments: { label: string; count: number;
 
 function DesignG() {
   const [mode, setMode] = useState<"active" | "new">("active");
+  const [tab, setTab] = useState<"overview" | "board" | "timeline" | "costs">("overview");
   const isNew = mode === "new";
 
   const battery = [
@@ -1233,7 +1234,29 @@ function DesignG() {
         <button className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">Open board →</button>
       </div>
 
-      {isNew ? (
+      {/* Tab bar — the project's work surfaces */}
+      <div className="flex gap-1 border-b border-neutral-200">
+        {([
+          { id: "overview", label: "Overview" },
+          { id: "board", label: "Board" },
+          { id: "timeline", label: "Timeline" },
+          { id: "costs", label: "Costs" },
+        ] as const).map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
+              tab === t.id
+                ? "border-neutral-900 text-neutral-900"
+                : "border-transparent text-neutral-500 hover:text-neutral-800"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "overview" && (isNew ? (
         /* ---------- NEW PROJECT: guided setup, no dead zeros ---------- */
         <>
           <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-5">
@@ -1381,9 +1404,15 @@ function DesignG() {
             </div>
           </div>
         </>
-      )}
+      ))}
 
-      <p className="text-center text-sm text-neutral-500">Toggle Active / New project to see the live portal vs the guided empty state</p>
+      {tab === "board" && <BoardTab />}
+      {tab === "timeline" && <TimelineTab />}
+      {tab === "costs" && <CostsTab />}
+
+      <p className="text-center text-sm text-neutral-500">
+        Tabs are the project&rsquo;s work surfaces: <strong>Overview</strong> (status) · <strong>Board</strong> (do the work) · <strong>Timeline</strong> (schedule) · <strong>Costs</strong> (budget). Active/New toggle affects Overview.
+      </p>
     </div>
   );
 }
@@ -1433,6 +1462,184 @@ function ProvenancePanel() {
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* Board tab — the work surface that already exists in Forge today. */
+function BoardTab() {
+  const cols = [
+    { name: "Backlog", color: "bg-neutral-300", cards: ["PER-40 · Recurring transactions", "PER-41 · CSV import"] },
+    { name: "Todo", color: "bg-sky-400", cards: ["PER-35 · Budget alerts", "PER-36 · Category rules"] },
+    { name: "In progress", color: "bg-indigo-500", cards: ["PER-31 · Spending insights", "PER-33 · Net-worth tile"] },
+    { name: "In review", color: "bg-amber-400", cards: ["PER-29 · Ledger pagination"] },
+    { name: "Done", color: "bg-emerald-500", cards: ["PER-28 · Category chips", "PER-22 · Auth"] },
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
+        <strong className="text-neutral-900">This is where you do the work.</strong> Create issues, assign them, and drag cards across columns as you build. This board already exists in Forge — the Overview tab is just the live rollup of what happens here.
+      </div>
+      <div className="grid grid-cols-5 gap-3">
+        {cols.map((c) => (
+          <div key={c.name} className="rounded-xl border border-neutral-200 bg-white p-3">
+            <div className="mb-3 flex items-center gap-2">
+              <span className={`h-2.5 w-2.5 rounded-sm ${c.color}`} />
+              <span className="text-xs font-semibold text-neutral-700">{c.name}</span>
+              <span className="ml-auto text-xs text-neutral-400">{c.cards.length}</span>
+            </div>
+            <div className="space-y-2">
+              {c.cards.map((t) => (
+                <div key={t} className="rounded-lg border border-neutral-200 bg-white p-2.5 text-xs text-neutral-700 shadow-sm">{t}</div>
+              ))}
+              <button className="w-full rounded-lg border border-dashed border-neutral-300 py-1.5 text-xs text-neutral-400 hover:text-neutral-600">+ Add</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">Open full board →</button>
+    </div>
+  );
+}
+
+/* Timeline tab — lightweight: issues on a track by start/due, color by status. */
+function TimelineTab() {
+  const weeks = ["May 1", "", "May 15", "", "Jun 1", "", "Jun 15", "", "Jul 1", ""];
+  const todayPct = 42;
+  const goLivePct = 86;
+  const rows = [
+    { ref: "PER-22 · Auth", start: 0, end: 18, color: "bg-emerald-500" },
+    { ref: "PER-28 · Category chips", start: 8, end: 30, color: "bg-emerald-500" },
+    { ref: "PER-31 · Spending insights", start: 24, end: 52, color: "bg-indigo-500" },
+    { ref: "PER-33 · Net-worth tile", start: 30, end: 58, color: "bg-indigo-500" },
+    { ref: "PER-29 · Ledger pagination", start: 38, end: 50, color: "bg-amber-400" },
+    { ref: "PER-35 · Budget alerts", start: 52, end: 74, color: "bg-sky-400" },
+    { ref: "PER-40 · Recurring txns", start: 64, end: 86, color: "bg-neutral-300" },
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
+        <strong className="text-neutral-900">Lightweight timeline.</strong> Each bar is an issue on a track by its start/due date, colored by status. No dependency arrows or critical paths — just &ldquo;what&rsquo;s happening when,&rdquo; the way a small team actually needs it. <span className="text-neutral-400">(Requires adding start/due dates to issues.)</span>
+      </div>
+      <div className="rounded-xl border border-neutral-200 bg-white p-5">
+        {/* Week axis */}
+        <div className="ml-44 flex text-[11px] text-neutral-400">
+          {weeks.map((w, i) => (
+            <div key={i} className="flex-1">{w}</div>
+          ))}
+        </div>
+        {/* Rows */}
+        <div className="relative mt-2">
+          {/* today + go-live verticals */}
+          <div className="pointer-events-none absolute inset-y-0 left-44 right-0">
+            <div className="absolute inset-y-0 w-px bg-indigo-400" style={{ left: `${todayPct}%` }} />
+            <div className="absolute -top-4 text-[10px] font-medium text-indigo-500" style={{ left: `${todayPct}%` }}>today</div>
+            <div className="absolute inset-y-0 w-px bg-red-400" style={{ left: `${goLivePct}%` }} />
+            <div className="absolute -top-4 -translate-x-full text-[10px] font-medium text-red-500" style={{ left: `${goLivePct}%` }}>go-live</div>
+          </div>
+          <div className="space-y-2">
+            {rows.map((r) => (
+              <div key={r.ref} className="flex items-center">
+                <div className="w-44 shrink-0 truncate pr-3 text-xs text-neutral-600">{r.ref}</div>
+                <div className="relative h-6 flex-1 rounded bg-neutral-50">
+                  <div
+                    className={`absolute top-1 h-4 rounded ${r.color}`}
+                    style={{ left: `${r.start}%`, width: `${r.end - r.start}%` }}
+                    title={r.ref}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+        {/* legend */}
+        <div className="ml-44 mt-4 flex flex-wrap gap-x-4 gap-y-1">
+          {[
+            { l: "Backlog", c: "bg-neutral-300" },
+            { l: "Todo", c: "bg-sky-400" },
+            { l: "In progress", c: "bg-indigo-500" },
+            { l: "In review", c: "bg-amber-400" },
+            { l: "Done", c: "bg-emerald-500" },
+          ].map((x) => (
+            <div key={x.l} className="flex items-center gap-1.5">
+              <span className={`h-2.5 w-2.5 rounded-sm ${x.c}`} />
+              <span className="text-xs text-neutral-600">{x.l}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* Costs tab — simple budget + spend with a burn bar. */
+function CostsTab() {
+  const budget = 48000;
+  const spent = 31200;
+  const remaining = budget - spent;
+  const pct = Math.round((spent / budget) * 100);
+  const fmt = (n: number) => `$${n.toLocaleString()}`;
+  const entries = [
+    { date: "Jun 12", item: "Plaid sandbox → production", cat: "Vendor / API", amt: 1800 },
+    { date: "Jun 8", item: "Contract designer — budgeting flows", cat: "Contractor", amt: 6500 },
+    { date: "May 30", item: "Supabase Pro (3 mo)", cat: "Infrastructure", amt: 75 },
+    { date: "May 18", item: "Logo + brand pass", cat: "Design", amt: 2200 },
+  ];
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
+        <strong className="text-neutral-900">Simple budget &amp; spend.</strong> Set a project budget, log spend as it happens, and watch the burn. No time-tracking required — just &ldquo;are we within budget for go-live?&rdquo;
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="rounded-xl border border-neutral-200 bg-white p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Budget</p>
+          <p className="mt-1 text-2xl font-bold text-neutral-900">{fmt(budget)}</p>
+        </div>
+        <div className="rounded-xl border border-neutral-200 bg-white p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Spent</p>
+          <p className="mt-1 text-2xl font-bold text-neutral-900">{fmt(spent)}</p>
+          <p className="text-xs text-amber-600">{pct}% of budget</p>
+        </div>
+        <div className="rounded-xl border border-neutral-200 bg-white p-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Remaining</p>
+          <p className="mt-1 text-2xl font-bold text-emerald-600">{fmt(remaining)}</p>
+        </div>
+      </div>
+      <div className="rounded-xl border border-neutral-200 bg-white p-5">
+        <div className="mb-2 flex items-center justify-between text-sm">
+          <span className="font-medium text-neutral-700">Burn</span>
+          <span className="text-neutral-500">{fmt(spent)} / {fmt(budget)}</span>
+        </div>
+        <div className="h-3 overflow-hidden rounded-full bg-neutral-100">
+          <div className={`h-full ${pct > 90 ? "bg-red-500" : pct > 75 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+      <div className="rounded-xl border border-neutral-200 bg-white p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-semibold text-neutral-900">Spend</h3>
+          <button className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800">+ Add spend</button>
+        </div>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-xs uppercase tracking-wide text-neutral-400">
+              <th className="pb-2 font-medium">Date</th>
+              <th className="pb-2 font-medium">Item</th>
+              <th className="pb-2 font-medium">Category</th>
+              <th className="pb-2 text-right font-medium">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {entries.map((e) => (
+              <tr key={e.item} className="border-t border-neutral-100">
+                <td className="py-2 text-neutral-500">{e.date}</td>
+                <td className="py-2 text-neutral-800">{e.item}</td>
+                <td className="py-2 text-neutral-500">{e.cat}</td>
+                <td className="py-2 text-right font-medium text-neutral-900">{fmt(e.amt)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
