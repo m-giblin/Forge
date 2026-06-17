@@ -129,6 +129,8 @@ export type IssuePatch = {
   type?: string;
   categoryId?: string | null;
   assigneeId?: string | null;
+  startDate?: string | null;
+  dueDate?: string | null;
   customValues?: Record<string, unknown>;
 };
 
@@ -165,6 +167,8 @@ export async function updateIssue(
   if (patch.type !== undefined) dbPatch.type = patch.type;
   if (patch.categoryId !== undefined) dbPatch.category_id = patch.categoryId;
   if (patch.assigneeId !== undefined) dbPatch.assignee_id = patch.assigneeId;
+  if (patch.startDate !== undefined) dbPatch.start_date = patch.startDate || null;
+  if (patch.dueDate !== undefined) dbPatch.due_date = patch.dueDate || null;
   if (patch.customValues !== undefined) dbPatch.custom_values = { ...before.custom_values, ...patch.customValues };
 
   const updated = await repo.update(tenantId, id, dbPatch);

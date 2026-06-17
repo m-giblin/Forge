@@ -297,3 +297,112 @@ export async function loadProjectCosts(input: {
 
   return { projectId: project.id, budgetCents, spentCents, remainingCents, pct, entries };
 }
+
+// ---------------------------------------------------------------------------
+// Timeline tab data — issues on a track by start/due date
+// ---------------------------------------------------------------------------
+
+export type TimelineBar = {
+  id: string;
+  ref: string;
+  title: string;
+  status: string;
+  color: string;
+  startPct: number;
+  endPct: number;
+};
+
+export type ProjectTimelineData = {
+  bars: TimelineBar[];
+  todayPct: number | null;
+  goLivePct: number | null;
+  rangeStartLabel: string;
+  rangeEndLabel: string;
+  scheduledCount: number;
+  totalCount: number;
+};
+
+function dateMs(d: string): number {
+  return new Date(d + "T00:00:00").getTime();
+}
+function shortDate(ms: number): string {
+  return new Date(ms).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+export async function loadProjectTimeline(input: {
+  tenantId: string;
+  projectKey: string;
+  impersonating: boolean;
+}): Promise<ProjectTimelineData | null> {
+  const supabase = input.impersonating
+    ? createSupabaseServiceClient()
+    : await createSupabaseServerClient();
+
+  const project = await projectsRepo(supabase).getByKey(input.tenantId, input.projectKey);
+  if (!project) return null;
+
+  const issues = await issuesRepo(supabase).listByProject(input.tenantId, project.id);
+  const scheduled = issues.filter((i) => i.start_date || i.due_date);
+
+  const empty: ProjectTimelineData = {
+    bars: [],
+    todayPct: null,
+    goLivePct: null,
+    rangeStartLabel: "",
+    rangeEndLabel: "",
+    scheduledCount: 0,
+    totalCount: issues.length,
+  };
+  if (scheduled.length === 0) return empty;
+
+  // Window = earliest to latest of all relevant dates, padded a touch.
+  const points: number[] = [];
+  for (const i of scheduled) {
+    if (i.start_date) points.push(dateMs(i.start_date));
+    if (i.due_date) points.push(dateMs(i.due_date));
+  }
+  if (project.start_date) points.push(dateMs(project.start_date));
+  if (project.target_go_live) points.push(dateMs(project.target_go_live));
+  points.push(Date.now());
+
+  let min = Math.min(...points);
+  let max = Math.max(...points);
+  const pad = Math.max((max - min) * 0.04, MS_DAY);
+  min -= pad;
+  max += pad;
+  const span = max - min || 1;
+  const pct = (ms: number) => Math.max(0, Math.min(100, ((ms - min) / span) * 100));
+
+  const bars: TimelineBar[] = scheduled
+    .map((i) => {
+      const s = i.start_date ? dateMs(i.start_date) : dateMs(i.due_date!);
+      const e = i.due_date ? dateMs(i.due_date) : dateMs(i.start_date!);
+      const lo = Math.min(s, e);
+      const hi = Math.max(s, e);
+      const startPct = pct(lo);
+      const endPct = Math.max(pct(hi), startPct + 1.5); // ensure a visible sliver
+      return {
+        id: i.id,
+        ref: `${project.key}-${i.number}`,
+        title: i.title,
+        status: i.status,
+        color: STATUS_META[i.status]?.color ?? "bg-neutral-400",
+        startPct,
+        endPct,
+      };
+    })
+    .sort((a, b) => a.startPct - b.startPct);
+
+  const nowMs = Date.now();
+  const goLiveMs = project.target_go_live ? dateMs(project.target_go_live) : null;
+
+  return {
+    bars,
+    todayPct: nowMs >= min && nowMs <= max ? pct(nowMs) : null,
+    goLivePct: goLiveMs != null && goLiveMs >= min && goLiveMs <= max ? pct(goLiveMs) : null,
+    rangeStartLabel: shortDate(min),
+    rangeEndLabel: shortDate(max),
+    scheduledCount: scheduled.length,
+    totalCount: issues.length,
+  };
+}

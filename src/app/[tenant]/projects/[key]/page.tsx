@@ -4,9 +4,10 @@ import { getTenantContext } from "@/lib/auth";
 import { projectWikiPagesRepo } from "@/lib/repositories/projects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { loadProjectPortal, loadProjectCosts, type Health } from "@/lib/services/projectPortal";
+import { loadProjectPortal, loadProjectCosts, loadProjectTimeline, type Health } from "@/lib/services/projectPortal";
 import ProjectOverview from "./ProjectOverview";
 import CostsTab from "./CostsTab";
+import TimelineTab from "./TimelineTab";
 
 const HEALTH_META: Record<Health, { label: string; cls: string; dot: string }> = {
   on_track: { label: "On track", cls: "bg-emerald-100 text-emerald-700", dot: "●" },
@@ -96,13 +97,7 @@ export default async function ProjectDetailPage({
       </div>
 
       {tab === "overview" && <ProjectOverview slug={slug} data={data} wiki={wiki} canEdit={canEdit} />}
-      {tab === "timeline" && (
-        <ComingSoon
-          title="Timeline"
-          body="A lightweight schedule — every issue on a track by its start/due date, colored by status, with today and go-live markers."
-          needs="Needs start/due dates on issues (migration 0030)."
-        />
-      )}
+      {tab === "timeline" && <TimelineTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} />}
       {tab === "costs" && <CostsTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} canEdit={canEdit} />}
     </div>
   );
@@ -126,12 +121,18 @@ async function CostsTabPanel({
   return <CostsTab slug={slug} projectKey={projectKey} data={costs} canEdit={canEdit} />;
 }
 
-function ComingSoon({ title, body, needs }: { title: string; body: string; needs: string }) {
-  return (
-    <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center">
-      <p className="text-base font-semibold text-neutral-900">{title} is almost ready</p>
-      <p className="mx-auto mt-2 max-w-lg text-sm text-neutral-500">{body}</p>
-      <p className="mx-auto mt-3 inline-block rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">{needs}</p>
-    </div>
-  );
+async function TimelineTabPanel({
+  slug,
+  projectKey,
+  tenantId,
+  impersonating,
+}: {
+  slug: string;
+  projectKey: string;
+  tenantId: string;
+  impersonating: boolean;
+}) {
+  const timeline = await loadProjectTimeline({ tenantId, projectKey, impersonating });
+  if (!timeline) return null;
+  return <TimelineTab slug={slug} data={timeline} />;
 }

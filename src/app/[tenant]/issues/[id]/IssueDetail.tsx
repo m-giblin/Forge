@@ -114,6 +114,8 @@ export default function IssueDetail({
   const [type, setType] = useState(issue.type);
   const [categoryId, setCategoryId] = useState(issue.category_id ?? "");
   const [assigneeId, setAssigneeId] = useState(issue.assignee_id ?? "");
+  const [startDate, setStartDate] = useState(issue.start_date ?? "");
+  const [dueDate, setDueDate] = useState(issue.due_date ?? "");
   const [customValues, setCustomValues] = useState<Record<string, string>>(
     Object.fromEntries(customFields.map((f) => [f.key, String((issue.custom_values ?? {})[f.key] ?? "")]))
   );
@@ -158,6 +160,8 @@ export default function IssueDetail({
     type !== issue.type ||
     (categoryId || null) !== issue.category_id ||
     (assigneeId || null) !== issue.assignee_id ||
+    (startDate || null) !== issue.start_date ||
+    (dueDate || null) !== issue.due_date ||
     customFields.some((f) => customValues[f.key] !== String((issue.custom_values ?? {})[f.key] ?? ""));
 
   function save() {
@@ -174,6 +178,8 @@ export default function IssueDetail({
           type,
           categoryId: categoryId || null,
           assigneeId: assigneeId || null,
+          startDate: startDate || null,
+          dueDate: dueDate || null,
           customValues,
         });
         setSaved(true);
@@ -497,6 +503,16 @@ export default function IssueDetail({
             <select value={type} disabled={readOnly} onChange={(e) => { setType(e.target.value); setSaved(false); }} className={sidebarSelect}>
               {types.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
+          </div>
+
+          <div className={sideSection}>
+            <p className={sideLabel}>Start date</p>
+            <input type="date" value={startDate} disabled={readOnly} onChange={(e) => { setStartDate(e.target.value); setSaved(false); }} className={sidebarSelect} />
+          </div>
+
+          <div className={sideSection}>
+            <p className={sideLabel}>Due date</p>
+            <input type="date" value={dueDate} disabled={readOnly} onChange={(e) => { setDueDate(e.target.value); setSaved(false); }} className={sidebarSelect} />
           </div>
 
           {catOptions.length > 0 && (
