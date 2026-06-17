@@ -1,32 +1,32 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
-import { listVisibleProjects } from "@/lib/services/projects";
-import { listMembers } from "@/lib/services/members";
-import ProjectsLanding from "./ProjectsLanding";
+import { loadMissionControl, type ScopeKey } from "@/lib/services/missionControl";
+import MissionControl from "./MissionControl";
 
-// Tenant landing page: the projects this user can see. Admins see all; everyone
-// else sees the projects whose team they're on. Click a project -> its board.
-export default async function TenantHome({ params }: { params: Promise<{ tenant: string }> }) {
+// Tenant landing = Mission Control: the post-login hub. Real data from the issue
+// database (attention queue, throughput, portfolio). The projects list lives at
+// /<tenant>/projects now.
+export default async function TenantHome({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ tenant: string }>;
+  searchParams: Promise<{ scope?: string }>;
+}) {
   const { tenant: slug } = await params;
+  const { scope: scopeParam } = await searchParams;
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
 
-  const isAdmin = ctx.role === "owner" || ctx.role === "admin";
-  const [projects, members] = await Promise.all([
-    listVisibleProjects(ctx.tenant.id, ctx.appUserId, ctx.role, ctx.impersonating),
-    // Member list powers the "Owner" picker on the intake form (admins only need it).
-    isAdmin ? listMembers(ctx.tenant.id, ctx.impersonating) : Promise.resolve([]),
-  ]);
+  const scope: ScopeKey = scopeParam === "team" ? "team" : "mine";
+  const data = await loadMissionControl({
+    tenantId: ctx.tenant.id,
+    appUserId: ctx.appUserId,
+    role: ctx.role,
+    email: ctx.email,
+    impersonating: ctx.impersonating,
+    scope,
+  });
 
-  return (
-    <main className="mx-auto max-w-5xl px-6 py-8">
-      <ProjectsLanding
-        slug={slug}
-        tenantName={ctx.tenant.name}
-        canCreate={isAdmin && !ctx.impersonating}
-        projects={projects}
-        members={members.map((m) => ({ userId: m.userId, label: m.name || m.email }))}
-      />
-    </main>
-  );
+  return <MissionControl slug={slug} data={data} />;
 }

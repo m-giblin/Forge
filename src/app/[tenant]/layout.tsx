@@ -55,6 +55,12 @@ export default async function TenantLayout({
                 href={`/${slug}`}
                 className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
               >
+                Home
+              </Link>
+              <Link
+                href={`/${slug}/projects`}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
+              >
                 Projects
               </Link>
               <Link
