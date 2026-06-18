@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
+// eslint-disable-next-line no-restricted-imports -- service-role required: usage is admin-only cross-user aggregate; all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { ideaAiTurnsRepo } from "@/lib/repositories/ideas";
+import { usersRepo } from "@/lib/repositories/users";
 
 function fmt(n: number): string {
   return n.toLocaleString();
@@ -40,13 +42,7 @@ export default async function AIUsagePage({
 
   // Fetch display names for users that appeared in this month's usage
   const userIds = summary.byUser.map((u) => u.userId).filter(Boolean) as string[];
-  const userMap = new Map<string, string>();
-  if (userIds.length > 0) {
-    const { data } = await svc.from("users").select("id, name, email").in("id", userIds);
-    for (const u of data ?? []) {
-      userMap.set(u.id, u.name ?? u.email ?? u.id);
-    }
-  }
+  const userMap = await usersRepo(svc).getDisplayNames(userIds);
 
   const totalTokens = summary.totalTokensInput + summary.totalTokensOutput;
 

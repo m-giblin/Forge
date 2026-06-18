@@ -2,8 +2,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- service-role required: unassigned count bypasses RLS by design; passes through issuesRepo (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { notificationsRepo } from "@/lib/repositories/notifications";
+import { issuesRepo } from "@/lib/repositories/issues";
 import { loadTenantFlags } from "@/lib/services/featureFlags";
 import SignOutButton from "@/components/SignOutButton";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
@@ -27,15 +29,10 @@ export default async function TenantLayout({
     Promise.resolve(createSupabaseServiceClient()),
   ]);
 
-  const [initialNotifications, unreadCount, unassignedResult, flags] = await Promise.all([
+  const [initialNotifications, unreadCount, unassignedCount, flags] = await Promise.all([
     notificationsRepo(supabase).list(ctx.appUserId, { limit: 20, includeRead: false }),
     notificationsRepo(supabase).unreadCount(ctx.appUserId),
-    svc
-      .from("issues")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", ctx.tenant.id)
-      .is("assignee_id", null)
-      .neq("status", "done"),
+    issuesRepo(svc).countUnassigned(ctx.tenant.id),
     loadTenantFlags(ctx.tenant.id),
   ]);
 
@@ -101,7 +98,7 @@ export default async function TenantLayout({
               tenantId={ctx.tenant.id}
               initialCount={unreadCount}
               initialNotifications={initialNotifications}
-              unassignedCount={unassignedResult.count ?? 0}
+              unassignedCount={unassignedCount}
             />
             <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
               {ctx.role}

@@ -6,6 +6,7 @@ import { createIdea, updateIdea } from "@/lib/services/thinkTank";
 import { createProject } from "@/lib/services/projects";
 import { projectsRepo, projectWikiPagesRepo } from "@/lib/repositories/projects";
 import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo, thinkTankPillsRepo, ideaDecisionsRepo, ideaSignoffsRepo, SIGNOFF_ROLES, type SignoffRole } from "@/lib/repositories/ideas";
+// eslint-disable-next-line no-restricted-imports -- complex attachment/storage/vote ops need service-role; all queries go through repos (sec09: accepted, pending full refactor)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { callSoundingBoard, AIRateLimitError, type IdeaContext, type ConversationTurn } from "@/lib/ai/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";

@@ -3,7 +3,9 @@ import { getTenantContext } from "@/lib/auth";
 import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, thinkTankPillsRepo, ideaDecisionsRepo, ideaSignoffsRepo } from "@/lib/repositories/ideas";
 import { membersRepo } from "@/lib/repositories/members";
 import { projectsRepo } from "@/lib/repositories/projects";
+import { usersRepo } from "@/lib/repositories/users";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import IdeaDetail from "./IdeaDetail";
 
@@ -36,19 +38,9 @@ export default async function IdeaPage({
 
   // Fetch creator/assignee names
   const userIds = [rawIdea.created_by, rawIdea.assigned_to].filter(Boolean) as string[];
-  let creatorName: string | null = null;
-  let assigneeName: string | null = null;
-
-  if (userIds.length > 0) {
-    const { data: users } = await supabase
-      .from("users")
-      .select("id, name")
-      .in("id", userIds);
-
-    const userMap = new Map((users ?? []).map((u: { id: string; name: string | null }) => [u.id, u.name]));
-    creatorName = rawIdea.created_by ? (userMap.get(rawIdea.created_by) ?? null) : null;
-    assigneeName = rawIdea.assigned_to ? (userMap.get(rawIdea.assigned_to) ?? null) : null;
-  }
+  const userMap = await usersRepo(supabase).getDisplayNames(userIds);
+  const creatorName = rawIdea.created_by ? (userMap.get(rawIdea.created_by) ?? null) : null;
+  const assigneeName = rawIdea.assigned_to ? (userMap.get(rawIdea.assigned_to) ?? null) : null;
 
   const idea = {
     ...rawIdea,

@@ -5,6 +5,7 @@ import { getIssue, loadIssueActivity } from "@/lib/services/issues";
 import { getTenantSchema } from "@/lib/services/fieldConfig";
 import { listMembers } from "@/lib/services/members";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
 import IssueDetail from "./IssueDetail";

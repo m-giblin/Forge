@@ -1,6 +1,7 @@
 "use server";
 
 import { getTenantContext } from "@/lib/auth";
+// eslint-disable-next-line no-restricted-imports -- service-role required for AI key management (bypasses RLS by design); all calls go through tenantAiKeysRepo (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { tenantAiKeysRepo, type AIProvider } from "@/lib/repositories/aiKeys";
 import { revalidatePath } from "next/cache";
@@ -63,9 +64,6 @@ export async function resetToDefaultAction(slug: string): Promise<void> {
 
   // Deselect all keys — sounding board falls back to platform Grok.
   const svc = createSupabaseServiceClient();
-  await svc
-    .from("tenant_ai_keys")
-    .update({ is_selected: false })
-    .eq("tenant_id", ctx.tenant.id);
+  await tenantAiKeysRepo(svc).deselectAll(ctx.tenant.id);
   revalidatePath(`/${slug}/admin/settings/ai`);
 }

@@ -155,6 +155,15 @@ export function tenantAiKeysRepo(svc: SupabaseClient) {
       if (error) throw error;
     },
 
+    /** Deselects all keys for a tenant (fall back to platform default). */
+    async deselectAll(tenantId: string): Promise<void> {
+      const { error } = await svc
+        .from("tenant_ai_keys")
+        .update({ is_selected: false })
+        .eq("tenant_id", tenantId);
+      if (error) throw error;
+    },
+
     /** Soft-deactivates a key (preserves audit trail). */
     async deleteKey(tenantId: string, provider: AIProvider): Promise<void> {
       const { error } = await svc

@@ -184,5 +184,16 @@ export function issuesRepo(supabase: SupabaseClient) {
       if (doneRes.error) throw doneRes.error;
       return { total: totalRes.count ?? 0, done: doneRes.count ?? 0 };
     },
+
+    async countUnassigned(tenantId: string): Promise<number> {
+      const { count, error } = await supabase
+        .from("issues")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .is("assignee_id", null)
+        .neq("status", "done");
+      if (error) throw error;
+      return count ?? 0;
+    },
   };
 }

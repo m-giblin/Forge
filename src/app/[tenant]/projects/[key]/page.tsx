@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
 import { projectWikiPagesRepo } from "@/lib/repositories/projects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { loadProjectPortal, loadProjectCosts, loadProjectTimeline, type Health } from "@/lib/services/projectPortal";
 import ProjectOverview from "./ProjectOverview";

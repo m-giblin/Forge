@@ -5,6 +5,7 @@ import { getOrCreateDefaultThinkTank } from "@/lib/services/thinkTank";
 import { membersRepo } from "@/lib/repositories/members";
 import { tenantIdeaTemplatesRepo } from "@/lib/repositories/ideas";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import IdeaCreateForm from "./IdeaCreateForm";
 
