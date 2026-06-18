@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { loadMissionControl, type ScopeKey } from "@/lib/services/missionControl";
+import { loadTenantFlags } from "@/lib/services/featureFlags";
 import MissionControl from "./MissionControl";
 
 // Tenant landing = Mission Control: the post-login hub. Real data from the issue
@@ -17,6 +18,10 @@ export default async function TenantHome({
   const { scope: scopeParam } = await searchParams;
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
+
+  // Dashboards gated off → the workspace home is the board (bug-tracker mode).
+  const flags = await loadTenantFlags(ctx.tenant.id);
+  if (!flags.dashboards) redirect(`/${slug}/board`);
 
   const scope: ScopeKey = scopeParam === "team" ? "team" : "mine";
   const data = await loadMissionControl({
