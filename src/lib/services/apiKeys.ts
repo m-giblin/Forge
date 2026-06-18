@@ -21,6 +21,7 @@ export async function createApiKey(input: {
   tenantSlug: string;
   name: string;
   scopes: string[];
+  expiresAt?: string | null;
   createdBy?: string | null;
 }): Promise<{ raw: string; key: ApiKeyRow }> {
   const scopes = input.scopes.filter((s): s is Scope => (ALL_SCOPES as string[]).includes(s));
@@ -34,6 +35,7 @@ export async function createApiKey(input: {
     key_prefix: raw.slice(0, 20),
     key_hash: hashKey(raw),
     scopes,
+    expires_at: input.expiresAt ?? null,
     created_by: input.createdBy ?? null,
   });
   return { raw, key };

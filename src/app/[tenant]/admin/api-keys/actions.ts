@@ -11,7 +11,7 @@ function assertAdmin(role: string) {
   if (role !== "owner" && role !== "admin") throw new Error("Only owners and admins manage API keys.");
 }
 
-export async function createApiKeyAction(slug: string, input: { name: string; scopes: string[] }) {
+export async function createApiKeyAction(slug: string, input: { name: string; scopes: string[]; expiresAt?: string | null }) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   assertAdmin(ctx.role);
@@ -22,6 +22,7 @@ export async function createApiKeyAction(slug: string, input: { name: string; sc
     tenantSlug: ctx.tenant.slug,
     name: input.name.trim(),
     scopes: input.scopes,
+    expiresAt: input.expiresAt ?? null,
     createdBy: ctx.appUserId,
   });
   await recordAudit({

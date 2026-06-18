@@ -7,10 +7,11 @@ export type ApiKeyRow = {
   scopes: string[];
   last_used_at: string | null;
   revoked_at: string | null;
+  expires_at: string | null;
   created_at: string;
 };
 
-const COLS = "id, name, key_prefix, scopes, last_used_at, revoked_at, created_at";
+const COLS = "id, name, key_prefix, scopes, last_used_at, revoked_at, expires_at, created_at";
 
 /**
  * API key data access. On the human (admin UI) path these go through the
@@ -35,6 +36,7 @@ export function apiKeysRepo(supabase: SupabaseClient) {
       key_prefix: string;
       key_hash: string;
       scopes: string[];
+      expires_at?: string | null;
       created_by?: string | null;
     }): Promise<ApiKeyRow> {
       const { data, error } = await supabase.from("api_keys").insert(input).select(COLS).single();

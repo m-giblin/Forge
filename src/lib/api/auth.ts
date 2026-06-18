@@ -23,12 +23,15 @@ export async function authenticateApiKey(req: Request): Promise<ApiAuthResult> {
   const supabase = createSupabaseServiceClient();
   const { data, error } = await supabase
     .from("api_keys")
-    .select("id, tenant_id, scopes, revoked_at")
+    .select("id, tenant_id, scopes, revoked_at, expires_at")
     .eq("key_hash", hashKey(raw))
     .maybeSingle();
 
   if (error || !data) return { ok: false, code: "unauthorized", message: "Invalid API key." };
   if (data.revoked_at) return { ok: false, code: "unauthorized", message: "API key has been revoked." };
+  if (data.expires_at && new Date(data.expires_at) < new Date()) {
+    return { ok: false, code: "unauthorized", message: "API key has expired. Rotate your key in Settings → API Keys." };
+  }
 
   // Best-effort last-used timestamp; never block the request on it.
   void supabase.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
