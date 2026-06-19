@@ -32,6 +32,8 @@ export type Issue = {
   category_id: string | null;
   custom_values: Record<string, unknown>;
   position: number;
+  start_date: string | null;
+  due_date: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -57,7 +59,7 @@ export type CreateIssueInput = {
 };
 
 const COLS =
-  "id, tenant_id, project_id, number, title, description, status, priority, type, assignee_id, reporter_id, labels, environment, app_version, stack_trace, source, external_id, category_id, custom_values, position, created_at, updated_at";
+  "id, tenant_id, project_id, number, title, description, status, priority, type, assignee_id, reporter_id, labels, environment, app_version, stack_trace, source, external_id, category_id, custom_values, position, start_date, due_date, created_at, updated_at";
 
 /**
  * Issue data access. Always tenant-scoped: every query filters on tenant_id
@@ -181,6 +183,17 @@ export function issuesRepo(supabase: SupabaseClient) {
       if (totalRes.error) throw totalRes.error;
       if (doneRes.error) throw doneRes.error;
       return { total: totalRes.count ?? 0, done: doneRes.count ?? 0 };
+    },
+
+    async countUnassigned(tenantId: string): Promise<number> {
+      const { count, error } = await supabase
+        .from("issues")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId)
+        .is("assignee_id", null)
+        .neq("status", "done");
+      if (error) throw error;
+      return count ?? 0;
     },
   };
 }

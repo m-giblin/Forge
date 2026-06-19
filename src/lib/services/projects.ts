@@ -1,7 +1,8 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { projectsRepo, type Project } from "@/lib/repositories/projects";
+import { projectsRepo, type Project, type ProjectStatus } from "@/lib/repositories/projects";
+import { issuesRepo } from "@/lib/repositories/issues";
 import { projectMembersRepo, type ProjectMemberRow } from "@/lib/repositories/projectMembers";
 import type { MembershipRole } from "@/lib/repositories/members";
 
@@ -20,6 +21,7 @@ function isAdmin(role: MembershipRole) {
  * project in the tenant; everyone else sees only the projects whose team they're
  * on (project_members). Super-admin support view (impersonating) sees all.
  */
+/** Non-archived projects the user can see. Admins get all; members get their team projects. */
 export async function listVisibleProjects(
   tenantId: string,
   appUserId: string,
@@ -29,6 +31,42 @@ export async function listVisibleProjects(
   const repo = projectsRepo(await readClient(impersonating));
   if (impersonating || isAdmin(role)) return repo.listByTenant(tenantId);
   return repo.listForMember(tenantId, appUserId);
+}
+
+/** Admin-only: archived projects for the archive tab. */
+export async function listArchivedProjects(
+  tenantId: string,
+  impersonating = false
+): Promise<Project[]> {
+  return projectsRepo(await readClient(impersonating)).listByTenant(tenantId, ["archived"]);
+}
+
+export async function changeProjectStatus(
+  tenantId: string,
+  projectKey: string,
+  status: ProjectStatus,
+  role: MembershipRole,
+  impersonating = false
+): Promise<void> {
+  if (!isAdmin(role)) throw new Error("Only owners and admins can change project status.");
+  const supabase = await readClient(impersonating);
+  const project = await projectsRepo(supabase).getByKey(tenantId, projectKey);
+  if (!project) throw new Error("Project not found.");
+  await projectsRepo(supabase).updateStatus(tenantId, project.id, status);
+}
+
+export async function deleteProject(
+  tenantId: string,
+  projectKey: string,
+  role: MembershipRole,
+): Promise<void> {
+  if (!isAdmin(role)) throw new Error("Only owners and admins can delete projects.");
+  const supabase = createSupabaseServiceClient();
+  const project = await projectsRepo(supabase).getByKey(tenantId, projectKey);
+  if (!project) throw new Error("Project not found.");
+  const issueCount = await issuesRepo(supabase).countForProject(tenantId, project.id);
+  if (issueCount.total > 0) throw new Error(`Cannot delete: project has ${issueCount.total} issue${issueCount.total === 1 ? "" : "s"}. Archive it instead.`);
+  await projectsRepo(supabase).deleteById(tenantId, project.id);
 }
 
 /** Derive a project key (e.g. "Website Redesign" -> "WEB") and de-dupe it. */

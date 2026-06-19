@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import type { Project } from "@/lib/repositories/projects";
+import type { Project, ProjectStatus } from "@/lib/repositories/projects";
+import { STATUS_META } from "./projects/[key]/ProjectStatusControl";
 import { createProjectAction } from "./actions";
 
 type OwnerOption = { userId: string; label: string };
@@ -22,21 +23,63 @@ function fmtDate(d: string | null) {
   return d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
 }
 
+type StatusFilter = ProjectStatus | "all";
+
+const FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
+  { value: "active",  label: "Active" },
+  { value: "on_hold", label: "On hold" },
+  { value: "closed",  label: "Closed" },
+  { value: "all",     label: "All" },
+];
+
+function ProjectCard({ slug, p }: { slug: string; p: Project }) {
+  const chip = goLiveChip(p.target_go_live);
+  const statusMeta = STATUS_META[p.status];
+  return (
+    <Link
+      href={`/${slug}/projects/${p.key}`}
+      className="block rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-neutral-300 hover:shadow"
+    >
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">{p.key}</span>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusMeta.cls}`}>{statusMeta.label}</span>
+        </div>
+        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${chip.cls}`}>{chip.text}</span>
+      </div>
+      <p className="mt-2 font-medium text-neutral-900">{p.name}</p>
+      <p className="mt-2 text-xs text-neutral-400">
+        Start {fmtDate(p.start_date)} · Go-live {fmtDate(p.target_go_live)}
+      </p>
+    </Link>
+  );
+}
+
 export default function ProjectsLanding({
   slug,
   tenantName,
+  isAdmin = false,
   canCreate,
   projects,
+  archivedProjects = [],
   members,
 }: {
   slug: string;
   tenantName: string;
+  isAdmin?: boolean;
   canCreate: boolean;
   projects: Project[];
+  archivedProjects?: Project[];
   members: OwnerOption[];
 }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
+  const [filter, setFilter] = useState<StatusFilter>("active");
+  const [showArchive, setShowArchive] = useState(false);
+
+  const visible = filter === "all"
+    ? projects
+    : projects.filter((p) => p.status === filter);
 
   return (
     <div>
@@ -68,37 +111,77 @@ export default function ProjectsLanding({
         />
       )}
 
-      {projects.length === 0 ? (
-        <div className="mt-6 rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm text-neutral-500">
-          {canCreate
-            ? "No projects yet. Create one to start filing issues."
-            : "You’re not on any project teams yet. An admin can add you to a project."}
+      {/* Status filter pills */}
+      {projects.length > 0 && (
+        <div className="mt-5 flex gap-2">
+          {FILTER_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              onClick={() => setFilter(o.value)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
+                filter === o.value
+                  ? "bg-neutral-900 text-white"
+                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+              }`}
+            >
+              {o.label}
+              {o.value !== "all" && (
+                <span className="ml-1 opacity-60">
+                  ({projects.filter((p) => p.status === o.value).length})
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {visible.length === 0 ? (
+        <div className="mt-4 rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm text-neutral-500">
+          {projects.length === 0
+            ? canCreate
+              ? "No projects yet. Create one to start filing issues."
+              : "You’re not on any project teams yet. An admin can add you to a project."
+            : `No ${filter === "all" ? "" : filter.replace("_", " ")} projects.`}
         </div>
       ) : (
-        <ul className="mt-6 grid gap-3 sm:grid-cols-2">
-          {projects.map((p) => {
-            const chip = goLiveChip(p.target_go_live);
-            return (
-              <li key={p.id}>
-                <Link
-                  href={`/${slug}/projects/${p.key}`}
-                  className="block rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-neutral-300 hover:shadow"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">
-                      {p.key}
-                    </span>
-                    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${chip.cls}`}>{chip.text}</span>
-                  </div>
-                  <p className="mt-2 font-medium text-neutral-900">{p.name}</p>
-                  <p className="mt-2 text-xs text-neutral-400">
-                    Start {fmtDate(p.start_date)} · Go-live {fmtDate(p.target_go_live)}
-                  </p>
-                </Link>
-              </li>
-            );
-          })}
+        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+          {visible.map((p) => (
+            <li key={p.id}>
+              <ProjectCard slug={slug} p={p} />
+            </li>
+          ))}
         </ul>
+      )}
+
+      {/* Archive section — admin only */}
+      {isAdmin && (
+        <div className="mt-8">
+          <button
+            onClick={() => setShowArchive((s) => !s)}
+            className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-600"
+          >
+            <span>{showArchive ? "▾" : "▸"}</span>
+            Archive
+            {archivedProjects.length > 0 && (
+              <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500">
+                {archivedProjects.length}
+              </span>
+            )}
+          </button>
+          {showArchive && (
+            archivedProjects.length === 0 ? (
+              <p className="mt-3 text-sm text-neutral-400">No archived projects.</p>
+            ) : (
+              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
+                {archivedProjects.map((p) => (
+                  <li key={p.id}>
+                    <ProjectCard slug={slug} p={p} />
+                  </li>
+                ))}
+              </ul>
+            )
+          )}
+        </div>
       )}
     </div>
   );

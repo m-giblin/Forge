@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
+// eslint-disable-next-line no-restricted-imports -- service-role required for AI key management (bypasses RLS by design); all calls go through tenantAiKeysRepo (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { tenantAiKeysRepo } from "@/lib/repositories/aiKeys";
 import AIProviderSettings from "./AIProviderSettings";

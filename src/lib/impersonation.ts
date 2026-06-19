@@ -2,6 +2,7 @@ import "server-only";
 import { cookies } from "next/headers";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { serverEnv } from "@/lib/env";
+import { resolveImpersonationSecret } from "@/lib/impersonation-secret";
 
 /**
  * Read-only, time-boxed impersonation ("support view"). State lives in a SIGNED
@@ -16,10 +17,8 @@ const TTL_SECONDS = 30 * 60;
 export type Impersonation = { tenantId: string; tenantSlug: string; exp: number; by: string };
 
 function secret(): string {
-  // Prefer a dedicated secret so rotating the Supabase key doesn't invalidate
-  // active impersonation sessions. Falls back to service-role key if not set.
-  const env = serverEnv();
-  return env.IMPERSONATION_SECRET ?? env.SUPABASE_SERVICE_ROLE_KEY;
+  // SEC-05: dedicated secret required in production; no service-role-key reuse.
+  return resolveImpersonationSecret(serverEnv().IMPERSONATION_SECRET, process.env.NODE_ENV === "production");
 }
 function sign(payloadB64: string): string {
   return createHmac("sha256", secret()).update(payloadB64).digest("base64url");

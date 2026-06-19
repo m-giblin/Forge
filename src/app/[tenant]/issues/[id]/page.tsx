@@ -5,6 +5,7 @@ import { getIssue, loadIssueActivity } from "@/lib/services/issues";
 import { getTenantSchema } from "@/lib/services/fieldConfig";
 import { listMembers } from "@/lib/services/members";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
 import IssueDetail from "./IssueDetail";
@@ -35,12 +36,12 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
   const canDelete = ctx.role === "owner" || ctx.role === "admin";
 
   return (
-    <main className="mx-auto max-w-2xl px-6 py-6">
-      <Link href={`/${slug}/board?project=${project?.key ?? ""}`} className="text-sm text-neutral-500 hover:text-neutral-800">← Board</Link>
+    <main className="mx-auto max-w-5xl px-6 py-6">
       <IssueDetail
         slug={slug}
         issue={issue}
         issueKey={`${project?.key ?? "?"}-${issue.number}`}
+        projectKey={project?.key ?? ""}
         statuses={schema.statuses}
         priorities={schema.priorities}
         types={schema.types}

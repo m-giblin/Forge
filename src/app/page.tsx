@@ -9,6 +9,12 @@ export default async function Home() {
   const ctx = await getSessionContext();
   if (!ctx) redirect("/login");
 
+  // A regular user with exactly one workspace goes straight to its hub. Super
+  // admins (who span tenants) and anyone in multiple workspaces see the picker.
+  if (!ctx.isSuperAdmin && ctx.memberships.length === 1) {
+    redirect(`/${ctx.memberships[0].tenant.slug}`);
+  }
+
   return (
     <main className="min-h-screen bg-neutral-50">
       <header className="border-b border-neutral-200 bg-white">
@@ -44,7 +50,7 @@ export default async function Home() {
             {ctx.memberships.map((m) => (
               <li key={m.tenant.id}>
                 <Link
-                  href={`/${m.tenant.slug}/board`}
+                  href={`/${m.tenant.slug}`}
                   className="flex items-center justify-between rounded-xl border border-neutral-200 bg-white px-5 py-4 shadow-sm transition hover:border-neutral-300 hover:shadow"
                 >
                   <div>

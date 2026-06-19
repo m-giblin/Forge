@@ -1,9 +1,11 @@
 import { redirect, notFound } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
-import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, thinkTankPillsRepo, ideaDecisionsRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, thinkTankPillsRepo, ideaDecisionsRepo, ideaSignoffsRepo } from "@/lib/repositories/ideas";
 import { membersRepo } from "@/lib/repositories/members";
 import { projectsRepo } from "@/lib/repositories/projects";
+import { usersRepo } from "@/lib/repositories/users";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import IdeaDetail from "./IdeaDetail";
 
@@ -20,32 +22,25 @@ export default async function IdeaPage({
     ? createSupabaseServiceClient()
     : await createSupabaseServerClient();
 
-  const [rawIdea, members, comments, recentAiTurns, customPillRows, decisions] = await Promise.all([
+  const [rawIdea, members, comments, recentAiTurns, customPillRows, decisions, signoffs] = await Promise.all([
     ideasRepo(supabase).getById(ctx.tenant.id, id),
     membersRepo(supabase).list(ctx.tenant.id),
     ideaCommentsRepo(supabase).list(ctx.tenant.id, id),
     ideaAiTurnsRepo(supabase).listRecent(ctx.tenant.id, id, 5),
     thinkTankPillsRepo(supabase).list(ctx.tenant.id),
     ideaDecisionsRepo(supabase).list(ctx.tenant.id, id),
+    // Fails open: if migration 0029 hasn't been run yet, the table is absent —
+    // return no sign-offs rather than breaking the whole idea page.
+    ideaSignoffsRepo(supabase).list(ctx.tenant.id, id).catch(() => []),
   ]);
 
   if (!rawIdea) notFound();
 
   // Fetch creator/assignee names
   const userIds = [rawIdea.created_by, rawIdea.assigned_to].filter(Boolean) as string[];
-  let creatorName: string | null = null;
-  let assigneeName: string | null = null;
-
-  if (userIds.length > 0) {
-    const { data: users } = await supabase
-      .from("users")
-      .select("id, name")
-      .in("id", userIds);
-
-    const userMap = new Map((users ?? []).map((u: { id: string; name: string | null }) => [u.id, u.name]));
-    creatorName = rawIdea.created_by ? (userMap.get(rawIdea.created_by) ?? null) : null;
-    assigneeName = rawIdea.assigned_to ? (userMap.get(rawIdea.assigned_to) ?? null) : null;
-  }
+  const userMap = await usersRepo(supabase).getDisplayNames(userIds);
+  const creatorName = rawIdea.created_by ? (userMap.get(rawIdea.created_by) ?? null) : null;
+  const assigneeName = rawIdea.assigned_to ? (userMap.get(rawIdea.assigned_to) ?? null) : null;
 
   const idea = {
     ...rawIdea,
@@ -80,6 +75,7 @@ export default async function IdeaPage({
       linkedProjectKey={linkedProjectKey}
       customPills={customPillRows.map((r) => ({ id: r.id, label: r.label, instruction: r.instruction }))}
       decisions={decisions}
+      signoffs={signoffs}
     />
   );
 }

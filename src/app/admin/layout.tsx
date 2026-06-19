@@ -24,6 +24,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               <Link href="/admin" className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-300 hover:bg-neutral-800">
                 Tenants
               </Link>
+              <Link href="/admin/flags" className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-300 hover:bg-neutral-800">
+                Feature flags
+              </Link>
               <Link href="/admin/audit" className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-300 hover:bg-neutral-800">
                 Audit
               </Link>

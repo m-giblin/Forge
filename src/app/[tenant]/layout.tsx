@@ -2,8 +2,11 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- service-role required: unassigned count bypasses RLS by design; passes through issuesRepo (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { notificationsRepo } from "@/lib/repositories/notifications";
+import { issuesRepo } from "@/lib/repositories/issues";
+import { loadTenantFlags } from "@/lib/services/featureFlags";
 import SignOutButton from "@/components/SignOutButton";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
 import ReportBugButton from "@/components/ReportBugButton";
@@ -26,16 +29,22 @@ export default async function TenantLayout({
     Promise.resolve(createSupabaseServiceClient()),
   ]);
 
-  const [initialNotifications, unreadCount, unassignedResult] = await Promise.all([
+  const [initialNotifications, unreadCount, unassignedCount, flags] = await Promise.all([
     notificationsRepo(supabase).list(ctx.appUserId, { limit: 20, includeRead: false }),
     notificationsRepo(supabase).unreadCount(ctx.appUserId),
-    svc
-      .from("issues")
-      .select("id", { count: "exact", head: true })
-      .eq("tenant_id", ctx.tenant.id)
-      .is("assignee_id", null)
-      .neq("status", "done"),
+    issuesRepo(svc).countUnassigned(ctx.tenant.id),
+    loadTenantFlags(ctx.tenant.id),
   ]);
+
+  // Board-first nav. The bug tracker (Board + Issues) always shows; the
+  // project-management items appear with a "Soon" badge until released.
+  const navItems: { label: string; href: string; enabled: boolean; key?: string }[] = [
+    { label: "Board", href: `/${slug}/board`, enabled: true },
+    { label: "Issues", href: `/${slug}/issues`, enabled: true },
+    { label: "Home", href: `/${slug}`, enabled: flags.dashboards, key: "dashboards" },
+    { label: "Projects", href: `/${slug}/projects`, enabled: flags.project_portal, key: "project_portal" },
+    { label: "Think Tank", href: `/${slug}/think-tank`, enabled: flags.think_tank, key: "think_tank" },
+  ];
 
   return (
     <div className="min-h-screen bg-neutral-50">
@@ -51,30 +60,27 @@ export default async function TenantLayout({
               {ctx.tenant.name}
             </Link>
             <nav className="flex items-center gap-1">
-              <Link
-                href={`/${slug}`}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
-              >
-                Projects
-              </Link>
-              <Link
-                href={`/${slug}/issues`}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
-              >
-                Issues
-              </Link>
-              <Link
-                href={`/${slug}/board`}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
-              >
-                Board
-              </Link>
-              <Link
-                href={`/${slug}/think-tank`}
-                className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
-              >
-                Think Tank
-              </Link>
+              {navItems.map((item) =>
+                item.enabled ? (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
+                  >
+                    {item.label}
+                  </Link>
+                ) : (
+                  <Link
+                    key={item.label}
+                    href={`/${slug}/coming-soon?f=${item.key}`}
+                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-400 hover:bg-neutral-100"
+                    title="Coming soon"
+                  >
+                    {item.label}
+                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Soon</span>
+                  </Link>
+                )
+              )}
               {(ctx.role === "owner" || ctx.role === "admin" || ctx.impersonating) && (
                 <Link
                   href={`/${slug}/admin`}
@@ -92,7 +98,7 @@ export default async function TenantLayout({
               tenantId={ctx.tenant.id}
               initialCount={unreadCount}
               initialNotifications={initialNotifications}
-              unassignedCount={unassignedResult.count ?? 0}
+              unassignedCount={unassignedCount}
             />
             <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
               {ctx.role}

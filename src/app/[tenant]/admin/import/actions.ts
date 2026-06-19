@@ -1,5 +1,6 @@
 "use server";
 import { getTenantContext } from "@/lib/auth";
+// eslint-disable-next-line no-restricted-imports -- bulk import uses service-role across multiple tables; some raw .from() calls remain (sec09: accepted, pending repo refactor)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { fieldConfigRepo } from "@/lib/repositories/fieldConfig";
 

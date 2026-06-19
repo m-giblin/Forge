@@ -1,220 +1,146 @@
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
-import { projectsRepo, projectWikiPagesRepo } from "@/lib/repositories/projects";
-import { issuesRepo } from "@/lib/repositories/issues";
-import { ideasRepo, ideaDecisionsRepo } from "@/lib/repositories/ideas";
+import { projectWikiPagesRepo } from "@/lib/repositories/projects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import WikiPanel from "./WikiPanel";
+import { loadProjectPortal, loadProjectCosts, loadProjectTimeline, type Health } from "@/lib/services/projectPortal";
+import ProjectOverview from "./ProjectOverview";
+import CostsTab from "./CostsTab";
+import TimelineTab from "./TimelineTab";
+import { ProjectStatusBadge, ProjectDangerZone } from "./ProjectStatusControl";
 
-function fmtDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d + "T00:00:00").toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
-}
-
-function goLiveChip(target: string | null) {
-  if (!target) return { text: "No go-live date", cls: "bg-neutral-100 text-neutral-500" };
-  const days = Math.ceil((new Date(target + "T00:00:00").getTime() - Date.now()) / 86_400_000);
-  if (days < 0) return { text: `Overdue by ${-days}d`, cls: "bg-red-100 text-red-700" };
-  if (days === 0) return { text: "Go-live today", cls: "bg-amber-100 text-amber-700" };
-  if (days <= 14) return { text: `Go-live in ${days}d`, cls: "bg-amber-100 text-amber-700" };
-  return { text: `Go-live in ${days}d`, cls: "bg-emerald-100 text-emerald-700" };
-}
+const HEALTH_META: Record<Health, { label: string; cls: string; dot: string }> = {
+  on_track: { label: "On track", cls: "bg-emerald-100 text-emerald-700", dot: "●" },
+  at_risk: { label: "At risk", cls: "bg-amber-100 text-amber-700", dot: "●" },
+  off_track: { label: "Off track", cls: "bg-red-100 text-red-700", dot: "●" },
+  not_started: { label: "Not started", cls: "bg-neutral-100 text-neutral-500", dot: "○" },
+};
+const GOLIVE_CLS: Record<string, string> = {
+  neutral: "bg-neutral-100 text-neutral-500",
+  good: "bg-emerald-100 text-emerald-700",
+  warn: "bg-amber-100 text-amber-700",
+  bad: "bg-red-100 text-red-700",
+};
 
 export default async function ProjectDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ tenant: string; key: string }>;
+  searchParams: Promise<{ tab?: string }>;
 }) {
   const { tenant: slug, key } = await params;
+  const { tab: tabParam } = await searchParams;
+  const tab = tabParam === "timeline" || tabParam === "costs" ? tabParam : "overview";
+
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
 
-  const supabase = ctx.impersonating
-    ? createSupabaseServiceClient()
-    : await createSupabaseServerClient();
+  const supabase = ctx.impersonating ? createSupabaseServiceClient() : await createSupabaseServerClient();
 
-  const project = await projectsRepo(supabase).getByKey(ctx.tenant.id, key);
-  if (!project) notFound();
+  const data = await loadProjectPortal({ tenantId: ctx.tenant.id, projectKey: key, impersonating: ctx.impersonating });
+  if (!data) notFound();
 
-  const [issueCounts, leadUser, linkedIdea, wiki] = await Promise.all([
-    issuesRepo(supabase).countForProject(ctx.tenant.id, project.id),
-    project.lead_user_id
-      ? supabase
-          .from("users")
-          .select("id, name, email")
-          .eq("id", project.lead_user_id)
-          .maybeSingle()
-          .then((r) => r.data as { id: string; name: string | null; email: string } | null)
-      : Promise.resolve(null),
-    project.linked_idea_id
-      ? ideasRepo(supabase).getById(ctx.tenant.id, project.linked_idea_id)
-      : Promise.resolve(null),
-    projectWikiPagesRepo(supabase).getForProject(ctx.tenant.id, project.id),
-  ]);
-
-  const linkedIdeaDecisions = linkedIdea
-    ? await ideaDecisionsRepo(supabase).list(ctx.tenant.id, linkedIdea.id)
-    : [];
-
-  const chip = goLiveChip(project.target_go_live);
-  const openCount = issueCounts.total - issueCounts.done;
+  const wiki = await projectWikiPagesRepo(supabase).getForProject(ctx.tenant.id, data.project.id);
   const canEdit = ctx.role !== "viewer" && !ctx.impersonating;
+  const isAdmin = (ctx.role === "owner" || ctx.role === "admin") && !ctx.impersonating;
+  const health = HEALTH_META[data.health];
+  const base = `/${slug}/projects/${data.project.key}`;
+
+  const tabs: { id: string; label: string; href: string; active: boolean }[] = [
+    { id: "overview", label: "Overview", href: base, active: tab === "overview" },
+    { id: "board", label: "Board", href: `/${slug}/board?project=${data.project.key}`, active: false },
+    { id: "timeline", label: "Timeline", href: `${base}?tab=timeline`, active: tab === "timeline" },
+    { id: "costs", label: "Costs", href: `${base}?tab=costs`, active: tab === "costs" },
+  ];
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
+    <div className="mx-auto max-w-6xl px-6 py-8">
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2 text-sm text-neutral-400">
-        <Link href={`/${slug}`} className="hover:text-neutral-600">Projects</Link>
+        <Link href={`/${slug}/projects`} className="hover:text-neutral-600">Projects</Link>
         <span>/</span>
-        <span className="font-mono text-neutral-500">{project.key}</span>
+        <span className="font-mono text-neutral-500">{data.project.key}</span>
       </div>
 
       {/* Header */}
-      <div className="mb-6 flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">
-              {project.key}
-            </span>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${chip.cls}`}>
-              {chip.text}
-            </span>
+            <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">{data.project.key}</span>
+            <ProjectStatusBadge slug={slug} projectKey={data.project.key} status={data.project.status} isAdmin={isAdmin} />
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${health.cls}`}>{health.dot} {health.label}</span>
+            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${GOLIVE_CLS[data.goLive.tone]}`}>{data.goLive.label}</span>
           </div>
-          <h1 className="mt-2 text-2xl font-bold text-neutral-900">{project.name}</h1>
+          <h1 className="mt-2 text-2xl font-bold text-neutral-900">{data.project.name}</h1>
+          <p className="mt-1 text-sm text-neutral-500">
+            {data.leadName ? `Owner: ${data.leadName}` : "No owner"}
+            {data.members.length > 0 && ` · ${data.members.length} member${data.members.length === 1 ? "" : "s"}`}
+          </p>
         </div>
-        <Link
-          href={`/${slug}/board?project=${project.key}`}
-          className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
-        >
+        <Link href={`/${slug}/board?project=${data.project.key}`} className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">
           Open board →
         </Link>
       </div>
 
-      {/* Metadata card */}
-      <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-        <dl className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm sm:grid-cols-3">
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-neutral-400">Owner</dt>
-            <dd className="mt-1 text-neutral-700">
-              {leadUser ? (leadUser.name ?? leadUser.email) : <span className="italic text-neutral-400">Unassigned</span>}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-neutral-400">Start date</dt>
-            <dd className="mt-1 text-neutral-700">{fmtDate(project.start_date)}</dd>
-          </div>
-          <div>
-            <dt className="text-xs font-medium uppercase tracking-wide text-neutral-400">Go-live</dt>
-            <dd className="mt-1 text-neutral-700">{fmtDate(project.target_go_live)}</dd>
-          </div>
-        </dl>
-      </div>
-
-      {/* Issue stats */}
-      <div className="mb-6">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">Issues</p>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { label: "Total", value: issueCounts.total, cls: "text-neutral-900" },
-            { label: "Open", value: openCount, cls: openCount > 0 ? "text-blue-600" : "text-neutral-400" },
-            { label: "Done", value: issueCounts.done, cls: issueCounts.done > 0 ? "text-emerald-600" : "text-neutral-400" },
-          ].map((stat) => (
-            <div
-              key={stat.label}
-              className="rounded-xl border border-neutral-200 bg-white p-4 text-center shadow-sm"
-            >
-              <p className={`text-3xl font-bold tabular-nums ${stat.cls}`}>{stat.value}</p>
-              <p className="mt-1 text-xs text-neutral-500">{stat.label}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Linked Think Tank idea */}
-      {linkedIdea && (
-        <div className="mb-6">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
-            Originated from Think Tank
-          </p>
+      {/* Tab bar */}
+      <div className="mt-5 mb-5 flex gap-1 border-b border-neutral-200">
+        {tabs.map((t) => (
           <Link
-            href={`/${slug}/think-tank/${linkedIdea.id}`}
-            className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm transition hover:border-neutral-300 hover:shadow"
+            key={t.id}
+            href={t.href}
+            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
+              t.active ? "border-neutral-900 text-neutral-900" : "border-transparent text-neutral-500 hover:text-neutral-800"
+            }`}
           >
-            <span className="mt-0.5 text-lg">💡</span>
-            <div>
-              <p className="font-medium text-neutral-900">{linkedIdea.title}</p>
-              <p className="mt-0.5 text-xs text-neutral-400">
-                Converted idea · View in Think Tank →
-              </p>
-            </div>
+            {t.label}
           </Link>
-        </div>
+        ))}
+      </div>
+
+      {tab === "overview" && <ProjectOverview slug={slug} data={data} wiki={wiki} canEdit={canEdit} />}
+      {tab === "timeline" && <TimelineTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} />}
+      {tab === "costs" && <CostsTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} canEdit={canEdit} />}
+
+      {isAdmin && tab === "overview" && (
+        <ProjectDangerZone slug={slug} projectKey={data.project.key} issueCount={data.total} />
       )}
-
-      {/* Decisions from the originating idea */}
-      {linkedIdeaDecisions.length > 0 && (
-        <div className="mb-6">
-          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">
-            Decisions from Think Tank
-          </p>
-          <div className="space-y-2">
-            {linkedIdeaDecisions.map((d) => (
-              <div key={d.id} className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-                <span className="mt-0.5 text-base">✅</span>
-                <div>
-                  <p className="text-sm font-semibold text-neutral-900">{d.title}</p>
-                  {d.body && <p className="mt-1 text-sm text-neutral-600">{d.body}</p>}
-                  <p className="mt-1 text-xs text-neutral-400">
-                    {d.decidedByName ? `${d.decidedByName} · ` : ""}
-                    {new Date(d.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Wiki */}
-      <div className="mb-6">
-        <WikiPanel
-          slug={slug}
-          projectKey={project.key}
-          wiki={wiki}
-          canEdit={canEdit}
-        />
-      </div>
-
-      {/* Quick actions */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">Quick actions</p>
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href={`/${slug}/board?project=${project.key}`}
-            className="rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
-          >
-            Kanban board
-          </Link>
-          <Link
-            href={`/${slug}/issues?project=${project.key}`}
-            className="rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
-          >
-            Issue list
-          </Link>
-          <Link
-            href={`/${slug}`}
-            className="rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-600 hover:bg-neutral-50"
-          >
-            All projects
-          </Link>
-        </div>
-      </div>
     </div>
   );
+}
+
+async function CostsTabPanel({
+  slug,
+  projectKey,
+  tenantId,
+  impersonating,
+  canEdit,
+}: {
+  slug: string;
+  projectKey: string;
+  tenantId: string;
+  impersonating: boolean;
+  canEdit: boolean;
+}) {
+  const costs = await loadProjectCosts({ tenantId, projectKey, impersonating });
+  if (!costs) return null;
+  return <CostsTab slug={slug} projectKey={projectKey} data={costs} canEdit={canEdit} />;
+}
+
+async function TimelineTabPanel({
+  slug,
+  projectKey,
+  tenantId,
+  impersonating,
+}: {
+  slug: string;
+  projectKey: string;
+  tenantId: string;
+  impersonating: boolean;
+}) {
+  const timeline = await loadProjectTimeline({ tenantId, projectKey, impersonating });
+  if (!timeline) return null;
+  return <TimelineTab slug={slug} data={timeline} />;
 }

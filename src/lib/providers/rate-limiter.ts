@@ -1,11 +1,19 @@
 import { createClient } from "@supabase/supabase-js";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logger } from "@/lib/logger";
 
 /**
  * Rate limiter behind a small interface so the implementation is swappable
  * (Architecture: provider adapters). Uses Supabase as a shared scoreboard so
- * all serverless instances share the same tallies. Falls back to in-memory
- * when the DB is unavailable (dev/test without a live DB).
+ * all serverless instances share the same tallies.
+ *
+ * SECURITY (SEC-01): two former failure modes are closed here.
+ *  1. On a DB error we DEGRADE to a per-instance in-memory counter and emit a
+ *     `rate_limiter_degraded` alert — we never silently allow-all. A real
+ *     ceiling keeps holding during a DB blip (weaker, but never "off"), without
+ *     the self-DoS of hard-failing-closed on the auth-fail throttle.
+ *  2. In production we REFUSE to boot with the unshared in-memory limiter — a
+ *     missing service-role env is a loud failure, not a silent unprotected run.
  *
  * To swap to Redis later: implement RateLimiter with @upstash/ratelimit and
  * update getRateLimiter() — call sites never change.
@@ -40,22 +48,34 @@ class InMemoryRateLimiter implements RateLimiter {
 // Uses the rl_increment RPC which atomically increments the counter in one
 // round-trip, safe against concurrent serverless instances.
 // ---------------------------------------------------------------------------
-class SupabaseRateLimiter implements RateLimiter {
+export class SupabaseRateLimiter implements RateLimiter {
+  // Per-instance degraded fallback used ONLY when the shared store errors.
+  private readonly degraded = new InMemoryRateLimiter();
+
   constructor(private supabase: SupabaseClient) {}
 
   async check(key: string, limit: number, windowMs: number) {
-    const { data, error } = await this.supabase.rpc("rl_increment", {
-      p_key: key,
-      p_window_ms: windowMs,
-    });
-
-    if (error || !data?.[0]) {
-      // DB error — fail open so a DB hiccup doesn't take down the API.
-      console.error("rate-limiter supabase error, failing open", error);
-      return { allowed: true, remaining: limit, resetMs: windowMs };
+    let data: { new_count: number; reset_at: string }[] | null = null;
+    let error: unknown = null;
+    try {
+      const res = await this.supabase.rpc("rl_increment", { p_key: key, p_window_ms: windowMs });
+      data = res.data as typeof data;
+      error = res.error;
+    } catch (e) {
+      error = e;
     }
 
-    const { new_count, reset_at } = data[0] as { new_count: number; reset_at: string };
+    if (error || !data?.[0]) {
+      // DEGRADE, don't disable: keep a real per-instance ceiling + alert.
+      // Previously this failed OPEN (allowed: true) — the SEC-01 gap.
+      logger.error("rate_limiter_degraded", {
+        key,
+        reason: error instanceof Error ? error.message : String(error ?? "no row returned"),
+      });
+      return this.degraded.check(key, limit, windowMs);
+    }
+
+    const { new_count, reset_at } = data[0];
     const resetMs = Math.max(0, new Date(reset_at).getTime() - Date.now());
     return {
       allowed: new_count <= limit,
@@ -78,7 +98,15 @@ export function getRateLimiter(): RateLimiter {
 
   if (url && key) {
     _limiter = new SupabaseRateLimiter(createClient(url, key));
+  } else if (process.env.NODE_ENV === "production") {
+    // Refuse to run unprotected: a missing shared store in prod would silently
+    // fall back to per-instance in-memory counters (not shared across serverless
+    // instances, reset on cold start) — the original "effectively off" risk.
+    throw new Error(
+      "Rate limiter misconfigured: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required in production. Refusing to start with an unshared in-memory limiter (SEC-01)."
+    );
   } else {
+    // Dev/test only.
     _limiter = new InMemoryRateLimiter();
   }
 

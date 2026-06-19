@@ -5,7 +5,8 @@ import { getTenantContext } from "@/lib/auth";
 import { createIdea, updateIdea } from "@/lib/services/thinkTank";
 import { createProject } from "@/lib/services/projects";
 import { projectsRepo, projectWikiPagesRepo } from "@/lib/repositories/projects";
-import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo, thinkTankPillsRepo, ideaDecisionsRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo, thinkTankPillsRepo, ideaDecisionsRepo, ideaSignoffsRepo, SIGNOFF_ROLES, type SignoffRole } from "@/lib/repositories/ideas";
+// eslint-disable-next-line no-restricted-imports -- complex attachment/storage/vote ops need service-role; all queries go through repos (sec09: accepted, pending full refactor)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { callSoundingBoard, AIRateLimitError, type IdeaContext, type ConversationTurn } from "@/lib/ai/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -641,6 +642,64 @@ export async function deleteDecisionAction(
 
   const svc = createSupabaseServiceClient();
   await ideaDecisionsRepo(svc).softDelete(ctx.tenant.id, decisionId);
+  revalidatePath(`/${slug}/think-tank/${ideaId}`);
+}
+
+// ---------------------------------------------------------------------------
+// Sign-offs (Design C — cross-functional readiness). Any contributing member
+// may sign or withdraw a role (founder decision: trust-based, soft gate).
+// ---------------------------------------------------------------------------
+
+export async function signOffAction(
+  slug: string,
+  ideaId: string,
+  role: SignoffRole,
+  note: string
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot sign off.");
+  if (!SIGNOFF_ROLES.includes(role)) throw new Error("Unknown sign-off role.");
+
+  const svc = createSupabaseServiceClient();
+  await ideaSignoffsRepo(svc).approve({
+    tenantId: ctx.tenant.id,
+    ideaId,
+    role,
+    approvedBy: ctx.appUserId,
+    note: note.trim() || null,
+  });
+
+  void recordAudit({
+    tenantId: ctx.tenant.id,
+    actorUserId: ctx.appUserId,
+    action: "idea.signoff_approved",
+    target: role,
+  });
+
+  revalidatePath(`/${slug}/think-tank/${ideaId}`);
+}
+
+export async function revokeSignOffAction(
+  slug: string,
+  ideaId: string,
+  role: SignoffRole
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot change sign-offs.");
+  if (!SIGNOFF_ROLES.includes(role)) throw new Error("Unknown sign-off role.");
+
+  const svc = createSupabaseServiceClient();
+  await ideaSignoffsRepo(svc).revoke(ctx.tenant.id, ideaId, role);
+
+  void recordAudit({
+    tenantId: ctx.tenant.id,
+    actorUserId: ctx.appUserId,
+    action: "idea.signoff_withdrawn",
+    target: role,
+  });
+
   revalidatePath(`/${slug}/think-tank/${ideaId}`);
 }
 
