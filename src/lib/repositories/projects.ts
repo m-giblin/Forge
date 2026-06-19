@@ -2,10 +2,13 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 // lead_user_id is the project "Owner" in the UI. start_date / target_go_live
 // come from the intake form — "dates trigger everything".
+export type ProjectStatus = "active" | "on_hold" | "closed" | "archived";
+
 export type Project = {
   id: string;
   key: string;
   name: string;
+  status: ProjectStatus;
   lead_user_id: string | null;
   start_date: string | null;
   target_go_live: string | null;
@@ -14,7 +17,7 @@ export type Project = {
   created_at?: string;
 };
 
-const COLS = "id, key, name, lead_user_id, start_date, target_go_live, linked_idea_id, budget_cents, created_at";
+const COLS = "id, key, name, status, lead_user_id, start_date, target_go_live, linked_idea_id, budget_cents, created_at";
 
 export type CreateProjectInput = {
   tenant_id: string;
@@ -63,24 +66,27 @@ export function projectsRepo(supabase: SupabaseClient) {
       return (data as Project) ?? null;
     },
 
-    /** Every project in the tenant (admin view — they see all). */
-    async listByTenant(tenantId: string): Promise<Project[]> {
+    /** Every project in the tenant. Pass statuses to filter; omit for all non-archived. */
+    async listByTenant(tenantId: string, statuses?: ProjectStatus[]): Promise<Project[]> {
+      const filter = statuses ?? (["active", "on_hold", "closed"] as ProjectStatus[]);
       const { data, error } = await supabase
         .from("projects")
         .select(COLS)
         .eq("tenant_id", tenantId)
+        .in("status", filter)
         .order("key");
       if (error) throw error;
       return (data ?? []) as Project[];
     },
 
-    /** Projects a specific user is a team member of (non-admin landing view). */
+    /** Projects a specific user is a team member of (non-admin landing view). Excludes archived. */
     async listForMember(tenantId: string, userId: string): Promise<Project[]> {
       const { data, error } = await supabase
         .from("projects")
         .select(`${COLS}, project_members!inner(user_id)`)
         .eq("tenant_id", tenantId)
         .eq("project_members.user_id", userId)
+        .neq("status", "archived")
         .order("key");
       if (error) throw error;
       // Strip the joined relation off each row.
@@ -88,6 +94,7 @@ export function projectsRepo(supabase: SupabaseClient) {
         id: row.id,
         key: row.key,
         name: row.name,
+        status: row.status,
         lead_user_id: row.lead_user_id,
         start_date: row.start_date,
         target_go_live: row.target_go_live,
@@ -127,6 +134,24 @@ export function projectsRepo(supabase: SupabaseClient) {
       const { error } = await supabase
         .from("projects")
         .update({ budget_cents: budgetCents })
+        .eq("tenant_id", tenantId)
+        .eq("id", projectId);
+      if (error) throw error;
+    },
+
+    async updateStatus(tenantId: string, projectId: string, status: ProjectStatus): Promise<void> {
+      const { error } = await supabase
+        .from("projects")
+        .update({ status })
+        .eq("tenant_id", tenantId)
+        .eq("id", projectId);
+      if (error) throw error;
+    },
+
+    async deleteById(tenantId: string, projectId: string): Promise<void> {
+      const { error } = await supabase
+        .from("projects")
+        .delete()
         .eq("tenant_id", tenantId)
         .eq("id", projectId);
       if (error) throw error;

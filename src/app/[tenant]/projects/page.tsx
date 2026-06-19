@@ -1,19 +1,18 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
-import { listVisibleProjects } from "@/lib/services/projects";
+import { listVisibleProjects, listArchivedProjects } from "@/lib/services/projects";
 import { listMembers } from "@/lib/services/members";
 import ProjectsLanding from "../ProjectsLanding";
 
-// Projects list + create-project intake. Previously the tenant home; now reached
-// from the "Projects" nav link and from Mission Control's portfolio section.
 export default async function ProjectsPage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant: slug } = await params;
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
 
-  const isAdmin = ctx.role === "owner" || ctx.role === "admin";
-  const [projects, members] = await Promise.all([
+  const isAdmin = (ctx.role === "owner" || ctx.role === "admin") && !ctx.impersonating;
+  const [projects, archivedProjects, members] = await Promise.all([
     listVisibleProjects(ctx.tenant.id, ctx.appUserId, ctx.role, ctx.impersonating),
+    isAdmin ? listArchivedProjects(ctx.tenant.id, ctx.impersonating) : Promise.resolve([]),
     isAdmin ? listMembers(ctx.tenant.id, ctx.impersonating) : Promise.resolve([]),
   ]);
 
@@ -22,8 +21,10 @@ export default async function ProjectsPage({ params }: { params: Promise<{ tenan
       <ProjectsLanding
         slug={slug}
         tenantName={ctx.tenant.name}
-        canCreate={isAdmin && !ctx.impersonating}
+        isAdmin={isAdmin}
+        canCreate={isAdmin}
         projects={projects}
+        archivedProjects={archivedProjects}
         members={members.map((m) => ({ userId: m.userId, label: m.name || m.email }))}
       />
     </main>

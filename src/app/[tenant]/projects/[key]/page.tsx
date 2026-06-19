@@ -9,6 +9,7 @@ import { loadProjectPortal, loadProjectCosts, loadProjectTimeline, type Health }
 import ProjectOverview from "./ProjectOverview";
 import CostsTab from "./CostsTab";
 import TimelineTab from "./TimelineTab";
+import { ProjectStatusBadge, ProjectDangerZone } from "./ProjectStatusControl";
 
 const HEALTH_META: Record<Health, { label: string; cls: string; dot: string }> = {
   on_track: { label: "On track", cls: "bg-emerald-100 text-emerald-700", dot: "●" },
@@ -44,6 +45,7 @@ export default async function ProjectDetailPage({
 
   const wiki = await projectWikiPagesRepo(supabase).getForProject(ctx.tenant.id, data.project.id);
   const canEdit = ctx.role !== "viewer" && !ctx.impersonating;
+  const isAdmin = (ctx.role === "owner" || ctx.role === "admin") && !ctx.impersonating;
   const health = HEALTH_META[data.health];
   const base = `/${slug}/projects/${data.project.key}`;
 
@@ -68,6 +70,7 @@ export default async function ProjectDetailPage({
         <div>
           <div className="flex items-center gap-2">
             <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">{data.project.key}</span>
+            <ProjectStatusBadge slug={slug} projectKey={data.project.key} status={data.project.status} isAdmin={isAdmin} />
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${health.cls}`}>{health.dot} {health.label}</span>
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${GOLIVE_CLS[data.goLive.tone]}`}>{data.goLive.label}</span>
           </div>
@@ -100,6 +103,10 @@ export default async function ProjectDetailPage({
       {tab === "overview" && <ProjectOverview slug={slug} data={data} wiki={wiki} canEdit={canEdit} />}
       {tab === "timeline" && <TimelineTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} />}
       {tab === "costs" && <CostsTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} canEdit={canEdit} />}
+
+      {isAdmin && tab === "overview" && (
+        <ProjectDangerZone slug={slug} projectKey={data.project.key} issueCount={data.total} />
+      )}
     </div>
   );
 }

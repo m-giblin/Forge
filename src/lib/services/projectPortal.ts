@@ -1,7 +1,7 @@
 import "server-only";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { projectsRepo, projectSpendRepo, type ProjectSpend } from "@/lib/repositories/projects";
+import { projectsRepo, projectSpendRepo, type ProjectSpend, type ProjectStatus } from "@/lib/repositories/projects";
 import { issuesRepo } from "@/lib/repositories/issues";
 import { projectMembersRepo } from "@/lib/repositories/projectMembers";
 import {
@@ -37,7 +37,7 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 
 export type BatterySegment = { key: string; label: string; count: number; color: string };
 export type ProjectPortalData = {
-  project: { id: string; key: string; name: string; startDate: string | null; targetGoLive: string | null };
+  project: { id: string; key: string; name: string; status: ProjectStatus; startDate: string | null; targetGoLive: string | null };
   goLive: { days: number | null; label: string; tone: "neutral" | "good" | "warn" | "bad" };
   health: Health;
   attention: string[];
@@ -231,6 +231,7 @@ export async function loadProjectPortal(input: {
       id: project.id,
       key: project.key,
       name: project.name,
+      status: project.status,
       startDate: project.start_date,
       targetGoLive: project.target_go_live,
     },
