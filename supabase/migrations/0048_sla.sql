@@ -15,13 +15,13 @@ alter table sla_policies enable row level security;
 create policy "admin manage sla_policies" on sla_policies
   using (
     tenant_id in (
-      select tenant_id from tenant_members
+      select tenant_id from memberships
       where user_id = auth.uid() and role in ('owner','admin')
     )
   )
   with check (
     tenant_id in (
-      select tenant_id from tenant_members
+      select tenant_id from memberships
       where user_id = auth.uid() and role in ('owner','admin')
     )
   );
@@ -31,7 +31,7 @@ create policy "members read sla_policies" on sla_policies
   for select
   using (
     tenant_id in (
-      select tenant_id from tenant_members where user_id = auth.uid()
+      select tenant_id from memberships where user_id = auth.uid()
     )
   );
 
@@ -53,7 +53,7 @@ create policy "members read sla_events" on sla_events
   for select
   using (
     tenant_id in (
-      select tenant_id from tenant_members where user_id = auth.uid()
+      select tenant_id from memberships where user_id = auth.uid()
     )
   );
 create policy "service role manage sla_events" on sla_events
