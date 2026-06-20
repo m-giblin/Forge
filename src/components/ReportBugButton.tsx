@@ -1,7 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { reportBugAction } from "@/app/report-actions";
+import { useRef, useState, useTransition } from "react";
+import { reportBugAction, attachFilesToBugAction } from "@/app/report-actions";
+
+const MAX_FILES = 5;
+const MAX_MB = 10;
+const ACCEPT = "image/png,image/jpeg,image/gif,image/webp,application/pdf";
 
 export default function ReportBugButton() {
   const [open, setOpen] = useState(false);
@@ -10,15 +14,34 @@ export default function ReportBugButton() {
   const [priority, setPriority] = useState("medium");
   const [severity, setSeverity] = useState("minor");
   const [pageUrl, setPageUrl] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const fileRef = useRef<HTMLInputElement>(null);
 
   function openModal() {
     setPageUrl(window.location.pathname);
     setDone(null);
     setError(null);
     setOpen(true);
+  }
+
+  function addFiles(incoming: FileList | null) {
+    if (!incoming) return;
+    const next = [...files];
+    for (const f of Array.from(incoming)) {
+      if (next.length >= MAX_FILES) { setError(`Max ${MAX_FILES} files`); break; }
+      if (f.size > MAX_MB * 1024 * 1024) { setError(`${f.name} exceeds ${MAX_MB} MB`); continue; }
+      if (!next.find((x) => x.name === f.name && x.size === f.size)) next.push(f);
+    }
+    setFiles(next);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function reset() {
+    setTitle(""); setDescription(""); setPriority("medium"); setSeverity("minor");
+    setPageUrl(""); setFiles([]); setDone(null); setError(null);
   }
 
   function submit() {
@@ -31,9 +54,18 @@ export default function ReportBugButton() {
           pageUrl ? `**Page:** ${pageUrl}` : "",
           `**Severity:** ${severity}`,
         ].filter(Boolean).join("\n\n");
-        const { key } = await reportBugAction({ title, description: desc, priority });
+
+        const { id, key } = await reportBugAction({ title, description: desc, priority });
+
+        if (files.length > 0) {
+          const fd = new FormData();
+          files.forEach((f) => fd.append("file", f));
+          await attachFilesToBugAction(id, fd);
+        }
+
         setDone(key);
-        setTitle(""); setDescription(""); setPriority("medium"); setSeverity("minor"); setPageUrl("");
+        setTitle(""); setDescription(""); setPriority("medium"); setSeverity("minor");
+        setPageUrl(""); setFiles([]);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to report");
       }
@@ -62,7 +94,7 @@ export default function ReportBugButton() {
                 <p className="rounded-lg bg-green-50 px-3 py-2 text-sm text-green-700">
                   Filed as <span className="font-mono font-semibold">{done}</span> ✓
                 </p>
-                <button onClick={() => setDone(null)} className="text-sm text-neutral-600 hover:underline">Report another</button>
+                <button onClick={reset} className="text-sm text-neutral-600 hover:underline">Report another</button>
               </div>
             ) : (
               <div className="space-y-3">
@@ -73,7 +105,7 @@ export default function ReportBugButton() {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && submit()}
-                    placeholder="What&apos;s broken?"
+                    placeholder="What's broken?"
                     className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
                   />
                 </div>
@@ -81,11 +113,7 @@ export default function ReportBugButton() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="mb-1 block text-xs font-medium text-neutral-600">Priority</label>
-                    <select
-                      value={priority}
-                      onChange={(e) => setPriority(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-300 px-2 py-2 text-sm"
-                    >
+                    <select value={priority} onChange={(e) => setPriority(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-2 py-2 text-sm">
                       <option value="critical">🔴 Critical</option>
                       <option value="high">🟠 High</option>
                       <option value="medium">🟡 Medium</option>
@@ -94,11 +122,7 @@ export default function ReportBugButton() {
                   </div>
                   <div>
                     <label className="mb-1 block text-xs font-medium text-neutral-600">Severity</label>
-                    <select
-                      value={severity}
-                      onChange={(e) => setSeverity(e.target.value)}
-                      className="w-full rounded-lg border border-neutral-300 px-2 py-2 text-sm"
-                    >
+                    <select value={severity} onChange={(e) => setSeverity(e.target.value)} className="w-full rounded-lg border border-neutral-300 px-2 py-2 text-sm">
                       <option value="blocker">Blocker</option>
                       <option value="major">Major</option>
                       <option value="minor">Minor</option>
@@ -128,7 +152,38 @@ export default function ReportBugButton() {
                   />
                 </div>
 
+                {/* Attachments */}
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-neutral-600">
+                    Attachments <span className="font-normal text-neutral-400">(screenshots, up to {MAX_FILES} files)</span>
+                  </label>
+
+                  <input ref={fileRef} type="file" accept={ACCEPT} multiple className="hidden"
+                    onChange={(e) => addFiles(e.target.files)} />
+
+                  {files.length > 0 && (
+                    <ul className="mb-1.5 space-y-1">
+                      {files.map((f, i) => (
+                        <li key={i} className="flex items-center gap-2 rounded-lg bg-neutral-50 px-2.5 py-1.5 text-xs text-neutral-600">
+                          <span className="flex-1 truncate">{f.name}</span>
+                          <span className="shrink-0 text-neutral-400">{(f.size / 1024).toFixed(0)} KB</span>
+                          <button type="button" onClick={() => setFiles(files.filter((_, j) => j !== i))}
+                            className="shrink-0 font-bold text-neutral-300 hover:text-red-500">×</button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {files.length < MAX_FILES && (
+                    <button type="button" onClick={() => fileRef.current?.click()}
+                      className="w-full rounded-lg border border-dashed border-neutral-300 py-2 text-xs text-neutral-400 hover:bg-neutral-50 transition">
+                      + Add screenshot or file
+                    </button>
+                  )}
+                </div>
+
                 {error && <p className="text-sm text-red-600">{error}</p>}
+
                 <button
                   onClick={submit}
                   disabled={pending || !title.trim()}
