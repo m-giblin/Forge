@@ -3,6 +3,7 @@
 import { useState, useEffect, useTransition } from "react";
 import type { TriageSuggestion } from "@/lib/repositories/issues";
 import { runTriageAction, acceptTriageAction, dismissTriageAction } from "./triageActions";
+import { markDuplicateAction } from "./actions";
 
 export default function TriageCard({
   slug,
@@ -82,12 +83,39 @@ export default function TriageCard({
             <span className="font-medium text-neutral-800">{suggestion.categoryLabel}</span>
           </div>
         )}
-        {suggestion.duplicateTitles.length > 0 && (
+        {(suggestion.duplicateCandidates ?? []).length > 0 && (
+          <div className="flex items-start gap-2">
+            <span className="text-neutral-500 shrink-0 w-20 pt-0.5">Possible dup</span>
+            <ul className="space-y-1">
+              {(suggestion.duplicateCandidates ?? []).map((d) => (
+                <li key={d.id} className="flex items-center gap-1.5">
+                  <span className="text-amber-700 truncate max-w-[120px] text-xs" title={d.title}>
+                    ⚠ #{d.number} {d.title}
+                  </span>
+                  {!readOnly && (
+                    <button
+                      onClick={() =>
+                        startTransition(() =>
+                          markDuplicateAction(slug, issueId, d.id, `#${d.number}`)
+                        )
+                      }
+                      disabled={pending}
+                      className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300 whitespace-nowrap disabled:opacity-50"
+                    >
+                      Mark dup
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        {suggestion.duplicateCandidates === undefined && suggestion.duplicateTitles.length > 0 && (
           <div className="flex items-start gap-2">
             <span className="text-neutral-500 shrink-0 w-20 pt-0.5">Possible dup</span>
             <ul className="space-y-0.5">
               {suggestion.duplicateTitles.map((t, i) => (
-                <li key={i} className="text-amber-700 truncate max-w-[160px]" title={t}>⚠ {t}</li>
+                <li key={i} className="text-amber-700 truncate max-w-[160px] text-xs" title={t}>⚠ {t}</li>
               ))}
             </ul>
           </div>

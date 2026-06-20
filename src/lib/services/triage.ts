@@ -35,7 +35,7 @@ export async function triageIssue(tenantId: string, issueId: string): Promise<Tr
       fieldConfigRepo(svc).listOptions(tenantId),
       fieldConfigRepo(svc).listCategories(tenantId),
       svc.from("issues")
-        .select("id, title")
+        .select("id, number, title")
         .eq("tenant_id", tenantId)
         .neq("id", issueId)
         .order("created_at", { ascending: false })
@@ -79,10 +79,17 @@ Respond with this exact JSON structure:
       reasoning: string;
     };
 
+    const dupTitles = Array.isArray(parsed.duplicateTitles) ? parsed.duplicateTitles.slice(0, 3) : [];
+    const dupCandidates = dupTitles
+      .map((t) => recentIssues.find((r) => r.title === t))
+      .filter(Boolean)
+      .map((r) => ({ id: r!.id as string, number: r!.number as number, title: r!.title as string }));
+
     const suggestion: TriageSuggestion = {
       priority: parsed.priority,
-      categoryLabel: parsed.categoryLabel ?? null, // matched against category.name
-      duplicateTitles: Array.isArray(parsed.duplicateTitles) ? parsed.duplicateTitles.slice(0, 3) : [],
+      categoryLabel: parsed.categoryLabel ?? null,
+      duplicateTitles: dupTitles,
+      duplicateCandidates: dupCandidates,
       reasoning: parsed.reasoning ?? "",
       generatedAt: new Date().toISOString(),
     };

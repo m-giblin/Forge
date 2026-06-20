@@ -148,3 +148,41 @@ export async function deleteIssueAction(slug: string, id: string) {
   revalidatePath(`/${slug}/board`);
   redirect(`/${slug}/board`);
 }
+
+export async function markDuplicateAction(
+  slug: string,
+  duplicateIssueId: string,  // the issue we're closing as duplicate
+  canonicalIssueId: string,  // the original issue it duplicates
+  canonicalKey: string,
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot merge issues.");
+  const svc = createSupabaseServiceClient();
+
+  // 1. Create duplicate link
+  await svc.from("issue_links").insert({
+    tenant_id: ctx.tenant.id,
+    source_issue_id: duplicateIssueId,
+    target_issue_id: canonicalIssueId,
+    link_type: "duplicates",
+  });
+
+  // 2. Close the duplicate with a won't-fix-style status
+  await svc.from("issues").update({ status: "done" })
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("id", duplicateIssueId);
+
+  // 3. Post timeline comment
+  await svc.from("issue_comments").insert({
+    tenant_id: ctx.tenant.id,
+    issue_id: duplicateIssueId,
+    author_id: ctx.appUserId,
+    author_label: null,
+    body: `Marked as duplicate of **${canonicalKey}** and closed.`,
+    parent_id: null,
+  });
+
+  revalidatePath(`/${slug}/issues/${duplicateIssueId}`);
+  revalidatePath(`/${slug}/issues/${canonicalIssueId}`);
+}
