@@ -304,6 +304,7 @@ export async function addIssueComment(input: {
   authorId: string;
   authorLabel: string | null;
   body: string;
+  parentId?: string | null;
 }): Promise<IssueComment> {
   const body = input.body.trim();
   if (!body) throw new Error("Comment can’t be empty.");

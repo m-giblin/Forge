@@ -125,6 +125,8 @@ export default function IssueDetail({
 
   const [comments, setComments] = useState<IssueComment[]>(initialComments);
   const [commentBody, setCommentBody] = useState("");
+  const [replyToId, setReplyToId] = useState<string | null>(null);
+  const [replyToLabel, setReplyToLabel] = useState<string | null>(null);
   const [commenting, startComment] = useTransition();
 
   const orderedStatuses = [...statuses].sort((a, b) => a.position - b.position);
@@ -230,14 +232,66 @@ export default function IssueDetail({
     if (!body) return;
     startComment(async () => {
       try {
-        const c = await addCommentAction(slug, issue.id, body);
+        const c = await addCommentAction(slug, issue.id, body, replyToId);
         setComments((prev) => [...prev, c]);
         setCommentBody("");
+        setReplyToId(null);
+        setReplyToLabel(null);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to comment");
       }
     });
   }
+
+  function startReply(commentId: string, authorLabel: string | null) {
+    setReplyToId(commentId);
+    setReplyToLabel(authorLabel);
+    setCommentBody("");
+  }
+
+  function cancelReply() {
+    setReplyToId(null);
+    setReplyToLabel(null);
+  }
+
+  function avatarInitials(label: string | null): string {
+    if (!label) return "?";
+    const parts = label.trim().split(/\s+/);
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return label.slice(0, 2).toUpperCase();
+  }
+
+  function avatarColor(label: string | null): string {
+    const colors = ["bg-blue-500","bg-violet-500","bg-emerald-500","bg-amber-500","bg-rose-500","bg-cyan-500","bg-indigo-500","bg-pink-500"];
+    if (!label) return colors[0];
+    const idx = [...label].reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % colors.length;
+    return colors[idx];
+  }
+
+  // Merge comments + events into one sorted timeline
+  type TimelineItem =
+    | { kind: "comment"; data: IssueComment }
+    | { kind: "event"; data: IssueEvent };
+
+  const timeline = useMemo((): TimelineItem[] => {
+    const items: TimelineItem[] = [
+      ...comments.filter((c) => !c.parentId).map((c): TimelineItem => ({ kind: "comment", data: c })),
+      ...events.map((e): TimelineItem => ({ kind: "event", data: e })),
+    ];
+    return items.sort((a, b) =>
+      new Date(a.data.createdAt).getTime() - new Date(b.data.createdAt).getTime()
+    );
+  }, [comments, events]);
+
+  const repliesByParent = useMemo(() => {
+    const map = new Map<string, IssueComment[]>();
+    comments.filter((c) => c.parentId).forEach((c) => {
+      const arr = map.get(c.parentId!) ?? [];
+      arr.push(c);
+      map.set(c.parentId!, arr);
+    });
+    return map;
+  }, [comments]);
 
   const overdue = isUnassignedOverdue(issue);
   const thresholdLabel = durMin(unassignedThresholdMs(issue.priority));
@@ -431,49 +485,109 @@ export default function IssueDetail({
 
           {/* ─ Activity section ─ */}
           <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-600">Activity</p>
+            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-600">
+              Activity
+              {comments.length > 0 && (
+                <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-neutral-600">{comments.length}</span>
+              )}
+            </p>
+
             <div className="space-y-3">
-              {events.map((e) => (
-                <div key={e.id} className="text-xs text-neutral-600">
-                  <span className="font-medium text-neutral-800">{e.actorLabel ?? "Someone"}</span>{" "}
-                  {e.field === "details" ? (
-                    "edited the details"
-                  ) : (
-                    <>changed {e.field} from <span className="text-neutral-800">{eventValue(e.field, e.oldValue)}</span> to <span className="text-neutral-800">{eventValue(e.field, e.newValue)}</span></>
-                  )}{" "}
-                  · <span title={new Date(e.createdAt).toLocaleString()}>{relTime(e.createdAt)}</span>
-                </div>
-              ))}
-              {comments.map((c) => (
-                <div key={c.id} className="rounded-lg border border-neutral-200 bg-white p-3">
-                  <div className="mb-2 flex items-center gap-2 text-xs">
-                    <span className="font-medium text-neutral-800">{c.authorLabel ?? "Someone"}</span>
-                    <span className="text-neutral-500" title={new Date(c.createdAt).toLocaleString()}>{relTime(c.createdAt)}</span>
-                  </div>
-                  <p className="whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
-                </div>
-              ))}
-              {events.length === 0 && comments.length === 0 && (
+              {timeline.length === 0 && (
                 <p className="text-xs text-neutral-500">No activity yet.</p>
               )}
+
+              {timeline.map((item) => {
+                if (item.kind === "event") {
+                  const e = item.data;
+                  return (
+                    <div key={e.id} className="flex items-start gap-2.5 text-xs text-neutral-500">
+                      <div className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-neutral-200 flex items-center justify-center">
+                        <span className="text-[9px] font-bold text-neutral-500">⚙</span>
+                      </div>
+                      <div className="pt-0.5">
+                        <span className="font-medium text-neutral-700">{e.actorLabel ?? "Someone"}</span>{" "}
+                        {e.field === "details" ? "edited the details" : (
+                          <>changed <span className="font-medium text-neutral-700">{e.field}</span> from{" "}
+                          <span className="text-neutral-700">{eventValue(e.field, e.oldValue)}</span> to{" "}
+                          <span className="font-medium text-neutral-700">{eventValue(e.field, e.newValue)}</span></>
+                        )}{" "}
+                        <span title={new Date(e.createdAt).toLocaleString()} className="text-neutral-400">· {relTime(e.createdAt)}</span>
+                      </div>
+                    </div>
+                  );
+                }
+
+                const c = item.data;
+                const replies = repliesByParent.get(c.id) ?? [];
+                return (
+                  <div key={c.id}>
+                    {/* Top-level comment */}
+                    <div className="rounded-lg border border-neutral-200 bg-white p-3.5">
+                      <div className="mb-2 flex items-center gap-2">
+                        <div className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${avatarColor(c.authorLabel)}`}>
+                          {avatarInitials(c.authorLabel)}
+                        </div>
+                        <span className="text-xs font-semibold text-neutral-800">{c.authorLabel ?? "Someone"}</span>
+                        <span className="text-xs text-neutral-400" title={new Date(c.createdAt).toLocaleString()}>· {relTime(c.createdAt)}</span>
+                      </div>
+                      <p className="whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
+                      {!readOnly && (
+                        <button
+                          onClick={() => startReply(c.id, c.authorLabel)}
+                          className="mt-2 text-xs text-neutral-400 hover:text-blue-600 transition"
+                        >
+                          Reply
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Threaded replies */}
+                    {replies.length > 0 && (
+                      <div className="ml-6 mt-1.5 space-y-1.5 border-l-2 border-neutral-200 pl-3">
+                        {replies.map((r) => (
+                          <div key={r.id} className="rounded-lg border border-neutral-100 bg-white p-3">
+                            <div className="mb-1.5 flex items-center gap-2">
+                              <div className={`h-5 w-5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold text-white ${avatarColor(r.authorLabel)}`}>
+                                {avatarInitials(r.authorLabel)}
+                              </div>
+                              <span className="text-xs font-semibold text-neutral-800">{r.authorLabel ?? "Someone"}</span>
+                              <span className="text-xs text-neutral-400" title={new Date(r.createdAt).toLocaleString()}>· {relTime(r.createdAt)}</span>
+                            </div>
+                            <p className="whitespace-pre-wrap text-sm text-neutral-700">{r.body}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
             {!readOnly && (
-              <div className="mt-4">
+              <div className="mt-5">
+                {replyToId && (
+                  <div className="mb-2 flex items-center gap-2 rounded-md bg-blue-50 px-3 py-1.5 text-xs text-blue-700">
+                    <span>Replying to <span className="font-semibold">{replyToLabel ?? "comment"}</span></span>
+                    <button onClick={cancelReply} className="ml-auto text-blue-400 hover:text-blue-700">✕</button>
+                  </div>
+                )}
                 <textarea
                   value={commentBody}
                   onChange={(e) => setCommentBody(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) postComment(); }}
                   rows={2}
-                  placeholder="Add a comment…"
+                  placeholder={replyToId ? "Write a reply…" : "Add a comment… (Cmd+Enter to post)"}
                   className="w-full rounded-lg border border-neutral-200 px-3.5 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
                 />
-                <div className="mt-2.5 flex justify-end">
+                <div className="mt-2.5 flex items-center justify-between">
+                  <span className="text-xs text-neutral-400">Cmd+Enter to post</span>
                   <button
                     onClick={postComment}
                     disabled={commenting || !commentBody.trim()}
                     className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:bg-neutral-300 disabled:cursor-not-allowed transition"
                   >
-                    {commenting ? "Posting…" : "Post"}
+                    {commenting ? "Posting…" : replyToId ? "Post reply" : "Post comment"}
                   </button>
                 </div>
               </div>

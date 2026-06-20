@@ -15,7 +15,7 @@ export async function updateIssueAction(slug: string, id: string, patch: IssuePa
   return issue;
 }
 
-export async function addCommentAction(slug: string, id: string, body: string) {
+export async function addCommentAction(slug: string, id: string, body: string, parentId?: string | null) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot comment.");
@@ -25,6 +25,7 @@ export async function addCommentAction(slug: string, id: string, body: string) {
     authorId: ctx.appUserId,
     authorLabel: ctx.email,
     body,
+    parentId: parentId ?? null,
   });
   revalidatePath(`/${slug}/issues/${id}`);
   return comment;

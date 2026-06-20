@@ -5,6 +5,7 @@ export type IssueComment = {
   authorId: string | null;
   authorLabel: string | null;
   body: string;
+  parentId: string | null;
   createdAt: string;
 };
 
@@ -27,7 +28,7 @@ export function issueActivityRepo(supabase: SupabaseClient) {
     async listComments(tenantId: string, issueId: string): Promise<IssueComment[]> {
       const { data, error } = await supabase
         .from("issue_comments")
-        .select("id, author_id, author_label, body, created_at")
+        .select("id, author_id, author_label, body, parent_id, created_at")
         .eq("tenant_id", tenantId)
         .eq("issue_id", issueId)
         .order("created_at", { ascending: true });
@@ -37,6 +38,7 @@ export function issueActivityRepo(supabase: SupabaseClient) {
         authorId: c.author_id,
         authorLabel: c.author_label,
         body: c.body,
+        parentId: c.parent_id ?? null,
         createdAt: c.created_at,
       }));
     },
@@ -47,6 +49,7 @@ export function issueActivityRepo(supabase: SupabaseClient) {
       authorId: string | null;
       authorLabel: string | null;
       body: string;
+      parentId?: string | null;
     }): Promise<IssueComment> {
       const { data, error } = await supabase
         .from("issue_comments")
@@ -56,8 +59,9 @@ export function issueActivityRepo(supabase: SupabaseClient) {
           author_id: input.authorId,
           author_label: input.authorLabel,
           body: input.body,
+          parent_id: input.parentId ?? null,
         })
-        .select("id, author_id, author_label, body, created_at")
+        .select("id, author_id, author_label, body, parent_id, created_at")
         .single();
       if (error) throw error;
       return {
@@ -65,6 +69,7 @@ export function issueActivityRepo(supabase: SupabaseClient) {
         authorId: data.author_id,
         authorLabel: data.author_label,
         body: data.body,
+        parentId: data.parent_id ?? null,
         createdAt: data.created_at,
       };
     },
