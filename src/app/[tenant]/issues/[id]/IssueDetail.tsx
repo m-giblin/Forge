@@ -9,6 +9,8 @@ import { isUnassignedOverdue, unassignedThresholdMs } from "@/lib/sla";
 import { updateIssueAction, deleteIssueAction, addCommentAction, watchIssueAction, unwatchIssueAction } from "./actions";
 import IssueAttachments from "./IssueAttachments";
 import type { IssueAttachment } from "@/lib/repositories/issueAttachments";
+import { SubIssuesCard, LinkedIssuesCard } from "./IssueHierarchy";
+import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 
 type Member = { userId: string; label: string };
 
@@ -96,6 +98,8 @@ export default function IssueDetail({
   canDelete,
   watchers: initialWatchers,
   currentUserId,
+  subIssues = [],
+  links = [],
 }: {
   slug: string;
   issue: Issue;
@@ -114,6 +118,8 @@ export default function IssueDetail({
   canDelete: boolean;
   watchers: string[];
   currentUserId: string;
+  subIssues?: { id: string; number: number; title: string; status: string; priority: string }[];
+  links?: IssueLinkWithKey[];
 }) {
   const [title, setTitle] = useState(issue.title);
   const [description, setDescription] = useState(issue.description ?? "");
@@ -743,6 +749,22 @@ export default function IssueDetail({
               )}
             </div>
           ))}
+
+          <SubIssuesCard
+            slug={slug}
+            parentIssueId={issue.id}
+            projectId={issue.project_id}
+            projectKey={projectKey}
+            subIssues={subIssues}
+            readOnly={readOnly}
+          />
+
+          <LinkedIssuesCard
+            slug={slug}
+            issueId={issue.id}
+            links={links}
+            readOnly={readOnly}
+          />
 
           <div className={`${sideSection} space-y-3`}>
             <div>

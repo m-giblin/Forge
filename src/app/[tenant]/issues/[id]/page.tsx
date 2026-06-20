@@ -10,6 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
+import { issueLinksRepo } from "@/lib/repositories/issueLinks";
 import IssueDetail from "./IssueDetail";
 
 export default async function IssuePage({ params }: { params: Promise<{ tenant: string; id: string }> }) {
@@ -37,6 +38,14 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
     issueWatchersRepo(svcClient).list(ctx.tenant.id, issue.id),
   ]);
 
+  // Migration 0044 guard — graceful if not run yet
+  const linksRepo = issueLinksRepo(svcClient);
+  const projectKey = project?.key ?? "";
+  const [subIssues, links] = await Promise.all([
+    linksRepo.listChildren(ctx.tenant.id, issue.id).catch(() => []),
+    linksRepo.listForIssue(ctx.tenant.id, issue.id, projectKey).catch(() => []),
+  ]);
+
   const readOnly = ctx.impersonating || ctx.role === "viewer";
   const canDelete = ctx.role === "owner" || ctx.role === "admin";
 
@@ -45,8 +54,8 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
       <IssueDetail
         slug={slug}
         issue={issue}
-        issueKey={`${project?.key ?? "?"}-${issue.number}`}
-        projectKey={project?.key ?? ""}
+        issueKey={`${projectKey}-${issue.number}`}
+        projectKey={projectKey}
         statuses={schema.statuses}
         priorities={schema.priorities}
         types={schema.types}
@@ -60,6 +69,8 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         canDelete={canDelete}
         watchers={watchers.map((w) => w.userId)}
         currentUserId={ctx.appUserId}
+        subIssues={subIssues}
+        links={links}
       />
     </main>
   );

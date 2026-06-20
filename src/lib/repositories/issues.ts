@@ -36,6 +36,7 @@ export type Issue = {
   due_date: string | null;
   phase: string | null;
   sprint_id?: string | null;
+  parent_id?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -60,10 +61,8 @@ export type CreateIssueInput = {
   custom_values?: Record<string, unknown>;
 };
 
-// NOTE: sprint_id added in migration 0043. Swap to extended COLS once run:
-// const COLS = "id, tenant_id, project_id, number, title, description, status, priority, type, assignee_id, reporter_id, labels, environment, app_version, stack_trace, source, external_id, category_id, custom_values, position, start_date, due_date, phase, sprint_id, created_at, updated_at";
 const COLS =
-  "id, tenant_id, project_id, number, title, description, status, priority, type, assignee_id, reporter_id, labels, environment, app_version, stack_trace, source, external_id, category_id, custom_values, position, start_date, due_date, phase, created_at, updated_at";
+  "id, tenant_id, project_id, number, title, description, status, priority, type, assignee_id, reporter_id, labels, environment, app_version, stack_trace, source, external_id, category_id, custom_values, position, start_date, due_date, phase, sprint_id, parent_id, created_at, updated_at";
 
 /**
  * Issue data access. Always tenant-scoped: every query filters on tenant_id
