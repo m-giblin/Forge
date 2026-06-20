@@ -47,3 +47,17 @@ export async function moveIssueAction(slug: string, id: string, status: IssueSta
   await moveIssue(ctx.tenant.id, id, status);
   revalidatePath(`/${slug}/board`);
 }
+
+export async function quickEditIssueAction(
+  slug: string,
+  id: string,
+  patch: { priority?: IssuePriority; assigneeId?: string | null; title?: string }
+) {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot edit issues");
+
+  const { updateIssue } = await import("@/lib/services/issues");
+  await updateIssue(ctx.tenant.id, id, patch, { userId: ctx.appUserId, label: null });
+  revalidatePath(`/${slug}/board`);
+}
