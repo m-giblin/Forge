@@ -8,6 +8,7 @@ import { safeListCustomFields } from "@/lib/services/fieldConfig";
 import { issueActivityRepo, type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
 import { sendAssignedEmail, notifyIssueComment, notifyIssueAssigned } from "@/lib/services/notifications";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
+import { fireWebhook } from "@/lib/services/webhooks";
 
 export type Project = { id: string; key: string; name: string };
 
@@ -114,6 +115,7 @@ export async function createIssue(input: {
       .catch((e) => console.error("auto-watch reporter failed", e));
   }
 
+  void fireWebhook(input.tenantId, "issue.created", { issue });
   return issue;
 }
 
@@ -299,13 +301,17 @@ export async function updateIssue(
     })();
   }
 
+  void fireWebhook(tenantId, "issue.updated", { issue: updated });
   return updated;
 }
 
 /** Delete an issue (human path; RLS restricts to owner/admin). */
 export async function deleteIssue(tenantId: string, id: string): Promise<void> {
   const supabase = await createSupabaseServerClient();
+  // Capture before delete so webhook payload has context
+  const issue = await issuesRepo(supabase).get(tenantId, id);
   await issuesRepo(supabase).delete(tenantId, id);
+  if (issue) void fireWebhook(tenantId, "issue.deleted", { issue });
 }
 
 // ---- Issue activity (append-only comments + governance timeline) ----
@@ -358,6 +364,10 @@ export async function addIssueComment(input: {
         authorId: input.authorId,
         authorLabel: input.authorLabel,
         commentBody: body,
+      });
+      void fireWebhook(input.tenantId, "comment.created", {
+        comment: { id: comment.id, body: comment.body, authorId: input.authorId },
+        issue: { id: input.issueId, key: issueKey, title: issue.title },
       });
     } catch (e) {
       console.error("issue_comment notification failed", e);
