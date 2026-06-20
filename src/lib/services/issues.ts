@@ -9,6 +9,7 @@ import { issueActivityRepo, type IssueComment, type IssueEvent } from "@/lib/rep
 import { sendAssignedEmail, notifyIssueComment, notifyIssueAssigned } from "@/lib/services/notifications";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import { fireWebhook } from "@/lib/services/webhooks";
+import { triageIssue } from "@/lib/services/triage";
 
 export type Project = { id: string; key: string; name: string };
 
@@ -116,6 +117,7 @@ export async function createIssue(input: {
   }
 
   void fireWebhook(input.tenantId, "issue.created", { issue });
+  void triageIssue(input.tenantId, issue.id); // best-effort, never blocks
   return issue;
 }
 
