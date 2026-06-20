@@ -9,7 +9,7 @@
  * Uses NEXT_PUBLIC_APP_URL for the base URL so the self-call always routes to
  * localhost regardless of what IP external clients are connecting from.
  */
-export async function reportBugAction(input: { title: string; description?: string; priority?: string }): Promise<{ key: string }> {
+export async function reportBugAction(input: { title: string; description?: string; priority?: string }): Promise<{ id: string; key: string }> {
   const apiKey = process.env.FORGE_SELF_API_KEY;
   if (!apiKey) {
     throw new Error("FORGE_SELF_API_KEY is not set. Mint a key on the API keys page and add it to .env.local.");
@@ -30,5 +30,22 @@ export async function reportBugAction(input: { title: string; description?: stri
     }),
   });
   if (!res.ok) throw new Error(`Forge API ${res.status}: ${await res.text()}`);
-  return { key: (await res.json()).data.key };
+  const data = (await res.json()).data;
+  return { id: data.id, key: data.key };
+}
+
+export async function attachFilesToBugAction(issueId: string, files: FormData): Promise<void> {
+  const apiKey = process.env.FORGE_SELF_API_KEY;
+  if (!apiKey) return;
+  const baseUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100").replace(/\/$/, "");
+  for (const [, value] of files.entries()) {
+    if (!(value instanceof File) || value.size === 0) continue;
+    const form = new FormData();
+    form.append("file", value);
+    await fetch(`${baseUrl}/api/v1/issues/${issueId}/attachments`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    }).catch(() => null); // best-effort
+  }
 }
