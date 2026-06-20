@@ -38,22 +38,23 @@ export default function CommandPalette({ slug }: { slug: string }) {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
-        setOpen((o) => !o);
+        setOpen((o) => {
+          if (!o) {
+            // Reset state when opening — schedule outside render
+            setTimeout(() => {
+              setQuery("");
+              setSelected(0);
+              inputRef.current?.focus();
+            }, 0);
+          }
+          return !o;
+        });
       }
       if (e.key === "Escape") setOpen(false);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-
-  // Focus input when opened
-  useEffect(() => {
-    if (open) {
-      setQuery("");
-      setSelected(0);
-      setTimeout(() => inputRef.current?.focus(), 10);
-    }
-  }, [open]);
 
   // Build results whenever query changes
   useEffect(() => {
@@ -68,8 +69,10 @@ export default function CommandPalette({ slug }: { slug: string }) {
     ];
 
     if (!q) {
-      setResults(navItems);
-      setSelected(0);
+      startSearch(() => {
+        setResults(navItems);
+        setSelected(0);
+      });
       return;
     }
 

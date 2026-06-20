@@ -13,6 +13,7 @@ const SECTIONS = [
   { seg: "import", label: "Import issues" },
   { seg: "think-tank", label: "Think Tank" },
   { seg: "settings/webhooks", label: "Webhooks" },
+  { seg: "settings/automations", label: "Automations" },
   { seg: "settings/security", label: "Security" },
   { seg: "settings/ai", label: "AI settings" },
   { seg: "usage", label: "AI usage" },
