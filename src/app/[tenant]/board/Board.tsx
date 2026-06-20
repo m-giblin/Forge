@@ -7,6 +7,7 @@ import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { isUnassignedOverdue } from "@/lib/sla";
 import { createIssueAction, moveIssueAction } from "./actions";
+import IssueCard from "./IssueCard";
 
 type Project = { id: string; key: string; name: string };
 type Member = { userId: string; label: string };
@@ -434,65 +435,22 @@ function IssueCardList({
   }
   return (
     <div className="flex flex-col gap-2">
-      {issues.map((issue) => {
-        const ty = tyMap.get(issue.type);
-        const pr = prMap.get(issue.priority);
-        return (
-          <div
-            key={issue.id}
-            draggable={canEdit}
-            onDragStart={() => onDragStart(issue.id)}
-            onClick={() => onClickIssue(issue.id)}
-            className={`cursor-pointer rounded-lg border border-neutral-200 bg-white p-3 shadow-sm hover:border-neutral-300 ${canEdit ? "active:cursor-grabbing" : ""}`}
-          >
-            <div className="mb-1.5 flex items-center gap-1.5">
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ backgroundColor: pr?.color ?? "#9CA3AF" }}
-              />
-              <span className="text-[10px] font-medium" style={{ color: pr?.color ?? "#9CA3AF" }}>
-                {pr?.label ?? issue.priority}
-              </span>
-              <span className="ml-auto text-xs font-medium text-neutral-400">
-                {projectKey(issue.project_id)}-{issue.number}
-              </span>
-              <span
-                className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium"
-                style={{ color: ty?.color ?? "#525252" }}
-              >
-                {ty?.label ?? issue.type}
-              </span>
-            </div>
-            <p className="text-sm text-neutral-800">{issue.title}</p>
-            <div className="mt-1.5 flex flex-wrap gap-1">
-              {issue.phase && (
-                <span className="rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-600">
-                  {issue.phase.charAt(0).toUpperCase() + issue.phase.slice(1)}
-                </span>
-              )}
-              {issue.category_id && catMap.get(issue.category_id) && (
-                <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
-                  {catMap.get(issue.category_id)}
-                </span>
-              )}
-            </div>
-            {showAssignee && issue.assignee_id && (
-              <div className="mt-2 flex items-center gap-1.5">
-                <span
-                  className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold text-white"
-                  style={{ backgroundColor: avatarColor(issue.assignee_id) }}
-                  title={memMap.get(issue.assignee_id) ?? "Assigned"}
-                >
-                  {initials(memMap.get(issue.assignee_id) ?? "?")}
-                </span>
-                <span className="truncate text-[11px] text-neutral-400">
-                  {memMap.get(issue.assignee_id) ?? "Assigned"}
-                </span>
-              </div>
-            )}
-          </div>
-        );
-      })}
+      {issues.map((issue) => (
+        <IssueCard
+          key={issue.id}
+          issue={issue}
+          slug={slug}
+          canEdit={canEdit}
+          tyMap={tyMap}
+          prMap={prMap}
+          memMap={memMap}
+          catMap={catMap}
+          onDragStart={() => onDragStart(issue.id)}
+          onClickIssue={() => onClickIssue(issue.id)}
+          projectKey={`${projectKey(issue.project_id)}`}
+          showAssignee={showAssignee}
+        />
+      ))}
     </div>
   );
 }
