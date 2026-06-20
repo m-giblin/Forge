@@ -12,6 +12,7 @@ const SECTIONS = [
   { seg: "notifications", label: "Notifications" },
   { seg: "import", label: "Import issues" },
   { seg: "think-tank", label: "Think Tank" },
+  { seg: "settings/chat", label: "Chat (Slack/Teams)" },
   { seg: "settings/git", label: "GitHub" },
   { seg: "settings/webhooks", label: "Webhooks" },
   { seg: "settings/automations", label: "Automations" },
