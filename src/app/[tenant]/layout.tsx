@@ -11,6 +11,7 @@ import SignOutButton from "@/components/SignOutButton";
 import ImpersonationBanner from "@/components/ImpersonationBanner";
 import ReportBugButton from "@/components/ReportBugButton";
 import NotificationBell from "@/components/NotificationBell";
+import CommandPalette from "@/components/CommandPalette";
 
 export default async function TenantLayout({
   children,
@@ -129,6 +130,7 @@ export default async function TenantLayout({
       </header>
       {children}
       {process.env.FORGE_SELF_API_KEY && <ReportBugButton />}
+      <CommandPalette slug={slug} />
     </div>
   );
 }
