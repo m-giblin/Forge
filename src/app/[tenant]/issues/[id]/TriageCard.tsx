@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useEffect, useTransition } from "react";
 import type { TriageSuggestion } from "@/lib/repositories/issues";
 import { runTriageAction, acceptTriageAction, dismissTriageAction } from "./triageActions";
 
@@ -17,6 +17,12 @@ export default function TriageCard({
 }) {
   const [pending, startTransition] = useTransition();
   const [dismissed, setDismissed] = useState(false);
+  const [ageLabel, setAgeLabel] = useState("");
+  useEffect(() => {
+    if (!suggestion?.generatedAt) return;
+    const age = Math.round((Date.now() - new Date(suggestion.generatedAt).getTime()) / 60000);
+    setAgeLabel(age < 60 ? `${age}m ago` : `${Math.round(age / 60)}h ago`); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [suggestion?.generatedAt]);
 
   if (dismissed) return null;
 
@@ -57,9 +63,6 @@ export default function TriageCard({
       </div>
     );
   }
-
-  const age = Math.round((Date.now() - new Date(suggestion.generatedAt).getTime()) / 60000);
-  const ageLabel = age < 60 ? `${age}m ago` : `${Math.round(age / 60)}h ago`;
 
   return (
     <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 space-y-3">

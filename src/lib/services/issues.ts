@@ -10,6 +10,7 @@ import { sendAssignedEmail, notifyIssueComment, notifyIssueAssigned } from "@/li
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import { fireWebhook } from "@/lib/services/webhooks";
 import { triageIssue } from "@/lib/services/triage";
+import { runAutomations } from "@/lib/services/automation";
 
 export type Project = { id: string; key: string; name: string };
 
@@ -117,7 +118,8 @@ export async function createIssue(input: {
   }
 
   void fireWebhook(input.tenantId, "issue.created", { issue });
-  void triageIssue(input.tenantId, issue.id); // best-effort, never blocks
+  void triageIssue(input.tenantId, issue.id);
+  void runAutomations(input.tenantId, "issue.created", issue);
   return issue;
 }
 
@@ -304,6 +306,12 @@ export async function updateIssue(
   }
 
   void fireWebhook(tenantId, "issue.updated", { issue: updated });
+  if (patch.status !== undefined && patch.status !== before.status) {
+    void runAutomations(tenantId, "issue.status_changed", updated);
+  }
+  if (patch.assigneeId !== undefined && patch.assigneeId !== before.assignee_id) {
+    void runAutomations(tenantId, "issue.assigned", updated);
+  }
   return updated;
 }
 
@@ -371,6 +379,7 @@ export async function addIssueComment(input: {
         comment: { id: comment.id, body: comment.body, authorId: input.authorId },
         issue: { id: input.issueId, key: issueKey, title: issue.title },
       });
+      void runAutomations(input.tenantId, "comment.created", issue);
     } catch (e) {
       console.error("issue_comment notification failed", e);
     }
