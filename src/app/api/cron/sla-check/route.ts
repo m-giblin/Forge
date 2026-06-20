@@ -5,7 +5,7 @@ import { runSlaCron } from "@/lib/services/sla";
 
 export const dynamic = "force-dynamic";
 
-export async function POST(req: Request) {
+async function handler(req: Request) {
   // Verify Vercel cron secret (or internal calls)
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
@@ -28,3 +28,5 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ results });
 }
+
+export { handler as GET, handler as POST };
