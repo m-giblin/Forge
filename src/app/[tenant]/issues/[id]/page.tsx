@@ -12,6 +12,8 @@ import { projectsRepo } from "@/lib/repositories/projects";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import { issueLinksRepo } from "@/lib/repositories/issueLinks";
 import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
+import { slaPoliciesRepo } from "@/lib/repositories/slaPolicies";
+import { computeSlaTimer } from "@/lib/services/sla";
 import IssueDetail from "./IssueDetail";
 
 export default async function IssuePage({ params }: { params: Promise<{ tenant: string; id: string }> }) {
@@ -42,11 +44,13 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
   // Migration 0044 guard — graceful if not run yet
   const linksRepo = issueLinksRepo(svcClient);
   const projectKey = project?.key ?? "";
-  const [subIssues, links, gitLinks] = await Promise.all([
+  const [subIssues, links, gitLinks, slaPolicies] = await Promise.all([
     linksRepo.listChildren(ctx.tenant.id, issue.id).catch(() => []),
     linksRepo.listForIssue(ctx.tenant.id, issue.id, projectKey).catch(() => []),
     gitIntegrationRepo(svcClient).listCodeLinks(ctx.tenant.id, issue.id).catch(() => []),
+    slaPoliciesRepo(svcClient).listEnabled(ctx.tenant.id).catch(() => []),
   ]);
+  const slaTimer = computeSlaTimer(issue, slaPolicies);
 
   const readOnly = ctx.impersonating || ctx.role === "viewer";
   const canDelete = ctx.role === "owner" || ctx.role === "admin";
@@ -74,6 +78,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         subIssues={subIssues}
         links={links}
         gitLinks={gitLinks}
+        slaTimer={slaTimer}
       />
     </main>
   );

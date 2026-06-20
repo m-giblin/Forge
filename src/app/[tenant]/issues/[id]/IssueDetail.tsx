@@ -14,6 +14,8 @@ import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 import TriageCard from "./TriageCard";
 import GitLinksCard from "./GitLinksCard";
 import type { IssueCodeLink } from "@/lib/repositories/gitIntegration";
+import SlaChip from "@/components/SlaChip";
+import type { SlaTimer } from "@/lib/services/sla";
 
 type Member = { userId: string; label: string };
 
@@ -104,6 +106,7 @@ export default function IssueDetail({
   subIssues = [],
   links = [],
   gitLinks = [],
+  slaTimer,
 }: {
   slug: string;
   issue: Issue;
@@ -125,6 +128,7 @@ export default function IssueDetail({
   subIssues?: { id: string; number: number; title: string; status: string; priority: string }[];
   links?: IssueLinkWithKey[];
   gitLinks?: IssueCodeLink[];
+  slaTimer?: SlaTimer;
 }) {
   const [title, setTitle] = useState(issue.title);
   const [description, setDescription] = useState(issue.description ?? "");
@@ -754,6 +758,8 @@ export default function IssueDetail({
               )}
             </div>
           ))}
+
+          {slaTimer && <SlaChip timer={slaTimer} />}
 
           <TriageCard
             slug={slug}
