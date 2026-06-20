@@ -61,6 +61,7 @@ export default async function TenantLayout({
   const navItems: { label: string; href: string; enabled: boolean; key?: string }[] = [
     { label: "Board", href: `/${slug}/board`, enabled: true },
     { label: "Issues", href: `/${slug}/issues`, enabled: true },
+    { label: "Reports", href: `/${slug}/reports`, enabled: true },
     { label: "Home", href: `/${slug}`, enabled: flags.dashboards, key: "dashboards" },
     { label: "Projects", href: `/${slug}/projects`, enabled: flags.project_portal, key: "project_portal" },
     { label: "Think Tank", href: `/${slug}/think-tank`, enabled: flags.think_tank, key: "think_tank" },
