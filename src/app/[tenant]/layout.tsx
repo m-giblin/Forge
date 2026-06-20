@@ -100,6 +100,13 @@ export default async function TenantLayout({
               initialNotifications={initialNotifications}
               unassignedCount={unassignedCount}
             />
+            <Link
+              href="/account/security"
+              title="Account security"
+              className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+            >
+              🔐
+            </Link>
             <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
               {ctx.role}
             </span>
