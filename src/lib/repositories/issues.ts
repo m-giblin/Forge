@@ -42,10 +42,13 @@ export type Issue = {
   updated_at: string;
 };
 
+export type DuplicateCandidate = { id: string; number: number; title: string };
+
 export type TriageSuggestion = {
   priority: string;
   categoryLabel: string | null;
   duplicateTitles: string[];
+  duplicateCandidates?: DuplicateCandidate[];
   reasoning: string;
   generatedAt: string;
 };
