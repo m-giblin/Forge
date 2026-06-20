@@ -11,6 +11,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import { issueLinksRepo } from "@/lib/repositories/issueLinks";
+import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
 import IssueDetail from "./IssueDetail";
 
 export default async function IssuePage({ params }: { params: Promise<{ tenant: string; id: string }> }) {
@@ -41,9 +42,10 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
   // Migration 0044 guard — graceful if not run yet
   const linksRepo = issueLinksRepo(svcClient);
   const projectKey = project?.key ?? "";
-  const [subIssues, links] = await Promise.all([
+  const [subIssues, links, gitLinks] = await Promise.all([
     linksRepo.listChildren(ctx.tenant.id, issue.id).catch(() => []),
     linksRepo.listForIssue(ctx.tenant.id, issue.id, projectKey).catch(() => []),
+    gitIntegrationRepo(svcClient).listCodeLinks(ctx.tenant.id, issue.id).catch(() => []),
   ]);
 
   const readOnly = ctx.impersonating || ctx.role === "viewer";
@@ -71,6 +73,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         currentUserId={ctx.appUserId}
         subIssues={subIssues}
         links={links}
+        gitLinks={gitLinks}
       />
     </main>
   );

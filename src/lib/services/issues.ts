@@ -11,6 +11,7 @@ import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import { fireWebhook } from "@/lib/services/webhooks";
 import { triageIssue } from "@/lib/services/triage";
 import { runAutomations } from "@/lib/services/automation";
+import { notifyChat } from "@/lib/services/chatNotifications";
 
 export type Project = { id: string; key: string; name: string };
 
@@ -120,6 +121,20 @@ export async function createIssue(input: {
   void fireWebhook(input.tenantId, "issue.created", { issue });
   void triageIssue(input.tenantId, issue.id);
   void runAutomations(input.tenantId, "issue.created", issue);
+  void (async () => {
+    try {
+      const svc = createSupabaseServiceClient();
+      const proj = await projectsRepo(svc).getById(input.tenantId, input.projectId);
+      const { data: tenant } = await svc.from("tenants").select("slug").eq("id", input.tenantId).maybeSingle();
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100";
+      const issueKey = proj ? `${proj.key}-${issue.number}` : `#${issue.number}`;
+      void notifyChat(input.tenantId, {
+        event: "created", issueKey, issueTitle: issue.title,
+        issueUrl: `${baseUrl}/${tenant?.slug ?? input.tenantId}/issues/${issue.id}`,
+        status: issue.status, priority: issue.priority,
+      });
+    } catch { /* best-effort */ }
+  })();
   return issue;
 }
 
@@ -380,6 +395,12 @@ export async function addIssueComment(input: {
         issue: { id: input.issueId, key: issueKey, title: issue.title },
       });
       void runAutomations(input.tenantId, "comment.created", issue);
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100";
+      void notifyChat(input.tenantId, {
+        event: "commented", issueKey, issueTitle: issue.title,
+        issueUrl: `${baseUrl}/${tenant?.slug ?? input.tenantId}/issues/${input.issueId}`,
+        actorLabel: input.authorLabel, commentBody: body,
+      });
     } catch (e) {
       console.error("issue_comment notification failed", e);
     }

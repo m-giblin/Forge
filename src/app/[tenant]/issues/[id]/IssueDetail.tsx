@@ -12,6 +12,8 @@ import type { IssueAttachment } from "@/lib/repositories/issueAttachments";
 import { SubIssuesCard, LinkedIssuesCard } from "./IssueHierarchy";
 import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 import TriageCard from "./TriageCard";
+import GitLinksCard from "./GitLinksCard";
+import type { IssueCodeLink } from "@/lib/repositories/gitIntegration";
 
 type Member = { userId: string; label: string };
 
@@ -101,6 +103,7 @@ export default function IssueDetail({
   currentUserId,
   subIssues = [],
   links = [],
+  gitLinks = [],
 }: {
   slug: string;
   issue: Issue;
@@ -121,6 +124,7 @@ export default function IssueDetail({
   currentUserId: string;
   subIssues?: { id: string; number: number; title: string; status: string; priority: string }[];
   links?: IssueLinkWithKey[];
+  gitLinks?: IssueCodeLink[];
 }) {
   const [title, setTitle] = useState(issue.title);
   const [description, setDescription] = useState(issue.description ?? "");
@@ -773,6 +777,8 @@ export default function IssueDetail({
             links={links}
             readOnly={readOnly}
           />
+
+          <GitLinksCard links={gitLinks} />
 
           <div className={`${sideSection} space-y-3`}>
             <div>
