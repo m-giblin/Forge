@@ -12,6 +12,7 @@ const SECTIONS = [
   { seg: "notifications", label: "Notifications" },
   { seg: "import", label: "Import issues" },
   { seg: "think-tank", label: "Think Tank" },
+  { seg: "settings/security", label: "Security" },
   { seg: "settings/ai", label: "AI settings" },
   { seg: "usage", label: "AI usage" },
   { seg: "activity", label: "Activity log" },

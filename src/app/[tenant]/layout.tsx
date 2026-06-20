@@ -23,18 +23,37 @@ export default async function TenantLayout({
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
 
+  // MFA enforcement gate — runs before rendering any workspace page.
+  // Impersonation sessions are exempt (super-admin support path).
+  if (!ctx.impersonating) {
+    const supabaseForMfa = await createSupabaseServerClient();
+    const [tenantRes, aalRes] = await Promise.all([
+      supabaseForMfa.from("tenants").select("require_mfa").eq("id", ctx.tenant.id).single(),
+      supabaseForMfa.auth.mfa.getAuthenticatorAssuranceLevel(),
+    ]);
+    const requireMfa = tenantRes.data?.require_mfa ?? false;
+    const currentLevel = aalRes.data?.currentLevel ?? "aal1";
+    if (requireMfa && currentLevel !== "aal2") {
+      const next = encodeURIComponent(`/${slug}/board`);
+      redirect(`/mfa-required?next=${next}`);
+    }
+  }
+
   // Load initial notification state server-side (no waterfall — parallel).
   const [supabase, svc] = await Promise.all([
     ctx.impersonating ? Promise.resolve(createSupabaseServiceClient()) : createSupabaseServerClient(),
     Promise.resolve(createSupabaseServiceClient()),
   ]);
 
-  const [initialNotifications, unreadCount, unassignedCount, flags] = await Promise.all([
+  const [initialNotifications, unreadCount, unassignedCount, flags, userRow] = await Promise.all([
     notificationsRepo(supabase).list(ctx.appUserId, { limit: 20, includeRead: false }),
     notificationsRepo(supabase).unreadCount(ctx.appUserId),
     issuesRepo(svc).countUnassigned(ctx.tenant.id),
     loadTenantFlags(ctx.tenant.id),
+    // email_digest added in migration 0042 — may not exist yet; default true.
+    (async () => { try { return await supabase.from("users").select("email_digest").eq("id", ctx.appUserId).maybeSingle(); } catch { return { data: null }; } })(),
   ]);
+  const emailDigest = (userRow.data as Record<string, unknown> | null)?.email_digest !== false;
 
   // Board-first nav. The bug tracker (Board + Issues) always shows; the
   // project-management items appear with a "Soon" badge until released.
@@ -50,22 +69,22 @@ export default async function TenantLayout({
     <div className="min-h-screen bg-neutral-50">
       {ctx.impersonating && <ImpersonationBanner tenantName={ctx.tenant.name} />}
       <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
-          <div className="flex items-center gap-6">
-            <Link href="/" className="text-lg font-bold tracking-tight text-neutral-900">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-4 overflow-x-auto">
+            <Link href="/" className="shrink-0 text-lg font-bold tracking-tight text-neutral-900">
               Forge
             </Link>
-            <span className="text-sm text-neutral-400">/</span>
-            <Link href={`/${slug}`} className="text-sm font-medium text-neutral-700 hover:text-neutral-900">
+            <span className="hidden shrink-0 text-sm text-neutral-400 sm:inline">/</span>
+            <Link href={`/${slug}`} className="hidden shrink-0 text-sm font-medium text-neutral-700 hover:text-neutral-900 sm:block">
               {ctx.tenant.name}
             </Link>
-            <nav className="flex items-center gap-1">
+            <nav className="flex items-center gap-0.5 sm:gap-1">
               {navItems.map((item) =>
                 item.enabled ? (
                   <Link
                     key={item.label}
                     href={item.href}
-                    className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
+                    className="shrink-0 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100 sm:px-3"
                   >
                     {item.label}
                   </Link>
@@ -73,7 +92,7 @@ export default async function TenantLayout({
                   <Link
                     key={item.label}
                     href={`/${slug}/coming-soon?f=${item.key}`}
-                    className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-400 hover:bg-neutral-100"
+                    className="hidden shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-400 hover:bg-neutral-100 sm:flex sm:px-3"
                     title="Coming soon"
                   >
                     {item.label}
@@ -84,14 +103,14 @@ export default async function TenantLayout({
               {(ctx.role === "owner" || ctx.role === "admin" || ctx.impersonating) && (
                 <Link
                   href={`/${slug}/admin`}
-                  className="rounded-lg px-3 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100"
+                  className="shrink-0 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100 sm:px-3"
                 >
                   Admin
                 </Link>
               )}
             </nav>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <NotificationBell
               slug={slug}
               userId={ctx.appUserId}
@@ -99,8 +118,9 @@ export default async function TenantLayout({
               initialCount={unreadCount}
               initialNotifications={initialNotifications}
               unassignedCount={unassignedCount}
+              emailDigest={emailDigest}
             />
-            <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
+            <span className="hidden rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600 sm:inline">
               {ctx.role}
             </span>
             <SignOutButton />

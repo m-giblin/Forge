@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { type Notification } from "@/lib/repositories/notifications";
-import { markAllReadAction } from "@/app/[tenant]/notifications/actions";
+import { markAllReadAction, setEmailDigestAction } from "@/app/[tenant]/notifications/actions";
 
 function relTime(iso: string): string {
   const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
@@ -23,6 +23,7 @@ export default function NotificationBell({
   initialCount,
   initialNotifications,
   unassignedCount,
+  emailDigest: initialEmailDigest = true,
 }: {
   slug: string;
   userId: string;
@@ -30,11 +31,13 @@ export default function NotificationBell({
   initialCount: number;
   initialNotifications: Notification[];
   unassignedCount: number;
+  emailDigest?: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(initialCount);
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const [emailDigest, setEmailDigest] = useState(initialEmailDigest);
   const [, startTransition] = useTransition();
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -195,8 +198,20 @@ export default function NotificationBell({
           </div>
 
           {/* Footer */}
-          <div className="border-t border-neutral-100 px-4 py-2">
-            <p className="text-xs text-neutral-400">Assigned tickets trigger email + in-app notifications.</p>
+          <div className="border-t border-neutral-100 px-4 py-2.5 flex items-center justify-between gap-3">
+            <p className="text-xs text-neutral-400">Weekly digest email</p>
+            <button
+              role="switch"
+              aria-checked={emailDigest}
+              onClick={() => {
+                const next = !emailDigest;
+                setEmailDigest(next);
+                startTransition(() => setEmailDigestAction(slug, next));
+              }}
+              className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${emailDigest ? "bg-neutral-900" : "bg-neutral-300"}`}
+            >
+              <span className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${emailDigest ? "translate-x-4" : "translate-x-0"}`} />
+            </button>
           </div>
         </div>
       )}

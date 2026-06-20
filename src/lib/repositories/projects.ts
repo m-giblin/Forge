@@ -8,16 +8,18 @@ export type Project = {
   id: string;
   key: string;
   name: string;
+  description?: string | null;
   status: ProjectStatus;
   lead_user_id: string | null;
   start_date: string | null;
   target_go_live: string | null;
   linked_idea_id: string | null;
   budget_cents: number | null;
+  archived_at?: string | null;
   created_at?: string;
 };
 
-const COLS = "id, key, name, status, lead_user_id, start_date, target_go_live, linked_idea_id, budget_cents, created_at";
+const COLS = "id, key, name, description, status, lead_user_id, start_date, target_go_live, linked_idea_id, budget_cents, archived_at, created_at";
 
 export type CreateProjectInput = {
   tenant_id: string;
@@ -143,6 +145,15 @@ export function projectsRepo(supabase: SupabaseClient) {
       const { error } = await supabase
         .from("projects")
         .update({ status })
+        .eq("tenant_id", tenantId)
+        .eq("id", projectId);
+      if (error) throw error;
+    },
+
+    async update(tenantId: string, projectId: string, patch: { name?: string; description?: string | null }): Promise<void> {
+      const { error } = await supabase
+        .from("projects")
+        .update(patch)
         .eq("tenant_id", tenantId)
         .eq("id", projectId);
       if (error) throw error;
