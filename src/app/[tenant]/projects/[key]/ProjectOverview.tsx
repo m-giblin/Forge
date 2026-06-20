@@ -39,11 +39,13 @@ export default function ProjectOverview({
   data,
   wiki,
   canEdit,
+  sprintVelocity = [],
 }: {
   slug: string;
   data: ProjectPortalData;
   wiki: ProjectWikiPage | null;
   canEdit: boolean;
+  sprintVelocity?: { name: string; done: number }[];
 }) {
   const batteryTotal = data.battery.reduce((s, b) => s + b.count, 0) || 1;
   const isEmpty = data.total === 0;
@@ -116,6 +118,15 @@ export default function ProjectOverview({
                 <p className="py-6 text-center text-sm text-neutral-400">No completions in the last 6 weeks yet.</p>
               )}
             </div>
+
+            {/* Sprint velocity */}
+            {sprintVelocity.length > 0 && (
+              <div className="rounded-xl border border-neutral-200 bg-white p-5">
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">Sprint velocity</p>
+                <p className="mb-3 text-sm text-neutral-500">Issues completed per sprint.</p>
+                <MiniBars data={sprintVelocity.map((s) => ({ label: s.name, done: s.done }))} />
+              </div>
+            )}
           </div>
 
           {/* Right column */}

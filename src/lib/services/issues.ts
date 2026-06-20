@@ -6,7 +6,8 @@ import { fieldConfigRepo, type FieldOption, type Category, type CustomField } fr
 import { projectsRepo } from "@/lib/repositories/projects";
 import { safeListCustomFields } from "@/lib/services/fieldConfig";
 import { issueActivityRepo, type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
-import { sendAssignedEmail } from "@/lib/services/notifications";
+import { sendAssignedEmail, notifyIssueComment, notifyIssueAssigned } from "@/lib/services/notifications";
+import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 
 export type Project = { id: string; key: string; name: string };
 
@@ -83,11 +84,16 @@ export async function createIssue(input: {
   reporterId?: string | null;
 }): Promise<Issue> {
   const supabase = await createSupabaseServerClient();
+
+  // Block creation on archived projects.
+  const project = await projectsRepo(supabase).getById(input.tenantId, input.projectId);
+  if (project?.status === "archived") throw new Error("This project is archived. Reactivate it to add new issues.");
+
   // Fill any unspecified status/priority/type from the tenant's configured defaults.
   const defs = await fieldConfigRepo(supabase).listDefaults(input.tenantId);
   const def = (f: string) => defs.find((d) => d.field === f)?.key;
 
-  return issuesRepo(supabase).create({
+  const issue = await issuesRepo(supabase).create({
     tenant_id: input.tenantId,
     project_id: input.projectId,
     title: input.title,
@@ -100,6 +106,15 @@ export async function createIssue(input: {
     reporter_id: input.reporterId ?? null,
     source: "web",
   });
+
+  // Auto-watch the reporter so they receive comment notifications.
+  if (input.reporterId) {
+    void issueWatchersRepo(createSupabaseServiceClient())
+      .watch(input.tenantId, issue.id, input.reporterId)
+      .catch((e) => console.error("auto-watch reporter failed", e));
+  }
+
+  return issue;
 }
 
 /** Move an issue to a new status column (and optional position). */
@@ -131,6 +146,7 @@ export type IssuePatch = {
   assigneeId?: string | null;
   startDate?: string | null;
   dueDate?: string | null;
+  phase?: string | null;
   customValues?: Record<string, unknown>;
 };
 
@@ -141,6 +157,7 @@ const TRACKED: Array<{ field: string; patchKey: keyof IssuePatch; col: keyof Iss
   { field: "type", patchKey: "type", col: "type" },
   { field: "assignee", patchKey: "assigneeId", col: "assignee_id" },
   { field: "category", patchKey: "categoryId", col: "category_id" },
+  { field: "phase", patchKey: "phase", col: "phase" },
 ];
 
 /**
@@ -169,6 +186,7 @@ export async function updateIssue(
   if (patch.assigneeId !== undefined) dbPatch.assignee_id = patch.assigneeId;
   if (patch.startDate !== undefined) dbPatch.start_date = patch.startDate || null;
   if (patch.dueDate !== undefined) dbPatch.due_date = patch.dueDate || null;
+  if (patch.phase !== undefined) dbPatch.phase = patch.phase || null;
   if (patch.customValues !== undefined) dbPatch.custom_values = { ...before.custom_values, ...patch.customValues };
 
   const updated = await repo.update(tenantId, id, dbPatch);
@@ -264,6 +282,17 @@ export async function updateIssue(
           assigneeEmail: assignee.email,
           actorLabel: actor?.label ?? null,
         });
+
+        void notifyIssueAssigned({
+          tenantId,
+          slug: tenant?.slug ?? tenantId,
+          issueId: updated.id,
+          issueKey,
+          issueTitle: updated.title,
+          assigneeId: patch.assigneeId!,
+          actorId: actor?.userId ?? patch.assigneeId!,
+          actorLabel: actor?.label ?? null,
+        });
       } catch (e) {
         console.error("assignment notification failed", e);
       }
@@ -309,5 +338,31 @@ export async function addIssueComment(input: {
   const body = input.body.trim();
   if (!body) throw new Error("Comment can’t be empty.");
   const supabase = await createSupabaseServerClient();
-  return issueActivityRepo(supabase).addComment({ ...input, body });
+  const comment = await issueActivityRepo(supabase).addComment({ ...input, body });
+
+  // Best-effort: resolve issue key for notification title
+  void (async () => {
+    try {
+      const svc = createSupabaseServiceClient();
+      const issue = await issuesRepo(svc).get(input.tenantId, input.issueId);
+      if (!issue) return;
+      const { data: project } = await svc.from("projects").select("key").eq("id", issue.project_id).maybeSingle();
+      const { data: tenant } = await svc.from("tenants").select("slug").eq("id", input.tenantId).maybeSingle();
+      const issueKey = project ? `${project.key}-${issue.number}` : `#${issue.number}`;
+      await notifyIssueComment({
+        tenantId: input.tenantId,
+        slug: tenant?.slug ?? input.tenantId,
+        issueId: input.issueId,
+        issueKey,
+        issueTitle: issue.title,
+        authorId: input.authorId,
+        authorLabel: input.authorLabel,
+        commentBody: body,
+      });
+    } catch (e) {
+      console.error("issue_comment notification failed", e);
+    }
+  })();
+
+  return comment;
 }

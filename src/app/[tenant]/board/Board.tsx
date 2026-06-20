@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
@@ -54,6 +54,8 @@ export default function Board({
   members: Member[];
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const canEdit = role !== "viewer";
   const [issues, setIssues] = useState<Issue[]>(initialIssues);
   const [dragId, setDragId] = useState<string | null>(null);
@@ -62,13 +64,25 @@ export default function Board({
   const [search, setSearch] = useState("");
   const [filterPriorities, setFilterPriorities] = useState<Set<string>>(new Set());
   const [filterAssignee, setFilterAssignee] = useState("");
-  const [groupBy, setGroupBy] = useState<"status" | "assignee">("status");
+  const [filterType, setFilterType] = useState("");
+  const [filterCategory, setFilterCategory] = useState("");
+
+  // groupBy persisted in URL (?groupBy=status|assignee|priority)
+  const groupByParam = (searchParams.get("groupBy") ?? "status") as "status" | "assignee" | "priority";
+  const groupBy = ["status", "assignee", "priority"].includes(groupByParam) ? groupByParam : "status";
+  function setGroupBy(value: "status" | "assignee" | "priority") {
+    const next = new URLSearchParams(searchParams.toString());
+    if (value === "status") next.delete("groupBy");
+    else next.set("groupBy", value);
+    router.replace(`${pathname}?${next.toString()}`);
+  }
 
   const projectKey = (id: string) => projects.find((p) => p.id === id)?.key ?? "—";
   // Config-driven lookups (key → option) for labels/colors on cards.
   const prMap = useMemo(() => new Map(priorities.map((o) => [o.key, o])), [priorities]);
   const tyMap = useMemo(() => new Map(types.map((o) => [o.key, o])), [types]);
   const memMap = useMemo(() => new Map(members.map((m) => [m.userId, m.label])), [members]);
+  const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const orderedStatuses = useMemo(() => [...statuses].sort((a, b) => a.position - b.position), [statuses]);
   // Tickets sitting unassigned past their SLA grace period (30m urgent / 2h else).
   const needsAssignment = useMemo(() => issues.filter((i) => isUnassignedOverdue(i)), [issues]);
@@ -87,8 +101,10 @@ export default function Board({
     if (filterPriorities.size > 0) list = list.filter((i) => filterPriorities.has(i.priority));
     if (filterAssignee === "__unassigned") list = list.filter((i) => !i.assignee_id);
     else if (filterAssignee) list = list.filter((i) => i.assignee_id === filterAssignee);
+    if (filterType) list = list.filter((i) => i.type === filterType);
+    if (filterCategory) list = list.filter((i) => i.category_id === filterCategory);
     return list;
-  }, [issues, search, filterPriorities, filterAssignee, memMap]);
+  }, [issues, search, filterPriorities, filterAssignee, filterType, filterCategory, memMap]);
 
   const upsert = (row: Issue) =>
     setIssues((prev) => {
@@ -247,6 +263,29 @@ export default function Board({
           <option value="__unassigned">Unassigned</option>
           {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
         </select>
+        <select
+          value={filterType}
+          onChange={(e) => setFilterType(e.target.value)}
+          className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+        >
+          <option value="">All types</option>
+          {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>
+        {categories.length > 0 && (
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+          >
+            <option value="">All categories</option>
+            {categories.filter((c) => !c.parent_id).flatMap((top) => [
+              <option key={top.id} value={top.id}>{top.name}</option>,
+              ...categories.filter((c) => c.parent_id === top.id).map((sub) => (
+                <option key={sub.id} value={sub.id}>— {sub.name}</option>
+              )),
+            ])}
+          </select>
+        )}
         <div className="flex rounded-lg border border-neutral-300 text-sm">
           <button
             onClick={() => setGroupBy("status")}
@@ -256,14 +295,20 @@ export default function Board({
           </button>
           <button
             onClick={() => setGroupBy("assignee")}
-            className={`px-3 py-1.5 ${groupBy === "assignee" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"} rounded-r-lg`}
+            className={`px-3 py-1.5 ${groupBy === "assignee" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"} border-l border-neutral-300`}
           >
             By Assignee
           </button>
-        </div>
-        {(search || filterPriorities.size > 0 || filterAssignee) && (
           <button
-            onClick={() => { setSearch(""); setFilterPriorities(new Set()); setFilterAssignee(""); }}
+            onClick={() => setGroupBy("priority")}
+            className={`px-3 py-1.5 ${groupBy === "priority" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"} rounded-r-lg border-l border-neutral-300`}
+          >
+            By Priority
+          </button>
+        </div>
+        {(search || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory) && (
+          <button
+            onClick={() => { setSearch(""); setFilterPriorities(new Set()); setFilterAssignee(""); setFilterType(""); setFilterCategory(""); }}
             className="text-xs text-neutral-400 hover:text-neutral-700"
           >
             Clear
@@ -287,7 +332,25 @@ export default function Board({
       )}
 
       <div className="flex gap-4 overflow-x-auto pb-4">
-        {groupBy === "status" ? orderedStatuses.map((status) => {
+        {groupBy === "priority" ? (() => {
+          const orderedPriorities = [...priorities].sort((a, b) => a.position - b.position);
+          return orderedPriorities.map((p) => {
+            const colIssues = filtered.filter((i) => i.priority === p.key).sort((a, b) => a.position - b.position);
+            if (colIssues.length === 0) return null;
+            return (
+              <div key={p.key} className="flex w-72 shrink-0 flex-col rounded-xl bg-neutral-100/70 p-3">
+                <div className="mb-2 flex items-center justify-between px-1">
+                  <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+                    {p.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />}
+                    {p.label}
+                  </span>
+                  <span className="text-xs text-neutral-400">{colIssues.length}</span>
+                </div>
+                <IssueCardList issues={colIssues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee />
+              </div>
+            );
+          });
+        })() : groupBy === "status" ? orderedStatuses.map((status) => {
           const colIssues = filtered
             .filter((i) => i.status === status.key)
             .sort((a, b) => a.position - b.position);
@@ -305,10 +368,10 @@ export default function Board({
                 </span>
                 <span className="text-xs text-neutral-400">{colIssues.length}</span>
               </div>
-              <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee />
+              <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee />
             </div>
           );
-        }) : (() => {
+        }) : groupBy === "assignee" ? (() => {
           const unassigned = filtered.filter((i) => !i.assignee_id);
           const assigneeCols = members
             .map((m) => ({ member: m, issues: filtered.filter((i) => i.assignee_id === m.userId) }))
@@ -328,10 +391,10 @@ export default function Board({
                 </span>
                 <span className="text-xs text-neutral-400">{col.issues.length}</span>
               </div>
-              <IssueCardList issues={col.issues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee={false} />
+              <IssueCardList issues={col.issues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee={false} />
             </div>
           ));
-        })()}
+        })() : null}
       </div>
     </div>
   );
@@ -344,6 +407,7 @@ function IssueCardList({
   tyMap,
   prMap,
   memMap,
+  catMap,
   onDragStart,
   onClickIssue,
   projectKey,
@@ -355,6 +419,7 @@ function IssueCardList({
   tyMap: Map<string, FieldOption>;
   prMap: Map<string, FieldOption>;
   memMap: Map<string, string>;
+  catMap: Map<string, string>;
   onDragStart: (id: string) => void;
   onClickIssue: (id: string) => void;
   projectKey: (projectId: string) => string;
@@ -380,23 +445,37 @@ function IssueCardList({
             onClick={() => onClickIssue(issue.id)}
             className={`cursor-pointer rounded-lg border border-neutral-200 bg-white p-3 shadow-sm hover:border-neutral-300 ${canEdit ? "active:cursor-grabbing" : ""}`}
           >
-            <div className="mb-1.5 flex items-center gap-2">
+            <div className="mb-1.5 flex items-center gap-1.5">
               <span
-                className="h-2 w-2 rounded-full"
+                className="h-2 w-2 shrink-0 rounded-full"
                 style={{ backgroundColor: pr?.color ?? "#9CA3AF" }}
-                title={pr?.label ?? issue.priority}
               />
-              <span className="text-xs font-medium text-neutral-400">
+              <span className="text-[10px] font-medium" style={{ color: pr?.color ?? "#9CA3AF" }}>
+                {pr?.label ?? issue.priority}
+              </span>
+              <span className="ml-auto text-xs font-medium text-neutral-400">
                 {projectKey(issue.project_id)}-{issue.number}
               </span>
               <span
-                className="ml-auto rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium"
+                className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium"
                 style={{ color: ty?.color ?? "#525252" }}
               >
                 {ty?.label ?? issue.type}
               </span>
             </div>
             <p className="text-sm text-neutral-800">{issue.title}</p>
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {issue.phase && (
+                <span className="rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-600">
+                  {issue.phase.charAt(0).toUpperCase() + issue.phase.slice(1)}
+                </span>
+              )}
+              {issue.category_id && catMap.get(issue.category_id) && (
+                <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
+                  {catMap.get(issue.category_id)}
+                </span>
+              )}
+            </div>
             {showAssignee && issue.assignee_id && (
               <div className="mt-2 flex items-center gap-1.5">
                 <span

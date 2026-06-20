@@ -55,6 +55,22 @@ export async function changeProjectStatus(
   await projectsRepo(supabase).updateStatus(tenantId, project.id, status);
 }
 
+export async function updateProject(
+  tenantId: string,
+  projectKey: string,
+  patch: { name?: string; description?: string | null },
+  role: MembershipRole,
+  impersonating = false,
+): Promise<void> {
+  if (!isAdmin(role)) throw new Error("Only owners and admins can edit project details.");
+  const supabase = await readClient(impersonating);
+  const project = await projectsRepo(supabase).getByKey(tenantId, projectKey);
+  if (!project) throw new Error("Project not found.");
+  const name = patch.name?.trim();
+  if (name !== undefined && !name) throw new Error("Project name cannot be blank.");
+  await projectsRepo(supabase).update(tenantId, project.id, { ...patch, ...(name !== undefined ? { name } : {}) });
+}
+
 export async function deleteProject(
   tenantId: string,
   projectKey: string,

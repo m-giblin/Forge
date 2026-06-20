@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { updateIssue, deleteIssue, addIssueComment, type IssuePatch } from "@/lib/services/issues";
+// eslint-disable-next-line no-restricted-imports -- SEC-09: service-role required for watcher writes (no user RLS policy)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issueAttachmentsRepo } from "@/lib/repositories/issueAttachments";
+import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 
 const BUCKET = "issue-attachments";
 const QUOTA_BYTES = 100 * 1024 * 1024; // 100 MB / month per tenant
@@ -120,6 +122,20 @@ export async function deleteAttachmentAction(
   const storagePath = await issueAttachmentsRepo(svc).delete(ctx.tenant.id, attachmentId);
   await svc.storage.from(BUCKET).remove([storagePath]);
   revalidatePath(`/${slug}/issues`);
+}
+
+export async function watchIssueAction(slug: string, issueId: string): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  await issueWatchersRepo(createSupabaseServiceClient()).watch(ctx.tenant.id, issueId, ctx.appUserId);
+  revalidatePath(`/${slug}/issues/${issueId}`);
+}
+
+export async function unwatchIssueAction(slug: string, issueId: string): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  await issueWatchersRepo(createSupabaseServiceClient()).unwatch(ctx.tenant.id, issueId, ctx.appUserId);
+  revalidatePath(`/${slug}/issues/${issueId}`);
 }
 
 export async function deleteIssueAction(slug: string, id: string) {

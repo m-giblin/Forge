@@ -5,6 +5,7 @@ import { getTenantSettings } from "@/lib/tenantSettings";
 import { buildAssignmentEmail, type OpenTicket } from "@/lib/emailTemplate";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { notificationsRepo } from "@/lib/repositories/notifications";
+import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import { ideasRepo } from "@/lib/repositories/ideas";
 import { membersRepo } from "@/lib/repositories/members";
 
@@ -243,4 +244,103 @@ export async function notifyIdeaConverted(opts: {
       linkPath,
     })
     .catch((e) => console.error("idea_converted notification failed", e));
+}
+
+// ---------------------------------------------------------------------------
+// Issue notifications — @mentions + watcher fanout
+// ---------------------------------------------------------------------------
+
+/**
+ * Fires after a comment is posted on an issue.
+ * - Resolves @mention names against tenant members
+ * - Auto-watches the commenter, mentioned users
+ * - Notifies all watchers except the commenter
+ */
+export async function notifyIssueComment(opts: {
+  tenantId: string;
+  slug: string;
+  issueId: string;
+  issueKey: string;
+  issueTitle: string;
+  authorId: string;
+  authorLabel: string | null;
+  commentBody: string;
+}): Promise<void> {
+  const supabase = createSupabaseServiceClient();
+  const notif = notificationsRepo(supabase);
+  const watchers = issueWatchersRepo(supabase);
+  const members = await membersRepo(supabase).list(opts.tenantId);
+
+  // Resolve @mentions → user IDs
+  const mentions = extractMentions(opts.commentBody);
+  const mentionedIds: string[] = [];
+  if (mentions.length > 0) {
+    for (const m of members) {
+      const name = (m.name ?? m.email ?? "").toLowerCase();
+      if (mentions.some((mention) => name.includes(mention)) && m.userId !== opts.authorId) {
+        mentionedIds.push(m.userId);
+      }
+    }
+  }
+
+  // Auto-watch: commenter + mentioned users
+  await watchers.watchMany(opts.tenantId, opts.issueId, [opts.authorId, ...mentionedIds]);
+
+  // Notify all current watchers (after auto-watch so mentioned are included)
+  const currentWatchers = await watchers.list(opts.tenantId, opts.issueId);
+  const linkPath = `/${opts.slug}/issues/${opts.issueId}`;
+  const actor = opts.authorLabel ?? "Someone";
+
+  const toNotify = currentWatchers
+    .filter((w) => w.userId !== opts.authorId)
+    .map((w) => w.userId);
+
+  // Mention-specific notifications first
+  const mentionSet = new Set(mentionedIds);
+  await Promise.all(
+    toNotify.map((userId) => {
+      const isMentioned = mentionSet.has(userId);
+      return notif.create({
+        tenantId: opts.tenantId,
+        userId,
+        type: isMentioned ? "mention" : "issue_comment",
+        title: isMentioned
+          ? `@mentioned in ${opts.issueKey}: ${opts.issueTitle}`
+          : `💬 New comment on ${opts.issueKey}: ${opts.issueTitle}`,
+        body: `${actor}: ${opts.commentBody.slice(0, 100)}${opts.commentBody.length > 100 ? "…" : ""}`,
+        issueId: opts.issueId,
+        linkPath,
+      }).catch((e) => console.error("issue_comment notification failed", e));
+    })
+  );
+}
+
+/**
+ * Fires when an issue is assigned. Auto-watches assignee, notifies them.
+ */
+export async function notifyIssueAssigned(opts: {
+  tenantId: string;
+  slug: string;
+  issueId: string;
+  issueKey: string;
+  issueTitle: string;
+  assigneeId: string;
+  actorId: string;
+  actorLabel: string | null;
+}): Promise<void> {
+  if (opts.assigneeId === opts.actorId) return;
+  const supabase = createSupabaseServiceClient();
+  await issueWatchersRepo(supabase).watch(opts.tenantId, opts.issueId, opts.assigneeId);
+  const linkPath = `/${opts.slug}/issues/${opts.issueId}`;
+  await notificationsRepo(supabase)
+    .create({
+      tenantId: opts.tenantId,
+      userId: opts.assigneeId,
+      type: "assigned",
+      title: `Assigned to you: ${opts.issueKey} — ${opts.issueTitle}`,
+      body: `Assigned by ${opts.actorLabel ?? "someone"}`,
+      issueId: opts.issueId,
+      linkPath,
+    })
+    .catch((e) => console.error("issue_assigned notification failed", e));
 }

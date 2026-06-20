@@ -9,7 +9,7 @@
  * Uses NEXT_PUBLIC_APP_URL for the base URL so the self-call always routes to
  * localhost regardless of what IP external clients are connecting from.
  */
-export async function reportBugAction(input: { title: string; description?: string }): Promise<{ key: string }> {
+export async function reportBugAction(input: { title: string; description?: string; priority?: string }): Promise<{ key: string }> {
   const apiKey = process.env.FORGE_SELF_API_KEY;
   if (!apiKey) {
     throw new Error("FORGE_SELF_API_KEY is not set. Mint a key on the API keys page and add it to .env.local.");
@@ -25,6 +25,7 @@ export async function reportBugAction(input: { title: string; description?: stri
       title: input.title.trim(),
       description: input.description?.trim() || undefined,
       type: "bug",
+      priority: input.priority ?? "medium",
       environment: "forge-dogfood",
     }),
   });

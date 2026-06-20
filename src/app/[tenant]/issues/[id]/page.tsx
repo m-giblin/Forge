@@ -9,6 +9,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
+import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import IssueDetail from "./IssueDetail";
 
 export default async function IssuePage({ params }: { params: Promise<{ tenant: string; id: string }> }) {
@@ -27,18 +28,20 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
 
   const schema = await getTenantSchema(ctx.tenant.id, ctx.impersonating);
   const client = ctx.impersonating ? createSupabaseServiceClient() : await createSupabaseServerClient();
-  const [project, members, activity, attachments] = await Promise.all([
+  const svcClient = createSupabaseServiceClient();
+  const [project, members, activity, attachments, watchers] = await Promise.all([
     projectsRepo(client).getById(ctx.tenant.id, issue.project_id),
     listMembers(ctx.tenant.id, ctx.impersonating),
     loadIssueActivity(ctx.tenant.id, issue.id, ctx.impersonating),
     issueAttachmentsRepo(client).list(ctx.tenant.id, issue.id),
+    issueWatchersRepo(svcClient).list(ctx.tenant.id, issue.id),
   ]);
 
   const readOnly = ctx.impersonating || ctx.role === "viewer";
   const canDelete = ctx.role === "owner" || ctx.role === "admin";
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-6">
+    <main className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-6">
       <IssueDetail
         slug={slug}
         issue={issue}
@@ -55,6 +58,8 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         initialAttachments={attachments}
         readOnly={readOnly}
         canDelete={canDelete}
+        watchers={watchers.map((w) => w.userId)}
+        currentUserId={ctx.appUserId}
       />
     </main>
   );

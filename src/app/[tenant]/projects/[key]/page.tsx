@@ -6,10 +6,12 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 // eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { loadProjectPortal, loadProjectCosts, loadProjectTimeline, type Health } from "@/lib/services/projectPortal";
+import { sprintsRepo } from "@/lib/repositories/sprints";
 import ProjectOverview from "./ProjectOverview";
 import CostsTab from "./CostsTab";
 import TimelineTab from "./TimelineTab";
 import { ProjectStatusBadge, ProjectDangerZone } from "./ProjectStatusControl";
+import ProjectEditPanel from "./ProjectEditPanel";
 
 const HEALTH_META: Record<Health, { label: string; cls: string; dot: string }> = {
   on_track: { label: "On track", cls: "bg-emerald-100 text-emerald-700", dot: "●" },
@@ -43,7 +45,11 @@ export default async function ProjectDetailPage({
   const data = await loadProjectPortal({ tenantId: ctx.tenant.id, projectKey: key, impersonating: ctx.impersonating });
   if (!data) notFound();
 
-  const wiki = await projectWikiPagesRepo(supabase).getForProject(ctx.tenant.id, data.project.id);
+  const svcClient = createSupabaseServiceClient();
+  const [wiki, sprintVelocity] = await Promise.all([
+    projectWikiPagesRepo(supabase).getForProject(ctx.tenant.id, data.project.id),
+    sprintsRepo(svcClient).velocity(ctx.tenant.id, data.project.id).catch(() => []),
+  ]);
   const canEdit = ctx.role !== "viewer" && !ctx.impersonating;
   const isAdmin = (ctx.role === "owner" || ctx.role === "admin") && !ctx.impersonating;
   const health = HEALTH_META[data.health];
@@ -75,15 +81,38 @@ export default async function ProjectDetailPage({
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${GOLIVE_CLS[data.goLive.tone]}`}>{data.goLive.label}</span>
           </div>
           <h1 className="mt-2 text-2xl font-bold text-neutral-900">{data.project.name}</h1>
+          {data.project.description && (
+            <p className="mt-1 text-sm text-neutral-600">{data.project.description}</p>
+          )}
           <p className="mt-1 text-sm text-neutral-500">
             {data.leadName ? `Owner: ${data.leadName}` : "No owner"}
             {data.members.length > 0 && ` · ${data.members.length} member${data.members.length === 1 ? "" : "s"}`}
           </p>
+          {isAdmin && (
+            <div className="mt-1">
+              <ProjectEditPanel
+                slug={slug}
+                projectKey={data.project.key}
+                name={data.project.name}
+                description={data.project.description ?? null}
+              />
+            </div>
+          )}
         </div>
         <Link href={`/${slug}/board?project=${data.project.key}`} className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">
           Open board →
         </Link>
       </div>
+
+      {/* Archived banner */}
+      {data.project.status === "archived" && (
+        <div className="mt-4 flex items-center gap-3 rounded-xl border border-purple-200 bg-purple-50 px-4 py-3">
+          <span className="text-purple-500">🗄️</span>
+          <p className="text-sm text-purple-800">
+            This project is <strong>archived</strong> — issues are read-only. Change the status to reactivate it.
+          </p>
+        </div>
+      )}
 
       {/* Tab bar */}
       <div className="mt-5 mb-5 flex gap-1 border-b border-neutral-200">
@@ -100,7 +129,7 @@ export default async function ProjectDetailPage({
         ))}
       </div>
 
-      {tab === "overview" && <ProjectOverview slug={slug} data={data} wiki={wiki} canEdit={canEdit} />}
+      {tab === "overview" && <ProjectOverview slug={slug} data={data} wiki={wiki} canEdit={canEdit} sprintVelocity={sprintVelocity} />}
       {tab === "timeline" && <TimelineTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} />}
       {tab === "costs" && <CostsTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} canEdit={canEdit} />}
 

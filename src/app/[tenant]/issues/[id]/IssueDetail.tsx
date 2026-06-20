@@ -6,7 +6,7 @@ import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
 import { isUnassignedOverdue, unassignedThresholdMs } from "@/lib/sla";
-import { updateIssueAction, deleteIssueAction, addCommentAction } from "./actions";
+import { updateIssueAction, deleteIssueAction, addCommentAction, watchIssueAction, unwatchIssueAction } from "./actions";
 import IssueAttachments from "./IssueAttachments";
 import type { IssueAttachment } from "@/lib/repositories/issueAttachments";
 
@@ -94,6 +94,8 @@ export default function IssueDetail({
   initialAttachments,
   readOnly,
   canDelete,
+  watchers: initialWatchers,
+  currentUserId,
 }: {
   slug: string;
   issue: Issue;
@@ -110,6 +112,8 @@ export default function IssueDetail({
   initialAttachments: IssueAttachment[];
   readOnly: boolean;
   canDelete: boolean;
+  watchers: string[];
+  currentUserId: string;
 }) {
   const [title, setTitle] = useState(issue.title);
   const [description, setDescription] = useState(issue.description ?? "");
@@ -120,12 +124,33 @@ export default function IssueDetail({
   const [assigneeId, setAssigneeId] = useState(issue.assignee_id ?? "");
   const [startDate, setStartDate] = useState(issue.start_date ?? "");
   const [dueDate, setDueDate] = useState(issue.due_date ?? "");
+  const [phase, setPhase] = useState(issue.phase ?? "");
   const [customValues, setCustomValues] = useState<Record<string, string>>(
     Object.fromEntries(customFields.map((f) => [f.key, String((issue.custom_values ?? {})[f.key] ?? "")]))
   );
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const [watchers, setWatchers] = useState<string[]>(initialWatchers);
+  const [watchPending, startWatchTransition] = useTransition();
+  const isWatching = watchers.includes(currentUserId);
+
+  function toggleWatch() {
+    startWatchTransition(async () => {
+      try {
+        if (isWatching) {
+          await unwatchIssueAction(slug, issue.id);
+          setWatchers((w) => w.filter((id) => id !== currentUserId));
+        } else {
+          await watchIssueAction(slug, issue.id);
+          setWatchers((w) => [...w, currentUserId]);
+        }
+      } catch (e) {
+        console.error("watch toggle failed", e);
+      }
+    });
+  }
 
   const [comments, setComments] = useState<IssueComment[]>(initialComments);
   const [commentBody, setCommentBody] = useState("");
@@ -168,6 +193,7 @@ export default function IssueDetail({
     (assigneeId || null) !== issue.assignee_id ||
     (startDate || null) !== issue.start_date ||
     (dueDate || null) !== issue.due_date ||
+    (phase || null) !== issue.phase ||
     customFields.some((f) => customValues[f.key] !== String((issue.custom_values ?? {})[f.key] ?? ""));
 
   function save() {
@@ -186,6 +212,7 @@ export default function IssueDetail({
           assigneeId: assigneeId || null,
           startDate: startDate || null,
           dueDate: dueDate || null,
+          phase: phase || null,
           customValues,
         });
         setSaved(true);
@@ -360,6 +387,11 @@ export default function IssueDetail({
                 <span className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium ${priorityCls}`}>
                   {isHotPriority && <Icon name="flame" size={13} />}
                   {priorities.find((p) => p.key === priority)?.label ?? priority}
+                </span>
+              )}
+              {phase && (
+                <span className="inline-flex items-center rounded-md bg-purple-50 px-2.5 py-1 text-xs font-medium text-purple-700">
+                  {phase.charAt(0).toUpperCase() + phase.slice(1)}
                 </span>
               )}
               <span className="text-xs text-neutral-500 font-mono">{issueKey}</span>
@@ -610,6 +642,38 @@ export default function IssueDetail({
           </div>
 
           <div className={sideSection}>
+            <div className="flex items-center justify-between mb-2">
+              <p className={sideLabel} style={{ marginBottom: 0 }}>Watchers ({watchers.length})</p>
+              <button
+                onClick={toggleWatch}
+                disabled={watchPending}
+                className={`text-xs font-medium px-2 py-0.5 rounded-full border transition-colors ${
+                  isWatching
+                    ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                    : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
+                }`}
+              >
+                {isWatching ? "Watching" : "Watch"}
+              </button>
+            </div>
+            {watchers.length === 0 ? (
+              <p className="text-xs text-neutral-400">No watchers yet</p>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {watchers.map((uid) => {
+                  const m = members.find((x) => x.userId === uid);
+                  const label = m?.label ?? "Unknown";
+                  return (
+                    <span key={uid} title={label} className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-semibold text-white bg-neutral-400" style={{ background: avatarColor(label) }}>
+                      {avatarInitials(label)}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          <div className={sideSection}>
             <p className={sideLabel}>Priority</p>
             <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); setSaved(false); }} className={sidebarSelect}>
               {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
@@ -631,6 +695,18 @@ export default function IssueDetail({
           <div className={sideSection}>
             <p className={sideLabel}>Due date</p>
             <input type="date" value={dueDate} disabled={readOnly} onChange={(e) => { setDueDate(e.target.value); setSaved(false); }} className={sidebarSelect} />
+          </div>
+
+          <div className={sideSection}>
+            <p className={sideLabel}>Phase</p>
+            <select value={phase} disabled={readOnly} onChange={(e) => { setPhase(e.target.value); setSaved(false); }} className={sidebarSelect}>
+              <option value="">— None —</option>
+              <option value="discovery">Discovery</option>
+              <option value="design">Design</option>
+              <option value="development">Development</option>
+              <option value="testing">Testing</option>
+              <option value="deployment">Deployment</option>
+            </select>
           </div>
 
           {catOptions.length > 0 && (

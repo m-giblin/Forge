@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addProjectMemberAction, removeProjectMemberAction } from "./actions";
+import { addProjectMemberAction, removeProjectMemberAction, deleteProjectAction } from "./actions";
 import { createProjectAction } from "@/app/[tenant]/actions";
 
 type Project = { id: string; key: string; name: string };
@@ -36,6 +36,7 @@ export default function ProjectTeamsManager({
   const [teams, setTeams] = useState<Record<string, string[]>>(initialTeamMap);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   // New project form state
   const [showForm, setShowForm] = useState(false);
@@ -206,6 +207,40 @@ export default function ProjectTeamsManager({
               <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">{p.key}</span>
               <span className="font-medium text-neutral-900">{p.name}</span>
               <span className="ml-auto text-xs text-neutral-400">{team.length} member{team.length === 1 ? "" : "s"}</span>
+              {!readOnly && (
+                deletingId === p.id ? (
+                  <div className="flex items-center gap-2 ml-2">
+                    <span className="text-xs text-red-600 font-medium">Delete this project and all its issues?</span>
+                    <button
+                      onClick={() => {
+                        startTransition(async () => {
+                          try { await deleteProjectAction(slug, p.id); router.refresh(); }
+                          catch (e) { setError(e instanceof Error ? e.message : "Delete failed"); }
+                          finally { setDeletingId(null); }
+                        });
+                      }}
+                      disabled={pending}
+                      className="rounded px-2 py-1 text-xs font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                    >
+                      Yes, delete
+                    </button>
+                    <button
+                      onClick={() => setDeletingId(null)}
+                      className="rounded px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-100"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setDeletingId(p.id)}
+                    className="ml-2 rounded px-2 py-1 text-xs text-neutral-400 hover:bg-red-50 hover:text-red-600 transition"
+                    title="Delete project"
+                  >
+                    Delete
+                  </button>
+                )
+              )}
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">

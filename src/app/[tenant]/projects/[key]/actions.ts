@@ -4,12 +4,26 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import { projectsRepo, projectWikiPagesRepo, projectSpendRepo, type ProjectStatus } from "@/lib/repositories/projects";
-import { changeProjectStatus, deleteProject } from "@/lib/services/projects";
+import { changeProjectStatus, deleteProject, updateProject } from "@/lib/services/projects";
 import { recordAudit } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 function assertAdmin(role: string) {
   if (role !== "owner" && role !== "admin") throw new Error("Only owners and admins can manage projects.");
+}
+
+export async function updateProjectAction(
+  slug: string,
+  projectKey: string,
+  patch: { name?: string; description?: string | null },
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  assertAdmin(ctx.role);
+  await updateProject(ctx.tenant.id, projectKey, patch, ctx.role, ctx.impersonating);
+  await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "project.update", target: projectKey });
+  revalidatePath(`/${slug}/projects/${projectKey}`);
+  revalidatePath(`/${slug}/projects`);
 }
 
 export async function changeStatusAction(slug: string, projectKey: string, status: ProjectStatus): Promise<void> {
