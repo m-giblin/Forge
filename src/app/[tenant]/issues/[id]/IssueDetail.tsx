@@ -7,6 +7,8 @@ import { type FieldOption, type Category, type CustomField } from "@/lib/reposit
 import { type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
 import { isUnassignedOverdue, unassignedThresholdMs } from "@/lib/sla";
 import { updateIssueAction, deleteIssueAction, addCommentAction } from "./actions";
+import IssueAttachments from "./IssueAttachments";
+import type { IssueAttachment } from "@/lib/repositories/issueAttachments";
 
 type Member = { userId: string; label: string };
 
@@ -89,6 +91,7 @@ export default function IssueDetail({
   members,
   comments: initialComments,
   events,
+  initialAttachments,
   readOnly,
   canDelete,
 }: {
@@ -104,6 +107,7 @@ export default function IssueDetail({
   members: Member[];
   comments: IssueComment[];
   events: IssueEvent[];
+  initialAttachments: IssueAttachment[];
   readOnly: boolean;
   canDelete: boolean;
 }) {
@@ -676,6 +680,14 @@ export default function IssueDetail({
             <div className="border-t border-neutral-200 pt-3">
               <p className={sideLabel}>Age</p>
               <p className="text-sm text-neutral-700 font-medium">{ageSince(issue.created_at)}</p>
+            </div>
+            <div className="border-t border-neutral-200 pt-3">
+              <IssueAttachments
+                slug={slug}
+                issueId={issue.id}
+                initialAttachments={initialAttachments}
+                readOnly={readOnly}
+              />
             </div>
           </div>
         </aside>

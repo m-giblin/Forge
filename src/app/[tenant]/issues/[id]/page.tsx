@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
 import { getIssue, loadIssueActivity } from "@/lib/services/issues";
+import { issueAttachmentsRepo } from "@/lib/repositories/issueAttachments";
 import { getTenantSchema } from "@/lib/services/fieldConfig";
 import { listMembers } from "@/lib/services/members";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -26,10 +27,11 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
 
   const schema = await getTenantSchema(ctx.tenant.id, ctx.impersonating);
   const client = ctx.impersonating ? createSupabaseServiceClient() : await createSupabaseServerClient();
-  const [project, members, activity] = await Promise.all([
+  const [project, members, activity, attachments] = await Promise.all([
     projectsRepo(client).getById(ctx.tenant.id, issue.project_id),
     listMembers(ctx.tenant.id, ctx.impersonating),
     loadIssueActivity(ctx.tenant.id, issue.id, ctx.impersonating),
+    issueAttachmentsRepo(client).list(ctx.tenant.id, issue.id),
   ]);
 
   const readOnly = ctx.impersonating || ctx.role === "viewer";
@@ -50,6 +52,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         members={members.map((m) => ({ userId: m.userId, label: m.name || m.email }))}
         comments={activity.comments}
         events={activity.events}
+        initialAttachments={attachments}
         readOnly={readOnly}
         canDelete={canDelete}
       />
