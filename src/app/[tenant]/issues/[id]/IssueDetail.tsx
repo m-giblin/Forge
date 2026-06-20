@@ -11,6 +11,7 @@ import IssueAttachments from "./IssueAttachments";
 import type { IssueAttachment } from "@/lib/repositories/issueAttachments";
 import { SubIssuesCard, LinkedIssuesCard } from "./IssueHierarchy";
 import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
+import TriageCard from "./TriageCard";
 
 type Member = { userId: string; label: string };
 
@@ -749,6 +750,13 @@ export default function IssueDetail({
               )}
             </div>
           ))}
+
+          <TriageCard
+            slug={slug}
+            issueId={issue.id}
+            suggestion={issue.triage_suggestion}
+            readOnly={readOnly}
+          />
 
           <SubIssuesCard
             slug={slug}
