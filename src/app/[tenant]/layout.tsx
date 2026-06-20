@@ -23,6 +23,22 @@ export default async function TenantLayout({
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
 
+  // MFA enforcement gate — runs before rendering any workspace page.
+  // Impersonation sessions are exempt (super-admin support path).
+  if (!ctx.impersonating) {
+    const supabaseForMfa = await createSupabaseServerClient();
+    const [tenantRes, aalRes] = await Promise.all([
+      supabaseForMfa.from("tenants").select("require_mfa").eq("id", ctx.tenant.id).single(),
+      supabaseForMfa.auth.mfa.getAuthenticatorAssuranceLevel(),
+    ]);
+    const requireMfa = tenantRes.data?.require_mfa ?? false;
+    const currentLevel = aalRes.data?.currentLevel ?? "aal1";
+    if (requireMfa && currentLevel !== "aal2") {
+      const next = encodeURIComponent(`/${slug}/board`);
+      redirect(`/mfa-required?next=${next}`);
+    }
+  }
+
   // Load initial notification state server-side (no waterfall — parallel).
   const [supabase, svc] = await Promise.all([
     ctx.impersonating ? Promise.resolve(createSupabaseServiceClient()) : createSupabaseServerClient(),
@@ -100,13 +116,6 @@ export default async function TenantLayout({
               initialNotifications={initialNotifications}
               unassignedCount={unassignedCount}
             />
-            <Link
-              href="/account/security"
-              title="Account security"
-              className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
-            >
-              🔐
-            </Link>
             <span className="rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600">
               {ctx.role}
             </span>
