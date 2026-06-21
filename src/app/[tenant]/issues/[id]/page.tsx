@@ -56,7 +56,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
   const canDelete = ctx.role === "owner" || ctx.role === "admin";
 
   return (
-    <main className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-6">
+    <main className="px-2 py-3">
       <IssueDetail
         slug={slug}
         issue={issue}
