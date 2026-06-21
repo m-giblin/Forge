@@ -4,6 +4,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { readImpersonation } from "@/lib/impersonation";
 import { requireSuperAdmin } from "@/lib/super-admin";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { PermissionOverrides } from "@/lib/permissions";
 
 export type TenantMembership = {
   role: "owner" | "admin" | "member" | "viewer";
@@ -73,6 +74,7 @@ export type TenantContext = {
   appUserId: string;
   email: string | null; // actor label for audit/governance stamping
   impersonating: boolean;
+  permissionOverrides: PermissionOverrides;
 };
 
 /**
@@ -92,7 +94,7 @@ export async function getTenantContext(slug: string): Promise<TenantContext | nu
   // Member path: RLS only returns the tenant if the user belongs to it.
   const { data: tenant } = await supabase
     .from("tenants")
-    .select("id, name, slug")
+    .select("id, name, slug, permission_overrides")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -105,11 +107,12 @@ export async function getTenantContext(slug: string): Promise<TenantContext | nu
       .maybeSingle();
     if (membership) {
       return {
-        tenant,
+        tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
         role: membership.role as TenantContext["role"],
         appUserId,
         email: user.email ?? null,
         impersonating: false,
+        permissionOverrides: (tenant.permission_overrides ?? {}) as PermissionOverrides,
       };
     }
   }
@@ -120,9 +123,9 @@ export async function getTenantContext(slug: string): Promise<TenantContext | nu
   const imp = await readImpersonation();
   if (imp && (await requireSuperAdmin())) {
     const svc = createSupabaseServiceClient();
-    const { data: t } = await svc.from("tenants").select("id, name, slug").eq("slug", slug).maybeSingle();
+    const { data: t } = await svc.from("tenants").select("id, name, slug, permission_overrides").eq("slug", slug).maybeSingle();
     if (t && imp.tenantId === t.id) {
-      return { tenant: t, role: "viewer", appUserId, email: user.email ?? null, impersonating: true };
+      return { tenant: { id: t.id, name: t.name, slug: t.slug }, role: "viewer", appUserId, email: user.email ?? null, impersonating: true, permissionOverrides: (t.permission_overrides ?? {}) as PermissionOverrides };
     }
   }
 

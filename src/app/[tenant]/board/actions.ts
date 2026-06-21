@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import { createIssue, moveIssue } from "@/lib/services/issues";
 import type { IssuePriority, IssueStatus, IssueType } from "@/lib/repositories/issues";
+import { canDo } from "@/lib/permissions";
 
 // Every action re-checks tenant membership server-side. The client cannot be
 // trusted; authorization lives here + RLS, never in the UI.
@@ -22,7 +23,8 @@ export async function createIssueAction(
 ) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (ctx.role === "viewer") throw new Error("Viewers cannot create issues");
+  if (!canDo(ctx.role, "viewer.create_issue", ctx.permissionOverrides) && ctx.role === "viewer")
+    throw new Error("Viewers cannot create issues in this workspace");
 
   const issue = await createIssue({
     tenantId: ctx.tenant.id,
