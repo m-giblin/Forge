@@ -424,84 +424,55 @@ export default function IssueDetail({
             />
           </div>
 
-          {/* ─ Status stepper section ─ */}
-          <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
-            <div className="flex items-start">
-              {orderedStatuses.flatMap((s, i) => {
+          {/* ─ Status workflow ─ */}
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+            <div className="flex items-center gap-1.5 overflow-x-auto">
+              {orderedStatuses.map((s, i) => {
                 const position = i < statusIdx ? "done" : i === statusIdx ? "current" : "pending";
                 const isJumpable = !readOnly && !pending && position !== "current";
-                const connectorBg = i === statusIdx ? "#2563EB" : i < statusIdx ? "#059669" : "#E5E7EB";
-
-                const connector =
-                  i > 0 ? (
-                    <div key={`conn-${s.key}`} className="mt-[15px] h-px shrink-0" style={{ flex: "0.35", background: connectorBg }} />
-                  ) : null;
-
-                const node = (
-                  <div
+                return (
+                  <button
                     key={s.key}
-                    role={isJumpable ? "button" : undefined}
-                    tabIndex={isJumpable ? 0 : undefined}
+                    type="button"
+                    disabled={!isJumpable}
                     onClick={() => isJumpable && moveStatus(s.key)}
-                    onKeyDown={(e) => { if (isJumpable && (e.key === "Enter" || e.key === " ")) moveStatus(s.key); }}
-                    title={isJumpable ? `Move to "${s.label}"` : undefined}
-                    className={["flex min-w-0 flex-1 flex-col items-center gap-2", isJumpable ? "cursor-pointer" : "cursor-default"].join(" ")}
+                    title={isJumpable ? `Move to "${s.label}"` : s.label}
+                    className={[
+                      "flex-1 min-w-0 rounded-lg px-3 py-2 text-xs font-semibold transition truncate",
+                      position === "current"
+                        ? "bg-blue-600 text-white shadow-sm cursor-default"
+                        : position === "done"
+                        ? "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 cursor-pointer"
+                        : isJumpable
+                        ? "bg-white border border-neutral-200 text-neutral-500 hover:border-neutral-400 hover:text-neutral-700 cursor-pointer"
+                        : "bg-white border border-neutral-200 text-neutral-400 cursor-default",
+                    ].join(" ")}
                   >
-                    <div
-                      className={[
-                        "flex items-center justify-center rounded-full transition-all",
-                        position === "done"
-                          ? "h-8 w-8 bg-emerald-600 text-white shadow-sm"
-                          : position === "current"
-                          ? "h-10 w-10 bg-blue-600 text-white ring-4 ring-blue-100 shadow-md"
-                          : isJumpable
-                          ? "h-8 w-8 border-2 border-neutral-300 bg-white text-neutral-400 hover:border-neutral-400 hover:text-neutral-500 hover:shadow-sm"
-                          : "h-8 w-8 border-2 border-neutral-200 bg-white text-neutral-300",
-                      ].join(" ")}
-                    >
-                      <Icon name={position === "done" ? "check" : statusIconName(s.key)} size={position === "current" ? 18 : 16} />
-                    </div>
-                    <span
-                      className={[
-                        "text-center text-xs font-medium leading-tight",
-                        position === "done"
-                          ? "text-emerald-700"
-                          : position === "current"
-                          ? "text-blue-700"
-                          : "text-neutral-500",
-                      ].join(" ")}
-                    >
-                      {s.label}
-                    </span>
-                  </div>
+                    {position === "done" ? `✓ ${s.label}` : s.label}
+                  </button>
                 );
-
-                return connector ? [connector, node] : [node];
               })}
             </div>
 
             {!readOnly && (
-              <div className="mt-5 flex items-center justify-between border-t border-neutral-200 pt-4">
+              <div className="mt-3 flex items-center justify-between">
                 <button
                   type="button"
                   disabled={!statusPrev || pending}
                   onClick={() => statusPrev && moveStatus(statusPrev.key)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3.5 py-2 text-xs font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-40 transition"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-40 transition"
                 >
-                  <Icon name="arrowLeft" size={14} />
-                  {statusPrev?.label || "Start"}
+                  <Icon name="arrowLeft" size={12} />
+                  {statusPrev?.label ?? "Back"}
                 </button>
-                <span className="text-xs text-neutral-500 font-medium">
-                  Step {statusIdx + 1} of {orderedStatuses.length}
-                </span>
                 <button
                   type="button"
                   disabled={!statusNext || pending}
                   onClick={() => statusNext && moveStatus(statusNext.key)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40 transition"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40 transition"
                 >
-                  {statusNext?.label || "Done"}
-                  <Icon name="arrowRight" size={14} />
+                  {statusNext?.label ?? "Done"}
+                  <Icon name="arrowRight" size={12} />
                 </button>
               </div>
             )}
