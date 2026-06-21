@@ -514,6 +514,47 @@ export const DOC_GUIDES: DocGuide[] = [
         ],
       },
       {
+        id: 'roles-permissions',
+        title: 'Roles & Permissions',
+        description: 'System roles control access. Job titles are display labels. Understanding the difference.',
+        icon: '🛡',
+        roles: ['owner', 'admin'],
+        steps: [
+          {
+            step: 1,
+            title: 'The four system roles',
+            description:
+              'Forge has four permission tiers. Owner: full control — billing, workspace deletion, and managing everyone including other admins. Admin: manage members, settings, projects, and all issues. Member: create and edit issues, comment, and use the board. Viewer: read-only access — can see everything but cannot create, edit, or comment. System roles are set per workspace in Settings → Members.',
+          },
+          {
+            step: 2,
+            title: 'Job titles are display-only labels',
+            description:
+              'Job titles (Developer, PM, QA Engineer, Team Lead, etc.) are organizational labels — they appear on board cards, assignment dropdowns, and the member list. They do NOT change what a person can see or do. A "Team Lead" with a Member role has exactly the same permissions as any other Member. Job titles help teammates identify who is who; system roles control access.',
+            tip: 'Think of it this way: system role = what you can do. Job title = who you are. Assign the system role that matches the access level needed, then add the job title for clarity.',
+          },
+          {
+            step: 3,
+            title: 'Recommended role pairings',
+            description:
+              'Common patterns for small to mid-size teams: Developers → Member role. QA Engineers → Member role. Product Managers → Member or Admin role (Admin if they manage sprint scope). Team Leads → Member or Admin depending on whether they need settings access. Stakeholders and clients → Viewer role (read-only, cannot modify anything). External consultants → Viewer or Member depending on their involvement.',
+          },
+          {
+            step: 4,
+            title: 'Changing a member\'s role',
+            description:
+              'Go to Settings → Members. Find the member in the table and use the Role dropdown to change their system role. Role changes take effect immediately — no re-login required. Promoting a Member to Admin gives instant access to Settings; demoting an Admin to Member removes that access immediately.',
+            tip: 'Always keep at least two Owners in the workspace. If the sole Owner leaves, you may lose administrative access to billing and workspace settings.',
+          },
+          {
+            step: 5,
+            title: 'Setting job titles (AI/Enterprise)',
+            description:
+              'If your workspace has the Job Titles feature enabled, a Job Title column appears in Settings → Members. Click "Add title…" next to any member and select from the predefined list — Developer, Designer, QA Engineer, Product Manager, Team Lead, Scrum Master, Stakeholder, Consultant, DevOps, Data Analyst. Members can hold multiple titles (e.g. Developer + Team Lead). Titles appear as colored chips on board cards and in the assignment picker.',
+          },
+        ],
+      },
+      {
         id: 'feature-flags',
         title: 'Feature Flags',
         description: 'Enable or disable Think Tank, Dashboards, and Roadmap per workspace',
