@@ -106,6 +106,27 @@ export function issuesRepo(supabase: SupabaseClient) {
     },
 
     async get(tenantId: string, id: string): Promise<Issue | null> {
+      // Support both UUID and issue-key formats (e.g. "WEB-129")
+      const keyMatch = /^([A-Z][A-Z0-9]*)-(\d+)$/.exec(id);
+      if (keyMatch) {
+        const [, projectKey, num] = keyMatch;
+        const { data: proj } = await supabase
+          .from("projects")
+          .select("id")
+          .eq("tenant_id", tenantId)
+          .eq("key", projectKey)
+          .maybeSingle();
+        if (!proj) return null;
+        const { data, error } = await supabase
+          .from("issues")
+          .select(COLS)
+          .eq("tenant_id", tenantId)
+          .eq("project_id", proj.id)
+          .eq("number", parseInt(num, 10))
+          .maybeSingle();
+        if (error) throw error;
+        return (data as Issue) ?? null;
+      }
       const { data, error } = await supabase
         .from("issues")
         .select(COLS)

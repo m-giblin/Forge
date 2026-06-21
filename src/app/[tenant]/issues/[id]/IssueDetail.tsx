@@ -425,8 +425,8 @@ export default function IssueDetail({
           </div>
 
           {/* ─ Status workflow ─ */}
-          <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
-            <div className="flex items-center gap-1.5 overflow-x-auto">
+          <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-5">
+            <div className="flex flex-wrap items-center gap-2">
               {orderedStatuses.map((s, i) => {
                 const position = i < statusIdx ? "done" : i === statusIdx ? "current" : "pending";
                 const isJumpable = !readOnly && !pending && position !== "current";
@@ -438,7 +438,7 @@ export default function IssueDetail({
                     onClick={() => isJumpable && moveStatus(s.key)}
                     title={isJumpable ? `Move to "${s.label}"` : s.label}
                     className={[
-                      "flex-1 min-w-0 rounded-lg px-3 py-2 text-xs font-semibold transition truncate",
+                      "rounded-lg px-5 py-2.5 text-sm font-semibold whitespace-nowrap transition",
                       position === "current"
                         ? "bg-blue-600 text-white shadow-sm cursor-default"
                         : position === "done"
@@ -455,24 +455,24 @@ export default function IssueDetail({
             </div>
 
             {!readOnly && (
-              <div className="mt-3 flex items-center justify-between">
+              <div className="mt-4 flex items-center justify-between border-t border-neutral-200 pt-4">
                 <button
                   type="button"
                   disabled={!statusPrev || pending}
                   onClick={() => statusPrev && moveStatus(statusPrev.key)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-40 transition"
+                  className="inline-flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 hover:border-neutral-400 disabled:cursor-not-allowed disabled:opacity-40 transition"
                 >
-                  <Icon name="arrowLeft" size={12} />
+                  <Icon name="arrowLeft" size={14} />
                   {statusPrev?.label ?? "Back"}
                 </button>
                 <button
                   type="button"
                   disabled={!statusNext || pending}
                   onClick={() => statusNext && moveStatus(statusNext.key)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40 transition"
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40 transition"
                 >
                   {statusNext?.label ?? "Done"}
-                  <Icon name="arrowRight" size={12} />
+                  <Icon name="arrowRight" size={14} />
                 </button>
               </div>
             )}
