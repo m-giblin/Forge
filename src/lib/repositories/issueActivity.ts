@@ -7,6 +7,7 @@ export type IssueComment = {
   body: string;
   parentId: string | null;
   createdAt: string;
+  commentType: "comment" | "decision";
 };
 
 export type IssueEvent = {
@@ -26,20 +27,36 @@ export type IssueEvent = {
 export function issueActivityRepo(supabase: SupabaseClient) {
   return {
     async listComments(tenantId: string, issueId: string): Promise<IssueComment[]> {
-      const { data, error } = await supabase
+      // Try to select comment_type (available after migration 0051); fall back to omitting it
+      // if the column doesn't exist yet so a missing migration never breaks the issue view.
+      let rows: Array<Record<string, unknown>> = [];
+      const withType = await supabase
         .from("issue_comments")
-        .select("id, author_id, author_label, body, parent_id, created_at")
+        .select("id, author_id, author_label, body, parent_id, created_at, comment_type")
         .eq("tenant_id", tenantId)
         .eq("issue_id", issueId)
         .order("created_at", { ascending: true });
-      if (error) throw error;
-      return (data ?? []).map((c) => ({
-        id: c.id,
-        authorId: c.author_id,
-        authorLabel: c.author_label,
-        body: c.body,
-        parentId: c.parent_id ?? null,
-        createdAt: c.created_at,
+      if (withType.error) {
+        // Column probably missing — retry without it
+        const without = await supabase
+          .from("issue_comments")
+          .select("id, author_id, author_label, body, parent_id, created_at")
+          .eq("tenant_id", tenantId)
+          .eq("issue_id", issueId)
+          .order("created_at", { ascending: true });
+        if (without.error) throw without.error;
+        rows = (without.data ?? []) as Array<Record<string, unknown>>;
+      } else {
+        rows = (withType.data ?? []) as Array<Record<string, unknown>>;
+      }
+      return rows.map((c) => ({
+        id: c.id as string,
+        authorId: (c.author_id as string | null) ?? null,
+        authorLabel: (c.author_label as string | null) ?? null,
+        body: c.body as string,
+        parentId: (c.parent_id as string | null) ?? null,
+        createdAt: c.created_at as string,
+        commentType: ((c.comment_type as string | undefined) ?? "comment") as "comment" | "decision",
       }));
     },
 
@@ -50,17 +67,24 @@ export function issueActivityRepo(supabase: SupabaseClient) {
       authorLabel: string | null;
       body: string;
       parentId?: string | null;
+      commentType?: "comment" | "decision";
     }): Promise<IssueComment> {
+      // comment_type column exists after migration 0051. Include it only when needed to
+      // avoid a 500 if the migration hasn't run yet (column absent → Postgres error).
+      const insertRow: Record<string, unknown> = {
+        tenant_id: input.tenantId,
+        issue_id: input.issueId,
+        author_id: input.authorId,
+        author_label: input.authorLabel,
+        body: input.body,
+        parent_id: input.parentId ?? null,
+      };
+      if (input.commentType && input.commentType !== "comment") {
+        insertRow.comment_type = input.commentType;
+      }
       const { data, error } = await supabase
         .from("issue_comments")
-        .insert({
-          tenant_id: input.tenantId,
-          issue_id: input.issueId,
-          author_id: input.authorId,
-          author_label: input.authorLabel,
-          body: input.body,
-          parent_id: input.parentId ?? null,
-        })
+        .insert(insertRow)
         .select("id, author_id, author_label, body, parent_id, created_at")
         .single();
       if (error) throw error;
@@ -71,6 +95,7 @@ export function issueActivityRepo(supabase: SupabaseClient) {
         body: data.body,
         parentId: data.parent_id ?? null,
         createdAt: data.created_at,
+        commentType: (input.commentType ?? "comment") as "comment" | "decision",
       };
     },
 

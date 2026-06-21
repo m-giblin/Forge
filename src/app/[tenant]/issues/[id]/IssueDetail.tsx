@@ -101,6 +101,7 @@ export default function IssueDetail({
   initialAttachments,
   readOnly,
   canDelete,
+  userRole,
   watchers: initialWatchers,
   currentUserId,
   subIssues = [],
@@ -123,6 +124,7 @@ export default function IssueDetail({
   initialAttachments: IssueAttachment[];
   readOnly: boolean;
   canDelete: boolean;
+  userRole: string;
   watchers: string[];
   currentUserId: string;
   subIssues?: { id: string; number: number; title: string; status: string; priority: string }[];
@@ -169,9 +171,11 @@ export default function IssueDetail({
 
   const [comments, setComments] = useState<IssueComment[]>(initialComments);
   const [commentBody, setCommentBody] = useState("");
+  const [commentType, setCommentType] = useState<"comment" | "decision">("comment");
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyToLabel, setReplyToLabel] = useState<string | null>(null);
   const [commenting, startComment] = useTransition();
+  const canMarkDecision = userRole === "owner" || userRole === "admin";
 
   const orderedStatuses = [...statuses].sort((a, b) => a.position - b.position);
   const statusIdx = orderedStatuses.findIndex((o) => o.key === status);
@@ -278,9 +282,10 @@ export default function IssueDetail({
     if (!body) return;
     startComment(async () => {
       try {
-        const c = await addCommentAction(slug, issue.id, body, replyToId);
+        const c = await addCommentAction(slug, issue.id, body, replyToId, commentType);
         setComments((prev) => [...prev, c]);
         setCommentBody("");
+        setCommentType("comment");
         setReplyToId(null);
         setReplyToLabel(null);
       } catch (e) {
@@ -574,13 +579,16 @@ export default function IssueDetail({
                 return (
                   <div key={c.id}>
                     {/* Top-level comment */}
-                    <div className="rounded-lg border border-neutral-200 bg-white p-3.5">
+                    <div className={`rounded-lg border p-3.5 ${c.commentType === "decision" ? "border-amber-300 bg-amber-50" : "border-neutral-200 bg-white"}`}>
                       <div className="mb-2 flex items-center gap-2">
                         <div className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${avatarColor(c.authorLabel)}`}>
                           {avatarInitials(c.authorLabel)}
                         </div>
                         <span className="text-xs font-semibold text-neutral-800">{c.authorLabel ?? "Someone"}</span>
                         <span className="text-xs text-neutral-400" title={new Date(c.createdAt).toLocaleString()}>· {relTime(c.createdAt)}</span>
+                        {c.commentType === "decision" && (
+                          <span className="ml-auto rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">💡 Decision</span>
+                        )}
                       </div>
                       <p className="whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
                       {!readOnly && (
@@ -623,22 +631,38 @@ export default function IssueDetail({
                     <button onClick={cancelReply} className="ml-auto text-blue-400 hover:text-blue-700">✕</button>
                   </div>
                 )}
+                {canMarkDecision && !replyToId && (
+                  <div className="mb-2 flex rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 w-fit gap-0.5">
+                    <button
+                      onClick={() => setCommentType("comment")}
+                      className={`rounded-md px-3 py-1 text-xs font-medium transition ${commentType === "comment" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-700"}`}
+                    >
+                      Comment
+                    </button>
+                    <button
+                      onClick={() => setCommentType("decision")}
+                      className={`rounded-md px-3 py-1 text-xs font-medium transition ${commentType === "decision" ? "bg-amber-100 text-amber-800 shadow-sm" : "text-neutral-500 hover:text-neutral-700"}`}
+                    >
+                      💡 Decision
+                    </button>
+                  </div>
+                )}
                 <textarea
                   value={commentBody}
                   onChange={(e) => setCommentBody(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) postComment(); }}
                   rows={2}
-                  placeholder={replyToId ? "Write a reply…" : "Add a comment… (Cmd+Enter to post)"}
-                  className="w-full rounded-lg border border-neutral-200 px-3.5 py-2.5 text-sm outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100"
+                  placeholder={commentType === "decision" ? "Record an official decision…" : replyToId ? "Write a reply…" : "Add a comment… (Cmd+Enter to post)"}
+                  className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-1 ${commentType === "decision" ? "border-amber-300 bg-amber-50 focus:border-amber-400 focus:ring-amber-100" : "border-neutral-200 focus:border-blue-400 focus:ring-blue-100"}`}
                 />
                 <div className="mt-2.5 flex items-center justify-between">
                   <span className="text-xs text-neutral-400">Cmd+Enter to post</span>
                   <button
                     onClick={postComment}
                     disabled={commenting || !commentBody.trim()}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-medium text-white hover:bg-blue-700 disabled:bg-neutral-300 disabled:cursor-not-allowed transition"
+                    className={`rounded-lg px-4 py-2 text-xs font-medium text-white transition disabled:bg-neutral-300 disabled:cursor-not-allowed ${commentType === "decision" ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700"}`}
                   >
-                    {commenting ? "Posting…" : replyToId ? "Post reply" : "Post comment"}
+                    {commenting ? "Posting…" : replyToId ? "Post reply" : commentType === "decision" ? "Post Decision" : "Post comment"}
                   </button>
                 </div>
               </div>

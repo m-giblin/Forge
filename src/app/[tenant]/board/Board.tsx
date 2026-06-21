@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { type Issue } from "@/lib/repositories/issues";
+import { type Sprint } from "@/lib/repositories/sprints";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { isUnassignedOverdue } from "@/lib/sla";
 import { createIssueAction, moveIssueAction } from "./actions";
@@ -37,6 +38,8 @@ export default function Board({
   categories,
   customFields,
   members,
+  sprints,
+  currentSprint,
 }: {
   slug: string;
   tenantId: string;
@@ -53,6 +56,8 @@ export default function Board({
   categories: Category[];
   customFields: CustomField[];
   members: Member[];
+  sprints: Sprint[];
+  currentSprint: Sprint | null;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -171,8 +176,55 @@ export default function Board({
     });
   }
 
+  // Velocity: count of done issues in the currently selected sprint
+  const sprintDoneCount = currentSprint
+    ? initialIssues.filter((i) => i.sprint_id === currentSprint.id && i.status === "done").length
+    : null;
+
+  function selectSprint(sprintId: string | null) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (sprintId) next.set("sprint", sprintId);
+    else next.delete("sprint");
+    router.push(`${pathname}?${next.toString()}`);
+  }
+
   return (
     <div>
+      {sprints.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => selectSprint(null)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              !currentSprint
+                ? "border-indigo-600 bg-indigo-600 text-white"
+                : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400"
+            }`}
+          >
+            All Sprints
+          </button>
+          {sprints.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => selectSprint(s.id)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                currentSprint?.id === s.id
+                  ? "border-indigo-600 bg-indigo-600 text-white"
+                  : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400"
+              }`}
+            >
+              {s.name}
+              {s.status === "active" && (
+                <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-green-400 align-middle" />
+              )}
+            </button>
+          ))}
+          {currentSprint && sprintDoneCount !== null && (
+            <span className="ml-1 text-xs text-neutral-400">
+              {sprintDoneCount} done this sprint
+            </span>
+          )}
+        </div>
+      )}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">
@@ -180,18 +232,24 @@ export default function Board({
           </span>
           <h1 className="text-lg font-semibold text-neutral-900">{currentProject.name}</h1>
           {siblingProjects.length > 1 && (
-            <select
-              value={currentProject.key}
-              onChange={(e) => router.push(`/${slug}/board?project=${e.target.value}`)}
-              className="rounded-lg border border-neutral-300 px-2 py-1 text-xs text-neutral-600"
-              aria-label="Switch project"
-            >
-              {siblingProjects.map((p) => (
-                <option key={p.id} value={p.key}>
-                  {p.key} — {p.name}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1.5">
+              <label className="text-xs font-medium text-neutral-400">Project</label>
+              <select
+                value={currentProject.key}
+                onChange={(e) => router.push(`/${slug}/board?project=${e.target.value}`)}
+                className="rounded-lg border-2 border-indigo-300 bg-indigo-50 px-2.5 py-1.5 text-sm font-medium text-indigo-700 shadow-sm focus:border-indigo-500 focus:outline-none"
+                aria-label="Switch project"
+              >
+                {siblingProjects.map((p) => (
+                  <option key={p.id} value={p.key}>
+                    {p.key} — {p.name}
+                  </option>
+                ))}
+              </select>
+              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
+                {siblingProjects.length}
+              </span>
+            </div>
           )}
         </div>
         {canEdit && (

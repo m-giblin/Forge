@@ -69,14 +69,21 @@ export default function MissionControl({ slug, data }: { slug: string; data: Mis
     </Link>
   );
 
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+
   return (
     <main className="mx-auto max-w-6xl px-6 py-8 space-y-5">
       {/* Header + scope toggle */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-neutral-900">Mission Control</h1>
+          <h1 className="text-2xl font-bold text-neutral-900">
+            {greeting}{data.greetingName ? `, ${data.greetingName}` : ""} 👋
+          </h1>
           <p className="text-sm text-neutral-500">
             {new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" })}
+            {" · "}
+            {scope === "mine" ? "Here's your day" : "Here's your team"}
           </p>
         </div>
         {canSeeTeam && (
@@ -87,12 +94,22 @@ export default function MissionControl({ slug, data }: { slug: string; data: Mis
         )}
       </div>
 
-      {/* Narrative banner (real, deterministic) */}
+      {/* AI Digest banner */}
       <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-4 flex gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold">✦</div>
-        <div>
-          <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide mb-1">Your week at a glance</p>
-          <p className="text-sm text-neutral-800">{data.narrative}</p>
+        <div className="flex-shrink-0 w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-base font-bold shrink-0">✦</div>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-1">
+            <p className="text-xs font-bold text-indigo-700 uppercase tracking-wide">AI Digest</p>
+            <span className="text-[10px] text-indigo-400">Updated now</span>
+          </div>
+          <p className="text-sm text-neutral-800 leading-relaxed">{data.narrative}</p>
+          {stats.open > 0 && (
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-indigo-700">
+              {stats.inProgress > 0 && <span>🏃 {stats.inProgress} in progress</span>}
+              {stats.doneThisWeek > 0 && <span>✅ {stats.doneThisWeek} shipped this week</span>}
+              {stats.unassigned > 0 && <span>⚠️ {stats.unassigned} unassigned</span>}
+            </div>
+          )}
         </div>
       </div>
 

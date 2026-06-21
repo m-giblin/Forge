@@ -37,19 +37,23 @@ export type BoardData = {
  */
 export async function loadBoard(
   tenantId: string,
-  impersonating = false,
+  _impersonating = false,
   projectId?: string
 ): Promise<BoardData> {
-  const supabase = impersonating ? createSupabaseServiceClient() : await createSupabaseServerClient();
+  // Always use the service client. Isolation is guaranteed by:
+  // 1. getTenantContext() verifying membership at the page level
+  // 2. Explicit tenant_id (and optionally project_id) filters on every query
+  // This avoids Next.js async-context loss when cookies() is called inside Promise.all.
+  const supabase = createSupabaseServiceClient();
   const cfg = fieldConfigRepo(supabase);
 
-  const issueQuery = supabase
+  let issueQuery = supabase
     .from("issues")
     .select("*", { count: "exact" })
     .eq("tenant_id", tenantId)
     .order("position", { ascending: true })
     .limit(BOARD_LIMIT);
-  if (projectId) issueQuery.eq("project_id", projectId);
+  if (projectId) issueQuery = issueQuery.eq("project_id", projectId);
 
   const [issuesRes, projects, options, categories, customFields] = await Promise.all([
     issueQuery,
@@ -365,6 +369,7 @@ export async function addIssueComment(input: {
   authorLabel: string | null;
   body: string;
   parentId?: string | null;
+  commentType?: "comment" | "decision";
 }): Promise<IssueComment> {
   const body = input.body.trim();
   if (!body) throw new Error("Comment can’t be empty.");

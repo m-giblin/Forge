@@ -1,1646 +1,2120 @@
 "use client";
-/* eslint-disable react/no-unescaped-entities -- interactive design prototype, not production copy */
+/* eslint-disable react/no-unescaped-entities -- design prototype */
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 
-export default function DesignPage() {
-  const [activeDesign, setActiveDesign] = useState<"c" | "d" | "e" | "f" | "g">("g");
+// ══════════════════════════════════════════════════════════════
+//  MOCK DATA
+// ══════════════════════════════════════════════════════════════
+
+const TEAM = [
+  { id:"u1", name:"Matt Giblin",  initials:"MG", color:"#6366f1", role:"Lead Dev",  online:true  },
+  { id:"u2", name:"Alex Chen",    initials:"AC", color:"#16a34a", role:"Developer", online:true  },
+  { id:"u3", name:"Sarah Kim",    initials:"SK", color:"#ec4899", role:"Designer",  online:false },
+  { id:"u4", name:"Jordan Lee",   initials:"JL", color:"#d97706", role:"Product",   online:true  },
+  { id:"u5", name:"Casey Park",   initials:"CP", color:"#7c3aed", role:"Developer", online:false },
+  { id:"u6", name:"Dana Walsh",   initials:"DW", color:"#0891b2", role:"QA Eng",    online:true  },
+];
+const teamById = Object.fromEntries(TEAM.map(m=>[m.id,m])) as Record<string,typeof TEAM[0]>;
+
+type IssueStatus   = "backlog"|"todo"|"in_progress"|"in_review"|"done"|"blocked";
+type IssuePriority = "urgent"|"high"|"medium"|"low";
+type IssueType     = "bug"|"feature"|"task"|"chore";
+
+type Issue = {
+  id:string; key:string; title:string;
+  status:IssueStatus; priority:IssuePriority; type:IssueType;
+  assigneeId:string|null; project:string; projectName:string;
+  sprint:string|null; labels:string[];
+  blockedBy?:string; blocks?:string;
+  daysOld:number; comments:number;
+  description:string; estimate?:number;
+  prRef?:string; thinkTank?:string;
+};
+
+const ALL_ISSUES: Issue[] = [
+  { id:"i1",  key:"FORGE-45", title:"Migrate rate limiter to Redis/Upstash",          status:"blocked",     priority:"urgent", type:"chore",   assigneeId:"u1", project:"FORGE", projectName:"Forge Issue Tracker", sprint:"Sprint 6", labels:["infra","security"], blockedBy:"INFRA-15", daysOld:5,  comments:8,  estimate:3, description:"The in-memory rate limiter resets on every deploy and won't survive multi-instance production. Risk: it's security theater — trivially bypassed by hitting a different pod.", prRef:"PR #87", thinkTank:"Security Hardening Initiative" },
+  { id:"i2",  key:"FORGE-46", title:"Add Stripe webhook retry handler",                status:"in_review",   priority:"high",   type:"feature", assigneeId:"u2", project:"FORGE", projectName:"Forge Issue Tracker", sprint:"Sprint 6", labels:["billing"], daysOld:3, comments:4, estimate:5, description:"Stripe webhooks can fail transiently. Need idempotent retry with exponential backoff so billing events are never silently lost.", prRef:"PR #89", thinkTank:"Billing Hardening" },
+  { id:"i3",  key:"WEB-204",  title:"Fix destination picker on mobile Safari",        status:"in_progress", priority:"high",   type:"bug",     assigneeId:"u1", project:"WEB",   projectName:"Travli Web App",       sprint:"Sprint 6", labels:["mobile","ux"], daysOld:2, comments:2, estimate:2, description:"City autocomplete renders off-screen on iOS Safari due to a 100vh viewport bug. Fix: use window.visualViewport.height." },
+  { id:"i4",  key:"FORGE-47", title:"Issue export to CSV",                             status:"todo",        priority:"medium", type:"feature", assigneeId:"u1", project:"FORGE", projectName:"Forge Issue Tracker", sprint:"Sprint 6", labels:[], daysOld:1, comments:0, estimate:3, description:"Allow project owners to export all issues to CSV. Columns: key, title, status, priority, type, assignee, labels, created, updated." },
+  { id:"i5",  key:"FORGE-48", title:"Fix flaky isolation test for idea_signoffs",     status:"todo",        priority:"medium", type:"bug",     assigneeId:null, project:"FORGE", projectName:"Forge Issue Tracker", sprint:null,       labels:["testing"], daysOld:4, comments:1, estimate:2, description:"The test intermittently fails due to race conditions in the sign-off RLS check. Good first issue — isolated scope, clear failure steps." },
+  { id:"i6",  key:"WEB-211",  title:"Group expense re-split on amount edit",          status:"backlog",     priority:"medium", type:"feature", assigneeId:null, project:"WEB",   projectName:"Travli Web App",       sprint:null,       labels:["budget"], daysOld:6, comments:3, estimate:5, description:"When a group expense amount is edited, the split amounts should recalculate automatically." },
+  { id:"i7",  key:"WEB-212",  title:"Add cruise itinerary port-stop markers",         status:"backlog",     priority:"low",    type:"feature", assigneeId:null, project:"WEB",   projectName:"Travli Web App",       sprint:null,       labels:["cruises"], daysOld:8, comments:0, estimate:8, description:"Port stops on cruise itineraries should show as map markers with local time and all-aboard times." },
+  { id:"i8",  key:"MOB-23",   title:"Push notification deep-links broken on Android", status:"done",        priority:"urgent", type:"bug",     assigneeId:"u5", project:"MOB",   projectName:"Travli Mobile",        sprint:"Sprint 6", labels:["android","critical"], daysOld:3, comments:7, estimate:3, description:"Deep link routing fails on Android 12+ when app is backgrounded. Fixed in PR #91." },
+  { id:"i9",  key:"FORGE-49", title:"IP extraction wrong behind reverse proxy",       status:"backlog",     priority:"high",   type:"bug",     assigneeId:null, project:"FORGE", projectName:"Forge Issue Tracker", sprint:null,       labels:["security"], daysOld:7, comments:2, estimate:2, description:"X-Forwarded-For header parsing is wrong behind Nginx — extracts the wrong IP for rate limiting.", thinkTank:"Security Hardening Initiative" },
+  { id:"i10", key:"FORGE-50", title:"Realtime board event fan-out at scale",          status:"backlog",     priority:"medium", type:"feature", assigneeId:null, project:"FORGE", projectName:"Forge Issue Tracker", sprint:null,       labels:[], daysOld:2, comments:0, estimate:13, description:"Supabase realtime subscriptions need to be scoped per-project to avoid broadcasting all events to all clients." },
+  { id:"i11", key:"WEB-220",  title:"Advisor booking — calendar integration",         status:"backlog",     priority:"high",   type:"feature", assigneeId:null, project:"WEB",   projectName:"Travli Web App",       sprint:null,       labels:["advisor","booking"], daysOld:10, comments:5, estimate:13, description:"Advisors need to connect their Google/Outlook calendar so travelers can book available slots." },
+  { id:"i12", key:"INFRA-15", title:"Provision Upstash Redis + wire env vars",        status:"in_progress", priority:"urgent", type:"chore",   assigneeId:"u2", project:"INFRA", projectName:"Platform Infra",       sprint:"Sprint 6", labels:["infra","blocking"], blocks:"FORGE-45", daysOld:1, comments:3, estimate:1, description:"Provision the Upstash Redis instance and add UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN to Vercel env." },
+  { id:"i13", key:"FORGE-51", title:"Tenant invite email — branded template",         status:"backlog",     priority:"low",    type:"feature", assigneeId:null, project:"FORGE", projectName:"Forge Issue Tracker", sprint:null,       labels:["email"], daysOld:5, comments:0, estimate:3, description:"Invite emails currently use the Supabase default template. Need Forge branding with the tenant's logo." },
+  { id:"i14", key:"WEB-198",  title:"Dark mode — full design system pass",            status:"in_progress", priority:"high",   type:"feature", assigneeId:"u3", project:"WEB",   projectName:"Travli Web App",       sprint:"Sprint 6", labels:["design","ux"], daysOld:4, comments:12, estimate:8, description:"Full dark mode audit across all components. Sarah is leading this with the updated design tokens." },
+  { id:"i15", key:"FORGE-52", title:"SEC-05: Make IMPERSONATION_SECRET mandatory",    status:"in_progress", priority:"high",   type:"chore",   assigneeId:"u1", project:"FORGE", projectName:"Forge Issue Tracker", sprint:"Sprint 6", labels:["security","hardening"], daysOld:1, comments:0, estimate:1, description:"IMPERSONATION_SECRET is currently optional — app starts without it and silently disables impersonation. Must throw on startup if absent.", thinkTank:"Security Hardening Initiative" },
+];
+
+const STATUS_CFG: Record<IssueStatus, {label:string;dot:string;bg:string;text:string;border:string}> = {
+  backlog:     {label:"Backlog",     dot:"bg-neutral-400",  bg:"bg-neutral-50",   text:"text-neutral-600",  border:"border-neutral-200"},
+  todo:        {label:"Todo",        dot:"bg-sky-400",      bg:"bg-sky-50",       text:"text-sky-700",      border:"border-sky-200"},
+  in_progress: {label:"In Progress", dot:"bg-indigo-500",   bg:"bg-indigo-50",    text:"text-indigo-700",   border:"border-indigo-200"},
+  in_review:   {label:"In Review",   dot:"bg-amber-400",    bg:"bg-amber-50",     text:"text-amber-700",    border:"border-amber-200"},
+  done:        {label:"Done",        dot:"bg-emerald-500",  bg:"bg-emerald-50",   text:"text-emerald-700",  border:"border-emerald-200"},
+  blocked:     {label:"Blocked",     dot:"bg-red-500",      bg:"bg-red-50",       text:"text-red-700",      border:"border-red-200"},
+};
+const PRIORITY_CFG: Record<IssuePriority,{label:string;dot:string;text:string}> = {
+  urgent:{label:"Urgent",dot:"bg-red-500",    text:"text-red-600"},
+  high:  {label:"High",  dot:"bg-orange-400", text:"text-orange-600"},
+  medium:{label:"Medium",dot:"bg-yellow-400", text:"text-yellow-600"},
+  low:   {label:"Low",   dot:"bg-sky-400",    text:"text-sky-600"},
+};
+const TYPE_CFG: Record<IssueType,{icon:string;color:string}> = {
+  bug:    {icon:"⬤",color:"text-red-400"},
+  feature:{icon:"◆",color:"text-indigo-400"},
+  task:   {icon:"◻",color:"text-sky-400"},
+  chore:  {icon:"⚙",color:"text-neutral-400"},
+};
+
+// ══════════════════════════════════════════════════════════════
+//  PRIMITIVES
+// ══════════════════════════════════════════════════════════════
+
+function Av({id,size="sm"}:{id:string;size?:"xs"|"sm"|"md"|"lg"}) {
+  const m = teamById[id]; if(!m) return null;
+  const cls = size==="xs"?"w-5 h-5 text-[9px]":size==="sm"?"w-7 h-7 text-xs":size==="md"?"w-9 h-9 text-sm":"w-11 h-11 text-base";
+  return (
+    <div className="relative inline-flex shrink-0">
+      <span className={`inline-flex items-center justify-center rounded-full font-bold text-white ${cls}`} style={{background:m.color}}>{m.initials}</span>
+      {m.online && <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-emerald-500 border-2 border-white rounded-full"/>}
+    </div>
+  );
+}
+
+function StatusBadge({status}:{status:IssueStatus}) {
+  const c = STATUS_CFG[status];
+  return <span className={`inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-[10px] font-semibold border ${c.bg} ${c.text} ${c.border}`}><span className={`w-1.5 h-1.5 rounded-full ${c.dot}`}/>{c.label}</span>;
+}
+
+function PriorityBadge({p}:{p:IssuePriority}) {
+  const c = PRIORITY_CFG[p];
+  return <span className={`inline-flex items-center gap-1 text-[10px] font-semibold ${c.text}`}><span className={`w-2 h-2 rounded-sm ${c.dot}`}/>{c.label}</span>;
+}
+
+function TypeIcon({t}:{t:IssueType}) {
+  const c = TYPE_CFG[t]; return <span className={`text-xs ${c.color}`}>{c.icon}</span>;
+}
+
+function Label({text}:{text:string}) {
+  return <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-neutral-100 text-neutral-600 border border-neutral-200">{text}</span>;
+}
+
+// ══════════════════════════════════════════════════════════════
+//  NOTIFICATIONS DATA (role-filtered)
+// ══════════════════════════════════════════════════════════════
+
+type Notif = {id:number;role:string[];icon:string;title:string;detail:string;time:string;read:boolean;key?:string;actionable?:boolean};
+const ALL_NOTIFS: Notif[] = [
+  {id:1, role:["developer","pm"],       icon:"💬", title:"Alex Chen mentioned you",          detail:"@Matt — sharing Redis env vars via 1Password. Check Forge Staging vault.",              time:"2h ago",   read:false, key:"FORGE-45", actionable:true},
+  {id:2, role:["developer","pm","collaborator"], icon:"💡", title:"New decision on FORGE-45", detail:"Matt posted: Use Upstash Redis with @upstash/ratelimit. Feature flag defaults OFF.",  time:"2d ago",   read:false, key:"FORGE-45", actionable:false},
+  {id:3, role:["developer"],            icon:"📌", title:"FORGE-52 assigned to you",          detail:"Jordan Lee assigned SEC-05: Make IMPERSONATION_SECRET mandatory.",                     time:"1d ago",   read:false, key:"FORGE-52", actionable:true},
+  {id:4, role:["pm"],                   icon:"🏃", title:"Sprint 6 is 68% complete",          detail:"4 days left. 2 issues blocked, 3 in review. FORGE-45 is on the critical path.",       time:"6h ago",   read:true,  actionable:false},
+  {id:5, role:["collaborator","pm"],    icon:"💬", title:"Jordan Lee mentioned you",           detail:"@Dana — can you do a QA pass on WEB-204 before we ship to prod?",                    time:"1h ago",   read:false, key:"WEB-204",  actionable:true},
+  {id:6, role:["developer","pm"],       icon:"✅", title:"INFRA-15 moved to In Progress",     detail:"Alex Chen started provisioning Upstash Redis. FORGE-45 unblock expected today.",      time:"30m ago",  read:false, key:"INFRA-15", actionable:false},
+  {id:7, role:["admin"],                icon:"🔒", title:"New member joined workspace",        detail:"Dana Walsh accepted the invite and joined as QA Engineer.",                           time:"3h ago",   read:false, actionable:true},
+  {id:8, role:["admin"],                icon:"⚠️", title:"Security: 3 issues flagged",        detail:"Think Tank Security Hardening has 3 open issues. FORGE-45 blocked 5 days.",           time:"1d ago",   read:false, actionable:true},
+  {id:9, role:["collaborator"],         icon:"👀", title:"WEB-198 needs your review",          detail:"Sarah Kim finished dark mode pass. Marked in_review — your sign-off is needed.",      time:"4h ago",   read:false, key:"WEB-198",  actionable:true},
+  {id:10,role:["pm","admin"],           icon:"📊", title:"Sprint close approaching",           detail:"Sprint 6 closes Friday. 2 items have no recent activity — consider reassigning.",     time:"5h ago",   read:true,  actionable:false},
+];
+
+// ══════════════════════════════════════════════════════════════
+//  COMMAND PALETTE
+// ══════════════════════════════════════════════════════════════
+
+function CommandPalette({open,onClose,role}:{open:boolean;onClose:()=>void;role:string}) {
+  const [q,setQ] = useState("");
+  const ref = useRef<HTMLInputElement>(null);
+  useEffect(()=>{ if(open){ setQ(""); setTimeout(()=>ref.current?.focus(),50); } },[open]);
+  useEffect(()=>{
+    const h=(e:KeyboardEvent)=>{ if(e.key==="Escape") onClose(); if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();} };
+    window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h);
+  },[onClose]);
+  if(!open) return null;
+
+  const actions:{icon:string;label:string;shortcut:string;roles:string[]}[] = [
+    {icon:"➕",label:"Create new issue",    shortcut:"C",   roles:["developer","pm","collaborator","admin"]},
+    {icon:"📋",label:"My issues",           shortcut:"M",   roles:["developer","collaborator"]},
+    {icon:"🏃",label:"Sprint board",        shortcut:"S B", roles:["developer","pm"]},
+    {icon:"💡",label:"New Think Tank idea", shortcut:"T",   roles:["pm","developer"]},
+    {icon:"📊",label:"Sprint health",       shortcut:"S H", roles:["pm","admin"]},
+    {icon:"👥",label:"Team members",        shortcut:"⌥M",  roles:["admin","pm"]},
+    {icon:"⚙️",label:"Workspace settings", shortcut:"⌥S",  roles:["admin"]},
+    {icon:"🗺️",label:"Roadmap view",       shortcut:"R",   roles:["pm"]},
+  ].filter(a=>a.roles.includes(role));
+
+  const filtered = q ? ALL_ISSUES.filter(i=>i.title.toLowerCase().includes(q.toLowerCase())||i.key.toLowerCase().includes(q.toLowerCase())).slice(0,5) : ALL_ISSUES.slice(0,4);
 
   return (
-    <div className="min-h-screen bg-neutral-50">
-      {/* Design Selector */}
-      <div className="sticky top-0 bg-white border-b border-neutral-200 px-6 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-neutral-900">Forge Designs</h1>
-          <p className="text-sm text-neutral-500 mt-1">E & F are the login dashboards. C & D are the idea→project workflows.</p>
+    <div className="fixed inset-0 z-[100] flex items-start justify-center pt-24" onClick={onClose}>
+      <div className="absolute inset-0 bg-neutral-900/40 backdrop-blur-sm"/>
+      <div className="relative w-full max-w-[600px] bg-white rounded-2xl shadow-2xl border border-neutral-200 overflow-hidden" onClick={e=>e.stopPropagation()}>
+        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-neutral-100">
+          <span className="text-neutral-400">🔍</span>
+          <input ref={ref} value={q} onChange={e=>setQ(e.target.value)} placeholder="Search issues, jump to view, run action..." className="flex-1 text-sm text-neutral-900 placeholder-neutral-400 outline-none bg-transparent"/>
+          <kbd className="px-2 py-0.5 rounded-md bg-neutral-100 border border-neutral-200 text-[11px] text-neutral-500 font-mono cursor-pointer" onClick={onClose}>Esc</kbd>
         </div>
-        <div className="flex gap-2">
-          {[
-            { id: "g" as const, label: "G: Project Portal" },
-            { id: "e" as const, label: "E: Mission Control" },
-            { id: "f" as const, label: "F: Delivery Intel" },
-            { id: "c" as const, label: "C: Decision-Driven" },
-            { id: "d" as const, label: "D: Async Consent" },
-          ].map((d) => (
-            <button
-              key={d.id}
-              onClick={() => setActiveDesign(d.id)}
-              className={`px-3.5 py-2 rounded-lg text-sm font-medium transition ${
-                activeDesign === d.id
-                  ? "bg-neutral-900 text-white"
-                  : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
-              }`}
-            >
-              {d.label}
-            </button>
+        {!q && (
+          <div className="px-3 py-2 border-b border-neutral-50">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 px-2 mb-1.5">Quick Actions</div>
+            {actions.map((a,i)=>(
+              <div key={i} className={`flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-neutral-100 cursor-pointer transition ${i===0?"bg-indigo-50":""}`}>
+                <span>{a.icon}</span>
+                <span className="text-sm text-neutral-800 flex-1">{a.label}</span>
+                <kbd className="px-1.5 py-0.5 rounded bg-neutral-100 border border-neutral-200 text-[10px] font-mono text-neutral-500">{a.shortcut}</kbd>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="px-3 py-2">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-neutral-400 px-2 mb-1.5">{q?`Results for "${q}"`:"Recent Issues"}</div>
+          {filtered.map((issue,i)=>(
+            <div key={issue.id} onClick={onClose} className={`flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-neutral-100 cursor-pointer transition ${i===0&&q?"bg-indigo-50":""}`}>
+              <TypeIcon t={issue.type}/>
+              <span className="text-[11px] font-mono text-neutral-400 w-[76px] shrink-0">{issue.key}</span>
+              <span className="text-sm text-neutral-800 flex-1 truncate">{issue.title}</span>
+              <StatusBadge status={issue.status}/>
+            </div>
+          ))}
+          {q && filtered.length===0 && <div className="px-3 py-4 text-sm text-neutral-400 text-center">No results for "{q}"</div>}
+        </div>
+        <div className="px-4 py-2 border-t border-neutral-100 flex gap-5 text-[10px] text-neutral-400 bg-neutral-50">
+          <span><kbd className="px-1 py-0.5 rounded border border-neutral-200 bg-white text-neutral-500 font-mono text-[10px]">↑↓</kbd> Navigate</span>
+          <span><kbd className="px-1 py-0.5 rounded border border-neutral-200 bg-white text-neutral-500 font-mono text-[10px]">↵</kbd> Select</span>
+          <span><kbd className="px-1 py-0.5 rounded border border-neutral-200 bg-white text-neutral-500 font-mono text-[10px]">Esc</kbd> Close</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+//  NOTIFICATION SLIDE-IN
+// ══════════════════════════════════════════════════════════════
+
+function NotificationPanel({open,onClose,role}:{open:boolean;onClose:()=>void;role:string}) {
+  const mine = ALL_NOTIFS.filter(n=>n.role.includes(role));
+  const [read,setRead] = useState<Set<number>>(new Set(mine.filter(n=>n.read).map(n=>n.id)));
+  const unread = mine.filter(n=>!read.has(n.id)).length;
+  const markAll = ()=>setRead(new Set(mine.map(n=>n.id)));
+
+  return (
+    <>
+      {open && <div className="fixed inset-0 z-[60]" onClick={onClose}/>}
+      <div className={`fixed top-0 right-0 h-full w-[400px] bg-white shadow-2xl border-l border-neutral-200 z-[70] flex flex-col transition-transform duration-300 ${open?"translate-x-0":"translate-x-full"}`}>
+        <div className="px-5 py-4 border-b border-neutral-100 flex items-center justify-between shrink-0">
+          <div>
+            <div className="text-sm font-bold text-neutral-900 flex items-center gap-2">Notifications {unread>0 && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-500 text-white">{unread}</span>}</div>
+            <div className="text-[11px] text-neutral-400 mt-0.5">{unread} unread</div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button onClick={markAll} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">Mark all read</button>
+            <button onClick={onClose} className="w-7 h-7 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 transition text-sm">✕</button>
+          </div>
+        </div>
+        <div className="flex-1 overflow-y-auto divide-y divide-neutral-50">
+          {mine.map(n=>(
+            <div key={n.id} onClick={()=>setRead(r=>new Set([...r,n.id]))}
+              className={`px-5 py-4 hover:bg-neutral-50 transition cursor-pointer flex gap-3 ${!read.has(n.id)?"bg-indigo-50/40":""}`}>
+              <div className="w-9 h-9 rounded-full bg-white border border-neutral-100 flex items-center justify-center text-base shrink-0 shadow-sm">{n.icon}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs font-semibold text-neutral-800 leading-snug">{n.title}</span>
+                  {!read.has(n.id) && <span className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-1"/>}
+                </div>
+                <div className="text-xs text-neutral-500 mt-0.5 leading-relaxed">{n.detail}</div>
+                <div className="flex items-center gap-3 mt-1.5">
+                  {n.key && <span className="text-[10px] text-neutral-400 font-mono">{n.key}</span>}
+                  <span className="text-[10px] text-neutral-400">{n.time}</span>
+                  {n.actionable && <button className="ml-auto text-[10px] px-2 py-0.5 rounded bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition" onClick={e=>{e.stopPropagation();onClose();}}>View</button>}
+                </div>
+              </div>
+            </div>
           ))}
         </div>
       </div>
-
-      {/* Content */}
-      <div className="p-6">
-        {activeDesign === "g" && <DesignG />}
-        {activeDesign === "e" && <DesignE />}
-        {activeDesign === "f" && <DesignF />}
-        {activeDesign === "c" && <DesignC />}
-        {activeDesign === "d" && <DesignD />}
-      </div>
-    </div>
+    </>
   );
 }
 
-function DesignC() {
-  const [step, setStep] = useState<"landing" | "idea-detail" | "decision-log" | "role-signoff">("landing");
+// ══════════════════════════════════════════════════════════════
+//  THINK TANK MODAL
+// ══════════════════════════════════════════════════════════════
 
-  if (step === "landing") {
-    return (
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="bg-neutral-50 border-b border-neutral-200 px-8 py-6">
-            <h2 className="text-2xl font-semibold text-neutral-900">Forge Hub</h2>
-            <p className="text-neutral-600 mt-2">Ideas → Decisions → Ready → Projects. Everything connected.</p>
-          </div>
-          <div className="p-8 space-y-8">
-            {/* Pipeline View */}
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-4">Pipeline</p>
-              <div className="space-y-3">
-                {/* Idea in Discussion */}
-                <button
-                  onClick={() => setStep("idea-detail")}
-                  className="w-full p-4 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition text-left"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-blue-700 mb-1">💬 IN DISCUSSION</p>
-                      <p className="font-medium text-neutral-900">Dark mode for dashboard</p>
-                      <p className="text-sm text-neutral-600 mt-1">18 comments • 2 concerns raised • 7 votes</p>
-                    </div>
-                    <div className="text-right text-xs text-neutral-500">Step 1 of 3</div>
-                  </div>
-                </button>
-
-                {/* Idea with Decisions */}
-                <button
-                  onClick={() => setStep("decision-log")}
-                  className="w-full p-4 border border-amber-200 bg-amber-50 rounded-lg hover:bg-amber-100 transition text-left"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-amber-700 mb-1">🔍 DECISIONS MADE</p>
-                      <p className="font-medium text-neutral-900">API rate limiting strategy</p>
-                      <p className="text-sm text-neutral-600 mt-1">Scope: 3 endpoints • Time: 2 weeks • Owner: Alex Chen</p>
-                    </div>
-                    <div className="text-right text-xs text-neutral-500">Step 2 of 3</div>
-                  </div>
-                </button>
-
-                {/* Ready with Sign-offs */}
-                <button
-                  onClick={() => setStep("role-signoff")}
-                  className="w-full p-4 border border-green-200 bg-green-50 rounded-lg hover:bg-green-100 transition text-left"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-green-700 mb-1">✓ READY TO BUILD</p>
-                      <p className="font-medium text-neutral-900">User notifications system</p>
-                      <p className="text-sm text-neutral-600 mt-1">All roles signed off • Scope approved • Ready to convert</p>
-                    </div>
-                    <div className="text-right text-xs text-neutral-500">Step 3 of 3</div>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Live Projects */}
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-4">Executing projects</p>
-              <div className="p-4 border border-neutral-200 rounded-lg">
-                <p className="text-xs font-mono font-semibold text-neutral-500 mb-2">PERFSINSA</p>
-                <p className="font-medium text-neutral-900">Personal Finance SaaS</p>
-                <p className="text-sm text-neutral-600 mt-2">45 issues • 8 in progress</p>
-              </div>
-            </div>
-          </div>
-        </div>
-        <p className="text-sm text-neutral-600 text-center">Click any idea to see how decisions emerge and drive readiness</p>
-      </div>
-    );
-  }
-
-  if (step === "idea-detail") {
-    return (
-      <div className="mx-auto max-w-5xl">
-        <button
-          onClick={() => setStep("landing")}
-          className="mb-4 text-sm text-neutral-600 hover:text-neutral-900 font-medium"
-        >
-          ← Back to hub
-        </button>
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="bg-neutral-50 border-b border-neutral-200 px-8 py-6">
-            <h2 className="text-2xl font-semibold text-neutral-900">Dark mode for dashboard</h2>
-            <p className="text-blue-700 font-medium mt-2">💬 In discussion · Step 1 of 3</p>
-          </div>
-          <div className="p-8 space-y-6">
-            <div>
-              <p className="font-medium text-neutral-900 mb-2">Description</p>
-              <p className="text-neutral-700">Users have requested dark mode to reduce eye strain during evening usage. Need to decide on scope and implementation strategy.</p>
-            </div>
-            <div className="border-t border-neutral-200 pt-6">
-              <p className="font-medium text-neutral-900 mb-4">Discussion & concerns (18 comments)</p>
-              <div className="space-y-4">
-                <div className="p-4 bg-neutral-50 rounded-lg border-l-2 border-neutral-300">
-                  <p className="text-sm font-medium text-neutral-900">Alex Chen</p>
-                  <p className="text-sm text-neutral-700 mt-1">Should we support system preferences (respects OS dark mode)?</p>
-                </div>
-                <div className="p-4 bg-amber-50 rounded-lg border-l-2 border-amber-300">
-                  <p className="text-sm font-medium text-neutral-900">Sarah Kim 🚨</p>
-                  <p className="text-sm text-neutral-700 mt-1">CONCERN: Design consistency across all pages. Do we have a dark mode design system?</p>
-                </div>
-                <div className="p-4 bg-green-50 rounded-lg border-l-2 border-green-300">
-                  <p className="text-sm font-medium text-neutral-900">Alex Chen ✓</p>
-                  <p className="text-sm text-neutral-700 mt-1">→ RESOLVED: Sarah will lead design. We'll use Tailwind's dark mode with custom colors.</p>
-                </div>
-              </div>
-            </div>
-            <div className="border-t border-neutral-200 pt-6 bg-blue-50 p-4 rounded-lg">
-              <p className="text-sm font-medium text-blue-900 mb-2">What happens next</p>
-              <p className="text-sm text-blue-800">Once all concerns are resolved, this moves to "Decisions Made". The team will document scope, timeline, and decisions here.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "decision-log") {
-    return (
-      <div className="mx-auto max-w-5xl">
-        <button
-          onClick={() => setStep("landing")}
-          className="mb-4 text-sm text-neutral-600 hover:text-neutral-900 font-medium"
-        >
-          ← Back to hub
-        </button>
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="bg-neutral-50 border-b border-neutral-200 px-8 py-6">
-            <h2 className="text-2xl font-semibold text-neutral-900">API rate limiting strategy</h2>
-            <p className="text-amber-700 font-medium mt-2">🔍 Decisions made · Step 2 of 3</p>
-          </div>
-          <div className="p-8 space-y-6">
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <p className="text-sm font-medium text-amber-900 mb-3">Decision log</p>
-              <div className="space-y-4">
-                <div>
-                  <p className="text-sm font-semibold text-neutral-900">Decision #1: Scope</p>
-                  <p className="text-sm text-neutral-700 mt-1">Apply rate limiting to Auth, API, and Webhooks endpoints</p>
-                  <p className="text-xs text-neutral-600 mt-2">Decided by: Product team • Concern: "What about internal services?" → Resolved: Internal services are whitelisted</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-neutral-900">Decision #2: Strategy</p>
-                  <p className="text-sm text-neutral-700 mt-1">Token bucket algorithm, 1000 req/min per API key</p>
-                  <p className="text-xs text-neutral-600 mt-2">Decided by: Engineering • Concern: "Too aggressive?" → Resolved: Can adjust based on metrics</p>
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-neutral-900">Decision #3: Timeline</p>
-                  <p className="text-sm text-neutral-700 mt-1">2 weeks (1 week implementation + 1 week testing/monitoring)</p>
-                  <p className="text-xs text-neutral-600 mt-2">Decided by: Project lead • Owner: Alex Chen</p>
-                </div>
-              </div>
-            </div>
-            <div className="border-t border-neutral-200 pt-6">
-              <p className="font-medium text-neutral-900 mb-4">Next step: Role sign-offs</p>
-              <p className="text-sm text-neutral-700 mb-4">Once decisions are documented, each role (Design, Product, Engineering) must sign off. This confirms alignment before starting work.</p>
-              <button
-                onClick={() => setStep("role-signoff")}
-                className="w-full bg-amber-600 text-white py-2 rounded-lg hover:bg-amber-700 font-medium text-sm"
-              >
-                View sign-offs →
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "role-signoff") {
-    return (
-      <div className="mx-auto max-w-5xl">
-        <button
-          onClick={() => setStep("landing")}
-          className="mb-4 text-sm text-neutral-600 hover:text-neutral-900 font-medium"
-        >
-          ← Back to hub
-        </button>
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="bg-neutral-50 border-b border-neutral-200 px-8 py-6">
-            <h2 className="text-2xl font-semibold text-neutral-900">User notifications system</h2>
-            <p className="text-green-700 font-medium mt-2">✓ Ready to build · Step 3 of 3</p>
-          </div>
-          <div className="p-8 space-y-6">
-            <div>
-              <p className="font-medium text-neutral-900 mb-4">Role sign-offs</p>
-              <div className="space-y-3">
-                <div className="p-4 border border-green-200 bg-green-50 rounded-lg">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-900">🎨 Design</p>
-                      <p className="text-xs text-neutral-600 mt-1">Sarah Kim signed off on design mockups</p>
-                    </div>
-                    <p className="text-xs font-semibold text-green-700">✓ APPROVED</p>
-                  </div>
-                </div>
-                <div className="p-4 border border-green-200 bg-green-50 rounded-lg">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-900">📊 Product</p>
-                      <p className="text-xs text-neutral-600 mt-1">Jordan Lee confirmed requirements and priorities</p>
-                    </div>
-                    <p className="text-xs font-semibold text-green-700">✓ APPROVED</p>
-                  </div>
-                </div>
-                <div className="p-4 border border-green-200 bg-green-50 rounded-lg">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-neutral-900">⚙️ Engineering</p>
-                      <p className="text-xs text-neutral-600 mt-1">Alex Chen confirmed technical feasibility and timeline</p>
-                    </div>
-                    <p className="text-xs font-semibold text-green-700">✓ APPROVED</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="border-t border-neutral-200 pt-6 bg-green-50 p-4 rounded-lg">
-              <p className="text-sm font-medium text-green-900 mb-2">All clear to convert</p>
-              <p className="text-sm text-green-800">This idea has cleared all gates. Decisions are documented. All roles align. Ready to become a project.</p>
-            </div>
-            <button
-              onClick={() => setStep("landing")}
-              className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-medium"
-            >
-              Convert to project
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
-}
-
-function DesignD() {
-  const [step, setStep] = useState<"landing" | "propose" | "discussion" | "ready">("landing");
-
-  if (step === "landing") {
-    return (
-      <div className="mx-auto max-w-5xl space-y-6">
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="bg-neutral-50 border-b border-neutral-200 px-8 py-6">
-            <h2 className="text-2xl font-semibold text-neutral-900">Forge workflow</h2>
-            <p className="text-neutral-600 mt-2">Async consent model: propose, discuss, decide, build.</p>
-          </div>
-          <div className="p-8 space-y-8">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-4">Start here</p>
-              <button
-                onClick={() => setStep("propose")}
-                className="w-full p-6 border border-dashed border-neutral-300 rounded-lg hover:border-neutral-400 hover:bg-neutral-50 transition text-center"
-              >
-                <p className="text-2xl mb-3">💡</p>
-                <p className="font-medium text-neutral-900 mb-1">Propose an idea</p>
-                <p className="text-sm text-neutral-600">Lightweight, no ceremony. Just the problem and a rough direction.</p>
-              </button>
-            </div>
-
-            <div className="border-t border-neutral-200 pt-8">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-4">In workflow</p>
-              <div className="space-y-3">
-                {/* Idea in discussion */}
-                <button
-                  onClick={() => setStep("discussion")}
-                  className="w-full p-4 border border-blue-200 bg-blue-50 rounded-lg hover:bg-blue-100 transition text-left"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-blue-700 mb-1">💬 DISCUSSING</p>
-                      <p className="font-medium text-neutral-900">Dark mode for dashboard</p>
-                      <p className="text-sm text-neutral-600 mt-1">Sarah raised a concern • Team responding</p>
-                    </div>
-                    <div className="text-xs text-neutral-500">8 comments</div>
-                  </div>
-                </button>
-
-                {/* Idea ready */}
-                <div
-                  onClick={() => setStep("ready")}
-                  className="w-full p-4 border border-green-200 bg-green-50 rounded-lg hover:bg-green-100 transition text-left cursor-pointer"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-medium text-green-700 mb-1">✓ READY</p>
-                      <p className="font-medium text-neutral-900">User notifications system</p>
-                      <p className="text-sm text-neutral-600 mt-1">No objections • Team aligned • Ready to convert</p>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setStep("landing");
-                      }}
-                      className="px-3 py-1 bg-green-600 text-white text-xs font-medium rounded hover:bg-green-700"
-                    >
-                      Convert
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-neutral-200 pt-8">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-4">Executing</p>
-              <div className="p-4 border border-neutral-200 rounded-lg">
-                <p className="text-xs font-mono font-semibold text-neutral-500 mb-2">PERFSINSA</p>
-                <p className="font-medium text-neutral-900">Personal Finance SaaS</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "propose") {
-    return (
-      <div className="mx-auto max-w-5xl">
-        <button
-          onClick={() => setStep("landing")}
-          className="mb-4 text-sm text-neutral-600 hover:text-neutral-900 font-medium"
-        >
-          ← Back
-        </button>
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="bg-neutral-50 border-b border-neutral-200 px-8 py-6">
-            <h2 className="text-2xl font-semibold text-neutral-900">Propose an idea</h2>
-            <p className="text-neutral-600 mt-2">Lightweight capture. No forms. Just the core of the idea.</p>
-          </div>
-          <div className="p-8 space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">What's the idea?</label>
-              <input
-                type="text"
-                placeholder="e.g., Dark mode for the dashboard"
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:border-neutral-900 outline-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">Why does this matter?</label>
-              <textarea
-                placeholder="Problem statement. What pain point does this solve?"
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:border-neutral-900 outline-none"
-                rows={3}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-neutral-700 mb-2">Rough direction (optional)</label>
-              <textarea
-                placeholder="Early thinking on how to approach this. Not a spec."
-                className="w-full px-3 py-2 border border-neutral-300 rounded-lg focus:border-neutral-900 outline-none"
-                rows={2}
-              />
-            </div>
-            <button
-              onClick={() => setStep("discussion")}
-              className="w-full bg-neutral-900 text-white py-2 rounded-lg hover:bg-neutral-800 font-medium"
-            >
-              Propose
-            </button>
-            <p className="text-sm text-neutral-500 mt-4">✨ That's it. Your team will see this and start asking clarifying questions. Concerns will surface. When all objections are addressed, it's ready to build.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "discussion") {
-    return (
-      <div className="mx-auto max-w-5xl">
-        <button
-          onClick={() => setStep("landing")}
-          className="mb-4 text-sm text-neutral-600 hover:text-neutral-900 font-medium"
-        >
-          ← Back
-        </button>
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="bg-neutral-50 border-b border-neutral-200 px-8 py-6">
-            <h2 className="text-2xl font-semibold text-neutral-900">Dark mode for dashboard</h2>
-            <p className="text-blue-700 font-medium mt-2">💬 Discussing · 8 comments · 1 concern</p>
-          </div>
-          <div className="p-8 space-y-6">
-            <div>
-              <p className="font-medium text-neutral-900 mb-2">Proposal</p>
-              <p className="text-neutral-700">Users have asked for dark mode to reduce eye strain during evening usage. We should support system preferences and allow manual override.</p>
-            </div>
-            <div className="border-t border-neutral-200 pt-6">
-              <p className="font-medium text-neutral-900 mb-4">Discussion (8 comments)</p>
-              <div className="space-y-4">
-                {/* Clarifying question */}
-                <div className="p-4 bg-neutral-50 rounded-lg border-l-2 border-neutral-300">
-                  <p className="text-sm font-medium text-neutral-900">Alex Chen</p>
-                  <p className="text-sm text-neutral-700 mt-1">Should this work on mobile too, or desktop-first?</p>
-                  <p className="text-xs text-neutral-600 mt-2">3 days ago</p>
-                </div>
-
-                {/* Response */}
-                <div className="p-4 bg-neutral-50 rounded-lg border-l-2 border-neutral-300">
-                  <p className="text-sm font-medium text-neutral-900">Jordan Lee</p>
-                  <p className="text-sm text-neutral-700 mt-1">→ Both. But we prioritize desktop first since that's where power users spend time.</p>
-                  <p className="text-xs text-neutral-600 mt-2">2 days ago</p>
-                </div>
-
-                {/* Concern raised */}
-                <div className="p-4 bg-red-50 rounded-lg border-l-2 border-red-300">
-                  <p className="text-sm font-medium text-neutral-900">Sarah Kim 🚨</p>
-                  <p className="text-sm text-neutral-700 mt-1">CONCERN: Do we have a dark mode color system? This needs design system work first.</p>
-                  <p className="text-xs text-neutral-600 mt-2">1 day ago</p>
-                </div>
-
-                {/* Concern addressed */}
-                <div className="p-4 bg-green-50 rounded-lg border-l-2 border-green-300">
-                  <p className="text-sm font-medium text-neutral-900">Sarah Kim ✓</p>
-                  <p className="text-sm text-neutral-700 mt-1">→ I can build the system as part of this work. 2-week timeline includes design system + implementation.</p>
-                  <p className="text-xs text-neutral-600 mt-2">18 hours ago</p>
-                </div>
-
-                {/* Team alignment */}
-                <div className="p-4 bg-blue-50 rounded-lg border-l-2 border-blue-300">
-                  <p className="text-sm font-medium text-neutral-900">Alex Chen ✓</p>
-                  <p className="text-sm text-neutral-700 mt-1">Works for me. Let's do this.</p>
-                  <p className="text-xs text-neutral-600 mt-2">2 hours ago</p>
-                </div>
-              </div>
-            </div>
-            <div className="border-t border-neutral-200 pt-6 bg-green-50 p-4 rounded-lg">
-              <p className="text-sm font-medium text-green-900 mb-2">Ready to build?</p>
-              <p className="text-sm text-green-800 mb-4">All concerns have been addressed. No objections. Team is aligned.</p>
-              <button
-                onClick={() => setStep("ready")}
-                className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 font-medium text-sm"
-              >
-                Mark as ready
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "ready") {
-    return (
-      <div className="mx-auto max-w-5xl">
-        <button
-          onClick={() => setStep("landing")}
-          className="mb-4 text-sm text-neutral-600 hover:text-neutral-900 font-medium"
-        >
-          ← Back
-        </button>
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="bg-neutral-50 border-b border-neutral-200 px-8 py-6">
-            <h2 className="text-2xl font-semibold text-neutral-900">User notifications system</h2>
-            <p className="text-green-700 font-medium mt-2">✓ Ready to convert to project</p>
-          </div>
-          <div className="p-8 space-y-6">
-            <div>
-              <p className="font-medium text-neutral-900 mb-3">Why ready?</p>
-              <ul className="space-y-2 text-sm text-neutral-700">
-                <li>✓ All team questions answered</li>
-                <li>✓ No unresolved concerns</li>
-                <li>✓ Owner identified (Sarah)</li>
-                <li>✓ Timeline agreed (2 weeks)</li>
-                <li>✓ Scope is clear (email + in-app + preference center)</li>
-              </ul>
-            </div>
-            <div className="border-t border-neutral-200 pt-6">
-              <p className="font-medium text-neutral-900 mb-4">Discussion summary (auto-generated from thread)</p>
-              <div className="p-4 bg-neutral-50 rounded-lg text-sm text-neutral-700 space-y-2">
-                <p><strong>Decision 1:</strong> Both mobile & desktop, desktop-first. Decided by: Jordan Lee</p>
-                <p><strong>Decision 2:</strong> Sarah builds dark mode color system as part of this work. Owner: Sarah Kim</p>
-                <p><strong>Concern:</strong> "Design system work required" → Resolved by including it in scope</p>
-              </div>
-            </div>
-            <button
-              onClick={() => setStep("landing")}
-              className="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-medium"
-            >
-              Convert to project
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
-}
-
-/* ============================================================
-   SHARED CHART PRIMITIVES (hand-drawn SVG, no chart lib)
-   ============================================================ */
-
-function Sparkline({ data, color = "#16a34a", width = 90, height = 28 }: { data: number[]; color?: string; width?: number; height?: number }) {
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  const pts = data
-    .map((v, i) => {
-      const x = (i / (data.length - 1)) * width;
-      const y = height - ((v - min) / range) * (height - 4) - 2;
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-  return (
-    <svg width={width} height={height} className="overflow-visible">
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function DoraTile({
-  label,
-  value,
-  unit,
-  band,
-  bandColor,
-  trend,
-  trendData,
-  trendGood,
-}: {
-  label: string;
-  value: string;
-  unit?: string;
-  band: string;
-  bandColor: string;
-  trend: string;
-  trendData: number[];
-  trendGood: boolean;
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-neutral-200 p-4 hover:shadow-sm transition">
-      <div className="flex items-start justify-between">
-        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">{label}</p>
-        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${bandColor}`}>{band}</span>
-      </div>
-      <div className="mt-2 flex items-end justify-between">
-        <div>
-          <span className="text-2xl font-bold text-neutral-900">{value}</span>
-          {unit && <span className="text-sm text-neutral-500 ml-1">{unit}</span>}
-        </div>
-        <Sparkline data={trendData} color={trendGood ? "#16a34a" : "#dc2626"} />
-      </div>
-      <p className={`text-xs mt-1.5 font-medium ${trendGood ? "text-green-600" : "text-red-600"}`}>{trend}</p>
-    </div>
-  );
-}
-
-function CycleTimeBar({ phases }: { phases: { name: string; hours: number; color: string; bottleneck?: boolean }[] }) {
-  const total = phases.reduce((s, p) => s + p.hours, 0);
-  return (
-    <div>
-      <div className="flex h-10 rounded-lg overflow-hidden">
-        {phases.map((p) => (
-          <div
-            key={p.name}
-            className={`relative flex items-center justify-center ${p.color} ${p.bottleneck ? "ring-2 ring-red-500 ring-inset" : ""}`}
-            style={{ width: `${(p.hours / total) * 100}%` }}
-            title={`${p.name}: ${p.hours}h`}
-          >
-            {(p.hours / total) > 0.12 && (
-              <span className="text-[11px] font-semibold text-white drop-shadow">{p.hours}h</span>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3">
-        {phases.map((p) => (
-          <div key={p.name} className="flex items-center gap-1.5">
-            <span className={`w-2.5 h-2.5 rounded-sm ${p.color}`} />
-            <span className={`text-xs ${p.bottleneck ? "font-bold text-red-600" : "text-neutral-600"}`}>
-              {p.name} {p.bottleneck && "⚠"}
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function BurnupChart() {
-  const w = 520, h = 200, pad = 30;
-  const days = 14;
-  const scope = [40, 40, 42, 42, 45, 45, 45, 48, 48, 50, 50, 50, 50, 50];
-  const done = [0, 4, 9, 13, 16, 19, 24, 27, 30, 33, 36, 38, 41, 43];
-  const maxY = 55;
-  const x = (i: number) => pad + (i / (days - 1)) * (w - pad * 2);
-  const y = (v: number) => h - pad - (v / maxY) * (h - pad * 2);
-  const scopePts = scope.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-  const donePts = done.map((v, i) => `${x(i)},${y(v)}`).join(" ");
-  const projPts = `${x(13)},${y(43)} ${x(15)},${y(50)}`;
-  return (
-    <svg viewBox={`0 0 ${w} ${h + 14}`} className="w-full">
-      {[0, 25, 50].map((v) => (
-        <g key={v}>
-          <line x1={pad} y1={y(v)} x2={w - pad} y2={y(v)} stroke="#f1f5f9" strokeWidth="1" />
-          <text x={pad - 6} y={y(v) + 3} textAnchor="end" className="fill-neutral-400" fontSize="9">{v}</text>
-        </g>
-      ))}
-      <polyline points={scopePts} fill="none" stroke="#94a3b8" strokeWidth="2" strokeDasharray="4 3" />
-      <polygon points={`${x(0)},${y(0)} ${donePts} ${x(13)},${y(0)}`} fill="#16a34a" opacity="0.08" />
-      <polyline points={donePts} fill="none" stroke="#16a34a" strokeWidth="2.5" />
-      <polyline points={projPts} fill="none" stroke="#16a34a" strokeWidth="2" strokeDasharray="2 3" opacity="0.6" />
-      <circle cx={x(15)} cy={y(50)} r="3" fill="#16a34a" opacity="0.6" />
-      <text x={x(15)} y={y(50) - 8} textAnchor="end" className="fill-green-600" fontSize="9" fontWeight="600">forecast</text>
-      <g>
-        <line x1={pad} y1={h + 8} x2={pad + 16} y2={h + 8} stroke="#16a34a" strokeWidth="2.5" />
-        <text x={pad + 20} y={h + 11} className="fill-neutral-600" fontSize="9">Completed</text>
-        <line x1={pad + 90} y1={h + 8} x2={pad + 106} y2={h + 8} stroke="#94a3b8" strokeWidth="2" strokeDasharray="4 3" />
-        <text x={pad + 110} y={h + 11} className="fill-neutral-600" fontSize="9">Scope</text>
-      </g>
-    </svg>
-  );
-}
-
-function VelocityChart() {
-  const sprints = [
-    { committed: 32, done: 28 },
-    { committed: 35, done: 36 },
-    { committed: 38, done: 31 },
-    { committed: 34, done: 35 },
-    { committed: 40, done: 38 },
-    { committed: 42, done: 41 },
+function ThinkTankModal({ideaName,onClose}:{ideaName:string;onClose:()=>void}) {
+  const timeline = [
+    {icon:"💡",label:"Idea Submitted",   date:"Jun 7",  by:"u1", note:"\"Our rate limiter is in-memory and resets on every deploy. Multi-pod prod = security theater.\"",  color:"bg-violet-500"},
+    {icon:"👍",label:"Team Vote",         date:"Jun 8",  by:null, note:"4 of 6 team members agreed. Alex: \"Confirmed — hit this bug in staging.\" Casey: \"Should be infra, not app-level.\"", color:"bg-indigo-500"},
+    {icon:"✅",label:"Founder Sign-off",  date:"Jun 9",  by:"u1", note:"\"Approve. This is a production risk — prioritize above new features. Fix before public beta.\"",  color:"bg-emerald-500"},
+    {icon:"📋",label:"Promoted to Project",date:"Jun 10",by:"u4", note:"Jordan created \"Security Hardening Sprint\" and scoped 3 issues from this idea.",                  color:"bg-amber-500"},
+    {icon:"🎯",label:"Issues Created",    date:"Jun 10", by:"u4", note:"FORGE-45 · INFRA-15 · FORGE-52 — all linked to this Think Tank decision.",                         color:"bg-sky-500"},
+    {icon:"🏃",label:"Sprint 6 Started",  date:"Jun 14", by:null, note:"All 3 issues entered Sprint 6. INFRA-15 is the dependency chain root.",                              color:"bg-neutral-400"},
   ];
-  const w = 520, h = 200, pad = 30;
-  const maxY = 50;
-  const bw = (w - pad * 2) / sprints.length;
-  const y = (v: number) => h - pad - (v / maxY) * (h - pad * 2);
-  const avg = sprints.map((_, i) => {
-    const slice = sprints.slice(Math.max(0, i - 2), i + 1);
-    return slice.reduce((s, d) => s + d.done, 0) / slice.length;
-  });
-  const avgPts = avg.map((v, i) => `${pad + bw * i + bw / 2},${y(v)}`).join(" ");
-  return (
-    <svg viewBox={`0 0 ${w} ${h + 14}`} className="w-full">
-      {[0, 25, 50].map((v) => (
-        <line key={v} x1={pad} y1={y(v)} x2={w - pad} y2={y(v)} stroke="#f1f5f9" strokeWidth="1" />
-      ))}
-      {sprints.map((s, i) => {
-        const cx = pad + bw * i + bw * 0.2;
-        const barW = bw * 0.28;
-        return (
-          <g key={i}>
-            <rect x={cx} y={y(s.committed)} width={barW} height={h - pad - y(s.committed)} fill="#cbd5e1" rx="2" />
-            <rect x={cx + barW + 2} y={y(s.done)} width={barW} height={h - pad - y(s.done)} fill="#6366f1" rx="2" />
-            <text x={pad + bw * i + bw / 2} y={h - pad + 12} textAnchor="middle" className="fill-neutral-400" fontSize="9">S{i + 1}</text>
-          </g>
-        );
-      })}
-      <polyline points={avgPts} fill="none" stroke="#f59e0b" strokeWidth="2" />
-      {avg.map((v, i) => (
-        <circle key={i} cx={pad + bw * i + bw / 2} cy={y(v)} r="2.5" fill="#f59e0b" />
-      ))}
-      <g>
-        <rect x={pad} y={h + 4} width={9} height={9} fill="#cbd5e1" rx="1" />
-        <text x={pad + 13} y={h + 12} className="fill-neutral-600" fontSize="9">Committed</text>
-        <rect x={pad + 75} y={h + 4} width={9} height={9} fill="#6366f1" rx="1" />
-        <text x={pad + 88} y={h + 12} className="fill-neutral-600" fontSize="9">Completed</text>
-        <line x1={pad + 155} y1={h + 8} x2={pad + 171} y2={h + 8} stroke="#f59e0b" strokeWidth="2" />
-        <text x={pad + 175} y={h + 12} className="fill-neutral-600" fontSize="9">3-sprint avg</text>
-      </g>
-    </svg>
-  );
-}
 
-function ScatterChart() {
-  const w = 520, h = 200, pad = 30;
-  const dots = [
-    [1, 2], [2, 3], [2, 1], [3, 5], [4, 2], [4, 8], [5, 3], [6, 4], [6, 12], [7, 2],
-    [8, 6], [8, 3], [9, 5], [10, 4], [10, 9], [11, 3], [12, 7], [12, 2], [13, 5], [13, 14],
-    [14, 4], [15, 6], [16, 3], [16, 11], [17, 5],
-  ];
-  const maxX = 18, maxY = 16;
-  const x = (v: number) => pad + (v / maxX) * (w - pad * 2);
-  const y = (v: number) => h - pad - (v / maxY) * (h - pad * 2);
-  const p50 = 4, p85 = 9, p95 = 13;
-  return (
-    <svg viewBox={`0 0 ${w} ${h + 14}`} className="w-full">
-      {[
-        { v: p50, label: "50%", color: "#16a34a" },
-        { v: p85, label: "85%", color: "#f59e0b" },
-        { v: p95, label: "95%", color: "#dc2626" },
-      ].map((p) => (
-        <g key={p.label}>
-          <line x1={pad} y1={y(p.v)} x2={w - pad} y2={y(p.v)} stroke={p.color} strokeWidth="1" strokeDasharray="4 3" opacity="0.7" />
-          <text x={w - pad + 2} y={y(p.v) + 3} className="fill-neutral-500" fontSize="8">{p.label}</text>
-          <text x={pad - 4} y={y(p.v) + 3} textAnchor="end" className="fill-neutral-400" fontSize="8">{p.v}d</text>
-        </g>
-      ))}
-      {dots.map(([dx, dy], i) => (
-        <circle key={i} cx={x(dx)} cy={y(dy)} r="3.5" fill={dy > p85 ? "#dc2626" : dy > p50 ? "#f59e0b" : "#16a34a"} opacity="0.65" />
-      ))}
-      <text x={pad} y={h + 11} className="fill-neutral-500" fontSize="9">Completion date →</text>
-      <text x={w - pad} y={h + 11} textAnchor="end" className="fill-neutral-500" fontSize="9">85% of issues ship in ≤9 days</text>
-    </svg>
-  );
-}
+  const linkedIssues = ALL_ISSUES.filter(i=>i.thinkTank===ideaName);
 
-function DonutChart({ segments }: { segments: { label: string; pct: number; color: string }[] }) {
-  const r = 56, c = 2 * Math.PI * r;
-  // Precompute each segment's cumulative start offset (no mutation during render).
-  const lens = segments.map((s) => (s.pct / 100) * c);
-  const arcs = segments.map((s, i) => ({
-    ...s,
-    len: lens[i],
-    offset: lens.slice(0, i).reduce((sum, l) => sum + l, 0),
-  }));
   return (
-    <div className="flex items-center gap-6">
-      <svg width="140" height="140" viewBox="0 0 140 140">
-        <g transform="translate(70,70) rotate(-90)">
-          {arcs.map((s) => (
-            <circle
-              key={s.label}
-              r={r}
-              fill="none"
-              stroke={s.color}
-              strokeWidth="20"
-              strokeDasharray={`${s.len} ${c - s.len}`}
-              strokeDashoffset={-s.offset}
-            />
-          ))}
-        </g>
-        <text x="70" y="66" textAnchor="middle" className="fill-neutral-900" fontSize="22" fontWeight="700">68%</text>
-        <text x="70" y="82" textAnchor="middle" className="fill-neutral-400" fontSize="9">to roadmap</text>
-      </svg>
-      <div className="space-y-2">
-        {segments.map((s) => (
-          <div key={s.label} className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-sm" style={{ background: s.color }} />
-            <span className="text-sm text-neutral-700">{s.label}</span>
-            <span className="text-sm font-semibold text-neutral-900 ml-auto">{s.pct}%</span>
+    <>
+      <div className="fixed inset-0 z-[80] bg-neutral-900/40 backdrop-blur-sm" onClick={onClose}/>
+      <div className="fixed inset-y-0 right-0 w-[560px] bg-white z-[85] shadow-2xl border-l border-neutral-200 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="px-5 py-4 border-b border-neutral-100 flex items-center gap-3 shrink-0 bg-violet-50">
+          <div className="w-9 h-9 rounded-xl bg-violet-600 flex items-center justify-center text-white text-lg shrink-0">💡</div>
+          <div className="flex-1 min-w-0">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-violet-500 mb-0.5">Think Tank · Origin Idea</div>
+            <div className="text-sm font-bold text-violet-900 truncate">{ideaName}</div>
           </div>
-        ))}
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-white border border-violet-200 flex items-center justify-center text-violet-500 hover:bg-violet-100 transition text-sm">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-5">
+          {/* What is Think Tank — one liner */}
+          <div className="text-xs text-neutral-500 bg-neutral-50 rounded-lg px-3 py-2 border border-neutral-200">
+            Think Tank is where every piece of work begins. Ideas are submitted, voted on, and signed off — then promoted into projects and issues. This is the <strong className="text-neutral-700">why</strong> behind every ticket in Forge.
+          </div>
+
+          {/* Provenance timeline */}
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-3">Provenance Timeline</div>
+            <div className="relative">
+              <div className="absolute left-4 top-0 bottom-0 w-px bg-neutral-200"/>
+              <div className="space-y-4">
+                {timeline.map((t,i)=>(
+                  <div key={i} className="flex gap-4 relative">
+                    <div className={`w-8 h-8 rounded-full ${t.color} flex items-center justify-center text-white text-sm shrink-0 z-10 shadow-sm`}>{t.icon}</div>
+                    <div className="flex-1 pt-0.5">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-semibold text-neutral-800">{t.label}</span>
+                        <span className="text-[10px] text-neutral-400">{t.date}</span>
+                        {t.by && <Av id={t.by} size="xs"/>}
+                      </div>
+                      <p className="text-xs text-neutral-600 leading-relaxed bg-white border border-neutral-100 rounded-lg px-3 py-2">{t.note}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Linked issues */}
+          {linkedIssues.length > 0 && (
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-2">Issues Spawned from This Idea</div>
+              <div className="space-y-1.5">
+                {linkedIssues.map(iss=>(
+                  <div key={iss.id} className="flex items-center gap-3 px-3 py-2.5 bg-white border border-neutral-200 rounded-lg hover:border-violet-300 transition cursor-pointer">
+                    <TypeIcon t={iss.type}/>
+                    <span className="text-[11px] font-mono text-neutral-400 w-[76px] shrink-0">{iss.key}</span>
+                    <span className="text-xs text-neutral-800 flex-1 truncate">{iss.title}</span>
+                    <StatusBadge status={iss.status}/>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Forge advantage callout */}
+          <div className="rounded-xl border-2 border-emerald-300 bg-emerald-50 p-4">
+            <div className="text-xs font-bold text-emerald-800 mb-1">✅ Only Forge Has This</div>
+            <p className="text-xs text-emerald-700 leading-relaxed">
+              In Linear, Jira, GitHub Issues — you can see <em>what</em> a ticket is. In Forge, you see <em>why</em> it exists, who decided it, and what was debated before a line of code was written. This is the full provenance chain — from raw idea to shipped code.
+            </p>
+          </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 
-function Heatmap() {
-  const weeks = 16;
-  const levels = ["#f1f5f9", "#bbf7d0", "#86efac", "#4ade80", "#16a34a"];
-  const cell = (w: number, d: number) => {
-    const seed = (w * 7 + d * 3) % 11;
-    if (seed < 2) return 0;
-    if (seed < 4) return 1;
-    if (seed < 7) return 2;
-    if (seed < 9) return 3;
-    return 4;
+// ══════════════════════════════════════════════════════════════
+//  THINK TANK VIEW (standalone pipeline view)
+// ══════════════════════════════════════════════════════════════
+
+function ThinkTankView() {
+  const [stage,setStage] = useState("all");
+  const [selectedIdea,setSelectedIdea] = useState<string|null>(null);
+
+  const ideas = [
+    {id:"tt1",title:"Security Hardening Initiative — Rate Limiting",  submitter:"u1",votes:4,stage:"in_sprint",  sprint:"Sprint 6",issues:3, summary:"In-memory rate limiter is security theater in multi-pod prod.",                            date:"Jun 7"},
+    {id:"tt2",title:"Billing Hardening — Stripe Webhook Retry",       submitter:"u4",votes:5,stage:"in_sprint",  sprint:"Sprint 6",issues:1, summary:"Webhooks fail transiently with no retry. Billing events lost silently.",                   date:"Jun 5"},
+    {id:"tt3",title:"Advisor Calendar Integration for Travli",         submitter:"u3",votes:3,stage:"approved",   sprint:null,      issues:0, summary:"Advisors can't connect calendars. Travelers can't self-book — all calls are manual.",     date:"Jun 12"},
+    {id:"tt4",title:"Cruise Itinerary Port-Stop Markers on Map",       submitter:"u4",votes:2,stage:"approved",   sprint:null,      issues:0, summary:"Port stops show as a plain list. Visual map markers would 10x discoverability.",          date:"Jun 10"},
+    {id:"tt5",title:"Morning Digest — AI Daily Brief for Developers",  submitter:"u2",votes:6,stage:"voting",     sprint:null,      issues:0, summary:"No daily summary. Devs must manually check what changed — Linear Pulse already does this.",date:"Jun 18"},
+    {id:"tt6",title:"Command Palette (⌘K) for Keyboard-First Nav",     submitter:"u1",votes:5,stage:"voting",     sprint:null,      issues:0, summary:"No keyboard shortcuts. Competitor table-stakes — every dev tool has ⌘K.",               date:"Jun 17"},
+    {id:"tt7",title:"Notification Center — Bell + Inbox Model",        submitter:"u4",votes:4,stage:"voting",     sprint:null,      issues:0, summary:"No bell icon, no notification center. Urgent issues go unseen until user opens Forge.",   date:"Jun 16"},
+    {id:"tt8",title:"Dark Mode Theming System",                        submitter:"u3",votes:3,stage:"new",        sprint:null,      issues:0, summary:"No dark mode. Sarah flagged 12 component gaps. Essential for developer tools.",           date:"Jun 19"},
+    {id:"tt9",title:"Guest / Stakeholder View for Execs",             submitter:"u4",votes:2,stage:"new",        sprint:null,      issues:0, summary:"Non-technical stakeholders can't follow project health without learning Forge.",          date:"Jun 20"},
+  ];
+
+  const stages = [
+    {id:"all",     label:"All Ideas",   color:"text-neutral-600"},
+    {id:"new",     label:"New",         color:"text-sky-600"},
+    {id:"voting",  label:"Voting",      color:"text-amber-600"},
+    {id:"approved",label:"Approved",    color:"text-indigo-600"},
+    {id:"in_sprint",label:"In Sprint",  color:"text-emerald-600"},
+  ];
+
+  const stageCfg: Record<string,{label:string;dot:string;bg:string;text:string;border:string}> = {
+    new:      {label:"New",       dot:"bg-sky-400",     bg:"bg-sky-50",     text:"text-sky-700",     border:"border-sky-200"},
+    voting:   {label:"Voting",    dot:"bg-amber-400",   bg:"bg-amber-50",   text:"text-amber-700",   border:"border-amber-200"},
+    approved: {label:"Approved",  dot:"bg-indigo-500",  bg:"bg-indigo-50",  text:"text-indigo-700",  border:"border-indigo-200"},
+    in_sprint:{label:"In Sprint", dot:"bg-emerald-500", bg:"bg-emerald-50", text:"text-emerald-700", border:"border-emerald-200"},
   };
-  return (
-    <div>
-      <div className="flex gap-1">
-        {Array.from({ length: weeks }).map((_, w) => (
-          <div key={w} className="flex flex-col gap-1">
-            {Array.from({ length: 7 }).map((_, d) => (
-              <div key={d} className="w-3.5 h-3.5 rounded-sm" style={{ background: levels[cell(w, d)] }} />
-            ))}
-          </div>
-        ))}
-      </div>
-      <div className="flex items-center gap-1 mt-2 justify-end">
-        <span className="text-[10px] text-neutral-400">Less</span>
-        {levels.map((l) => (
-          <span key={l} className="w-3 h-3 rounded-sm" style={{ background: l }} />
-        ))}
-        <span className="text-[10px] text-neutral-400">More</span>
-      </div>
-    </div>
-  );
-}
 
-/* ============================================================
-   DESIGN E — MISSION CONTROL (personal narrative + intelligence)
-   ============================================================ */
-
-function DesignE() {
-  const [scope, setScope] = useState<"mine" | "team" | "org">("mine");
-  const [drill, setDrill] = useState<null | string>(null);
-
-  const scopeData = {
-    mine: {
-      narrative: "Welcome back, Matt. Since Friday: 3 of your issues merged, 1 PR is waiting on your review, and FORGE-204 has been blocked for 2 days.",
-      dora: [
-        { label: "Deploy freq", value: "2.4", unit: "/day", band: "ELITE", bandColor: "bg-green-100 text-green-700", trend: "+18% vs last wk", trendData: [1.8, 2.0, 1.9, 2.2, 2.1, 2.4], trendGood: true },
-        { label: "Lead time", value: "8.2", unit: "hrs", band: "ELITE", bandColor: "bg-green-100 text-green-700", trend: "−1.1h faster", trendData: [12, 11, 10, 9.5, 9, 8.2], trendGood: true },
-        { label: "Change fail", value: "4.1", unit: "%", band: "ELITE", bandColor: "bg-green-100 text-green-700", trend: "−0.8pts", trendData: [6, 5.5, 5, 4.8, 4.4, 4.1], trendGood: true },
-        { label: "Recovery", value: "47", unit: "min", band: "ELITE", bandColor: "bg-green-100 text-green-700", trend: "stable", trendData: [50, 48, 52, 49, 47, 47], trendGood: true },
-      ],
-      cycle: [
-        { name: "Coding", hours: 6, color: "bg-indigo-500" },
-        { name: "Pickup", hours: 11, color: "bg-amber-500", bottleneck: true },
-        { name: "Review", hours: 4, color: "bg-sky-500" },
-        { name: "Deploy", hours: 3, color: "bg-emerald-500" },
-      ],
-    },
-    team: {
-      narrative: "Travli Web team: velocity is up 12% this cycle, but pickup time tripled — PRs are sitting ~11h before first review. 2 issues are aging past the 85th percentile.",
-      dora: [
-        { label: "Deploy freq", value: "9.1", unit: "/day", band: "ELITE", bandColor: "bg-green-100 text-green-700", trend: "+9% vs last wk", trendData: [7, 7.5, 8, 8.4, 8.8, 9.1], trendGood: true },
-        { label: "Lead time", value: "1.3", unit: "days", band: "HIGH", bandColor: "bg-sky-100 text-sky-700", trend: "+4h slower", trendData: [0.9, 1.0, 1.1, 1.1, 1.2, 1.3], trendGood: false },
-        { label: "Change fail", value: "9.2", unit: "%", band: "HIGH", bandColor: "bg-sky-100 text-sky-700", trend: "+1.4pts", trendData: [6, 6.5, 7, 8, 8.6, 9.2], trendGood: false },
-        { label: "Recovery", value: "2.1", unit: "hrs", band: "HIGH", bandColor: "bg-sky-100 text-sky-700", trend: "stable", trendData: [2, 2.2, 2, 2.1, 2, 2.1], trendGood: true },
-      ],
-      cycle: [
-        { name: "Coding", hours: 9, color: "bg-indigo-500" },
-        { name: "Pickup", hours: 11, color: "bg-amber-500", bottleneck: true },
-        { name: "Review", hours: 7, color: "bg-sky-500" },
-        { name: "Deploy", hours: 5, color: "bg-emerald-500" },
-      ],
-    },
-    org: {
-      narrative: "Travli org: 4 teams, 31 active issues. 68% of effort is going to roadmap vs 32% keeping-the-lights-on — healthy. One project (Mobile) is forecast to miss its target date.",
-      dora: [
-        { label: "Deploy freq", value: "21", unit: "/day", band: "ELITE", bandColor: "bg-green-100 text-green-700", trend: "+6%", trendData: [16, 17, 18, 19, 20, 21], trendGood: true },
-        { label: "Lead time", value: "1.6", unit: "days", band: "HIGH", bandColor: "bg-sky-100 text-sky-700", trend: "stable", trendData: [1.5, 1.6, 1.5, 1.6, 1.6, 1.6], trendGood: true },
-        { label: "Change fail", value: "7.8", unit: "%", band: "HIGH", bandColor: "bg-sky-100 text-sky-700", trend: "−0.5pts", trendData: [9, 8.6, 8.3, 8, 7.9, 7.8], trendGood: true },
-        { label: "Recovery", value: "1.8", unit: "hrs", band: "HIGH", bandColor: "bg-sky-100 text-sky-700", trend: "−12min", trendData: [2.4, 2.2, 2, 1.9, 1.85, 1.8], trendGood: true },
-      ],
-      cycle: [
-        { name: "Coding", hours: 11, color: "bg-indigo-500" },
-        { name: "Pickup", hours: 9, color: "bg-amber-500" },
-        { name: "Review", hours: 8, color: "bg-sky-500", bottleneck: true },
-        { name: "Deploy", hours: 6, color: "bg-emerald-500" },
-      ],
-    },
-  }[scope];
-
-  const attention = [
-    { tag: "REVIEW", tagColor: "bg-purple-100 text-purple-700", title: "Add Stripe webhook retry handler", meta: "Sarah requested your review · PR open 14h", urgent: true },
-    { tag: "BLOCKED", tagColor: "bg-red-100 text-red-700", title: "FORGE-204 · Migrate rate limiter to Redis", meta: "Blocked 2 days · waiting on infra access", urgent: true },
-    { tag: "OVERDUE", tagColor: "bg-orange-100 text-orange-700", title: "FORGE-188 · Tenant export job", meta: "Due yesterday · in progress", urgent: false },
-    { tag: "MENTION", tagColor: "bg-sky-100 text-sky-700", title: "Jordan mentioned you on 'Dark mode scope'", meta: "2h ago · Think Tank", urgent: false },
-    { tag: "ASSIGNED", tagColor: "bg-neutral-100 text-neutral-700", title: "FORGE-211 · Fix flaky isolation test", meta: "Moved to your queue this morning", urgent: false },
-  ];
-
-  if (drill) {
-    return (
-      <div className="mx-auto max-w-6xl">
-        <button onClick={() => setDrill(null)} className="mb-4 text-sm text-neutral-600 hover:text-neutral-900 font-medium">← Back to Mission Control</button>
-        <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-          <div className="bg-neutral-50 border-b border-neutral-200 px-8 py-6">
-            <h2 className="text-2xl font-semibold text-neutral-900">{drill}</h2>
-            <p className="text-neutral-600 mt-1">Drill-down detail (prototype) — this is where the metric expands to issue-level breakdown.</p>
-          </div>
-          <div className="p-8">
-            <p className="text-sm text-neutral-600">In the real product, clicking a metric opens the underlying issues, PRs, and the AI explanation of <em>why</em> the number moved. This proves the click-through path works.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const visible = stage === "all" ? ideas : ideas.filter(i=>i.stage===stage);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-neutral-900">Mission Control</h2>
-          <p className="text-sm text-neutral-500">Travli workspace · Friday, June 16</p>
-        </div>
-        <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-1">
-          {(["mine", "team", "org"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setScope(s)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition ${
-                scope === s ? "bg-neutral-900 text-white" : "text-neutral-600 hover:text-neutral-900"
-              }`}
-            >
-              {s === "mine" ? "Mine" : s === "team" ? "My Team" : "Org"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-4 flex gap-3">
-        <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold">✦</div>
-        <div>
-          <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide mb-1">What changed since you were gone</p>
-          <p className="text-sm text-neutral-800">{scopeData.narrative}</p>
-        </div>
-      </div>
-
-      <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 flex items-center gap-4">
-        <div className="text-2xl">⚠️</div>
-        <div className="flex-1">
-          <p className="text-sm font-semibold text-amber-900">Sprint 6 is at risk</p>
-          <p className="text-sm text-amber-800">Monte Carlo forecast: <strong>62% confident</strong> you'll finish by Fri Jun 20. Pickup time spiked 3× this week — 4 PRs waiting on review are the main drag.</p>
-        </div>
-        <button onClick={() => setDrill("Sprint 6 risk forecast")} className="px-3 py-1.5 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 whitespace-nowrap">See why →</button>
-      </div>
-
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500 mb-2">DORA · the four keys (incumbents bury these)</p>
-        <div className="grid grid-cols-4 gap-3">
-          {scopeData.dora.map((d) => (
-            <button key={d.label} onClick={() => setDrill(`${d.label} breakdown`)} className="text-left">
-              <DoraTile {...d} />
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-5">
-        <div className="col-span-2 bg-white rounded-xl border border-neutral-200 p-5">
-          <div className="flex items-center justify-between mb-1">
-            <h3 className="font-semibold text-neutral-900">Cycle time breakdown</h3>
-            <span className="text-xs text-neutral-500">commit → production</span>
-          </div>
-          <p className="text-sm text-neutral-500 mb-4">The phase view Jira &amp; Linear can't show — it needs Git data fused with issues.</p>
-          <CycleTimeBar phases={scopeData.cycle} />
-          <div className="mt-4 rounded-lg bg-amber-50 border border-amber-200 p-3">
-            <p className="text-sm text-amber-800"><strong>Bottleneck:</strong> Pickup time (PR open → first review) is your biggest drag. Auto-assign reviewers to cut it.</p>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl border border-neutral-200 p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-neutral-900">Needs you</h3>
-            <span className="text-xs font-medium bg-red-100 text-red-700 px-2 py-0.5 rounded-full">2 urgent</span>
-          </div>
-          <div className="space-y-2.5">
-            {attention.map((a) => (
-              <button
-                key={a.title}
-                onClick={() => setDrill(a.title)}
-                className={`w-full text-left p-2.5 rounded-lg border transition hover:shadow-sm ${a.urgent ? "border-neutral-200 bg-white" : "border-neutral-100 bg-neutral-50"}`}
-              >
-                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${a.tagColor}`}>{a.tag}</span>
-                <p className="text-sm font-medium text-neutral-900 mt-1.5 leading-snug">{a.title}</p>
-                <p className="text-xs text-neutral-500 mt-0.5">{a.meta}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <p className="text-sm text-neutral-500 text-center">Toggle Mine / My Team / Org · click any tile or attention item to drill in</p>
-    </div>
-  );
-}
-
-/* ============================================================
-   DESIGN F — DELIVERY INTELLIGENCE (forecast + investment)
-   ============================================================ */
-
-function DesignF() {
-  const [tab, setTab] = useState<"forecast" | "flow" | "investment">("forecast");
-
-  return (
-    <div className="mx-auto max-w-6xl space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-neutral-900">Delivery Intelligence</h2>
-          <p className="text-sm text-neutral-500">Travli org · 4 teams · 31 active issues</p>
-        </div>
-        <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-1">
-          {([
-            { id: "forecast", label: "Forecast" },
-            { id: "flow", label: "Flow & Speed" },
-            { id: "investment", label: "Investment" },
-          ] as const).map((t) => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium transition ${
-                tab === t.id ? "bg-neutral-900 text-white" : "text-neutral-600 hover:text-neutral-900"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-3">
-        <div className="bg-white rounded-xl border border-neutral-200 p-4">
-          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Throughput</p>
-          <p className="text-2xl font-bold text-neutral-900 mt-1">41 <span className="text-sm font-normal text-neutral-500">issues/cycle</span></p>
-          <p className="text-xs text-green-600 font-medium mt-1">+12% vs last cycle</p>
-        </div>
-        <div className="bg-white rounded-xl border border-neutral-200 p-4">
-          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Flow efficiency</p>
-          <p className="text-2xl font-bold text-neutral-900 mt-1">38<span className="text-sm font-normal text-neutral-500">%</span></p>
-          <p className="text-xs text-amber-600 font-medium mt-1">62% of time is waiting</p>
-        </div>
-        <div className="bg-white rounded-xl border border-neutral-200 p-4">
-          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">WIP</p>
-          <p className="text-2xl font-bold text-neutral-900 mt-1">17 <span className="text-sm font-normal text-neutral-500">in flight</span></p>
-          <p className="text-xs text-red-600 font-medium mt-1">Above limit (12) — overloaded</p>
-        </div>
-        <div className="bg-white rounded-xl border border-neutral-200 p-4">
-          <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">Predictability</p>
-          <p className="text-2xl font-bold text-neutral-900 mt-1">86<span className="text-sm font-normal text-neutral-500">%</span></p>
-          <p className="text-xs text-green-600 font-medium mt-1">committed vs delivered</p>
-        </div>
-      </div>
-
-      {tab === "forecast" && (
-        <div className="grid grid-cols-2 gap-5">
-          <div className="bg-white rounded-xl border border-neutral-200 p-5">
-            <h3 className="font-semibold text-neutral-900 mb-1">Burnup — Sprint 6</h3>
-            <p className="text-sm text-neutral-500 mb-3">Scope line exposes creep; projection shows the finish.</p>
-            <BurnupChart />
-          </div>
-          <div className="bg-white rounded-xl border border-neutral-200 p-5">
-            <h3 className="font-semibold text-neutral-900 mb-1">Velocity &amp; commitment</h3>
-            <p className="text-sm text-neutral-500 mb-3">Committed vs completed with 3-sprint rolling average.</p>
-            <VelocityChart />
-          </div>
-          <div className="col-span-2 rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-5 flex gap-3">
-            <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white text-sm font-bold">✦</div>
-            <div>
-              <p className="text-xs font-semibold text-indigo-700 uppercase tracking-wide mb-1">Monte Carlo forecast</p>
-              <p className="text-sm text-neutral-800">Based on the last 6 sprints of throughput, there's an <strong>85% chance</strong> the remaining 7 issues ship by <strong>Wed Jun 18</strong>, and a <strong>98% chance</strong> by <strong>Fri Jun 20</strong>. Two issues are the long pole — both blocked on review.</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {tab === "flow" && (
-        <div className="grid grid-cols-2 gap-5">
-          <div className="bg-white rounded-xl border border-neutral-200 p-5">
-            <h3 className="font-semibold text-neutral-900 mb-1">Cycle time scatter</h3>
-            <p className="text-sm text-neutral-500 mb-3">Each dot = a shipped issue. Percentile lines give commitment-grade forecasts.</p>
-            <ScatterChart />
-          </div>
-          <div className="bg-white rounded-xl border border-neutral-200 p-5">
-            <h3 className="font-semibold text-neutral-900 mb-1">Team cycle time by phase</h3>
-            <p className="text-sm text-neutral-500 mb-4">Where time actually goes across the org.</p>
-            <CycleTimeBar phases={[
-              { name: "Coding", hours: 11, color: "bg-indigo-500" },
-              { name: "Pickup", hours: 9, color: "bg-amber-500" },
-              { name: "Review", hours: 8, color: "bg-sky-500", bottleneck: true },
-              { name: "Deploy", hours: 6, color: "bg-emerald-500" },
-            ]} />
-            <div className="mt-6">
-              <h3 className="font-semibold text-neutral-900 mb-3">Contribution activity</h3>
-              <Heatmap />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {tab === "investment" && (
-        <div className="grid grid-cols-2 gap-5">
-          <div className="bg-white rounded-xl border border-neutral-200 p-5">
-            <h3 className="font-semibold text-neutral-900 mb-1">Investment allocation</h3>
-            <p className="text-sm text-neutral-500 mb-4">Where engineering effort actually goes — the metric that speaks to the business.</p>
-            <DonutChart segments={[
-              { label: "Roadmap (new features)", pct: 68, color: "#6366f1" },
-              { label: "Keep-the-lights-on", pct: 16, color: "#94a3b8" },
-              { label: "Tech debt", pct: 11, color: "#f59e0b" },
-              { label: "Customer / support", pct: 5, color: "#16a34a" },
-            ]} />
-          </div>
-          <div className="bg-white rounded-xl border border-neutral-200 p-5">
-            <h3 className="font-semibold text-neutral-900 mb-3">Per-team breakdown</h3>
-            <div className="space-y-4">
-              {[
-                { team: "Web", roadmap: 74, ktlo: 12, debt: 10, cust: 4 },
-                { team: "Mobile", roadmap: 55, ktlo: 25, debt: 15, cust: 5 },
-                { team: "Platform", roadmap: 48, ktlo: 22, debt: 24, cust: 6 },
-                { team: "Growth", roadmap: 82, ktlo: 8, debt: 6, cust: 4 },
-              ].map((t) => (
-                <div key={t.team}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-neutral-800">{t.team}</span>
-                    <span className="text-neutral-500">{t.roadmap}% roadmap</span>
-                  </div>
-                  <div className="flex h-3 rounded-full overflow-hidden">
-                    <div className="bg-indigo-500" style={{ width: `${t.roadmap}%` }} />
-                    <div className="bg-neutral-400" style={{ width: `${t.ktlo}%` }} />
-                    <div className="bg-amber-500" style={{ width: `${t.debt}%` }} />
-                    <div className="bg-green-500" style={{ width: `${t.cust}%` }} />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-5 rounded-lg bg-amber-50 border border-amber-200 p-3">
-              <p className="text-sm text-amber-800"><strong>Flag:</strong> Platform is spending 24% on tech debt — 2× the org average. Worth a conversation before it compounds.</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <p className="text-sm text-neutral-500 text-center">Switch tabs: Forecast · Flow &amp; Speed · Investment</p>
-    </div>
-  );
-}
-
-/* ============================================================
-   DESIGN G — PROJECT PORTAL (the single-project "where are we" home)
-   ============================================================ */
-
-function StatusBattery({ segments }: { segments: { label: string; count: number; color: string }[] }) {
-  const total = segments.reduce((s, x) => s + x.count, 0) || 1;
-  return (
-    <div>
-      <div className="flex h-4 w-full overflow-hidden rounded-full bg-neutral-100">
-        {segments.map((s) => (
-          <div key={s.label} className={s.color} style={{ width: `${(s.count / total) * 100}%` }} title={`${s.label}: ${s.count}`} />
-        ))}
-      </div>
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-        {segments.map((s) => (
-          <div key={s.label} className="flex items-center gap-1.5">
-            <span className={`h-2.5 w-2.5 rounded-sm ${s.color}`} />
-            <span className="text-xs text-neutral-600">{s.label} <span className="font-semibold text-neutral-900">{s.count}</span></span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function DesignG() {
-  const [mode, setMode] = useState<"active" | "new">("active");
-  const [tab, setTab] = useState<"overview" | "board" | "timeline" | "costs">("overview");
-  const isNew = mode === "new";
-
-  const battery = [
-    { label: "Backlog", count: 14, color: "bg-neutral-300" },
-    { label: "Todo", count: 8, color: "bg-sky-400" },
-    { label: "In progress", count: 5, color: "bg-indigo-500" },
-    { label: "In review", count: 2, color: "bg-amber-400" },
-    { label: "Done", count: 18, color: "bg-emerald-500" },
-  ];
-  const total = battery.reduce((s, x) => s + x.count, 0);
-  const done = battery.find((b) => b.label === "Done")!.count;
-  const pct = Math.round((done / total) * 100);
-
-  return (
-    <div className="mx-auto max-w-6xl space-y-5">
-      {/* Mode toggle (prototype only) */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm text-neutral-400">
-          <span className="hover:text-neutral-600">Projects</span>
-          <span>/</span>
-          <span className="font-mono text-neutral-500">PER</span>
-        </div>
-        <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-1">
-          {(["active", "new"] as const).map((m) => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
-              className={`px-4 py-1.5 rounded-md text-sm font-medium capitalize transition ${
-                mode === m ? "bg-neutral-900 text-white" : "text-neutral-600 hover:text-neutral-900"
-              }`}
-            >
-              {m === "active" ? "Active project" : "New project"}
-            </button>
-          ))}
-        </div>
-      </div>
-
+    <div className="p-4 max-w-[900px]">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">PER</span>
-            {isNew ? (
-              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-500">Not started</span>
-            ) : (
-              <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700">● At risk</span>
-            )}
-            {isNew ? (
-              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-xs font-medium text-neutral-500">Set a go-live date</span>
-            ) : (
-              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-xs font-medium text-emerald-700">Go-live in 42d</span>
-            )}
-          </div>
-          <h1 className="mt-2 text-2xl font-bold text-neutral-900">Personal Finance SaaS App</h1>
-          <p className="mt-1 text-sm text-neutral-500">Owner: Matt Giblin · 4 members</p>
+          <h1 className="text-xl font-bold text-neutral-900 flex items-center gap-2">💡 Think Tank</h1>
+          <p className="text-sm text-neutral-500 mt-0.5">Where every feature begins — ideas, votes, decisions, provenance</p>
         </div>
-        <button className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">Open board →</button>
+        <button className="px-4 py-2 rounded-xl bg-violet-600 text-white text-sm font-semibold hover:bg-violet-700 transition">+ Submit Idea</button>
       </div>
 
-      {/* Tab bar — the project's work surfaces */}
-      <div className="flex gap-1 border-b border-neutral-200">
-        {([
-          { id: "overview", label: "Overview" },
-          { id: "board", label: "Board" },
-          { id: "timeline", label: "Timeline" },
-          { id: "costs", label: "Costs" },
-        ] as const).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
-              tab === t.id
-                ? "border-neutral-900 text-neutral-900"
-                : "border-transparent text-neutral-500 hover:text-neutral-800"
-            }`}
-          >
-            {t.label}
+      {/* Pipeline summary */}
+      <div className="grid grid-cols-4 gap-2 mb-4">
+        {[
+          {label:"New",       count:2, color:"bg-sky-500"},
+          {label:"Voting",    count:3, color:"bg-amber-500"},
+          {label:"Approved",  count:2, color:"bg-indigo-500"},
+          {label:"In Sprint", count:2, color:"bg-emerald-500"},
+        ].map(s=>(
+          <div key={s.label} className="bg-white rounded-xl border border-neutral-200 p-3 text-center">
+            <div className={`text-2xl font-bold text-neutral-900`}>{s.count}</div>
+            <div className="flex items-center justify-center gap-1.5 mt-1">
+              <span className={`w-2 h-2 rounded-full ${s.color}`}/>
+              <span className="text-xs text-neutral-500">{s.label}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-1.5 mb-3">
+        {stages.map(s=>(
+          <button key={s.id} onClick={()=>setStage(s.id)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition border ${stage===s.id?"bg-neutral-900 text-white border-neutral-900":"bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}>
+            {s.label}
           </button>
         ))}
       </div>
 
-      {tab === "overview" && (isNew ? (
-        /* ---------- NEW PROJECT: guided setup, no dead zeros ---------- */
-        <>
-          <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-5">
-            <p className="text-sm font-semibold text-indigo-800">Let&rsquo;s set this project up</p>
-            <p className="mt-1 text-sm text-neutral-600">A few steps to get from idea to in-flight. Each one unlocks the live dashboard.</p>
-            <div className="mt-4 space-y-2">
-              {[
-                { done: true, label: "Linked from Think Tank decision", sub: "Origin + decisions carried over automatically" },
-                { done: false, label: "Add the first issue", sub: "Break the work into trackable pieces" },
-                { done: false, label: "Set a go-live date", sub: "Drives the countdown + burnup projection" },
-                { done: false, label: "Post the first status update", sub: "Sets the health and tells the team where we are" },
-                { done: false, label: "Invite the team", sub: "Assign a lead and contributors" },
-              ].map((s) => (
-                <div key={s.label} className="flex items-center gap-3 rounded-lg border border-neutral-200 bg-white p-3">
-                  <span className={`flex h-6 w-6 items-center justify-center rounded-full text-xs ${s.done ? "bg-emerald-500 text-white" : "border border-neutral-300 text-neutral-400"}`}>
-                    {s.done ? "✓" : "+"}
-                  </span>
-                  <div className="flex-1">
-                    <p className={`text-sm font-medium ${s.done ? "text-neutral-400 line-through" : "text-neutral-900"}`}>{s.label}</p>
-                    <p className="text-xs text-neutral-500">{s.sub}</p>
+      {/* Ideas list */}
+      <div className="space-y-2">
+        {visible.map(idea=>{
+          const sc = stageCfg[idea.stage];
+          return (
+            <div key={idea.id} onClick={()=>setSelectedIdea(idea.id===selectedIdea?null:idea.id)}
+              className={`bg-white rounded-xl border hover:border-violet-300 transition cursor-pointer overflow-hidden ${idea.id===selectedIdea?"border-violet-400 shadow-sm":"border-neutral-200"}`}>
+              <div className="px-4 py-3 flex items-start gap-3">
+                <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center text-violet-600 text-lg shrink-0 mt-0.5">💡</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-neutral-900 flex-1 min-w-0 leading-snug">{idea.title}</span>
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border shrink-0 ${sc.bg} ${sc.text} ${sc.border}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`}/>{sc.label}
+                    </span>
                   </div>
-                  {!s.done && <button className="rounded-md bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-neutral-800">Do it</button>}
+                  <p className="text-xs text-neutral-500 mt-1 leading-relaxed">{idea.summary}</p>
+                  <div className="flex items-center gap-3 mt-2">
+                    <Av id={idea.submitter} size="xs"/>
+                    <span className="text-[10px] text-neutral-400">{idea.date}</span>
+                    <span className="text-[10px] text-neutral-500">👍 {idea.votes} votes</span>
+                    {idea.issues>0 && <span className="text-[10px] text-neutral-500">🎯 {idea.issues} issues</span>}
+                    {idea.sprint && <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 font-medium">{idea.sprint}</span>}
+                  </div>
+                </div>
+              </div>
+              {idea.id===selectedIdea && (
+                <div className="px-4 py-3 border-t border-neutral-100 bg-neutral-50 flex gap-2">
+                  <button className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-medium hover:bg-violet-700 transition">View Full Provenance</button>
+                  {idea.stage==="voting" && <button className="px-3 py-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-700 text-xs font-medium hover:bg-neutral-50 transition">👍 Vote ({idea.votes})</button>}
+                  {idea.stage==="voting" && <button className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition">✅ Sign Off</button>}
+                  {idea.stage==="approved" && <button className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-medium hover:bg-indigo-700 transition">→ Promote to Project</button>}
+                  <button className="px-3 py-1.5 rounded-lg bg-white border border-neutral-200 text-neutral-700 text-xs font-medium hover:bg-neutral-50 transition">💬 Discuss</button>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {selectedIdea && (
+        <ThinkTankModal ideaName={ideas.find(i=>i.id===selectedIdea)?.title||""} onClose={()=>setSelectedIdea(null)}/>
+      )}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ISSUE DETAIL PANEL — two-column layout
+// ══════════════════════════════════════════════════════════════
+
+type CommentT = {id:number;author:string;type:"comment"|"decision"|"activity";text:string;time:string;reactions:{emoji:string;count:number;mine?:boolean}[]};
+
+function IssueDetail({issue,onClose,role}:{issue:Issue;onClose:()=>void;role:string}) {
+  const [status,setStatus]         = useState<IssueStatus>(issue.status);
+  const [priority,setPriority]     = useState<IssuePriority>(issue.priority);
+  const [statusOpen,setStatusOpen]     = useState(false);
+  const [priorityOpen,setPriorityOpen] = useState(false);
+  const [watching,setWatching]     = useState(false);
+  const [draft,setDraft]           = useState("");
+  const [postAs,setPostAs]         = useState<"comment"|"decision">("comment");
+  const [ttOpen,setTtOpen]         = useState(false);
+  const canDecide = role==="developer"||role==="pm";
+
+  const [comments,setComments] = useState<CommentT[]>([
+    {id:1,author:"u4",type:"comment",  text:"Is there a rollback plan if this breaks the auth flow? We had an incident last quarter where a rate-limit bug took down logins for 20 minutes.", time:"3 days ago", reactions:[{emoji:"👍",count:3,mine:true},{emoji:"🎯",count:1}]},
+    {id:2,author:"u2",type:"comment",  text:"Good point — adding feature flag `RATE_LIMITER_ENABLED` so we can disable instantly. Flag defaults OFF in prod until we verify.",                time:"3 days ago", reactions:[{emoji:"💯",count:2}]},
+    {id:3,author:"u1",type:"decision", text:"Decision: Use Upstash Redis + @upstash/ratelimit SDK. Flag defaults OFF in prod until verified. INFRA-15 is the dependency — will unblock as soon as Alex provisions.", time:"2 days ago", reactions:[{emoji:"✅",count:4,mine:true}]},
+    {id:4,author:"u5",type:"activity", text:"Casey changed status from Todo → Blocked · waiting on INFRA-15",  time:"1 day ago", reactions:[]},
+    {id:5,author:"u2",type:"comment",  text:"Update: INFRA-15 is now In Progress. I've provisioned the test cluster in staging. Sharing env vars via 1Password — check the Forge Staging vault.", time:"2h ago", reactions:[{emoji:"🚀",count:2}]},
+  ]);
+
+  const [reacted,setReacted] = useState<Record<number,Record<string,boolean>>>(
+    Object.fromEntries(comments.map(c=>[c.id, Object.fromEntries(c.reactions.map(r=>[r.emoji,r.mine??false]))]))
+  );
+
+  const postComment = () => {
+    if(!draft.trim()) return;
+    setComments(prev=>[...prev,{id:prev.length+1,author:"u1",type:postAs,text:draft,time:"just now",reactions:[]}]);
+    setDraft("");
+  };
+
+  const sc = STATUS_CFG[status];
+  const pc = PRIORITY_CFG[priority];
+
+  return (
+    <>
+      <div className="fixed inset-0 z-[50] bg-neutral-900/20" onClick={onClose}/>
+      {/* Panel — wider for two-column layout */}
+      <div className="fixed top-0 right-0 h-full w-[860px] bg-white shadow-2xl border-l border-neutral-200 z-[55] flex flex-col overflow-hidden">
+
+        {/* ── Top bar ── */}
+        <div className="px-5 py-3 border-b border-neutral-100 flex items-center gap-3 shrink-0 bg-white">
+          <TypeIcon t={issue.type}/>
+          <span className="text-xs font-mono text-neutral-400 font-semibold">{issue.key}</span>
+          <span className="text-neutral-200">·</span>
+          <span className="text-xs text-neutral-400">{issue.projectName}</span>
+          <div className="flex-1"/>
+          <button onClick={()=>setWatching(w=>!w)}
+            className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition ${watching?"bg-indigo-50 border-indigo-200 text-indigo-700":"bg-white border-neutral-200 text-neutral-500 hover:border-neutral-300"}`}>
+            👁 {watching?"Watching":"Watch"}
+          </button>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-neutral-500 hover:bg-neutral-200 transition text-sm">✕</button>
+        </div>
+
+        {/* ── Two-column body ── */}
+        <div className="flex flex-1 overflow-hidden">
+
+          {/* LEFT — title, description, discussion */}
+          <div className="flex-1 overflow-y-auto border-r border-neutral-100">
+
+            {/* Title */}
+            <div className="px-6 pt-5 pb-4 border-b border-neutral-100">
+              <h2 className="text-xl font-bold text-neutral-900 leading-snug">{issue.title}</h2>
+
+              {/* Blocker alert — inline, prominent */}
+              {issue.blockedBy && (
+                <div className="mt-3 flex items-center gap-2.5 bg-red-50 border border-red-200 rounded-xl px-4 py-2.5">
+                  <span className="text-base">⛔</span>
+                  <div>
+                    <div className="text-xs font-bold text-red-700">Blocked</div>
+                    <div className="text-xs text-red-600">Waiting on <span className="font-mono font-semibold">{issue.blockedBy}</span> — {ALL_ISSUES.find(i=>i.key===issue.blockedBy)?.title}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Description */}
+            <div className="px-6 py-4 border-b border-neutral-100">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-2">Description</div>
+              <p className="text-sm text-neutral-700 leading-relaxed">{issue.description}</p>
+              {issue.prRef && (
+                <div className="mt-3 inline-flex items-center gap-2 text-xs bg-neutral-50 border border-neutral-200 rounded-lg px-3 py-1.5">
+                  <span className="text-neutral-400">🔗</span>
+                  <span className="font-mono text-neutral-700">{issue.prRef}</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 border border-amber-200 font-semibold">Draft</span>
+                </div>
+              )}
+            </div>
+
+            {/* Discussion */}
+            <div className="px-6 py-4">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-4">
+                Discussion <span className="text-neutral-300 font-normal ml-1">({comments.length})</span>
+              </div>
+
+              <div className="space-y-5">
+                {comments.map(c=>(
+                  <div key={c.id} className="flex gap-3">
+                    {c.type==="activity"
+                      ? <div className="w-7 h-7 rounded-full bg-neutral-100 border border-neutral-200 flex items-center justify-center text-xs shrink-0 mt-0.5 text-neutral-400">⚡</div>
+                      : <Av id={c.author} size="sm"/>}
+                    <div className="flex-1 min-w-0">
+                      {c.type==="activity" ? (
+                        <p className="text-xs text-neutral-400 italic pt-1.5">{c.text}</p>
+                      ) : (
+                        <div className={`rounded-xl border px-4 py-3 ${c.type==="decision"?"bg-violet-50 border-violet-200":"bg-neutral-50 border-neutral-200"}`}>
+                          {/* Comment header */}
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className="text-xs font-semibold text-neutral-900">{teamById[c.author]?.name}</span>
+                            {c.type==="decision" && (
+                              <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-violet-100 text-violet-700 font-bold border border-violet-200">💡 Decision</span>
+                            )}
+                            <span className="text-[10px] text-neutral-400 ml-auto">{c.time}</span>
+                          </div>
+                          {/* Comment body */}
+                          <p className="text-sm text-neutral-700 leading-relaxed">{c.text}</p>
+                          {/* Reactions */}
+                          {c.reactions.length>0 && (
+                            <div className="flex gap-1.5 flex-wrap mt-2.5 pt-2.5 border-t border-neutral-200/60">
+                              {c.reactions.map(r=>(
+                                <button key={r.emoji}
+                                  onClick={()=>setReacted(prev=>({...prev,[c.id]:{...prev[c.id],[r.emoji]:!prev[c.id]?.[r.emoji]}}))}
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition ${reacted[c.id]?.[r.emoji]?"bg-indigo-50 border-indigo-300 text-indigo-700":"bg-white border-neutral-200 text-neutral-600 hover:border-neutral-300"}`}>
+                                  {r.emoji} <span className="font-medium">{r.count+(reacted[c.id]?.[r.emoji]&&!r.mine?1:!reacted[c.id]?.[r.emoji]&&r.mine?-1:0)}</span>
+                                </button>
+                              ))}
+                              <button className="text-[10px] px-2 py-0.5 rounded-full border border-dashed border-neutral-300 text-neutral-400 hover:border-neutral-400 transition">+ React</button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Compose */}
+              <div className="mt-5 pt-4 border-t border-neutral-100">
+                <div className="flex gap-3">
+                  <Av id="u1" size="sm"/>
+                  <div className="flex-1">
+                    <textarea value={draft} onChange={e=>setDraft(e.target.value)}
+                      placeholder={canDecide?"Add a comment or post a decision… @mention to notify someone":"Add a comment… @mention to notify someone"}
+                      className="w-full text-sm border border-neutral-200 rounded-xl px-4 py-3 resize-none focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-100 transition bg-neutral-50 focus:bg-white" rows={3}/>
+                    <div className="flex items-center gap-2 mt-2">
+                      {canDecide && (
+                        <div className="flex items-center border border-neutral-200 rounded-lg overflow-hidden text-xs">
+                          <button onClick={()=>setPostAs("comment")} className={`px-3 py-1.5 font-medium transition ${postAs==="comment"?"bg-neutral-900 text-white":"text-neutral-600 hover:bg-neutral-50"}`}>💬 Comment</button>
+                          <button onClick={()=>setPostAs("decision")} className={`px-3 py-1.5 font-medium transition ${postAs==="decision"?"bg-violet-600 text-white":"text-neutral-600 hover:bg-neutral-50"}`}>💡 Decision</button>
+                        </div>
+                      )}
+                      <button onClick={postComment} className="ml-auto px-4 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition">Post</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT — metadata sidebar */}
+          <div className="w-[240px] shrink-0 overflow-y-auto bg-neutral-50 p-4 space-y-4">
+
+            {/* Status */}
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5">Status</div>
+              <div className="relative">
+                <button onClick={()=>{setStatusOpen(o=>!o);setPriorityOpen(false);}}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-semibold cursor-pointer hover:opacity-80 transition ${sc.bg} ${sc.text} ${sc.border}`}>
+                  <span className={`w-2 h-2 rounded-full ${sc.dot}`}/>{sc.label}<span className="ml-auto opacity-50">▾</span>
+                </button>
+                {statusOpen && (
+                  <div className="absolute top-10 left-0 right-0 z-20 bg-white rounded-xl border border-neutral-200 shadow-xl overflow-hidden">
+                    {(Object.keys(STATUS_CFG) as IssueStatus[]).map(s=>(
+                      <button key={s} onClick={()=>{setStatus(s);setStatusOpen(false);}}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-neutral-50 transition ${s===status?"font-bold bg-neutral-50":""}`}>
+                        <span className={`w-2 h-2 rounded-full ${STATUS_CFG[s].dot}`}/>{STATUS_CFG[s].label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Priority */}
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5">Priority</div>
+              <div className="relative">
+                <button onClick={()=>{setPriorityOpen(o=>!o);setStatusOpen(false);}}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 bg-white text-xs font-semibold cursor-pointer hover:bg-neutral-50 transition ${pc.text}`}>
+                  <span className={`w-2.5 h-2.5 rounded-sm ${pc.dot}`}/>{pc.label}<span className="ml-auto opacity-40">▾</span>
+                </button>
+                {priorityOpen && (
+                  <div className="absolute top-10 left-0 right-0 z-20 bg-white rounded-xl border border-neutral-200 shadow-xl overflow-hidden">
+                    {(Object.keys(PRIORITY_CFG) as IssuePriority[]).map(p=>(
+                      <button key={p} onClick={()=>{setPriority(p);setPriorityOpen(false);}}
+                        className={`w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-neutral-50 transition ${p===priority?"font-bold bg-neutral-50":""}`}>
+                        <span className={`w-2.5 h-2.5 rounded-sm ${PRIORITY_CFG[p].dot}`}/>{PRIORITY_CFG[p].label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Assignee */}
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5">Assignee</div>
+              {issue.assigneeId ? (
+                <div className="flex items-center gap-2 px-3 py-2 bg-white border border-neutral-200 rounded-lg">
+                  <Av id={issue.assigneeId} size="xs"/>
+                  <span className="text-xs font-medium text-neutral-800">{teamById[issue.assigneeId]?.name}</span>
+                </div>
+              ) : (
+                <button className="w-full flex items-center gap-2 px-3 py-2 bg-white border border-dashed border-neutral-300 rounded-lg text-xs text-neutral-400 hover:border-neutral-400 transition">
+                  + Assign someone
+                </button>
+              )}
+            </div>
+
+            {/* Sprint + Estimate */}
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5">Sprint</div>
+                <div className="px-2.5 py-1.5 bg-white border border-neutral-200 rounded-lg text-xs text-neutral-700 font-medium">{issue.sprint||"—"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5">Estimate</div>
+                <div className="px-2.5 py-1.5 bg-white border border-neutral-200 rounded-lg text-xs text-neutral-700 font-medium">{issue.estimate ? `${issue.estimate}h` : "—"}</div>
+              </div>
+            </div>
+
+            {/* Labels */}
+            {issue.labels.length>0 && (
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5">Labels</div>
+                <div className="flex flex-wrap gap-1">
+                  {issue.labels.map(l=><Label key={l} text={l}/>)}
+                </div>
+              </div>
+            )}
+
+            {/* Watchers */}
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5">Watching</div>
+              <div className="flex gap-1 flex-wrap">
+                {["u1","u4","u2"].map(id=><Av key={id} id={id} size="xs"/>)}
+                <button onClick={()=>setWatching(w=>!w)}
+                  className={`w-5 h-5 rounded-full border text-[9px] flex items-center justify-center transition ${watching?"bg-indigo-50 border-indigo-300 text-indigo-600":"border-dashed border-neutral-300 text-neutral-400 hover:border-neutral-400"}`}>
+                  {watching?"✓":"+"}
+                </button>
+              </div>
+            </div>
+
+            {/* Think Tank provenance — PROMINENT CARD */}
+            {issue.thinkTank && (
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-1.5">Origin · Think Tank</div>
+                <div className="bg-violet-50 border border-violet-200 rounded-xl p-3">
+                  <div className="flex items-start gap-2 mb-2">
+                    <span className="text-base shrink-0">💡</span>
+                    <span className="text-xs font-semibold text-violet-900 leading-snug">{issue.thinkTank}</span>
+                  </div>
+                  <div className="text-[10px] text-violet-600 mb-1">Signed off · Matt Giblin · Jun 9</div>
+                  <div className="text-[10px] text-violet-600 mb-3">4 votes · 3 issues spawned</div>
+                  <button onClick={()=>setTtOpen(true)}
+                    className="w-full py-1.5 rounded-lg bg-violet-600 text-white text-[11px] font-semibold hover:bg-violet-700 transition text-center">
+                    View Full Provenance →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Created / updated */}
+            <div className="pt-2 border-t border-neutral-200">
+              <div className="text-[10px] text-neutral-400 space-y-1">
+                <div className="flex justify-between"><span>Created</span><span>{issue.daysOld}d ago</span></div>
+                <div className="flex justify-between"><span>Updated</span><span>2h ago</span></div>
+                <div className="flex justify-between"><span>Comments</span><span>{comments.length}</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Think Tank drill-down */}
+      {ttOpen && issue.thinkTank && <ThinkTankModal ideaName={issue.thinkTank} onClose={()=>setTtOpen(false)}/>}
+    </>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+//  DEVELOPER SHELL
+// ══════════════════════════════════════════════════════════════
+
+function DeveloperShell({onCmdK}:{onCmdK:()=>void}) {
+  const [view,setView] = useState("morning");
+  const [activeIssue,setActiveIssue] = useState<Issue|null>(null);
+  const [pickedId,setPickedId] = useState<string|null>(null);
+
+  const myIssues = ALL_ISSUES.filter(i=>i.assigneeId==="u1");
+  const sprintIssues = ALL_ISSUES.filter(i=>i.sprint==="Sprint 6");
+  const digest = [
+    {icon:"🚀",text:"Sprint 6 is 68% complete — on track for Friday close"},
+    {icon:"🔴",text:"FORGE-45 has been blocked for 5 days. INFRA-15 just moved to In Progress — unblock expected today"},
+    {icon:"💬",text:"3 issues have unread comments that mention you"},
+    {icon:"⚡",text:"Casey merged PR #91 — MOB-23 Android push deep-links fixed"},
+  ];
+
+  const navItems = [
+    {id:"morning",    icon:"🌅", label:"Morning"},
+    {id:"myissues",   icon:"📋", label:"My Issues"},
+    {id:"inbox",      icon:"📥", label:"Inbox"},
+    {id:"board",      icon:"🏃", label:"Sprint Board"},
+    {id:"thinktank",  icon:"💡", label:"Think Tank"},
+  ];
+
+  // Board columns state
+  const [boardStatuses,setBoardStatuses] = useState<Record<string,IssueStatus>>(
+    Object.fromEntries(sprintIssues.map(i=>[i.id,i.status]))
+  );
+  const cols: {status:IssueStatus;label:string}[] = [
+    {status:"todo",label:"Todo"},
+    {status:"in_progress",label:"In Progress"},
+    {status:"in_review",label:"In Review"},
+    {status:"done",label:"Done"},
+  ];
+
+  return (
+    <div className="flex h-[calc(100vh-112px)] overflow-hidden">
+      {/* Sidebar */}
+      <div className="w-52 shrink-0 bg-white border-r border-neutral-200 flex flex-col">
+        <div className="px-3 py-3 border-b border-neutral-100">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Developer</div>
+          <div className="flex items-center gap-2 mt-2">
+            <Av id="u1" size="sm"/>
+            <div>
+              <div className="text-xs font-semibold text-neutral-900">Matt Giblin</div>
+              <div className="text-[10px] text-neutral-400">Lead Developer</div>
+            </div>
+          </div>
+        </div>
+        <nav className="p-2 flex-1">
+          {navItems.map(n=>(
+            <button key={n.id} onClick={()=>setView(n.id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition mb-0.5 text-left ${view===n.id?"bg-neutral-900 text-white":"text-neutral-600 hover:bg-neutral-100"}`}>
+              <span>{n.icon}</span>{n.label}
+              {n.id==="inbox" && <span className="ml-auto text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5">3</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="p-3 border-t border-neutral-100">
+          <button onClick={onCmdK} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 transition">
+            <span>🔍</span><span className="flex-1 text-left">Search</span><kbd className="text-[10px] font-mono bg-neutral-100 border border-neutral-200 px-1 rounded">⌘K</kbd>
+          </button>
+        </div>
+      </div>
+
+      {/* Main */}
+      <div className="flex-1 overflow-y-auto bg-neutral-50 p-4">
+        {/* MORNING VIEW */}
+        {view==="morning" && (
+          <div className="space-y-4 max-w-[1100px]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold text-neutral-900">Good morning, Matt 👋</h1>
+                <p className="text-sm text-neutral-500">Saturday, June 21 · Here's your day</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-[1fr_1.4fr] gap-4">
+              {/* Left column */}
+              <div className="space-y-3">
+                {/* AI Digest */}
+                <div className="bg-white rounded-xl border border-neutral-200 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-base">✨</span>
+                    <div className="text-sm font-semibold text-neutral-900">AI Digest</div>
+                    <span className="text-[10px] text-neutral-400 ml-auto">Updated 6:00am</span>
+                  </div>
+                  <div className="space-y-2">
+                    {digest.map((d,i)=>(
+                      <div key={i} className="flex gap-2 items-start text-sm">
+                        <span className="shrink-0 mt-0.5">{d.icon}</span>
+                        <span className="text-neutral-700 leading-snug">{d.text}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* My Work */}
+                <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
+                    <div className="text-sm font-semibold text-neutral-900">My Work</div>
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">{myIssues.length}</span>
+                  </div>
+                  <div className="divide-y divide-neutral-50">
+                    {myIssues.map(issue=>(
+                      <div key={issue.id} className="p-3 hover:bg-neutral-50 transition cursor-pointer" onClick={()=>setPickedId(pickedId===issue.id?null:issue.id)}>
+                        <div className="flex items-start gap-2">
+                          <TypeIcon t={issue.type}/>
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs font-medium text-neutral-900 leading-snug truncate">{issue.title}</div>
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                              <StatusBadge status={issue.status}/>
+                              <PriorityBadge p={issue.priority}/>
+                              {issue.status==="blocked" && <span className="text-[10px] text-red-600 font-medium">⛔ {issue.blockedBy}</span>}
+                            </div>
+                          </div>
+                        </div>
+                        {pickedId===issue.id && (
+                          <div className="mt-2 pt-2 border-t border-neutral-100 flex gap-1.5 flex-wrap">
+                            <button onClick={e=>{e.stopPropagation();setActiveIssue(issue);}} className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-medium hover:bg-indigo-700 transition">Open</button>
+                            <button className="px-2.5 py-1 rounded-lg border border-neutral-200 text-neutral-600 text-[11px] font-medium hover:bg-neutral-50 transition">Branch</button>
+                            <button className="px-2.5 py-1 rounded-lg border border-neutral-200 text-neutral-600 text-[11px] font-medium hover:bg-neutral-50 transition">Timer</button>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              {/* Right column */}
+              <div className="space-y-3">
+                {/* Sprint health */}
+                <div className="bg-white rounded-xl border border-neutral-200 p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="text-sm font-semibold text-neutral-900">Sprint 6 Health</div>
+                    <span className="text-xs text-neutral-400">Closes Friday · 4 days left</span>
+                  </div>
+                  <div className="flex gap-4 mb-3">
+                    {[{v:"68%",l:"Done",c:"text-emerald-600"},{v:"2",l:"Blocked",c:"text-red-600"},{v:"3",l:"In Review",c:"text-amber-600"}].map(s=>(
+                      <div key={s.l} className="text-center"><div className={`text-xl font-bold ${s.c}`}>{s.v}</div><div className="text-[10px] text-neutral-400">{s.l}</div></div>
+                    ))}
+                  </div>
+                  <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
+                    <div className="h-full bg-emerald-500 rounded-full" style={{width:"68%"}}/>
+                  </div>
+                </div>
+                {/* Sprint issues */}
+                <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+                  <div className="px-4 py-3 border-b border-neutral-100 text-sm font-semibold text-neutral-900">Sprint 6 Issues</div>
+                  <div className="divide-y divide-neutral-50">
+                    {sprintIssues.map(issue=>(
+                      <div key={issue.id} onClick={()=>setActiveIssue(issue)} className="flex items-center gap-2 px-3 py-2.5 hover:bg-neutral-50 transition cursor-pointer">
+                        <Av id={issue.assigneeId||"u1"} size="xs"/>
+                        <TypeIcon t={issue.type}/>
+                        <span className="text-[11px] font-mono text-neutral-400 shrink-0">{issue.key}</span>
+                        <span className="text-xs text-neutral-800 flex-1 truncate">{issue.title}</span>
+                        <StatusBadge status={issue.status}/>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* MY ISSUES VIEW */}
+        {view==="myissues" && (
+          <div className="max-w-[800px] space-y-2">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-lg font-bold text-neutral-900">My Issues</h1>
+              <div className="flex gap-2">
+                {["All","In Progress","Blocked","Todo"].map(f=>(
+                  <button key={f} className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition ${f==="All"?"bg-neutral-900 text-white border-neutral-900":"bg-white border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}>{f}</button>
+                ))}
+              </div>
+            </div>
+            {myIssues.map(issue=>(
+              <div key={issue.id} onClick={()=>setActiveIssue(issue)} className="bg-white rounded-xl border border-neutral-200 px-4 py-3 hover:border-indigo-300 hover:shadow-sm transition cursor-pointer flex items-center gap-3">
+                <TypeIcon t={issue.type}/>
+                <span className="text-[11px] font-mono text-neutral-400 shrink-0 w-[80px]">{issue.key}</span>
+                <span className="text-sm font-medium text-neutral-900 flex-1 truncate">{issue.title}</span>
+                <div className="flex items-center gap-2">
+                  <StatusBadge status={issue.status}/>
+                  <PriorityBadge p={issue.priority}/>
+                  {issue.comments>0 && <span className="text-xs text-neutral-400">💬{issue.comments}</span>}
+                </div>
+              </div>
+            ))}
+            <div className="mt-2 opacity-50">
+              {ALL_ISSUES.filter(i=>!i.assigneeId).slice(0,3).map(issue=>(
+                <div key={issue.id} onClick={()=>setActiveIssue(issue)} className="bg-white rounded-xl border border-dashed border-neutral-200 px-4 py-2.5 hover:border-neutral-300 transition cursor-pointer flex items-center gap-3 mb-2">
+                  <TypeIcon t={issue.type}/>
+                  <span className="text-[11px] font-mono text-neutral-400 shrink-0 w-[80px]">{issue.key}</span>
+                  <span className="text-xs text-neutral-600 flex-1 truncate">{issue.title}</span>
+                  <span className="text-[10px] text-neutral-400">Unassigned</span>
                 </div>
               ))}
             </div>
           </div>
-          <ProvenancePanel />
-        </>
-      ) : (
-        /* ---------- ACTIVE PROJECT: the live portal ---------- */
-        <>
-          {/* What needs attention — explainable risk */}
-          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 flex items-start gap-3">
-            <span className="text-xl">⚠️</span>
-            <div className="flex-1">
-              <p className="text-sm font-semibold text-amber-900">This project needs attention</p>
-              <p className="text-sm text-amber-800">3 issues overdue · 38% done with go-live 42 days out (behind pace) · no status update in 9 days. Forecast: <strong>~8 days late</strong> at current velocity.</p>
-            </div>
-            <button className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700">Post update</button>
-          </div>
+        )}
 
-          <div className="grid grid-cols-3 gap-5">
-            {/* Left column */}
-            <div className="col-span-2 space-y-5">
-              {/* Latest status update (pinned) */}
-              <div className="rounded-xl border border-neutral-200 bg-white p-5">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-semibold text-neutral-900">Latest update</h3>
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">AT RISK</span>
+        {/* INBOX VIEW */}
+        {view==="inbox" && (
+          <div className="max-w-[700px] space-y-2">
+            <h1 className="text-lg font-bold text-neutral-900 mb-4">Inbox</h1>
+            {ALL_NOTIFS.filter(n=>n.role.includes("developer")).map(n=>(
+              <div key={n.id} className={`bg-white rounded-xl border px-4 py-3 hover:border-indigo-200 transition cursor-pointer flex gap-3 ${!n.read?"border-indigo-200 bg-indigo-50/20":"border-neutral-200"}`}>
+                <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center text-base shrink-0">{n.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-sm font-semibold text-neutral-800">{n.title}</div>
+                    {!n.read && <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-1.5"/>}
                   </div>
-                  <button className="rounded-lg border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700 hover:bg-indigo-100">✦ Draft with AI</button>
+                  <div className="text-xs text-neutral-500 mt-0.5">{n.detail}</div>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    {n.key && <span className="text-[10px] font-mono text-neutral-400">{n.key}</span>}
+                    <span className="text-[10px] text-neutral-400">{n.time}</span>
+                    {n.actionable && <button onClick={()=>{ const iss=ALL_ISSUES.find(i=>i.key===n.key); if(iss) setActiveIssue(iss); }} className="ml-auto text-[10px] px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition">View</button>}
+                  </div>
                 </div>
-                <p className="text-sm text-neutral-700">
-                  <strong>TL;DR:</strong> Core ledger + auth shipped; budgeting module is the long pole. Review queue is backing up — 2 PRs waiting. We&rsquo;ll likely slip ~1 week unless we pull in a reviewer.
-                </p>
-                <p className="mt-2 text-xs text-neutral-400">Matt Giblin · 9 days ago</p>
               </div>
+            ))}
+          </div>
+        )}
 
-              {/* Progress battery */}
-              <div className="rounded-xl border border-neutral-200 bg-white p-5">
-                <div className="mb-3 flex items-center justify-between">
-                  <h3 className="font-semibold text-neutral-900">Progress</h3>
-                  <span className="text-sm text-neutral-500"><strong className="text-neutral-900">{done}</strong> of {total} done · {pct}%</span>
-                </div>
-                <StatusBattery segments={battery} />
+        {/* SPRINT BOARD */}
+        {view==="board" && (
+          <div>
+            <h1 className="text-lg font-bold text-neutral-900 mb-4">Sprint 6 Board</h1>
+            <div className="flex gap-3 overflow-x-auto pb-4">
+              {cols.map(col=>{
+                const colIssues = sprintIssues.filter(i=>(boardStatuses[i.id]||i.status)===col.status);
+                return (
+                  <div key={col.status} className="w-[260px] shrink-0">
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <div className={`w-2 h-2 rounded-full ${STATUS_CFG[col.status].dot}`}/>
+                      <span className="text-xs font-semibold text-neutral-700">{col.label}</span>
+                      <span className="text-[10px] text-neutral-400 ml-1">{colIssues.length}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {colIssues.map(issue=>(
+                        <div key={issue.id} onClick={()=>setActiveIssue(issue)} className="bg-white rounded-xl border border-neutral-200 p-3 hover:border-indigo-300 hover:shadow-sm transition cursor-pointer">
+                          <div className="flex items-center gap-1.5 mb-1.5">
+                            <TypeIcon t={issue.type}/>
+                            <span className="text-[10px] font-mono text-neutral-400">{issue.key}</span>
+                            <PriorityBadge p={issue.priority}/>
+                          </div>
+                          <div className="text-xs font-medium text-neutral-900 leading-snug mb-2">{issue.title}</div>
+                          <div className="flex items-center justify-between">
+                            {issue.assigneeId?<Av id={issue.assigneeId} size="xs"/>:<div/>}
+                            {issue.estimate && <span className="text-[10px] text-neutral-400">{issue.estimate}h</span>}
+                          </div>
+                          {/* Quick move buttons */}
+                          <div className="mt-2 pt-2 border-t border-neutral-50 flex gap-1">
+                            {cols.filter(c=>c.status!==col.status).slice(0,2).map(c=>(
+                              <button key={c.status} onClick={e=>{e.stopPropagation();setBoardStatuses(prev=>({...prev,[issue.id]:c.status}));}}
+                                className="text-[10px] px-2 py-0.5 rounded bg-neutral-100 text-neutral-600 hover:bg-neutral-200 transition">→ {c.label}</button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+        {view==="thinktank" && <ThinkTankView/>}
+      </div>
+
+      {activeIssue && <IssueDetail issue={activeIssue} onClose={()=>setActiveIssue(null)} role="developer"/>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+//  PM SHELL
+// ══════════════════════════════════════════════════════════════
+
+function PMShell({onCmdK}:{onCmdK:()=>void}) {
+  const [view,setView] = useState("morning");
+  const [activeIssue,setActiveIssue] = useState<Issue|null>(null);
+  const sprintIssues = ALL_ISSUES.filter(i=>i.sprint==="Sprint 6");
+  const backlog = ALL_ISSUES.filter(i=>!i.sprint);
+  const [sprintSet,setSprintSet] = useState(new Set(sprintIssues.map(i=>i.id)));
+
+  const navItems = [
+    {id:"morning",   icon:"📊", label:"Overview"},
+    {id:"sprint",    icon:"🏃", label:"Sprint Plan"},
+    {id:"board",     icon:"🗂",  label:"Board"},
+    {id:"roadmap",   icon:"🗺️", label:"Roadmap"},
+    {id:"reports",   icon:"📈", label:"Reports"},
+    {id:"thinktank", icon:"💡", label:"Think Tank"},
+  ];
+
+  const [boardStatuses,setBoardStatuses] = useState<Record<string,IssueStatus>>(
+    Object.fromEntries(sprintIssues.map(i=>[i.id,i.status]))
+  );
+  const cols: {status:IssueStatus;label:string}[] = [
+    {status:"todo",label:"Todo"},{status:"in_progress",label:"In Progress"},{status:"in_review",label:"In Review"},{status:"done",label:"Done"},
+  ];
+
+  // ── Roadmap drag state ──
+  type RoadmapItem = {name:string;start:number;width:number;color:string;status:string;dependsOn?:number};
+  const [roadmap,setRoadmap] = useState<RoadmapItem[]>([
+    {name:"Security Hardening Sprint",    start:0,  width:18, color:"bg-red-400",    status:"in_progress"},
+    {name:"Billing & Stripe Hardening",   start:12, width:16, color:"bg-amber-400",  status:"in_progress", dependsOn:0},
+    {name:"Mobile Push Fix",              start:4,  width:8,  color:"bg-emerald-400",status:"done"},
+    {name:"Dark Mode System Pass",        start:8,  width:20, color:"bg-indigo-400", status:"in_progress"},
+    {name:"Cruise Itinerary v1",          start:28, width:30, color:"bg-sky-400",    status:"backlog",     dependsOn:3},
+    {name:"Advisor Calendar Integration", start:32, width:24, color:"bg-violet-400", status:"backlog"},
+  ]);
+  const ganttRef = useRef<HTMLDivElement>(null);
+  const [dragState,setDragState] = useState<{idx:number;startX:number;origStart:number}|null>(null);
+  const [dragPreview,setDragPreview] = useState<Record<number,number>>({});
+  const [cascadeConfirm,setCascadeConfirm] = useState<{shift:number;dependents:{idx:number;name:string}[]}|null>(null);
+
+  useEffect(()=>{
+    if(!dragState) return;
+    const onMove = (e:MouseEvent)=>{
+      if(!ganttRef.current) return;
+      const trackW = ganttRef.current.getBoundingClientRect().width;
+      const pxPerUnit = trackW / 60;
+      const deltaUnits = Math.round((e.clientX - dragState.startX) / pxPerUnit);
+      const newStart = Math.max(0, Math.min(55, dragState.origStart + deltaUnits));
+      setRoadmap(prev=>prev.map((item,i)=>i===dragState.idx?{...item,start:newStart}:item));
+      // compute which items depend on this one
+      const preview: Record<number,number> = {};
+      roadmap.forEach((item,i)=>{ if(item.dependsOn===dragState.idx) preview[i]=deltaUnits; });
+      setDragPreview(preview);
+    };
+    const onUp = ()=>{
+      const dependents = roadmap.map((item,i)=>({idx:i,name:item.name,depends:item.dependsOn===dragState.idx})).filter(d=>d.depends);
+      const shift = roadmap[dragState.idx].start - dragState.origStart;
+      if(dependents.length>0 && shift!==0){
+        setCascadeConfirm({shift, dependents: dependents.map(d=>({idx:d.idx,name:d.name}))});
+      }
+      setDragState(null);
+      setDragPreview({});
+    };
+    window.addEventListener("mousemove",onMove);
+    window.addEventListener("mouseup",onUp);
+    return()=>{window.removeEventListener("mousemove",onMove);window.removeEventListener("mouseup",onUp);};
+  },[dragState,roadmap]);
+
+  const applyCascade = ()=>{
+    if(!cascadeConfirm) return;
+    setRoadmap(prev=>prev.map((item,i)=>{
+      const dep = cascadeConfirm.dependents.find(d=>d.idx===i);
+      if(dep) return {...item, start: Math.max(0,item.start+cascadeConfirm.shift)};
+      return item;
+    }));
+    setCascadeConfirm(null);
+  };
+
+  // ── Reports drill-down state ──
+  const [drillWidget,setDrillWidget] = useState<string|null>(null);
+
+  return (
+    <div className="flex h-[calc(100vh-112px)] overflow-hidden">
+      <div className="w-52 shrink-0 bg-white border-r border-neutral-200 flex flex-col">
+        <div className="px-3 py-3 border-b border-neutral-100">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Project Manager</div>
+          <div className="flex items-center gap-2 mt-2">
+            <Av id="u4" size="sm"/>
+            <div>
+              <div className="text-xs font-semibold text-neutral-900">Jordan Lee</div>
+              <div className="text-[10px] text-neutral-400">Product</div>
+            </div>
+          </div>
+        </div>
+        <nav className="p-2 flex-1">
+          {navItems.map(n=>(
+            <button key={n.id} onClick={()=>setView(n.id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition mb-0.5 text-left ${view===n.id?"bg-neutral-900 text-white":"text-neutral-600 hover:bg-neutral-100"}`}>
+              <span>{n.icon}</span>{n.label}
+            </button>
+          ))}
+        </nav>
+        <div className="p-3 border-t border-neutral-100">
+          <button onClick={onCmdK} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 transition">
+            <span>🔍</span><span className="flex-1 text-left">Search</span><kbd className="text-[10px] font-mono bg-neutral-100 border border-neutral-200 px-1 rounded">⌘K</kbd>
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto bg-neutral-50 p-4">
+        {/* PM OVERVIEW */}
+        {view==="morning" && (
+          <div className="space-y-4 max-w-[1100px]">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-bold text-neutral-900">Sprint Overview</h1>
+                <p className="text-sm text-neutral-500">Sprint 6 · Closes Friday · 4 days remaining</p>
               </div>
-
-              {/* Burnup */}
-              <div className="rounded-xl border border-neutral-200 bg-white p-5">
-                <div className="mb-1 flex items-center justify-between">
-                  <h3 className="font-semibold text-neutral-900">Burnup to go-live</h3>
-                  <span className="text-xs text-neutral-500">scope vs completed · projection</span>
+              <button className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">Export Report</button>
+            </div>
+            {/* KPIs */}
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                {v:"68%",  l:"Completion", sub:"10 of 15 done",     c:"text-emerald-600"},
+                {v:"2",    l:"Blocked",    sub:"5+ days no movement",c:"text-red-600"},
+                {v:"3",    l:"In Review",  sub:"Awaiting sign-off",  c:"text-amber-600"},
+                {v:"↗ On Track",l:"Forecast",sub:"Velocity looks good",c:"text-indigo-600"},
+              ].map(k=>(
+                <div key={k.l} className="bg-white rounded-xl border border-neutral-200 p-4">
+                  <div className={`text-2xl font-bold ${k.c}`}>{k.v}</div>
+                  <div className="text-xs font-semibold text-neutral-700 mt-1">{k.l}</div>
+                  <div className="text-[11px] text-neutral-400">{k.sub}</div>
                 </div>
-                <p className="mb-3 text-sm text-neutral-500">Dotted line projects completion from current velocity; it lands past the target — hence &ldquo;at risk.&rdquo;</p>
-                <BurnupChart />
+              ))}
+            </div>
+            {/* Team workload */}
+            <div className="bg-white rounded-xl border border-neutral-200 p-4">
+              <div className="text-sm font-semibold text-neutral-900 mb-3">Team Workload</div>
+              <div className="space-y-3">
+                {TEAM.slice(0,5).map(m=>{
+                  const assigned = ALL_ISSUES.filter(i=>i.assigneeId===m.id&&i.sprint==="Sprint 6");
+                  const done = assigned.filter(i=>i.status==="done").length;
+                  const pct = assigned.length ? Math.round((done/assigned.length)*100) : 0;
+                  return (
+                    <div key={m.id} className="flex items-center gap-3">
+                      <Av id={m.id} size="sm"/>
+                      <div className="w-24 text-xs font-medium text-neutral-700 truncate">{m.name}</div>
+                      <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-indigo-500 rounded-full" style={{width:`${pct||20}%`}}/>
+                      </div>
+                      <div className="text-xs text-neutral-500 w-20 text-right">{done}/{assigned.length} issues</div>
+                    </div>
+                  );
+                })}
               </div>
             </div>
-
-            {/* Right column */}
-            <div className="space-y-5">
-              {/* Go-live countdown + track */}
-              <div className="rounded-xl border border-neutral-200 bg-white p-5">
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Go-live</p>
-                <p className="mt-1 text-3xl font-bold text-neutral-900">42 <span className="text-base font-normal text-neutral-500">days</span></p>
-                <div className="mt-4 h-1.5 rounded-full bg-neutral-100">
-                  <div className="h-full rounded-full bg-indigo-500" style={{ width: "55%" }} />
+            {/* Blockers */}
+            <div className="bg-white rounded-xl border border-red-200 p-4">
+              <div className="text-sm font-semibold text-red-700 mb-3">⛔ Active Blockers</div>
+              {ALL_ISSUES.filter(i=>i.status==="blocked").map(issue=>(
+                <div key={issue.id} onClick={()=>setActiveIssue(issue)} className="flex items-center gap-3 py-2 hover:bg-red-50 rounded-lg px-2 cursor-pointer transition">
+                  <span className="text-[11px] font-mono text-neutral-400 w-[80px]">{issue.key}</span>
+                  <span className="text-sm text-neutral-800 flex-1">{issue.title}</span>
+                  <span className="text-xs text-red-600">Blocked by {issue.blockedBy}</span>
+                  <Av id={issue.assigneeId||"u1"} size="xs"/>
                 </div>
-                <div className="mt-1.5 flex justify-between text-[11px] text-neutral-400">
-                  <span>May 1 · start</span>
-                  <span>Aug 28 · go-live</span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SPRINT PLAN */}
+        {view==="sprint" && (
+          <div className="max-w-[1000px]">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-lg font-bold text-neutral-900">Sprint Planning</h1>
+              <div className="text-sm text-neutral-500">Sprint 6 · {[...sprintSet].length} issues · {[...sprintSet].reduce((a,id)=>a+(ALL_ISSUES.find(i=>i.id===id)?.estimate||0),0)}h estimated</div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              {/* In Sprint */}
+              <div>
+                <div className="text-xs font-semibold text-neutral-600 mb-2 flex items-center gap-2">
+                  Sprint 6
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700">{[...sprintSet].length}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {ALL_ISSUES.filter(i=>sprintSet.has(i.id)).map(issue=>(
+                    <div key={issue.id} onClick={()=>setActiveIssue(issue)} className="bg-white rounded-lg border border-neutral-200 px-3 py-2.5 hover:border-indigo-200 transition cursor-pointer flex items-center gap-2">
+                      <TypeIcon t={issue.type}/>
+                      <span className="text-[10px] font-mono text-neutral-400 w-[76px] shrink-0">{issue.key}</span>
+                      <span className="text-xs text-neutral-800 flex-1 truncate">{issue.title}</span>
+                      <StatusBadge status={issue.status}/>
+                      <button onClick={e=>{e.stopPropagation();setSprintSet(prev=>{const n=new Set(prev);n.delete(issue.id);return n;});}}
+                        className="text-[10px] text-neutral-400 hover:text-red-500 transition px-1">← Out</button>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              {/* Team */}
-              <div className="rounded-xl border border-neutral-200 bg-white p-5">
-                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">Team</p>
-                <div className="space-y-2.5">
-                  {[
-                    { n: "Matt Giblin", r: "Lead" },
-                    { n: "Sarah Kim", r: "Design" },
-                    { n: "Alex Chen", r: "Engineering" },
-                    { n: "Jordan Lee", r: "Product" },
-                  ].map((p) => (
-                    <div key={p.n} className="flex items-center gap-2.5">
-                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-neutral-200 text-xs font-semibold text-neutral-600">{p.n.split(" ").map((x) => x[0]).join("")}</span>
-                      <span className="text-sm text-neutral-700">{p.n}</span>
-                      <span className="ml-auto text-xs text-neutral-400">{p.r}</span>
+              {/* Backlog */}
+              <div>
+                <div className="text-xs font-semibold text-neutral-600 mb-2 flex items-center gap-2">
+                  Backlog
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-neutral-100 text-neutral-600">{backlog.filter(i=>!sprintSet.has(i.id)).length}</span>
+                </div>
+                <div className="space-y-1.5">
+                  {backlog.filter(i=>!sprintSet.has(i.id)).map(issue=>(
+                    <div key={issue.id} onClick={()=>setActiveIssue(issue)} className="bg-white rounded-lg border border-dashed border-neutral-200 px-3 py-2.5 hover:border-neutral-300 transition cursor-pointer flex items-center gap-2">
+                      <TypeIcon t={issue.type}/>
+                      <span className="text-[10px] font-mono text-neutral-400 w-[76px] shrink-0">{issue.key}</span>
+                      <span className="text-xs text-neutral-600 flex-1 truncate">{issue.title}</span>
+                      <PriorityBadge p={issue.priority}/>
+                      <button onClick={e=>{e.stopPropagation();setSprintSet(prev=>new Set([...prev,issue.id]));}}
+                        className="text-[10px] text-indigo-600 hover:text-indigo-800 transition px-1 font-medium">→ Sprint</button>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
           </div>
+        )}
 
-          <ProvenancePanel />
-
-          {/* Project brief */}
-          <div className="rounded-xl border border-neutral-200 bg-white p-5">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-semibold text-neutral-900">Project brief</h3>
-              <button className="text-xs font-medium text-neutral-500 hover:text-neutral-900">Edit</button>
+        {/* BOARD */}
+        {view==="board" && (
+          <div>
+            <h1 className="text-lg font-bold text-neutral-900 mb-4">Sprint 6 Board</h1>
+            <div className="flex gap-3 overflow-x-auto pb-4">
+              {cols.map(col=>{
+                const colIssues = sprintIssues.filter(i=>(boardStatuses[i.id]||i.status)===col.status);
+                return (
+                  <div key={col.status} className="w-[260px] shrink-0">
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <div className={`w-2 h-2 rounded-full ${STATUS_CFG[col.status].dot}`}/>
+                      <span className="text-xs font-semibold text-neutral-700">{col.label}</span>
+                      <span className="text-[10px] text-neutral-400 ml-1">{colIssues.length}</span>
+                    </div>
+                    <div className="space-y-2">
+                      {colIssues.map(issue=>(
+                        <div key={issue.id} onClick={()=>setActiveIssue(issue)} className="bg-white rounded-xl border border-neutral-200 p-3 hover:border-indigo-300 hover:shadow-sm transition cursor-pointer">
+                          <div className="flex items-center gap-1.5 mb-1.5"><TypeIcon t={issue.type}/><span className="text-[10px] font-mono text-neutral-400">{issue.key}</span><PriorityBadge p={issue.priority}/></div>
+                          <div className="text-xs font-medium text-neutral-900 leading-snug mb-2">{issue.title}</div>
+                          <div className="flex items-center justify-between">
+                            {issue.assigneeId?<Av id={issue.assigneeId} size="xs"/>:<div/>}
+                            {issue.estimate && <span className="text-[10px] text-neutral-400">{issue.estimate}h</span>}
+                          </div>
+                          <div className="mt-2 pt-2 border-t border-neutral-50 flex gap-1">
+                            {cols.filter(c=>c.status!==col.status).slice(0,2).map(c=>(
+                              <button key={c.status} onClick={e=>{e.stopPropagation();setBoardStatuses(prev=>({...prev,[issue.id]:c.status}));}}
+                                className="text-[10px] px-2 py-0.5 rounded bg-neutral-100 text-neutral-600 hover:bg-neutral-200 transition">→ {c.label}</button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <p className="text-sm text-neutral-600 leading-relaxed">
-              A personal-finance companion: connect accounts, auto-categorize spend, and surface a weekly money story. v1 scope is ledger + budgeting + insights; bank sync is fast-follow. Success = a user can see &ldquo;where did my money go&rdquo; in under 10 seconds.
-            </p>
           </div>
+        )}
 
-          {/* Recent activity */}
-          <div className="rounded-xl border border-neutral-200 bg-white p-5">
-            <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-neutral-400">Recent activity</p>
-            <div className="space-y-2.5 text-sm">
-              {[
-                { who: "Alex Chen", what: "moved PER-31 to In review", when: "2h ago" },
-                { who: "Sarah Kim", what: "completed PER-28 · Budget category chips", when: "5h ago" },
-                { who: "Jordan Lee", what: "commented on PER-33", when: "yesterday" },
-                { who: "Matt Giblin", what: "created PER-34 · Weekly money story email", when: "2d ago" },
-              ].map((a, i) => (
-                <div key={i} className="flex items-center gap-2 text-neutral-600">
-                  <span className="h-1.5 w-1.5 rounded-full bg-neutral-300" />
-                  <span><strong className="text-neutral-800">{a.who}</strong> {a.what}</span>
-                  <span className="ml-auto text-xs text-neutral-400">{a.when}</span>
+        {/* ROADMAP — drag-to-move with cascade preview */}
+        {view==="roadmap" && (
+          <div className="max-w-[960px]">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h1 className="text-lg font-bold text-neutral-900">Roadmap</h1>
+                <p className="text-xs text-neutral-500 mt-0.5">Drag bars to reschedule · Dependent projects preview in real-time</p>
+              </div>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="px-2 py-1 rounded-lg border border-neutral-200 bg-white text-neutral-600">Q2 2026</span>
+                <span className="px-2 py-1 rounded-lg border border-neutral-200 bg-white text-neutral-600">Q3 2026</span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden select-none">
+              {/* Week headers */}
+              <div className="flex border-b border-neutral-100 bg-neutral-50">
+                <div className="w-52 shrink-0 px-4 py-2 text-[10px] font-bold text-neutral-400 uppercase tracking-widest">Project</div>
+                <div className="flex-1 flex" ref={ganttRef}>
+                  {["Jun 14","Jun 21","Jun 28","Jul 5","Jul 12","Jul 19","Jul 26","Aug 2"].map(w=>(
+                    <div key={w} className="flex-1 px-1 py-2 text-[10px] text-neutral-400 text-center border-l border-neutral-100">{w}</div>
+                  ))}
                 </div>
-              ))}
+              </div>
+
+              {roadmap.map((item,i)=>{
+                const isDragging = dragState?.idx===i;
+                const isDependent = dragPreview[i]!==undefined;
+                const ghostStart = isDependent ? Math.max(0,item.start+dragPreview[i]) : null;
+                return (
+                  <div key={i} className={`flex items-center border-b border-neutral-50 last:border-0 transition ${isDragging?"bg-indigo-50":isDependent?"bg-amber-50":"hover:bg-neutral-50"}`}>
+                    <div className="w-52 shrink-0 px-4 py-3">
+                      <div className="text-xs font-medium text-neutral-800 truncate">{item.name}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        <StatusBadge status={item.status as IssueStatus}/>
+                        {item.dependsOn!==undefined && (
+                          <span className="text-[9px] text-neutral-400">↳ depends on {roadmap[item.dependsOn].name.split(" ").slice(0,2).join(" ")}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex-1 relative h-12 py-2">
+                      {/* Grid lines */}
+                      {[0,1,2,3,4,5,6,7].map(g=>(
+                        <div key={g} className="absolute top-0 bottom-0 border-l border-neutral-100" style={{left:`${(g/8)*100}%`}}/>
+                      ))}
+                      {/* Ghost bar for dependent cascade preview */}
+                      {ghostStart!==null && (
+                        <div className="absolute top-2 h-5 rounded-full border-2 border-dashed border-amber-400 bg-amber-100 opacity-60 flex items-center px-2 transition-all duration-75"
+                          style={{left:`${(ghostStart/60)*100}%`,width:`${(item.width/60)*100}%`}}>
+                          <span className="text-amber-700 text-[9px] font-semibold truncate">will shift →</span>
+                        </div>
+                      )}
+                      {/* Actual bar */}
+                      <div
+                        onMouseDown={e=>{ setDragState({idx:i,startX:e.clientX,origStart:item.start}); e.preventDefault(); }}
+                        className={`absolute top-2 h-5 rounded-full flex items-center px-2.5 transition-all duration-75 ${isDragging?"cursor-grabbing shadow-lg ring-2 ring-indigo-400 ring-offset-1 opacity-90":"cursor-grab hover:opacity-90 hover:shadow-sm"} ${item.color}`}
+                        style={{left:`${(item.start/60)*100}%`,width:`${(item.width/60)*100}%`}}>
+                        <span className="text-white text-[10px] font-semibold truncate">{item.name}</span>
+                        {isDragging && <span className="ml-auto text-white/80 text-[9px] shrink-0">⟷</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Cascade confirm dialog */}
+            {cascadeConfirm && (
+              <div className="mt-3 rounded-xl border-2 border-amber-400 bg-amber-50 p-4">
+                <div className="text-sm font-bold text-amber-900 mb-1">
+                  ⚡ Cascade Impact — {cascadeConfirm.shift>0?"Pushed forward":"Pulled back"} by {Math.abs(cascadeConfirm.shift)} {Math.abs(cascadeConfirm.shift)===1?"unit":"units"}
+                </div>
+                <p className="text-xs text-amber-800 mb-3">
+                  Moving this project affects <strong>{cascadeConfirm.dependents.length} dependent project{cascadeConfirm.dependents.length>1?"s":""}</strong>:
+                  {cascadeConfirm.dependents.map(d=><span key={d.idx} className="ml-1 font-semibold">"{d.name}"</span>)}. Apply the same shift to all of them?
+                </p>
+                <div className="flex gap-2">
+                  <button onClick={applyCascade} className="px-4 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition">
+                    ✓ Move Dependents Too
+                  </button>
+                  <button onClick={()=>setCascadeConfirm(null)} className="px-4 py-1.5 rounded-lg bg-white border border-amber-300 text-amber-800 text-xs font-semibold hover:bg-amber-50 transition">
+                    Leave Dependents in Place
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-3 rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-2.5 text-xs text-neutral-500">
+              💡 <strong className="text-neutral-700">How it works:</strong> Drag any bar left or right. Projects with dependencies show a ghost preview. Release to confirm — Forge asks whether to cascade the shift to dependent projects.
             </div>
           </div>
-        </>
-      ))}
+        )}
 
-      {tab === "board" && <BoardTab />}
-      {tab === "timeline" && <TimelineTab />}
-      {tab === "costs" && <CostsTab />}
+        {/* REPORTS — widget dashboard with drill-down */}
+        {view==="reports" && (
+          <div className="max-w-[1100px]">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-lg font-bold text-neutral-900">Reports</h1>
+                <p className="text-xs text-neutral-500 mt-0.5">Click any widget to drill into the underlying data</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <select className="text-xs border border-neutral-200 rounded-lg px-3 py-1.5 bg-white text-neutral-700">
+                  <option>Sprint 6</option><option>Sprint 5</option><option>Sprint 4</option>
+                </select>
+                <button className="px-4 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition">Export PDF</button>
+              </div>
+            </div>
 
-      <p className="text-center text-sm text-neutral-500">
-        Tabs are the project&rsquo;s work surfaces: <strong>Overview</strong> (status) · <strong>Board</strong> (do the work) · <strong>Timeline</strong> (schedule) · <strong>Costs</strong> (budget). Active/New toggle affects Overview.
-      </p>
+            {/* Widget grid */}
+            <div className="grid grid-cols-3 gap-3">
+
+              {/* 1 — Velocity */}
+              <div onClick={()=>setDrillWidget(drillWidget==="velocity"?null:"velocity")}
+                className={`bg-white rounded-xl border p-4 cursor-pointer hover:shadow-md transition ${drillWidget==="velocity"?"border-indigo-400 ring-1 ring-indigo-200":"border-neutral-200 hover:border-indigo-300"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-neutral-900">Velocity</div>
+                  <span className="text-[10px] text-neutral-400">pts/sprint</span>
+                </div>
+                <div className="flex items-end gap-1.5 h-20 mb-2">
+                  {[22,18,28,24,31,null].map((v,i)=>(
+                    <div key={i} className="flex-1 flex flex-col items-center gap-0.5">
+                      {v!=null ? (
+                        <div className={`w-full rounded-t ${i===5?"bg-indigo-200 border-2 border-dashed border-indigo-400":"bg-indigo-500"}`} style={{height:`${(v/35)*68}px`}}/>
+                      ) : (
+                        <div className="w-full rounded-t bg-neutral-100 border-2 border-dashed border-neutral-300" style={{height:`${(28/35)*68}px`}}/>
+                      )}
+                      <span className="text-[9px] text-neutral-400">{v!=null?`S${i+1}`:"S6▸"}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[11px] text-neutral-500">Avg <strong className="text-neutral-800">24.6</strong> pts · trending ↗</div>
+              </div>
+
+              {/* 2 — Cycle Time */}
+              <div onClick={()=>setDrillWidget(drillWidget==="cycletime"?null:"cycletime")}
+                className={`bg-white rounded-xl border p-4 cursor-pointer hover:shadow-md transition ${drillWidget==="cycletime"?"border-amber-400 ring-1 ring-amber-200":"border-neutral-200 hover:border-amber-300"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-neutral-900">Cycle Time</div>
+                  <span className="text-[10px] text-neutral-400">avg days per stage</span>
+                </div>
+                <div className="space-y-2">
+                  {[
+                    {label:"Todo → In Progress", days:1.2, max:5, color:"bg-sky-400"},
+                    {label:"In Progress → Review", days:3.8, max:5, color:"bg-amber-400"},
+                    {label:"Review → Done",        days:1.1, max:5, color:"bg-emerald-400"},
+                  ].map(s=>(
+                    <div key={s.label}>
+                      <div className="flex justify-between text-[10px] text-neutral-500 mb-0.5">
+                        <span>{s.label}</span><strong className="text-neutral-800">{s.days}d</strong>
+                      </div>
+                      <div className="h-2 bg-neutral-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${s.color}`} style={{width:`${(s.days/s.max)*100}%`}}/>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-[11px] text-amber-700 font-medium">⚠ Review stage is the bottleneck</div>
+              </div>
+
+              {/* 3 — Scope Creep */}
+              <div onClick={()=>setDrillWidget(drillWidget==="scope"?null:"scope")}
+                className={`bg-white rounded-xl border p-4 cursor-pointer hover:shadow-md transition ${drillWidget==="scope"?"border-red-400 ring-1 ring-red-200":"border-neutral-200 hover:border-red-300"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-neutral-900">Scope Creep</div>
+                  <span className="text-[10px] text-neutral-400">issues added mid-sprint</span>
+                </div>
+                <div className="flex items-center justify-center h-20">
+                  <div className="text-center">
+                    <div className="text-4xl font-bold text-red-500">+3</div>
+                    <div className="text-xs text-neutral-500 mt-1">issues added after sprint start</div>
+                    <div className="text-[10px] text-neutral-400">vs. original 12 planned</div>
+                  </div>
+                </div>
+                <div className="text-[11px] text-red-700 font-medium">25% scope expansion this sprint</div>
+              </div>
+
+              {/* 4 — Assignee Load */}
+              <div onClick={()=>setDrillWidget(drillWidget==="load"?null:"load")}
+                className={`bg-white rounded-xl border p-4 cursor-pointer hover:shadow-md transition ${drillWidget==="load"?"border-indigo-400 ring-1 ring-indigo-200":"border-neutral-200 hover:border-indigo-300"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-neutral-900">Assignee Load</div>
+                  <span className="text-[10px] text-neutral-400">open issues in sprint</span>
+                </div>
+                <div className="space-y-2">
+                  {TEAM.slice(0,5).map(m=>{
+                    const open = ALL_ISSUES.filter(i=>i.assigneeId===m.id&&i.sprint==="Sprint 6"&&i.status!=="done").length;
+                    const done = ALL_ISSUES.filter(i=>i.assigneeId===m.id&&i.sprint==="Sprint 6"&&i.status==="done").length;
+                    return (
+                      <div key={m.id} className="flex items-center gap-2">
+                        <Av id={m.id} size="xs"/>
+                        <div className="w-20 text-[10px] text-neutral-700 truncate">{m.name.split(" ")[0]}</div>
+                        <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-400 rounded-full" style={{width:`${Math.min(100,((open+done)/4)*100)}%`}}/>
+                        </div>
+                        <span className="text-[10px] text-neutral-500 w-8 text-right">{open} open</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* 5 — Blocked Time */}
+              <div onClick={()=>setDrillWidget(drillWidget==="blocked"?null:"blocked")}
+                className={`bg-white rounded-xl border p-4 cursor-pointer hover:shadow-md transition ${drillWidget==="blocked"?"border-red-400 ring-1 ring-red-200":"border-neutral-200 hover:border-red-300"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-neutral-900">Blocked Time</div>
+                  <span className="text-[10px] text-neutral-400">days issues sat blocked</span>
+                </div>
+                <div className="space-y-1.5">
+                  {ALL_ISSUES.filter(i=>i.status==="blocked"||i.daysOld>3).slice(0,4).map(issue=>(
+                    <div key={issue.id} className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono text-neutral-400 w-[60px] shrink-0">{issue.key}</span>
+                      <div className="flex-1 h-2 bg-neutral-100 rounded-full overflow-hidden">
+                        <div className="h-full bg-red-400 rounded-full" style={{width:`${Math.min(100,(issue.daysOld/10)*100)}%`}}/>
+                      </div>
+                      <span className="text-[10px] text-red-600 w-8 text-right font-medium">{issue.daysOld}d</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 text-[11px] text-neutral-500">Total blocked days: <strong className="text-red-600">26d</strong> this sprint</div>
+              </div>
+
+              {/* 6 — Bug vs Feature */}
+              <div onClick={()=>setDrillWidget(drillWidget==="bugvsfeat"?null:"bugvsfeat")}
+                className={`bg-white rounded-xl border p-4 cursor-pointer hover:shadow-md transition ${drillWidget==="bugvsfeat"?"border-emerald-400 ring-1 ring-emerald-200":"border-neutral-200 hover:border-emerald-300"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-neutral-900">Bug vs Feature</div>
+                  <span className="text-[10px] text-neutral-400">by issue type</span>
+                </div>
+                {(()=>{
+                  const bugs     = ALL_ISSUES.filter(i=>i.type==="bug").length;
+                  const features = ALL_ISSUES.filter(i=>i.type==="feature").length;
+                  const chores   = ALL_ISSUES.filter(i=>i.type==="chore").length;
+                  const total    = bugs+features+chores||1;
+                  return (
+                    <div>
+                      <div className="flex h-6 rounded-full overflow-hidden mb-3">
+                        <div className="bg-red-400 flex items-center justify-center text-[9px] text-white font-bold" style={{width:`${(bugs/total)*100}%`}}>{bugs}</div>
+                        <div className="bg-indigo-400 flex items-center justify-center text-[9px] text-white font-bold" style={{width:`${(features/total)*100}%`}}>{features}</div>
+                        <div className="bg-neutral-300 flex items-center justify-center text-[9px] text-white font-bold" style={{width:`${(chores/total)*100}%`}}>{chores}</div>
+                      </div>
+                      <div className="flex gap-3 text-[10px]">
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-400 inline-block"/>Bugs {Math.round((bugs/total)*100)}%</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-indigo-400 inline-block"/>Features {Math.round((features/total)*100)}%</span>
+                        <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-neutral-300 inline-block"/>Chores {Math.round((chores/total)*100)}%</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+                <div className="mt-2 text-[11px] text-emerald-700 font-medium">⚡ This sprint is bug-heavy</div>
+              </div>
+
+              {/* 7 — Throughput */}
+              <div onClick={()=>setDrillWidget(drillWidget==="throughput"?null:"throughput")}
+                className={`bg-white rounded-xl border p-4 cursor-pointer hover:shadow-md transition col-span-2 ${drillWidget==="throughput"?"border-sky-400 ring-1 ring-sky-200":"border-neutral-200 hover:border-sky-300"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-neutral-900">Weekly Throughput</div>
+                  <span className="text-[10px] text-neutral-400">issues closed per week</span>
+                </div>
+                <div className="flex items-end gap-2 h-16">
+                  {[
+                    {w:"Jun 1",  n:4},{w:"Jun 8",  n:7},{w:"Jun 15", n:5},{w:"Jun 22", n:null},
+                  ].map((w,i)=>(
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                      {w.n!=null ? (
+                        <><div className="w-full rounded-t bg-sky-400 hover:bg-sky-500 transition" style={{height:`${(w.n/10)*52}px`}}/>
+                        <span className="text-[9px] text-neutral-400">{w.n}</span></>
+                      ):(
+                        <><div className="w-full rounded-t bg-neutral-100 border-2 border-dashed border-neutral-300" style={{height:`${(6/10)*52}px`}}/>
+                        <span className="text-[9px] text-indigo-400">est</span></>
+                      )}
+                      <span className="text-[9px] text-neutral-400">{w.w}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* 8 — Open vs Closed */}
+              <div onClick={()=>setDrillWidget(drillWidget==="openclosed"?null:"openclosed")}
+                className={`bg-white rounded-xl border p-4 cursor-pointer hover:shadow-md transition ${drillWidget==="openclosed"?"border-violet-400 ring-1 ring-violet-200":"border-neutral-200 hover:border-violet-300"}`}>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-sm font-semibold text-neutral-900">Open vs Closed</div>
+                  <span className="text-[10px] text-neutral-400">cumulative</span>
+                </div>
+                {(()=>{
+                  const open   = ALL_ISSUES.filter(i=>i.status!=="done").length;
+                  const closed = ALL_ISSUES.filter(i=>i.status==="done").length;
+                  const total  = open+closed||1;
+                  return (
+                    <div className="flex flex-col items-center justify-center h-20 gap-2">
+                      <div className="flex w-full h-4 rounded-full overflow-hidden">
+                        <div className="bg-emerald-400" style={{width:`${(closed/total)*100}%`}}/>
+                        <div className="bg-red-300" style={{width:`${(open/total)*100}%`}}/>
+                      </div>
+                      <div className="flex gap-4 text-xs">
+                        <span className="flex items-center gap-1 text-emerald-700"><span className="w-2 h-2 rounded-full bg-emerald-400"/>Closed {closed}</span>
+                        <span className="flex items-center gap-1 text-red-600"><span className="w-2 h-2 rounded-full bg-red-300"/>Open {open}</span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Drill-down panel */}
+            {drillWidget && (
+              <div className="mt-4 bg-white rounded-xl border-2 border-indigo-300 p-5">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="text-sm font-bold text-neutral-900">
+                    {drillWidget==="velocity"   && "🔍 Velocity Drill-down — Sprint-by-Sprint Issues"}
+                    {drillWidget==="cycletime"  && "🔍 Cycle Time — Issues Stuck in Review"}
+                    {drillWidget==="scope"      && "🔍 Scope Creep — Issues Added After Sprint Start"}
+                    {drillWidget==="load"       && "🔍 Assignee Load — Open Issues by Person"}
+                    {drillWidget==="blocked"    && "🔍 Blocked Time — Issue-by-Issue Breakdown"}
+                    {drillWidget==="bugvsfeat"  && "🔍 Bug vs Feature — Full Issue List by Type"}
+                    {drillWidget==="throughput" && "🔍 Throughput — Issues Closed This Week"}
+                    {drillWidget==="openclosed" && "🔍 Open Issues — What Remains to Close"}
+                  </div>
+                  <button onClick={()=>setDrillWidget(null)} className="text-neutral-400 hover:text-neutral-700 text-xs transition">✕ Close</button>
+                </div>
+                <div className="space-y-1.5">
+                  {(drillWidget==="load"
+                    ? ALL_ISSUES.filter(i=>i.sprint==="Sprint 6"&&i.status!=="done")
+                    : drillWidget==="blocked"
+                    ? ALL_ISSUES.filter(i=>i.status==="blocked"||i.daysOld>3)
+                    : drillWidget==="bugvsfeat"
+                    ? ALL_ISSUES.filter(i=>i.type==="bug")
+                    : drillWidget==="throughput"||drillWidget==="openclosed"
+                    ? ALL_ISSUES.filter(i=>i.status!=="done")
+                    : drillWidget==="scope"
+                    ? ALL_ISSUES.filter(i=>!i.sprint).slice(0,4)
+                    : ALL_ISSUES.slice(0,8)
+                  ).map(issue=>(
+                    <div key={issue.id} onClick={()=>setActiveIssue(issue)}
+                      className="flex items-center gap-3 px-3 py-2.5 bg-neutral-50 rounded-lg hover:bg-indigo-50 cursor-pointer border border-transparent hover:border-indigo-200 transition">
+                      <TypeIcon t={issue.type}/>
+                      <span className="text-[10px] font-mono text-neutral-400 w-[76px] shrink-0">{issue.key}</span>
+                      <span className="text-xs text-neutral-800 flex-1 truncate">{issue.title}</span>
+                      <StatusBadge status={issue.status}/>
+                      {issue.assigneeId && <Av id={issue.assigneeId} size="xs"/>}
+                      <span className="text-[10px] text-neutral-400 w-8 text-right">{issue.daysOld}d</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 text-[11px] text-neutral-400 text-center">Click any issue to open its full detail →</div>
+              </div>
+            )}
+          </div>
+        )}
+        {view==="thinktank" && <ThinkTankView/>}
+      </div>
+      {activeIssue && <IssueDetail issue={activeIssue} onClose={()=>setActiveIssue(null)} role="pm"/>}
     </div>
   );
 }
 
-/* The differentiator: why this project exists — origin, decisions, sign-offs,
-   carried forward from Think Tank onto the project home. */
-function ProvenancePanel() {
+// ══════════════════════════════════════════════════════════════
+//  COLLABORATOR SHELL
+// ══════════════════════════════════════════════════════════════
+
+function CollaboratorShell({onCmdK}:{onCmdK:()=>void}) {
+  const [view,setView] = useState("feed");
+  const [activeIssue,setActiveIssue] = useState<Issue|null>(null);
+  const [watching,setWatching] = useState(new Set(["i1","i2","i14"]));
+
+  const navItems = [
+    {id:"feed",     icon:"📥", label:"My Feed",   badge:3},
+    {id:"assigned", icon:"📌", label:"Assigned",  badge:0},
+    {id:"watching", icon:"👁",  label:"Watching",  badge:0},
+    {id:"projects", icon:"🗂",  label:"Projects",  badge:0},
+  ];
+
+  const feedItems = ALL_NOTIFS.filter(n=>n.role.includes("collaborator"));
+  const assignedIssues = ALL_ISSUES.filter(i=>i.assigneeId==="u6");
+  const watchingIssues = ALL_ISSUES.filter(i=>watching.has(i.id));
+
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-5">
-      <div className="mb-1 flex items-center gap-2">
-        <h3 className="font-semibold text-neutral-900">Why this project exists</h3>
-        <span className="rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-bold text-purple-700">PROVENANCE</span>
+    <div className="flex h-[calc(100vh-112px)] overflow-hidden">
+      <div className="w-52 shrink-0 bg-white border-r border-neutral-200 flex flex-col">
+        <div className="px-3 py-3 border-b border-neutral-100">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Collaborator</div>
+          <div className="flex items-center gap-2 mt-2">
+            <Av id="u6" size="sm"/>
+            <div>
+              <div className="text-xs font-semibold text-neutral-900">Dana Walsh</div>
+              <div className="text-[10px] text-neutral-400">QA Engineer</div>
+            </div>
+          </div>
+        </div>
+        <nav className="p-2 flex-1">
+          {navItems.map(n=>(
+            <button key={n.id} onClick={()=>setView(n.id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition mb-0.5 text-left ${view===n.id?"bg-neutral-900 text-white":"text-neutral-600 hover:bg-neutral-100"}`}>
+              <span>{n.icon}</span>{n.label}
+              {n.badge>0 && <span className="ml-auto text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5">{n.badge}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="p-3 border-t border-neutral-100">
+          <button onClick={onCmdK} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 transition">
+            <span>🔍</span><span className="flex-1 text-left">Search</span><kbd className="text-[10px] font-mono bg-neutral-100 border border-neutral-200 px-1 rounded">⌘K</kbd>
+          </button>
+        </div>
       </div>
-      <p className="mb-4 text-sm text-neutral-500">The origin, decisions, and sign-offs that led here — carried from Think Tank so the &ldquo;why&rdquo; never gets lost.</p>
 
-      <div className="grid grid-cols-3 gap-4">
-        {/* Origin */}
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Origin</p>
-          <p className="mt-2 text-sm font-medium text-neutral-900">💡 Personal finance for real people</p>
-          <p className="mt-1 text-xs text-neutral-500">Raised by Jordan Lee · discussed 3 weeks · converted Jun 2</p>
-          <button className="mt-2 text-xs font-medium text-indigo-600 hover:underline">View in Think Tank →</button>
-        </div>
+      <div className="flex-1 overflow-y-auto bg-neutral-50 p-4">
+        {/* FEED */}
+        {view==="feed" && (
+          <div className="max-w-[700px] space-y-3">
+            <h1 className="text-lg font-bold text-neutral-900">My Feed</h1>
+            <p className="text-sm text-neutral-500">Things that need your attention today</p>
+            {feedItems.map(n=>(
+              <div key={n.id} className={`bg-white rounded-xl border px-4 py-3 flex gap-3 hover:border-indigo-200 transition cursor-pointer ${!n.read?"border-indigo-200 bg-indigo-50/20":"border-neutral-200"}`}>
+                <div className="w-9 h-9 rounded-full bg-neutral-100 flex items-center justify-center text-base shrink-0">{n.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="text-sm font-semibold text-neutral-800">{n.title}</div>
+                    {!n.read && <div className="w-2 h-2 rounded-full bg-indigo-500 shrink-0 mt-1.5"/>}
+                  </div>
+                  <div className="text-xs text-neutral-500 mt-0.5">{n.detail}</div>
+                  <div className="flex items-center gap-3 mt-1.5">
+                    {n.key && <span className="text-[10px] font-mono text-neutral-400">{n.key}</span>}
+                    <span className="text-[10px] text-neutral-400">{n.time}</span>
+                    {n.actionable && (
+                      <button onClick={()=>{const iss=ALL_ISSUES.find(i=>i.key===n.key);if(iss)setActiveIssue(iss);}}
+                        className="ml-auto text-[10px] px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition">View & Comment</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
 
-        {/* Decisions */}
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Decisions</p>
-          <ul className="mt-2 space-y-2">
-            <li className="text-sm text-neutral-700">✅ <strong>Scope v1 to ledger + budgeting</strong><span className="block text-xs text-neutral-500">bank sync deferred — too much compliance for v1</span></li>
-            <li className="text-sm text-neutral-700">✅ <strong>Estimated costs, not live booking</strong><span className="block text-xs text-neutral-500">matches the AI-planner model</span></li>
-          </ul>
-        </div>
+        {/* ASSIGNED */}
+        {view==="assigned" && (
+          <div className="max-w-[700px]">
+            <h1 className="text-lg font-bold text-neutral-900 mb-4">Assigned to Me</h1>
+            {assignedIssues.length===0 ? (
+              <div className="bg-white rounded-xl border border-dashed border-neutral-200 p-8 text-center">
+                <div className="text-3xl mb-2">🎉</div>
+                <div className="text-sm text-neutral-600">No issues assigned to you right now.</div>
+              </div>
+            ) : assignedIssues.map(issue=>(
+              <div key={issue.id} onClick={()=>setActiveIssue(issue)} className="bg-white rounded-xl border border-neutral-200 px-4 py-3 hover:border-indigo-200 transition cursor-pointer flex items-center gap-3 mb-2">
+                <TypeIcon t={issue.type}/>
+                <span className="text-[11px] font-mono text-neutral-400 w-[76px]">{issue.key}</span>
+                <span className="text-sm font-medium text-neutral-900 flex-1 truncate">{issue.title}</span>
+                <StatusBadge status={issue.status}/>
+              </div>
+            ))}
+          </div>
+        )}
 
-        {/* Sign-offs */}
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Sign-offs</p>
-          <div className="mt-2 space-y-1.5">
+        {/* WATCHING */}
+        {view==="watching" && (
+          <div className="max-w-[700px]">
+            <h1 className="text-lg font-bold text-neutral-900 mb-4">Watching</h1>
+            <p className="text-sm text-neutral-500 mb-4">Issues you're subscribed to — you'll be notified of any changes.</p>
+            {watchingIssues.map(issue=>(
+              <div key={issue.id} className="bg-white rounded-xl border border-neutral-200 px-4 py-3 mb-2 hover:border-indigo-200 transition flex items-center gap-3">
+                <div className="cursor-pointer flex-1 flex items-center gap-3 min-w-0" onClick={()=>setActiveIssue(issue)}>
+                  <TypeIcon t={issue.type}/>
+                  <span className="text-[11px] font-mono text-neutral-400 w-[76px]">{issue.key}</span>
+                  <span className="text-sm font-medium text-neutral-900 flex-1 truncate">{issue.title}</span>
+                  <StatusBadge status={issue.status}/>
+                </div>
+                <button onClick={()=>setWatching(prev=>{const n=new Set(prev);n.delete(issue.id);return n;})}
+                  className="text-xs text-neutral-400 hover:text-red-500 transition px-2">Unwatch</button>
+              </div>
+            ))}
+            <div className="mt-4 text-xs text-neutral-400">Click "Watch" on any issue to add it here. You'll get notified on status changes, decisions, and @mentions.</div>
+          </div>
+        )}
+
+        {/* PROJECTS */}
+        {view==="projects" && (
+          <div className="max-w-[700px]">
+            <h1 className="text-lg font-bold text-neutral-900 mb-4">Projects</h1>
             {[
-              { r: "🎨 Design", who: "Sarah Kim" },
-              { r: "📊 Product", who: "Jordan Lee" },
-              { r: "⚙️ Engineering", who: "Alex Chen" },
-            ].map((s) => (
-              <div key={s.r} className="flex items-center justify-between text-sm">
-                <span className="text-neutral-700">{s.r}</span>
-                <span className="text-xs font-semibold text-green-700">✓ {s.who}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* Board tab — the work surface that already exists in Forge today. */
-function BoardTab() {
-  const cols = [
-    { name: "Backlog", color: "bg-neutral-300", cards: ["PER-40 · Recurring transactions", "PER-41 · CSV import"] },
-    { name: "Todo", color: "bg-sky-400", cards: ["PER-35 · Budget alerts", "PER-36 · Category rules"] },
-    { name: "In progress", color: "bg-indigo-500", cards: ["PER-31 · Spending insights", "PER-33 · Net-worth tile"] },
-    { name: "In review", color: "bg-amber-400", cards: ["PER-29 · Ledger pagination"] },
-    { name: "Done", color: "bg-emerald-500", cards: ["PER-28 · Category chips", "PER-22 · Auth"] },
-  ];
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
-        <strong className="text-neutral-900">This is where you do the work.</strong> Create issues, assign them, and drag cards across columns as you build. This board already exists in Forge — the Overview tab is just the live rollup of what happens here.
-      </div>
-      <div className="grid grid-cols-5 gap-3">
-        {cols.map((c) => (
-          <div key={c.name} className="rounded-xl border border-neutral-200 bg-white p-3">
-            <div className="mb-3 flex items-center gap-2">
-              <span className={`h-2.5 w-2.5 rounded-sm ${c.color}`} />
-              <span className="text-xs font-semibold text-neutral-700">{c.name}</span>
-              <span className="ml-auto text-xs text-neutral-400">{c.cards.length}</span>
-            </div>
-            <div className="space-y-2">
-              {c.cards.map((t) => (
-                <div key={t} className="rounded-lg border border-neutral-200 bg-white p-2.5 text-xs text-neutral-700 shadow-sm">{t}</div>
-              ))}
-              <button className="w-full rounded-lg border border-dashed border-neutral-300 py-1.5 text-xs text-neutral-400 hover:text-neutral-600">+ Add</button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <button className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">Open full board →</button>
-    </div>
-  );
-}
-
-/* Timeline tab — lightweight: issues on a track by start/due, color by status. */
-function TimelineTab() {
-  const weeks = ["May 1", "", "May 15", "", "Jun 1", "", "Jun 15", "", "Jul 1", ""];
-  const todayPct = 42;
-  const goLivePct = 86;
-  const rows = [
-    { ref: "PER-22 · Auth", start: 0, end: 18, color: "bg-emerald-500" },
-    { ref: "PER-28 · Category chips", start: 8, end: 30, color: "bg-emerald-500" },
-    { ref: "PER-31 · Spending insights", start: 24, end: 52, color: "bg-indigo-500" },
-    { ref: "PER-33 · Net-worth tile", start: 30, end: 58, color: "bg-indigo-500" },
-    { ref: "PER-29 · Ledger pagination", start: 38, end: 50, color: "bg-amber-400" },
-    { ref: "PER-35 · Budget alerts", start: 52, end: 74, color: "bg-sky-400" },
-    { ref: "PER-40 · Recurring txns", start: 64, end: 86, color: "bg-neutral-300" },
-  ];
-  return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
-        <strong className="text-neutral-900">Lightweight timeline.</strong> Each bar is an issue on a track by its start/due date, colored by status. No dependency arrows or critical paths — just &ldquo;what&rsquo;s happening when,&rdquo; the way a small team actually needs it. <span className="text-neutral-400">(Requires adding start/due dates to issues.)</span>
-      </div>
-      <div className="rounded-xl border border-neutral-200 bg-white p-5">
-        {/* Week axis */}
-        <div className="ml-44 flex text-[11px] text-neutral-400">
-          {weeks.map((w, i) => (
-            <div key={i} className="flex-1">{w}</div>
-          ))}
-        </div>
-        {/* Rows */}
-        <div className="relative mt-2">
-          {/* today + go-live verticals */}
-          <div className="pointer-events-none absolute inset-y-0 left-44 right-0">
-            <div className="absolute inset-y-0 w-px bg-indigo-400" style={{ left: `${todayPct}%` }} />
-            <div className="absolute -top-4 text-[10px] font-medium text-indigo-500" style={{ left: `${todayPct}%` }}>today</div>
-            <div className="absolute inset-y-0 w-px bg-red-400" style={{ left: `${goLivePct}%` }} />
-            <div className="absolute -top-4 -translate-x-full text-[10px] font-medium text-red-500" style={{ left: `${goLivePct}%` }}>go-live</div>
-          </div>
-          <div className="space-y-2">
-            {rows.map((r) => (
-              <div key={r.ref} className="flex items-center">
-                <div className="w-44 shrink-0 truncate pr-3 text-xs text-neutral-600">{r.ref}</div>
-                <div className="relative h-6 flex-1 rounded bg-neutral-50">
-                  <div
-                    className={`absolute top-1 h-4 rounded ${r.color}`}
-                    style={{ left: `${r.start}%`, width: `${r.end - r.start}%` }}
-                    title={r.ref}
-                  />
+              {key:"FORGE",name:"Forge Issue Tracker",open:12,color:"bg-indigo-500",access:"Member"},
+              {key:"WEB",  name:"Travli Web App",      open:8, color:"bg-emerald-500",access:"Member"},
+              {key:"MOB",  name:"Travli Mobile",       open:3, color:"bg-violet-500", access:"Viewer"},
+            ].map(p=>(
+              <div key={p.key} className="bg-white rounded-xl border border-neutral-200 px-4 py-4 mb-3 hover:border-indigo-200 transition cursor-pointer flex items-center gap-4">
+                <div className={`w-10 h-10 rounded-lg ${p.color} flex items-center justify-center text-white font-bold text-sm`}>{p.key[0]}</div>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-neutral-900">{p.name}</div>
+                  <div className="text-xs text-neutral-500">{p.open} open issues · Sprint 6</div>
                 </div>
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-neutral-100 text-neutral-600 border border-neutral-200">{p.access}</span>
               </div>
             ))}
           </div>
-        </div>
-        {/* legend */}
-        <div className="ml-44 mt-4 flex flex-wrap gap-x-4 gap-y-1">
-          {[
-            { l: "Backlog", c: "bg-neutral-300" },
-            { l: "Todo", c: "bg-sky-400" },
-            { l: "In progress", c: "bg-indigo-500" },
-            { l: "In review", c: "bg-amber-400" },
-            { l: "Done", c: "bg-emerald-500" },
-          ].map((x) => (
-            <div key={x.l} className="flex items-center gap-1.5">
-              <span className={`h-2.5 w-2.5 rounded-sm ${x.c}`} />
-              <span className="text-xs text-neutral-600">{x.l}</span>
+        )}
+      </div>
+      {activeIssue && <IssueDetail issue={activeIssue} onClose={()=>setActiveIssue(null)} role="collaborator"/>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
+//  ADMIN SHELL
+// ══════════════════════════════════════════════════════════════
+
+function AdminShell({onCmdK}:{onCmdK:()=>void}) {
+  const [view,setView] = useState("workspace");
+  const [memberRole,setMemberRole] = useState<Record<string,string>>(Object.fromEntries(TEAM.map(m=>[m.id,m.role])));
+
+  const navItems = [
+    {id:"workspace",icon:"🏢", label:"Workspace",  badge:0},
+    {id:"members",  icon:"👥", label:"Members",    badge:1},
+    {id:"settings", icon:"⚙️", label:"Settings",   badge:0},
+    {id:"audit",    icon:"📋", label:"Audit Log",  badge:2},
+  ];
+
+  const projects = [
+    {key:"FORGE",name:"Forge Issue Tracker",status:"on_track", health:68, open:12},
+    {key:"WEB",  name:"Travli Web App",      status:"at_risk",  health:52, open:8},
+    {key:"MOB",  name:"Travli Mobile",       status:"on_track", health:81, open:3},
+    {key:"INFRA",name:"Platform Infra",      status:"blocked",  health:34, open:4},
+  ];
+
+  const auditLog = [
+    {icon:"🔒",text:"FORGE-52 created — SEC-05 Make IMPERSONATION_SECRET mandatory",user:"u1",time:"1 day ago"},
+    {icon:"👤",text:"Dana Walsh joined workspace as QA Engineer",user:"u4",time:"3h ago"},
+    {icon:"⚙️",text:"Feature flag think_tank enabled for all users",user:"u1",time:"2 days ago"},
+    {icon:"🔑",text:"API key rotated for FORGE project",user:"u1",time:"3 days ago"},
+    {icon:"📧",text:"5 workspace invitations sent",user:"u4",time:"4 days ago"},
+    {icon:"🛡️",text:"RLS policies updated — isolation test passed",user:"u2",time:"5 days ago"},
+  ];
+
+  const statusCfg = {
+    on_track:{label:"On Track",bg:"bg-emerald-50",text:"text-emerald-700",border:"border-emerald-200",dot:"bg-emerald-500"},
+    at_risk: {label:"At Risk", bg:"bg-amber-50",  text:"text-amber-700",  border:"border-amber-200",  dot:"bg-amber-400"},
+    blocked: {label:"Blocked", bg:"bg-red-50",    text:"text-red-700",    border:"border-red-200",    dot:"bg-red-500"},
+  } as Record<string,{label:string;bg:string;text:string;border:string;dot:string}>;
+
+  const features = [
+    {key:"think_tank",    label:"Think Tank",         desc:"AI idea capture + provenance",on:true},
+    {key:"ai_copilot",    label:"AI Co-pilot",        desc:"Issue suggestions + auto-summaries",on:true},
+    {key:"dashboards",    label:"Dashboards",         desc:"Cross-project analytics",on:false},
+    {key:"project_portal",label:"Project Portal",     desc:"Stakeholder embed view",on:false},
+    {key:"group_fields",  label:"Custom Fields",      desc:"Per-tenant field configuration",on:false},
+  ];
+  const [featureState,setFeatureState] = useState(Object.fromEntries(features.map(f=>[f.key,f.on])));
+
+  return (
+    <div className="flex h-[calc(100vh-112px)] overflow-hidden">
+      <div className="w-52 shrink-0 bg-white border-r border-neutral-200 flex flex-col">
+        <div className="px-3 py-3 border-b border-neutral-100">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Admin</div>
+          <div className="flex items-center gap-2 mt-2">
+            <Av id="u1" size="sm"/>
+            <div>
+              <div className="text-xs font-semibold text-neutral-900">Matt Giblin</div>
+              <div className="text-[10px] text-indigo-600 font-semibold">Super Admin</div>
             </div>
-          ))}
+          </div>
         </div>
+        <nav className="p-2 flex-1">
+          {navItems.map(n=>(
+            <button key={n.id} onClick={()=>setView(n.id)}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition mb-0.5 text-left ${view===n.id?"bg-neutral-900 text-white":"text-neutral-600 hover:bg-neutral-100"}`}>
+              <span>{n.icon}</span>{n.label}
+              {n.badge>0 && <span className="ml-auto text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5">{n.badge}</span>}
+            </button>
+          ))}
+        </nav>
+        <div className="p-3 border-t border-neutral-100">
+          <button onClick={onCmdK} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 transition">
+            <span>🔍</span><span className="flex-1 text-left">Search</span><kbd className="text-[10px] font-mono bg-neutral-100 border border-neutral-200 px-1 rounded">⌘K</kbd>
+          </button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto bg-neutral-50 p-4">
+        {/* WORKSPACE OVERVIEW */}
+        {view==="workspace" && (
+          <div className="max-w-[1000px] space-y-4">
+            <div className="flex items-center justify-between">
+              <h1 className="text-xl font-bold text-neutral-900">Workspace Overview</h1>
+              <button className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">Export Summary</button>
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              {[
+                {v:"4",         l:"Active Projects", sub:"2 on track, 1 blocked", c:"text-neutral-900"},
+                {v:`${TEAM.length}`,l:"Team Members",    sub:"4 online now",         c:"text-indigo-600"},
+                {v:"15",        l:"Open Issues",     sub:"Sprint 6 active",      c:"text-neutral-900"},
+                {v:"3",         l:"Security Alerts", sub:"From Think Tank audit", c:"text-red-600"},
+              ].map(k=>(
+                <div key={k.l} className="bg-white rounded-xl border border-neutral-200 p-4">
+                  <div className={`text-2xl font-bold ${k.c}`}>{k.v}</div>
+                  <div className="text-xs font-semibold text-neutral-700 mt-1">{k.l}</div>
+                  <div className="text-[11px] text-neutral-400">{k.sub}</div>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              {projects.map(p=>{
+                const s = statusCfg[p.status];
+                return (
+                  <div key={p.key} className="bg-white rounded-xl border border-neutral-200 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="text-sm font-semibold text-neutral-900">{p.name}</div>
+                        <div className="text-[10px] text-neutral-400">{p.key}</div>
+                      </div>
+                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border ${s.bg} ${s.text} ${s.border}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}/>{s.label}
+                      </span>
+                    </div>
+                    <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden mb-2">
+                      <div className={`h-full rounded-full ${p.health>=70?"bg-emerald-500":p.health>=50?"bg-amber-400":"bg-red-500"}`} style={{width:`${p.health}%`}}/>
+                    </div>
+                    <div className="flex justify-between text-xs text-neutral-500">
+                      <span>{p.open} open issues</span><span>{p.health}% sprint complete</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* MEMBERS */}
+        {view==="members" && (
+          <div className="max-w-[800px]">
+            <div className="flex items-center justify-between mb-4">
+              <h1 className="text-lg font-bold text-neutral-900">Team Members</h1>
+              <button className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">+ Invite Member</button>
+            </div>
+            <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2 border-b border-neutral-100 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+                <div>Member</div><div>Role</div><div>Status</div><div>Actions</div>
+              </div>
+              {TEAM.map(m=>(
+                <div key={m.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center px-4 py-3 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 transition">
+                  <div className="flex items-center gap-3">
+                    <Av id={m.id} size="sm"/>
+                    <div>
+                      <div className="text-sm font-medium text-neutral-900">{m.name}</div>
+                      <div className="text-[11px] text-neutral-400">member@acme.io</div>
+                    </div>
+                  </div>
+                  <select value={memberRole[m.id]} onChange={e=>setMemberRole(prev=>({...prev,[m.id]:e.target.value}))}
+                    className="text-xs border border-neutral-200 rounded-lg px-2 py-1.5 bg-white text-neutral-700 focus:outline-none focus:border-indigo-400">
+                    <option>Lead Dev</option><option>Developer</option><option>Designer</option><option>Product</option><option>QA Eng</option><option>Admin</option>
+                  </select>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${m.online?"bg-emerald-100 text-emerald-700":"bg-neutral-100 text-neutral-500"}`}>
+                    {m.online?"Online":"Away"}
+                  </span>
+                  <div className="flex gap-1">
+                    <button className="text-xs text-neutral-500 hover:text-neutral-800 px-2 py-1 rounded hover:bg-neutral-100 transition">Edit</button>
+                    <button className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition">Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SETTINGS */}
+        {view==="settings" && (
+          <div className="max-w-[700px] space-y-4">
+            <h1 className="text-lg font-bold text-neutral-900">Workspace Settings</h1>
+            <div className="bg-white rounded-xl border border-neutral-200 p-4">
+              <div className="text-sm font-semibold text-neutral-900 mb-3">Feature Flags</div>
+              <div className="space-y-3">
+                {features.map(f=>(
+                  <div key={f.key} className="flex items-center gap-4">
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-neutral-800">{f.label}</div>
+                      <div className="text-xs text-neutral-500">{f.desc}</div>
+                    </div>
+                    <button onClick={()=>setFeatureState(prev=>({...prev,[f.key]:!prev[f.key]}))}
+                      className={`w-10 h-5 rounded-full transition-colors relative ${featureState[f.key]?"bg-indigo-500":"bg-neutral-200"}`}>
+                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${featureState[f.key]?"left-5":"left-0.5"}`}/>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="bg-white rounded-xl border border-neutral-200 p-4">
+              <div className="text-sm font-semibold text-neutral-900 mb-3">Integrations</div>
+              {[
+                {name:"GitHub",  icon:"🐙", status:"Connected", detail:"acme-corp/forge"},
+                {name:"Slack",   icon:"💬", status:"Connected", detail:"#engineering"},
+                {name:"Stripe",  icon:"💳", status:"Connected", detail:"Live keys"},
+                {name:"Upstash", icon:"⚡", status:"Pending",   detail:"INFRA-15 in progress"},
+              ].map(i=>(
+                <div key={i.name} className="flex items-center gap-3 py-2 border-b border-neutral-50 last:border-0">
+                  <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-base">{i.icon}</div>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-neutral-800">{i.name}</div>
+                    <div className="text-xs text-neutral-400">{i.detail}</div>
+                  </div>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${i.status==="Connected"?"bg-emerald-100 text-emerald-700":"bg-amber-100 text-amber-700"}`}>{i.status}</span>
+                  <button className="text-xs text-neutral-500 hover:text-neutral-800 px-2 py-1 rounded hover:bg-neutral-100 transition">Configure</button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* AUDIT LOG */}
+        {view==="audit" && (
+          <div className="max-w-[700px]">
+            <h1 className="text-lg font-bold text-neutral-900 mb-4">Audit Log</h1>
+            <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+              {auditLog.map((entry,i)=>(
+                <div key={i} className="flex items-start gap-3 px-4 py-3 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 transition">
+                  <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-sm shrink-0">{entry.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-neutral-800 leading-snug">{entry.text}</div>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Av id={entry.user} size="xs"/>
+                      <span className="text-[10px] text-neutral-400">{teamById[entry.user]?.name} · {entry.time}</span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/* Costs tab — simple budget + spend with a burn bar. */
-function CostsTab() {
-  const budget = 48000;
-  const spent = 31200;
-  const remaining = budget - spent;
-  const pct = Math.round((spent / budget) * 100);
-  const fmt = (n: number) => `$${n.toLocaleString()}`;
-  const entries = [
-    { date: "Jun 12", item: "Plaid sandbox → production", cat: "Vendor / API", amt: 1800 },
-    { date: "Jun 8", item: "Contract designer — budgeting flows", cat: "Contractor", amt: 6500 },
-    { date: "May 30", item: "Supabase Pro (3 mo)", cat: "Infrastructure", amt: 75 },
-    { date: "May 18", item: "Logo + brand pass", cat: "Design", amt: 2200 },
-  ];
+// ══════════════════════════════════════════════════════════════
+//  MAIN DESIGN PAGE
+// ══════════════════════════════════════════════════════════════
+
+type Role = "developer"|"pm"|"collaborator"|"admin";
+
+const ROLE_CFG: Record<Role,{label:string;emoji:string;user:string;color:string;desc:string}> = {
+  developer:   {label:"Developer",   emoji:"💻", user:"u1", color:"bg-indigo-600",  desc:"Matt Giblin — Lead Dev"},
+  pm:          {label:"PM",          emoji:"📊", user:"u4", color:"bg-amber-600",   desc:"Jordan Lee — Product"},
+  collaborator:{label:"Collaborator",emoji:"🤝", user:"u6", color:"bg-teal-600",    desc:"Dana Walsh — QA Eng"},
+  admin:       {label:"Admin",       emoji:"⚙️", user:"u1", color:"bg-neutral-800", desc:"Matt Giblin — Super Admin"},
+};
+
+const UNREAD: Record<Role,number> = {developer:5,pm:3,collaborator:3,admin:4};
+
+export default function DesignPage() {
+  const [role,setRole]       = useState<Role>("developer");
+  const [notifOpen,setNotifOpen] = useState(false);
+  const [cmdOpen,setCmdOpen]     = useState(false);
+
+  // ⌘K shortcut
+  useEffect(()=>{
+    const h=(e:KeyboardEvent)=>{ if((e.metaKey||e.ctrlKey)&&e.key==="k"){e.preventDefault();setCmdOpen(true);} };
+    window.addEventListener("keydown",h); return ()=>window.removeEventListener("keydown",h);
+  },[]);
+
+  const cfg = ROLE_CFG[role];
+  const unread = UNREAD[role];
+
   return (
-    <div className="space-y-4">
-      <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-600">
-        <strong className="text-neutral-900">Simple budget &amp; spend.</strong> Set a project budget, log spend as it happens, and watch the burn. No time-tracking required — just &ldquo;are we within budget for go-live?&rdquo;
+    <div className="min-h-screen bg-neutral-100 flex flex-col">
+      {/* ── TOP NAV ── */}
+      <div className="h-14 bg-white border-b border-neutral-200 flex items-center px-4 gap-3 shrink-0 z-30 sticky top-0">
+        {/* Logo */}
+        <div className="flex items-center gap-2 mr-2">
+          <div className="w-7 h-7 rounded-lg bg-neutral-900 flex items-center justify-center text-white text-sm font-bold">F</div>
+          <span className="text-sm font-bold text-neutral-900 hidden sm:block">Forge</span>
+        </div>
+
+        {/* Role switcher */}
+        <div className="flex items-center gap-1 bg-neutral-100 rounded-xl p-1">
+          {(Object.entries(ROLE_CFG) as [Role,typeof ROLE_CFG[Role]][]).map(([r,c])=>(
+            <button key={r} onClick={()=>setRole(r)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition ${role===r?`${c.color} text-white shadow-sm`:"text-neutral-500 hover:text-neutral-800 hover:bg-white"}`}>
+              {c.emoji} {c.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex-1"/>
+
+        {/* ⌘K */}
+        <button onClick={()=>setCmdOpen(true)}
+          className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-neutral-200 text-xs text-neutral-500 hover:border-neutral-400 hover:bg-neutral-50 transition">
+          <span>🔍</span>
+          <span>Search</span>
+          <kbd className="text-[10px] font-mono bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 rounded">⌘K</kbd>
+        </button>
+
+        {/* Bell */}
+        <button onClick={()=>setNotifOpen(o=>!o)}
+          className="relative w-9 h-9 rounded-lg border border-neutral-200 flex items-center justify-center text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition">
+          🔔
+          {unread>0 && (
+            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center leading-none">{unread}</span>
+          )}
+        </button>
+
+        {/* User avatar */}
+        <div className="flex items-center gap-2 pl-2 border-l border-neutral-100">
+          <Av id={cfg.user} size="sm"/>
+          <div className="hidden md:block">
+            <div className="text-xs font-semibold text-neutral-900">{teamById[cfg.user]?.name}</div>
+            <div className="text-[10px] text-neutral-400">{role === "admin" ? "Super Admin" : teamById[cfg.user]?.role}</div>
+          </div>
+        </div>
       </div>
-      <div className="grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-neutral-200 bg-white p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Budget</p>
-          <p className="mt-1 text-2xl font-bold text-neutral-900">{fmt(budget)}</p>
-        </div>
-        <div className="rounded-xl border border-neutral-200 bg-white p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Spent</p>
-          <p className="mt-1 text-2xl font-bold text-neutral-900">{fmt(spent)}</p>
-          <p className="text-xs text-amber-600">{pct}% of budget</p>
-        </div>
-        <div className="rounded-xl border border-neutral-200 bg-white p-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Remaining</p>
-          <p className="mt-1 text-2xl font-bold text-emerald-600">{fmt(remaining)}</p>
-        </div>
+
+      {/* ── ROLE DESCRIPTION STRIP ── */}
+      <div className={`px-4 py-1.5 text-xs flex items-center gap-2 text-white ${cfg.color}`}>
+        <span className="font-semibold">{cfg.emoji} {cfg.label} View:</span>
+        <span className="opacity-90">{cfg.desc}</span>
+        <span className="ml-2 opacity-70">·</span>
+        <span className="opacity-90">Click 🔔 to see your notifications · Press <kbd className="bg-white/20 px-1 rounded font-mono">⌘K</kbd> for command palette · Click any issue to open full detail</span>
+        <span className="ml-auto opacity-70">Switch roles using the tabs in the nav ↑</span>
       </div>
-      <div className="rounded-xl border border-neutral-200 bg-white p-5">
-        <div className="mb-2 flex items-center justify-between text-sm">
-          <span className="font-medium text-neutral-700">Burn</span>
-          <span className="text-neutral-500">{fmt(spent)} / {fmt(budget)}</span>
-        </div>
-        <div className="h-3 overflow-hidden rounded-full bg-neutral-100">
-          <div className={`h-full ${pct > 90 ? "bg-red-500" : pct > 75 ? "bg-amber-500" : "bg-emerald-500"}`} style={{ width: `${pct}%` }} />
-        </div>
+
+      {/* ── SHELL ── */}
+      <div className="flex-1 overflow-hidden">
+        {role==="developer"    && <DeveloperShell    onCmdK={()=>setCmdOpen(true)}/>}
+        {role==="pm"           && <PMShell           onCmdK={()=>setCmdOpen(true)}/>}
+        {role==="collaborator" && <CollaboratorShell onCmdK={()=>setCmdOpen(true)}/>}
+        {role==="admin"        && <AdminShell        onCmdK={()=>setCmdOpen(true)}/>}
       </div>
-      <div className="rounded-xl border border-neutral-200 bg-white p-5">
-        <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-semibold text-neutral-900">Spend</h3>
-          <button className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800">+ Add spend</button>
-        </div>
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="text-left text-xs uppercase tracking-wide text-neutral-400">
-              <th className="pb-2 font-medium">Date</th>
-              <th className="pb-2 font-medium">Item</th>
-              <th className="pb-2 font-medium">Category</th>
-              <th className="pb-2 text-right font-medium">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map((e) => (
-              <tr key={e.item} className="border-t border-neutral-100">
-                <td className="py-2 text-neutral-500">{e.date}</td>
-                <td className="py-2 text-neutral-800">{e.item}</td>
-                <td className="py-2 text-neutral-500">{e.cat}</td>
-                <td className="py-2 text-right font-medium text-neutral-900">{fmt(e.amt)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+      {/* ── GLOBAL OVERLAYS ── */}
+      <CommandPalette   open={cmdOpen}   onClose={()=>setCmdOpen(false)}   role={role}/>
+      <NotificationPanel open={notifOpen} onClose={()=>setNotifOpen(false)} role={role}/>
     </div>
   );
 }

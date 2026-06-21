@@ -30,10 +30,21 @@ export async function updateIssueAction(slug: string, id: string, patch: IssuePa
   return issue;
 }
 
-export async function addCommentAction(slug: string, id: string, body: string, parentId?: string | null) {
+export async function addCommentAction(
+  slug: string,
+  id: string,
+  body: string,
+  parentId?: string | null,
+  commentType?: "comment" | "decision",
+) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (!canDo(ctx.role, "viewer.comment", ctx.permissionOverrides)) throw new Error("Viewers cannot comment in this workspace.");
+  // Only owners and admins may mark a comment as a Decision
+  const resolvedType =
+    commentType === "decision" && (ctx.role === "owner" || ctx.role === "admin")
+      ? "decision"
+      : "comment";
   const comment = await addIssueComment({
     tenantId: ctx.tenant.id,
     issueId: id,
@@ -41,6 +52,7 @@ export async function addCommentAction(slug: string, id: string, body: string, p
     authorLabel: ctx.email,
     body,
     parentId: parentId ?? null,
+    commentType: resolvedType,
   });
   revalidatePath(`/${slug}/issues/${id}`);
   return comment;

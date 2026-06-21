@@ -25,7 +25,6 @@ export default async function TenantLayout({
   if (!ctx) redirect("/");
 
   // MFA enforcement gate — runs before rendering any workspace page.
-  // Impersonation sessions are exempt (super-admin support path).
   if (!ctx.impersonating) {
     const supabaseForMfa = await createSupabaseServerClient();
     const [tenantRes, aalRes] = await Promise.all([
@@ -40,79 +39,111 @@ export default async function TenantLayout({
     }
   }
 
-  // Load initial notification state server-side (no waterfall — parallel).
   const [supabase, svc] = await Promise.all([
     ctx.impersonating ? Promise.resolve(createSupabaseServiceClient()) : createSupabaseServerClient(),
     Promise.resolve(createSupabaseServiceClient()),
   ]);
 
-  const [initialNotifications, unreadCount, unassignedCount, flags, userRow] = await Promise.all([
+  const [initialNotifications, unreadCount, unassignedCount, flags, userRow, visibleProjects, superAdminRow] = await Promise.all([
     notificationsRepo(supabase).list(ctx.appUserId, { limit: 20, includeRead: false }),
     notificationsRepo(supabase).unreadCount(ctx.appUserId),
     issuesRepo(svc).countUnassigned(ctx.tenant.id),
     loadTenantFlags(ctx.tenant.id),
-    // email_digest added in migration 0042 — may not exist yet; default true.
     (async () => { try { return await supabase.from("users").select("email_digest").eq("id", ctx.appUserId).maybeSingle(); } catch { return { data: null }; } })(),
+    (async () => { try { const { data } = await svc.from("projects").select("id", { count: "exact" }).eq("tenant_id", ctx.tenant.id).not("status", "eq", "archived"); return data?.length ?? 0; } catch { return 0; } })(),
+    (async () => { try { const { data } = await svc.from("super_admins").select("user_id").eq("user_id", ctx.appUserId).maybeSingle(); return data; } catch { return null; } })(),
   ]);
   const emailDigest = (userRow.data as Record<string, unknown> | null)?.email_digest !== false;
+  const isAdmin = ctx.role === "owner" || ctx.role === "admin" || ctx.impersonating;
+  const isSuperAdmin = !!superAdminRow;
 
-  // Board-first nav. The bug tracker (Board + Issues) always shows; the
-  // project-management items appear with a "Soon" badge until released.
-  const navItems: { label: string; href: string; enabled: boolean; key?: string }[] = [
-    { label: "Board", href: `/${slug}/board`, enabled: true },
-    { label: "Issues", href: `/${slug}/issues`, enabled: true },
-    { label: "Reports", href: `/${slug}/reports`, enabled: true },
-    { label: "Home", href: `/${slug}`, enabled: flags.dashboards, key: "dashboards" },
-    { label: "Projects", href: `/${slug}/projects`, enabled: flags.project_portal, key: "project_portal" },
-    { label: "Think Tank", href: `/${slug}/think-tank`, enabled: flags.think_tank, key: "think_tank" },
-  ];
+  const initials = (ctx.email ?? "?").slice(0, 2).toUpperCase();
 
   return (
-    <div className="min-h-screen bg-neutral-50">
+    <div className="flex min-h-screen bg-neutral-50">
       {ctx.impersonating && <ImpersonationBanner tenantName={ctx.tenant.name} />}
-      <header className="border-b border-neutral-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-3 py-3 sm:px-6">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-4 overflow-x-auto">
-            <Link href="/" className="shrink-0 text-lg font-bold tracking-tight text-neutral-900">
-              Forge
-            </Link>
-            <span className="hidden shrink-0 text-sm text-neutral-400 sm:inline">/</span>
-            <Link href={`/${slug}`} className="hidden shrink-0 text-sm font-medium text-neutral-700 hover:text-neutral-900 sm:block">
-              {ctx.tenant.name}
-            </Link>
-            <nav className="flex items-center gap-0.5 sm:gap-1">
-              {navItems.map((item) =>
-                item.enabled ? (
-                  <Link
-                    key={item.label}
-                    href={item.href}
-                    className="shrink-0 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100 sm:px-3"
-                  >
-                    {item.label}
-                  </Link>
-                ) : (
-                  <Link
-                    key={item.label}
-                    href={`/${slug}/coming-soon?f=${item.key}`}
-                    className="hidden shrink-0 items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-400 hover:bg-neutral-100 sm:flex sm:px-3"
-                    title="Coming soon"
-                  >
-                    {item.label}
-                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Soon</span>
-                  </Link>
-                )
-              )}
-              {(ctx.role === "owner" || ctx.role === "admin" || ctx.impersonating) && (
-                <Link
-                  href={`/${slug}/admin`}
-                  className="shrink-0 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-600 hover:bg-neutral-100 sm:px-3"
-                >
-                  Admin
-                </Link>
-              )}
-            </nav>
+
+      {/* ── Sidebar ── */}
+      <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-200 bg-white">
+        {/* Logo + workspace */}
+        <div className="flex items-center gap-2.5 border-b border-neutral-100 px-4 py-4">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-xs font-bold text-white">F</div>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-neutral-900">{ctx.tenant.name}</p>
+            <p className="text-[11px] text-neutral-400 capitalize">{ctx.role}</p>
           </div>
-          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        </div>
+
+        {/* Nav groups */}
+        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-5">
+
+          {/* My Work */}
+          <div>
+            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">My Work</p>
+            <div className="space-y-0.5">
+              <SideLink href={`/${slug}`} icon="🏠" label="Home" />
+              <SideLink href={`/${slug}/assigned`} icon="📌" label="Assigned to Me" />
+              <SideLink href={`/${slug}/watching`} icon="👁" label="Watching" />
+              <SideLink href={`/${slug}/inbox`} icon="📥" label="Inbox" badge={unreadCount > 0 ? unreadCount : undefined} />
+            </div>
+          </div>
+
+          {/* Workspace */}
+          <div>
+            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Workspace</p>
+            <div className="space-y-0.5">
+              <SideLink href={`/${slug}/board`} icon="🏃" label="Board" badge={visibleProjects > 1 ? visibleProjects : undefined} badgeColor="indigo" />
+              <SideLink href={`/${slug}/issues`} icon="🐛" label="Issues" />
+              <SideLink href={`/${slug}/projects`} icon="📋" label="Projects" />
+              <SideLink href={`/${slug}/roadmap`} icon="🗺️" label="Roadmap" />
+              <SideLink href={`/${slug}/docs`} icon="📖" label="Docs" />
+            </div>
+          </div>
+
+          {/* Intelligence */}
+          <div>
+            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Intelligence</p>
+            <div className="space-y-0.5">
+              <SideLink href={`/${slug}/reports`} icon="📊" label="Reports" />
+              <SideLink href={`/${slug}/think-tank`} icon="💡" label="Think Tank" />
+              <SideLink href={`/${slug}/stakeholder`} icon="📈" label="Stakeholder" />
+            </div>
+          </div>
+
+          {/* Admin */}
+          {isAdmin && (
+            <div>
+              <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Admin</p>
+              <div className="space-y-0.5">
+                <SideLink href={`/${slug}/admin`} icon="⚙️" label="Settings" />
+              </div>
+            </div>
+          )}
+        </nav>
+
+        {/* Platform Admin escape hatch — super admins only */}
+        {isSuperAdmin && (
+          <div className="border-t border-neutral-100 px-2 py-2">
+            <Link
+              href="/admin"
+              className="flex items-center gap-2 rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-700 transition-colors"
+            >
+              <span className="text-sm">⚡</span>
+              <span className="flex-1">Platform Admin</span>
+              <span className="text-[10px] text-neutral-400">↗</span>
+            </Link>
+          </div>
+        )}
+
+        {/* User footer */}
+        <div className="border-t border-neutral-100 px-3 py-3">
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+              {initials}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-medium text-neutral-800">{ctx.email}</p>
+            </div>
             <NotificationBell
               slug={slug}
               userId={ctx.appUserId}
@@ -122,16 +153,50 @@ export default async function TenantLayout({
               unassignedCount={unassignedCount}
               emailDigest={emailDigest}
             />
-            <span className="hidden rounded-full bg-neutral-100 px-3 py-1 text-xs font-medium text-neutral-600 sm:inline">
-              {ctx.role}
-            </span>
-            <SignOutButton />
           </div>
+          <SignOutButton className="mt-2 w-full rounded-lg px-3 py-1.5 text-left text-xs text-neutral-500 hover:bg-neutral-50 hover:text-neutral-800 transition" />
         </div>
-      </header>
-      {children}
+      </aside>
+
+      {/* ── Main content ── */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {children}
+      </div>
+
       {process.env.FORGE_SELF_API_KEY && <ReportBugButton />}
       <CommandPalette slug={slug} />
     </div>
+  );
+}
+
+function SideLink({
+  href,
+  icon,
+  label,
+  badge,
+  badgeColor = "red",
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  badge?: number;
+  badgeColor?: "red" | "indigo";
+}) {
+  const badgeCls = badgeColor === "indigo"
+    ? "bg-indigo-600"
+    : "bg-red-500";
+  return (
+    <Link
+      href={href}
+      className="flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 transition-colors"
+    >
+      <span className="text-base leading-none">{icon}</span>
+      <span className="flex-1 truncate">{label}</span>
+      {badge != null && (
+        <span className={`flex h-4 min-w-4 items-center justify-center rounded-full ${badgeCls} px-1 text-[10px] font-bold text-white`}>
+          {badge > 9 ? "9+" : badge}
+        </span>
+      )}
+    </Link>
   );
 }

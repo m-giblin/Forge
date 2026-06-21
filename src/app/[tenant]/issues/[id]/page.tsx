@@ -73,6 +73,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         initialAttachments={attachments}
         readOnly={readOnly}
         canDelete={canDelete}
+        userRole={ctx.role}
         watchers={watchers.map((w) => w.userId)}
         currentUserId={ctx.appUserId}
         subIssues={subIssues}

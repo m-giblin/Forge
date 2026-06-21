@@ -8,6 +8,9 @@ export type StatusCount = { status: string; count: number };
 export type PriorityCount = { priority: string; count: number };
 export type AssigneeCount = { assigneeId: string | null; name: string; count: number };
 export type WeekPoint = { label: string; opened: number; closed: number };
+export type TypeCount = { type: string; count: number };
+export type BlockedIssue = { id: string; key: string; title: string; daysOld: number; assigneeName: string };
+export type CycleStage = { label: string; avgDays: number };
 
 export type ReportsData = {
   totalOpen: number;
@@ -17,6 +20,14 @@ export type ReportsData = {
   byAssignee: AssigneeCount[];
   weeklyTrend: WeekPoint[];
   projects: Project[];
+  // New widgets
+  byType: TypeCount[];
+  avgCycleDays: number | null;
+  cycleByStage: CycleStage[];
+  blockedIssues: BlockedIssue[];
+  blockedDaysTotal: number;
+  openCount: number;
+  closedCount: number;
 };
 
 export async function loadReports(
@@ -30,7 +41,7 @@ export async function loadReports(
 
   let q = supabase
     .from("issues")
-    .select("id, status, priority, assignee_id, created_at, updated_at")
+    .select("id, number, title, status, priority, type, assignee_id, labels, created_at, updated_at")
     .eq("tenant_id", tenantId)
     .gte("created_at", from.toISOString())
     .lte("created_at", to.toISOString());
@@ -43,7 +54,7 @@ export async function loadReports(
   // Also fetch done issues in range (closed_at approximated by updated_at when status=done)
   let doneQ = supabase
     .from("issues")
-    .select("id, updated_at")
+    .select("id, created_at, updated_at")
     .eq("tenant_id", tenantId)
     .eq("status", "done")
     .gte("updated_at", from.toISOString())
@@ -129,5 +140,77 @@ export async function loadReports(
   const totalOpen = rows.filter((r) => r.status !== "done").length;
   const totalDone = doneRows.length;
 
-  return { totalOpen, totalDone, byStatus, byPriority, byAssignee, weeklyTrend, projects };
+  // ── Bug vs Feature vs Task breakdown ──
+  const typeMap: Record<string, number> = {};
+  for (const r of rows) {
+    const t = (r.type as string) ?? "task";
+    typeMap[t] = (typeMap[t] ?? 0) + 1;
+  }
+  const byType: TypeCount[] = Object.entries(typeMap)
+    .map(([type, count]) => ({ type, count }))
+    .sort((a, b) => b.count - a.count);
+
+  // ── Cycle time: avg days created→done for done issues ──
+  const MS_DAY = 86_400_000;
+  const doneWithDuration = doneRows
+    .map((r) => ({ days: (new Date(r.updated_at).getTime() - new Date(r.created_at ?? r.updated_at).getTime()) / MS_DAY }))
+    .filter((d) => d.days >= 0 && d.days < 365);
+
+  const avgCycleDays =
+    doneWithDuration.length > 0
+      ? Math.round((doneWithDuration.reduce((s, d) => s + d.days, 0) / doneWithDuration.length) * 10) / 10
+      : null;
+
+  // Approximate cycle stage breakdown from current status distribution
+  const stageIssues = rows.filter((r) => r.status !== "done");
+  const stageDays = (status: string) => {
+    const s = stageIssues.filter((r) => r.status === status);
+    if (s.length === 0) return 0;
+    return Math.round((s.reduce((sum, r) => sum + (Date.now() - new Date(r.updated_at).getTime()) / MS_DAY, 0) / s.length) * 10) / 10;
+  };
+  const cycleByStage: CycleStage[] = [
+    { label: "Todo → In Progress", avgDays: stageDays("todo") },
+    { label: "In Progress → Review", avgDays: stageDays("in_progress") },
+    { label: "Review → Done", avgDays: stageDays("in_review") },
+  ].filter((s) => s.avgDays > 0);
+
+  // ── Blocked issues ──
+  const blockedRows = rows.filter(
+    (r) => r.status === "blocked" || (r.labels as string[] | null ?? []).some((l: string) => l.toLowerCase().includes("block")),
+  );
+
+  // Fetch assignee names for blocked issues
+  const blockedAssigneeIds = [...new Set(blockedRows.map((r) => r.assignee_id).filter(Boolean) as string[])];
+  const blockedNameMap: Record<string, string> = {};
+  if (blockedAssigneeIds.length > 0) {
+    const svc2 = createSupabaseServiceClient();
+    const { data: bu } = await svc2.from("users").select("id, name, email").in("id", blockedAssigneeIds);
+    for (const u of bu ?? []) blockedNameMap[u.id] = u.name ?? u.email ?? u.id;
+  }
+
+  // Also fetch issue keys (project key + number) for blocked issues
+  const blockedIssueIds = blockedRows.map((r) => r.id);
+  let blockedIssues: BlockedIssue[] = [];
+  if (blockedIssueIds.length > 0) {
+    const { data: bWithProj } = await supabase
+      .from("issues")
+      .select("id, number, title, assignee_id, created_at, project:project_id(key)")
+      .in("id", blockedIssueIds);
+    blockedIssues = (bWithProj ?? []).map((r) => ({
+      id: r.id,
+      key: `${(r.project as unknown as { key: string } | null)?.key ?? "??"}-${r.number}`,
+      title: r.title as string,
+      daysOld: Math.floor((Date.now() - new Date(r.created_at as string).getTime()) / MS_DAY),
+      assigneeName: r.assignee_id ? (blockedNameMap[r.assignee_id as string] ?? "Unknown") : "Unassigned",
+    }));
+  }
+
+  const blockedDaysTotal = blockedIssues.reduce((s, i) => s + i.daysOld, 0);
+  const openCount = totalOpen;
+  const closedCount = totalDone;
+
+  return {
+    totalOpen, totalDone, byStatus, byPriority, byAssignee, weeklyTrend, projects,
+    byType, avgCycleDays, cycleByStage, blockedIssues, blockedDaysTotal, openCount, closedCount,
+  };
 }

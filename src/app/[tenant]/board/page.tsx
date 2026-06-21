@@ -15,10 +15,10 @@ export default async function BoardPage({
   searchParams,
 }: {
   params: Promise<{ tenant: string }>;
-  searchParams: Promise<{ project?: string }>;
+  searchParams: Promise<{ project?: string; sprint?: string }>;
 }) {
   const { tenant: slug } = await params;
-  const { project: projectKey } = await searchParams;
+  const { project: projectKey, sprint: sprintParam } = await searchParams;
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
 
@@ -26,14 +26,10 @@ export default async function BoardPage({
   const visible = await listVisibleProjects(ctx.tenant.id, ctx.appUserId, ctx.role, ctx.impersonating);
   const current = projectKey
     ? visible.find((p) => p.key === projectKey)
-    : visible.length === 1
-      ? visible[0]
-      : undefined;
+    : visible[0]; // auto-select first project so Board always loads directly
 
-  // No project resolved → send the user to the landing page to pick one
-  // (or create one, if there are none). Avoids the old "dumped into a board
-  // with no project" dead-end.
-  if (!current) redirect(`/${slug}`);
+  // No projects exist at all → send to projects page to create one
+  if (!current) redirect(`/${slug}/projects`);
 
   const svc = createSupabaseServiceClient();
   const [{ issues, total, projects, statuses, priorities, types, categories, customFields }, members, allSprints] =
@@ -50,6 +46,10 @@ export default async function BoardPage({
   const backlogIssues = issues.filter((i) => !i.sprint_id);
   const canEdit = ctx.role !== "viewer" && !ctx.impersonating;
 
+  // Sprint filter for the kanban board view
+  const selectedSprint = sprintParam ? allSprints.find((s) => s.id === sprintParam) ?? null : null;
+  const boardIssues = selectedSprint ? issues.filter((i) => i.sprint_id === selectedSprint.id) : issues;
+
   return (
     <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
       <SprintPanel
@@ -63,12 +63,15 @@ export default async function BoardPage({
       />
       <Suspense fallback={null}>
       <Board
+        key={current.id}
         slug={slug}
         tenantId={ctx.tenant.id}
         role={ctx.role}
         currentProject={{ id: current.id, key: current.key, name: current.name }}
         siblingProjects={visible.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
-        initialIssues={issues}
+        initialIssues={boardIssues}
+        sprints={allSprints}
+        currentSprint={selectedSprint}
         total={total}
         issueLimit={BOARD_LIMIT}
         projects={projects}

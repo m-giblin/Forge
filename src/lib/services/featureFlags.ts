@@ -12,12 +12,12 @@ import { featureFlagsRepo } from "@/lib/repositories/featureFlags";
  * errors, features are treated as enabled so the app never breaks.
  */
 
-export const FEATURE_KEYS = ["think_tank", "dashboards", "project_portal"] as const;
+export const FEATURE_KEYS = ["think_tank", "dashboards", "project_portal", "roadmap"] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 
 export type TenantFlags = Record<FeatureKey, boolean>;
 
-const ALL_ON: TenantFlags = { think_tank: true, dashboards: true, project_portal: true };
+const ALL_ON: TenantFlags = { think_tank: true, dashboards: true, project_portal: true, roadmap: true };
 
 /** Resolve every flag for a tenant in one read. Fails open. */
 export async function loadTenantFlags(tenantId: string): Promise<TenantFlags> {
@@ -41,6 +41,7 @@ export async function loadTenantFlags(tenantId: string): Promise<TenantFlags> {
       think_tank: resolve("think_tank"),
       dashboards: resolve("dashboards"),
       project_portal: resolve("project_portal"),
+      roadmap: resolve("roadmap"),
     };
   } catch {
     // Table missing (migration not yet run) or any read error → everything on.

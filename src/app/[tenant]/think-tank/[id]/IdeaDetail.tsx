@@ -38,12 +38,13 @@ interface Props {
   isViewer: boolean;
   recentAiTurns: IdeaAiTurn[];
   linkedProjectKey: string | null;
+  provenanceProject: { key: string; name: string; open: number; done: number; total: number } | null;
   customPills: Pill[];
   decisions: IdeaDecision[];
   signoffs: IdeaSignoff[];
 }
 
-export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey, customPills, decisions, signoffs }: Props) {
+export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey, provenanceProject, customPills, decisions, signoffs }: Props) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -366,6 +367,54 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
             </span>
           ) : (
             "📦 This idea is archived."
+          )}
+        </div>
+      )}
+
+      {/* Provenance chain — idea → project → issues (only when converted) */}
+      {provenanceProject && (
+        <div className="mb-4 rounded-xl border border-purple-200 bg-purple-50 p-4">
+          <p className="mb-3 text-xs font-bold uppercase tracking-wide text-purple-700">Provenance chain</p>
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Idea node */}
+            <div className="flex items-center gap-2 rounded-lg border border-purple-200 bg-white px-3 py-2">
+              <span className="text-base">💡</span>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-purple-500">Idea</p>
+                <p className="text-xs font-semibold text-neutral-800 max-w-[160px] truncate">{idea.title}</p>
+              </div>
+            </div>
+            {/* Arrow */}
+            <span className="text-purple-400 font-bold text-lg">→</span>
+            {/* Project node */}
+            <a
+              href={`/${slug}/projects/${provenanceProject.key}`}
+              className="flex items-center gap-2 rounded-lg border border-purple-200 bg-white px-3 py-2 hover:border-purple-400 transition"
+            >
+              <span className="text-base">📋</span>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-purple-500">Project · {provenanceProject.key}</p>
+                <p className="text-xs font-semibold text-neutral-800 max-w-[160px] truncate">{provenanceProject.name}</p>
+              </div>
+            </a>
+            {/* Arrow */}
+            <span className="text-purple-400 font-bold text-lg">→</span>
+            {/* Issues node */}
+            <a
+              href={`/${slug}/issues?project=${provenanceProject.key}`}
+              className="flex items-center gap-2 rounded-lg border border-purple-200 bg-white px-3 py-2 hover:border-purple-400 transition"
+            >
+              <span className="text-base">🐛</span>
+              <div>
+                <p className="text-[10px] font-bold uppercase text-purple-500">Issues</p>
+                <p className="text-xs font-semibold text-neutral-800">
+                  {provenanceProject.open} open · {provenanceProject.done} done
+                </p>
+              </div>
+            </a>
+          </div>
+          {provenanceProject.total === 0 && (
+            <p className="mt-2 text-xs text-purple-500">No issues created yet in this project.</p>
           )}
         </div>
       )}

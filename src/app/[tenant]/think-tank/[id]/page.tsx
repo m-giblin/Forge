@@ -53,11 +53,27 @@ export default async function IdeaPage({
   const isAdmin = ctx.role === "owner" || ctx.role === "admin";
   const canEdit = (isCreator || isAdmin) && !ctx.impersonating;
 
-  // Fetch linked project key so the "View Project →" link can use /?project=KEY
+  // Fetch linked project + issue counts for provenance chain
   let linkedProjectKey: string | null = null;
+  let provenanceProject: { key: string; name: string; open: number; done: number; total: number } | null = null;
   if (idea.linked_project_id) {
     const linked = await projectsRepo(supabase).getById(ctx.tenant.id, idea.linked_project_id);
     linkedProjectKey = linked?.key ?? null;
+    if (linked) {
+      const { data: issueCounts } = await supabase
+        .from("issues")
+        .select("status")
+        .eq("tenant_id", ctx.tenant.id)
+        .eq("project_id", linked.id);
+      const rows = issueCounts ?? [];
+      provenanceProject = {
+        key: linked.key,
+        name: linked.name,
+        open: rows.filter((r) => r.status !== "done").length,
+        done: rows.filter((r) => r.status === "done").length,
+        total: rows.length,
+      };
+    }
   }
 
   return (
@@ -73,6 +89,7 @@ export default async function IdeaPage({
       isViewer={ctx.role === "viewer"}
       recentAiTurns={recentAiTurns}
       linkedProjectKey={linkedProjectKey}
+      provenanceProject={provenanceProject}
       customPills={customPillRows.map((r) => ({ id: r.id, label: r.label, instruction: r.instruction }))}
       decisions={decisions}
       signoffs={signoffs}
