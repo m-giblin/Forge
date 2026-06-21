@@ -7,8 +7,8 @@ ALTER TABLE public.memberships
   ADD COLUMN IF NOT EXISTS job_title TEXT;
 
 -- Feature flag: job_titles (default off — AI/Enterprise tier)
-INSERT INTO public.feature_flags (key, enabled, description)
-VALUES ('job_titles', false, 'Member job title labels — visible on cards, assignments, and member list. AI/Enterprise tier.')
+INSERT INTO public.feature_flags (key, label, enabled, description)
+VALUES ('job_titles', 'Job Titles', false, 'Member job title labels — visible on cards, assignments, and member list. AI/Enterprise tier.')
 ON CONFLICT (key) DO NOTHING;
 
 INSERT INTO public.schema_migrations (filename)
