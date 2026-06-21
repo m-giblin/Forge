@@ -799,6 +799,29 @@ export default function IssueDetail({
               <p className={sideLabel}>Age</p>
               <p className="text-sm text-neutral-700 font-medium">{ageSince(issue.created_at)}</p>
             </div>
+            {issue.environment && (() => {
+              let meta: Record<string, string | number | boolean> | null = null;
+              try { meta = JSON.parse(issue.environment); } catch { /* plain string */ }
+              return (
+                <div className="border-t border-neutral-200 pt-3">
+                  <details>
+                    <summary className="cursor-pointer text-xs font-medium text-neutral-500 hover:text-neutral-700 select-none list-none flex items-center gap-1">
+                      <span className="text-[10px]">▶</span> Technical details
+                    </summary>
+                    <div className="mt-2 space-y-1.5">
+                      {meta ? Object.entries(meta).map(([k, v]) => (
+                        <div key={k} className="flex flex-col gap-0.5">
+                          <span className="text-[10px] uppercase tracking-wide text-neutral-400">{k}</span>
+                          <span className="text-xs text-neutral-600 break-all font-mono leading-tight">{String(v)}</span>
+                        </div>
+                      )) : (
+                        <span className="text-xs text-neutral-600 break-all font-mono">{issue.environment}</span>
+                      )}
+                    </div>
+                  </details>
+                </div>
+              );
+            })()}
             <div className="border-t border-neutral-200 pt-3">
               <IssueAttachments
                 slug={slug}

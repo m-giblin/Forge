@@ -14,6 +14,7 @@ export default function ReportBugButton() {
   const [priority, setPriority] = useState("medium");
   const [severity, setSeverity] = useState("minor");
   const [pageUrl, setPageUrl] = useState("");
+  const [envMeta, setEnvMeta] = useState<string>("");
   const [files, setFiles] = useState<File[]>([]);
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -21,9 +22,25 @@ export default function ReportBugButton() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   function openModal() {
-    setPageUrl(window.location.pathname);
+    setPageUrl(window.location.href);
     setDone(null);
     setError(null);
+
+    // Capture technical environment metadata automatically
+    const nav = window.navigator;
+    const screen = window.screen;
+    const meta = {
+      url: window.location.href,
+      browser: nav.userAgent,
+      language: nav.language,
+      viewport: `${window.innerWidth}×${window.innerHeight}`,
+      screen: `${screen.width}×${screen.height}`,
+      devicePixelRatio: window.devicePixelRatio,
+      platform: (nav as Navigator & { userAgentData?: { platform?: string } }).userAgentData?.platform ?? nav.platform,
+      online: nav.onLine,
+      timestamp: new Date().toISOString(),
+    };
+    setEnvMeta(JSON.stringify(meta));
     setOpen(true);
   }
 
@@ -55,7 +72,7 @@ export default function ReportBugButton() {
           `**Severity:** ${severity}`,
         ].filter(Boolean).join("\n\n");
 
-        const { id, key } = await reportBugAction({ title, description: desc, priority });
+        const { id, key } = await reportBugAction({ title, description: desc, priority, environment: envMeta || undefined });
 
         if (files.length > 0) {
           const fd = new FormData();
