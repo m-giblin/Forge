@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- service-role: SSO domain check before user session exists
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getRateLimiter } from "@/lib/providers/rate-limiter";
+import { ssoConfigRepo } from "@/lib/repositories/ssoConfig";
 
 // 10 failed attempts per 15-minute window before a hard block.
 // Separate key from API-key brute-force (authfail:ip) — different surface,
@@ -21,6 +24,20 @@ export async function POST(req: Request) {
   }
   if (!email || !password) {
     return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+  }
+
+  // If this domain has SSO required, block password login entirely.
+  const domain = email.includes("@") ? email.split("@")[1].toLowerCase() : null;
+  if (domain) {
+    const required = await ssoConfigRepo(createSupabaseServiceClient())
+      .isDomainSsoRequired(domain)
+      .catch(() => false);
+    if (required) {
+      return NextResponse.json(
+        { error: "This workspace requires SSO. Please use the Google or Microsoft sign-in button." },
+        { status: 403 }
+      );
+    }
   }
 
   const ip = clientIp(req);
