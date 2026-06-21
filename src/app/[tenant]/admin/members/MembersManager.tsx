@@ -7,10 +7,23 @@ import {
   changeRoleAction,
   removeMemberAction,
   setJobTitleAction,
+  assignCustomRoleAction,
 } from "./actions";
 import type { MembershipRole } from "@/lib/repositories/members";
+import { COLOR_CLASSES, type RoleColor } from "@/lib/rbac";
 
-type Member = { membershipId: string; role: MembershipRole; userId: string; email: string; name: string | null; jobTitle: string | null };
+type CustomRoleOption = { id: string; name: string; color: string };
+type Member = {
+  membershipId: string;
+  role: MembershipRole;
+  userId: string;
+  email: string;
+  name: string | null;
+  jobTitle: string | null;
+  customRoleId: string | null;
+  customRoleName: string | null;
+  customRoleColor: string | null;
+};
 type Invite = { id: string; email: string | null; role: MembershipRole; expires_at: string };
 
 const MEMBER_ROLES: MembershipRole[] = ["owner", "admin", "member", "viewer"];
@@ -23,6 +36,8 @@ export default function MembersManager({
   invites,
   readOnly = false,
   showJobTitles = false,
+  showRbac = false,
+  customRoles = [],
 }: {
   slug: string;
   currentUserId: string;
@@ -30,11 +45,14 @@ export default function MembersManager({
   invites: Invite[];
   readOnly?: boolean;
   showJobTitles?: boolean;
+  showRbac?: boolean;
+  customRoles?: CustomRoleOption[];
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [editingJobTitle, setEditingJobTitle] = useState<string | null>(null);
   const [jobTitleDraft, setJobTitleDraft] = useState("");
+  const [assigningRoleTo, setAssigningRoleTo] = useState<string | null>(null);
 
   // invite form
   const [inviteRole, setInviteRole] = useState<MembershipRole>("member");
@@ -154,7 +172,8 @@ export default function MembersManager({
             <tr className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-400">
               <th className="px-4 py-2.5 font-medium">Member</th>
               {showJobTitles && <th className="px-4 py-2.5 font-medium">Job Title</th>}
-              <th className="px-4 py-2.5 font-medium">Role</th>
+              {showRbac && <th className="px-4 py-2.5 font-medium">Custom Role</th>}
+              <th className="px-4 py-2.5 font-medium">System Role</th>
               <th className="px-4 py-2.5"></th>
             </tr>
           </thead>
@@ -165,6 +184,53 @@ export default function MembersManager({
                   <div className="text-neutral-800">{m.name || m.email}</div>
                   {m.name && <div className="text-xs text-neutral-400">{m.email}</div>}
                 </td>
+                {showRbac && (
+                  <td className="px-4 py-2.5">
+                    {assigningRoleTo === m.membershipId ? (
+                      <div className="flex items-center gap-1.5">
+                        <select
+                          autoFocus
+                          defaultValue={m.customRoleId ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value || null;
+                            run(() => assignCustomRoleAction(slug, m.membershipId, val));
+                            setAssigningRoleTo(null);
+                          }}
+                          onBlur={() => setAssigningRoleTo(null)}
+                          className="rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                        >
+                          <option value="">— None (system defaults) —</option>
+                          {customRoles.map((cr) => (
+                            <option key={cr.id} value={cr.id}>{cr.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : m.customRoleName ? (
+                      <button
+                        onClick={() => !readOnly && setAssigningRoleTo(m.membershipId)}
+                        disabled={readOnly}
+                        className="disabled:pointer-events-none"
+                      >
+                        {(() => {
+                          const cc = COLOR_CLASSES[(m.customRoleColor ?? "indigo") as RoleColor] ?? COLOR_CLASSES.indigo;
+                          return (
+                            <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${cc.bg} ${cc.text} ${cc.border}`}>
+                              {m.customRoleName}
+                            </span>
+                          );
+                        })()}
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => !readOnly && setAssigningRoleTo(m.membershipId)}
+                        disabled={readOnly}
+                        className="text-xs italic text-neutral-300 hover:text-neutral-500 disabled:pointer-events-none"
+                      >
+                        Assign role…
+                      </button>
+                    )}
+                  </td>
+                )}
                 {showJobTitles && (
                   <td className="px-4 py-2.5">
                     {editingJobTitle === m.membershipId ? (

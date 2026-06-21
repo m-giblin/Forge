@@ -83,3 +83,17 @@ export async function setJobTitleAction(slug: string, membershipId: string, jobT
   if (error) throw error;
   revalidatePath(`/${slug}/admin/members`);
 }
+
+export async function assignCustomRoleAction(slug: string, membershipId: string, customRoleId: string | null) {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  assertAdmin(ctx.role);
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc
+    .from("memberships")
+    .update({ custom_role_id: customRoleId })
+    .eq("id", membershipId)
+    .eq("tenant_id", ctx.tenant.id);
+  if (error) throw error;
+  revalidatePath(`/${slug}/admin/members`);
+}

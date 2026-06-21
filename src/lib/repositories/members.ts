@@ -9,6 +9,9 @@ export type MemberRow = {
   email: string;
   name: string | null;
   jobTitle: string | null;
+  customRoleId: string | null;
+  customRoleName: string | null;
+  customRoleColor: string | null;
   createdAt: string;
 };
 
@@ -17,12 +20,15 @@ export function membersRepo(supabase: SupabaseClient) {
     async list(tenantId: string): Promise<MemberRow[]> {
       const { data, error } = await supabase
         .from("memberships")
-        .select("id, role, job_title, created_at, user:users!inner(id, email, name)")
+        .select("id, role, job_title, custom_role_id, created_at, user:users!inner(id, email, name), custom_role:custom_roles(id, name, color)")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []).map((m) => {
         const u = Array.isArray(m.user) ? m.user[0] : m.user;
+        const cr = Array.isArray((m as Record<string, unknown>).custom_role)
+          ? ((m as Record<string, unknown>).custom_role as Record<string, unknown>[])[0]
+          : (m as Record<string, unknown>).custom_role as Record<string, unknown> | null;
         return {
           membershipId: m.id,
           role: m.role as MembershipRole,
@@ -30,6 +36,9 @@ export function membersRepo(supabase: SupabaseClient) {
           email: u.email,
           name: u.name,
           jobTitle: (m as Record<string, unknown>).job_title as string | null ?? null,
+          customRoleId: (m as Record<string, unknown>).custom_role_id as string | null ?? null,
+          customRoleName: cr?.name as string | null ?? null,
+          customRoleColor: cr?.color as string | null ?? null,
           createdAt: m.created_at,
         };
       });
