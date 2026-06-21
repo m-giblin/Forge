@@ -70,14 +70,14 @@ export async function removeMemberAction(slug: string, membershipId: string) {
   revalidatePath(`/${slug}/admin/members`);
 }
 
-export async function setJobTitleAction(slug: string, membershipId: string, jobTitle: string) {
+export async function setJobTitlesAction(slug: string, membershipId: string, titles: string[]) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   assertAdmin(ctx.role);
   const svc = createSupabaseServiceClient();
   const { error } = await svc
     .from("memberships")
-    .update({ job_title: jobTitle.trim() || null })
+    .update({ job_titles: titles })
     .eq("id", membershipId)
     .eq("tenant_id", ctx.tenant.id);
   if (error) throw error;

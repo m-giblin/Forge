@@ -6,20 +6,47 @@ import {
   revokeInviteAction,
   changeRoleAction,
   removeMemberAction,
-  setJobTitleAction,
+  setJobTitlesAction,
   assignCustomRoleAction,
 } from "./actions";
 import type { MembershipRole } from "@/lib/repositories/members";
 import { COLOR_CLASSES, type RoleColor } from "@/lib/rbac";
 
 type CustomRoleOption = { id: string; name: string; color: string };
+const JOB_TITLE_OPTIONS = [
+  "Developer",
+  "Designer",
+  "QA Engineer",
+  "Product Manager",
+  "Team Lead",
+  "Scrum Master",
+  "Stakeholder",
+  "Consultant",
+  "DevOps",
+  "Data Analyst",
+] as const;
+
+const TITLE_COLORS: Record<string, string> = {
+  "Developer":       "bg-blue-100 text-blue-700 border-blue-200",
+  "Designer":        "bg-violet-100 text-violet-700 border-violet-200",
+  "QA Engineer":     "bg-rose-100 text-rose-700 border-rose-200",
+  "Product Manager": "bg-amber-100 text-amber-700 border-amber-200",
+  "Team Lead":       "bg-emerald-100 text-emerald-700 border-emerald-200",
+  "Scrum Master":    "bg-cyan-100 text-cyan-700 border-cyan-200",
+  "Stakeholder":     "bg-orange-100 text-orange-700 border-orange-200",
+  "Consultant":      "bg-indigo-100 text-indigo-700 border-indigo-200",
+  "DevOps":          "bg-teal-100 text-teal-700 border-teal-200",
+  "Data Analyst":    "bg-pink-100 text-pink-700 border-pink-200",
+};
+const DEFAULT_TITLE_COLOR = "bg-neutral-100 text-neutral-600 border-neutral-200";
+
 type Member = {
   membershipId: string;
   role: MembershipRole;
   userId: string;
   email: string;
   name: string | null;
-  jobTitle: string | null;
+  jobTitles: string[];
   customRoleId: string | null;
   customRoleName: string | null;
   customRoleColor: string | null;
@@ -28,6 +55,53 @@ type Invite = { id: string; email: string | null; role: MembershipRole; expires_
 
 const MEMBER_ROLES: MembershipRole[] = ["owner", "admin", "member", "viewer"];
 const INVITE_ROLES: MembershipRole[] = ["admin", "member", "viewer"];
+
+function JobTitlePicker({
+  current,
+  onSave,
+  onClose,
+}: {
+  current: string[];
+  onSave: (titles: string[]) => void;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState<string[]>(current);
+
+  function toggle(t: string) {
+    setSelected((prev) => prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]);
+  }
+
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white p-2.5 shadow-md w-64">
+      <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Select titles</p>
+      <div className="flex flex-wrap gap-1.5">
+        {JOB_TITLE_OPTIONS.map((t) => {
+          const active = selected.includes(t);
+          const color = active ? (TITLE_COLORS[t] ?? DEFAULT_TITLE_COLOR) : "bg-white border-neutral-200 text-neutral-500 hover:border-neutral-400";
+          return (
+            <button
+              key={t}
+              type="button"
+              onClick={() => toggle(t)}
+              className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${color}`}
+            >
+              {t}
+            </button>
+          );
+        })}
+      </div>
+      <div className="mt-2.5 flex justify-end gap-2 border-t border-neutral-100 pt-2">
+        <button onClick={onClose} className="text-xs text-neutral-400 hover:text-neutral-600">Cancel</button>
+        <button
+          onClick={() => onSave(selected)}
+          className="rounded-md bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700"
+        >
+          Save
+        </button>
+      </div>
+    </div>
+  );
+}
 
 export default function MembersManager({
   slug,
@@ -50,8 +124,7 @@ export default function MembersManager({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
-  const [editingJobTitle, setEditingJobTitle] = useState<string | null>(null);
-  const [jobTitleDraft, setJobTitleDraft] = useState("");
+  const [editingTitlesFor, setEditingTitlesFor] = useState<string | null>(null);
   const [assigningRoleTo, setAssigningRoleTo] = useState<string | null>(null);
 
   // invite form
@@ -233,35 +306,28 @@ export default function MembersManager({
                 )}
                 {showJobTitles && (
                   <td className="px-4 py-2.5">
-                    {editingJobTitle === m.membershipId ? (
-                      <div className="flex items-center gap-1.5">
-                        <input
-                          autoFocus
-                          value={jobTitleDraft}
-                          onChange={(e) => setJobTitleDraft(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              run(() => setJobTitleAction(slug, m.membershipId, jobTitleDraft));
-                              setEditingJobTitle(null);
-                            }
-                            if (e.key === "Escape") setEditingJobTitle(null);
-                          }}
-                          placeholder="e.g. Developer"
-                          className="w-32 rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-indigo-400"
-                        />
-                        <button
-                          onClick={() => { run(() => setJobTitleAction(slug, m.membershipId, jobTitleDraft)); setEditingJobTitle(null); }}
-                          className="text-xs text-indigo-600 hover:underline"
-                        >Save</button>
-                        <button onClick={() => setEditingJobTitle(null)} className="text-xs text-neutral-400 hover:underline">✕</button>
-                      </div>
+                    {editingTitlesFor === m.membershipId ? (
+                      <JobTitlePicker
+                        current={m.jobTitles}
+                        onSave={(titles) => {
+                          run(() => setJobTitlesAction(slug, m.membershipId, titles));
+                          setEditingTitlesFor(null);
+                        }}
+                        onClose={() => setEditingTitlesFor(null)}
+                      />
                     ) : (
                       <button
-                        onClick={() => { setEditingJobTitle(m.membershipId); setJobTitleDraft(m.jobTitle ?? ""); }}
+                        onClick={() => !readOnly && setEditingTitlesFor(m.membershipId)}
                         disabled={readOnly}
-                        className="text-xs text-neutral-500 hover:text-neutral-900 disabled:pointer-events-none"
+                        className="flex flex-wrap gap-1 disabled:pointer-events-none"
                       >
-                        {m.jobTitle || <span className="text-neutral-300 italic">Add title…</span>}
+                        {m.jobTitles.length > 0 ? m.jobTitles.map((t) => (
+                          <span key={t} className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${TITLE_COLORS[t] ?? DEFAULT_TITLE_COLOR}`}>
+                            {t}
+                          </span>
+                        )) : (
+                          <span className="text-xs italic text-neutral-300 hover:text-neutral-500">Add titles…</span>
+                        )}
                       </button>
                     )}
                   </td>

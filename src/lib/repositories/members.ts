@@ -8,7 +8,7 @@ export type MemberRow = {
   userId: string;
   email: string;
   name: string | null;
-  jobTitle: string | null;
+  jobTitles: string[];
   customRoleId: string | null;
   customRoleName: string | null;
   customRoleColor: string | null;
@@ -20,7 +20,7 @@ export function membersRepo(supabase: SupabaseClient) {
     async list(tenantId: string): Promise<MemberRow[]> {
       const { data, error } = await supabase
         .from("memberships")
-        .select("id, role, job_title, custom_role_id, created_at, user:users!inner(id, email, name), custom_role:custom_roles(id, name, color)")
+        .select("id, role, job_titles, custom_role_id, created_at, user:users!inner(id, email, name), custom_role:custom_roles(id, name, color)")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -35,7 +35,7 @@ export function membersRepo(supabase: SupabaseClient) {
           userId: u.id,
           email: u.email,
           name: u.name,
-          jobTitle: (m as Record<string, unknown>).job_title as string | null ?? null,
+          jobTitles: ((m as Record<string, unknown>).job_titles as string[] | null) ?? [],
           customRoleId: (m as Record<string, unknown>).custom_role_id as string | null ?? null,
           customRoleName: cr?.name as string | null ?? null,
           customRoleColor: cr?.color as string | null ?? null,
