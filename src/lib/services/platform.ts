@@ -6,6 +6,7 @@ import { hashKey } from "@/lib/api/keys";
 import { platformRepo, type TenantStat } from "@/lib/repositories/platform";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { invitesRepo } from "@/lib/repositories/invites";
+import { slaPoliciesRepo } from "@/lib/repositories/slaPolicies";
 
 const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 
@@ -43,6 +44,28 @@ export async function provisionTenant(input: {
   // (the owner can rename it or add more from the landing page). Without this,
   // issue creation is blocked until a project exists.
   await projectsRepo(svc).create({ tenant_id: tenant.id, key: "GEN", name: "General" });
+
+  // Seed example SLA policies (disabled) so new tenants can see what's possible
+  // and enable/tweak without starting from a blank form.
+  const slaRepo = slaPoliciesRepo(svc);
+  await slaRepo.create(tenant.id, {
+    name: "High priority response SLA",
+    conditions: { priority: ["high"] },
+    tiers: [
+      { type: "response", hours: 4, action: "notify" },
+      { type: "resolution", hours: 24, action: "notify" },
+    ],
+    enabled: false,
+  });
+  await slaRepo.create(tenant.id, {
+    name: "Medium priority response SLA",
+    conditions: { priority: ["medium"] },
+    tiers: [
+      { type: "response", hours: 8, action: "notify" },
+      { type: "resolution", hours: 72, action: "notify" },
+    ],
+    enabled: false,
+  });
 
   const token = randomBytes(24).toString("hex");
   await invitesRepo(svc).create({

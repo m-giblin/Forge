@@ -49,7 +49,7 @@ export function slaPoliciesRepo(supabase: SupabaseClient) {
 
     async create(
       tenantId: string,
-      input: { name: string; conditions: SlaPolicy["conditions"]; tiers: SlaTier[] }
+      input: { name: string; conditions: SlaPolicy["conditions"]; tiers: SlaTier[]; enabled?: boolean }
     ): Promise<SlaPolicy> {
       const { data, error } = await supabase
         .from("sla_policies")
