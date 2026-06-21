@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
-import AdminSidebar from "@/components/AdminSidebar";
+import AdminTopNav from "@/components/AdminTopNav";
 
 export default async function AdminLayout({
   children,
@@ -22,8 +22,8 @@ export default async function AdminLayout({
   return (
     <div className="flex min-h-full flex-col">
       {/* Admin header bar */}
-      <div className="flex items-center gap-3 border-b border-neutral-200 bg-neutral-900 px-6 py-3">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-sm font-bold text-white">
+      <div className="flex items-center gap-3 border-b border-neutral-800 bg-neutral-900 px-5 py-2.5">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white">
           {initials}
         </div>
         <div className="min-w-0 flex-1">
@@ -36,14 +36,17 @@ export default async function AdminLayout({
       </div>
 
       {!isAdmin && ctx.impersonating && (
-        <div className="bg-amber-50 px-6 py-2 text-sm text-amber-800">
+        <div className="bg-amber-50 px-5 py-2 text-sm text-amber-800">
           Support view — read-only. Changes are disabled.
         </div>
       )}
 
-      <div className="flex flex-1 gap-0 px-6 py-6">
-        <AdminSidebar slug={slug} />
-        <div className="min-w-0 flex-1 pl-6">{children}</div>
+      {/* Horizontal tab nav — replaces the old sidebar */}
+      <AdminTopNav slug={slug} />
+
+      {/* Content */}
+      <div className="flex-1 px-6 py-6">
+        {children}
       </div>
     </div>
   );
