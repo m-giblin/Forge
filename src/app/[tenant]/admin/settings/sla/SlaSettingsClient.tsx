@@ -231,44 +231,51 @@ export default function SlaSettingsClient({ slug, policies: initial }: { slug: s
               onCancel={() => setEditId(null)}
             />
           ) : (
-            <div key={p.id} className="border border-zinc-700 rounded-lg p-4 bg-zinc-800/40">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <span className={`h-2 w-2 rounded-full ${p.enabled ? "bg-green-400" : "bg-zinc-600"}`} />
-                  <span className="text-sm font-medium text-white">{p.name}</span>
+            <div key={p.id} className={`border rounded-lg p-4 ${p.enabled ? "border-green-700 bg-green-950/30" : "border-zinc-600 bg-zinc-800/60"}`}>
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <span className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${p.enabled ? "bg-green-400" : "bg-zinc-500"}`} />
+                  <span className="text-sm font-medium text-white truncate">{p.name}</span>
                   {(p.conditions.priority ?? []).length > 0 && (
-                    <div className="flex gap-1">
+                    <div className="flex gap-1 flex-shrink-0">
                       {(p.conditions.priority ?? []).map((pr) => (
-                        <span key={pr} className="px-2 py-0.5 bg-zinc-700 text-xs text-zinc-300 rounded-full">
+                        <span key={pr} className="px-2 py-0.5 bg-zinc-600 text-xs text-zinc-200 rounded-full">
                           {pr}
                         </span>
                       ))}
                     </div>
                   )}
                 </div>
-                <div className="flex gap-2 text-xs">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={() => handleToggle(p.id, !p.enabled)}
                     disabled={isPending}
-                    className="text-zinc-400 hover:text-white"
+                    className={`px-3 py-1 text-xs rounded-md font-medium transition ${
+                      p.enabled
+                        ? "bg-zinc-600 hover:bg-zinc-500 text-white"
+                        : "bg-green-600 hover:bg-green-500 text-white"
+                    }`}
                   >
                     {p.enabled ? "Disable" : "Enable"}
                   </button>
-                  <button onClick={() => setEditId(p.id)} className="text-zinc-400 hover:text-white">
+                  <button
+                    onClick={() => setEditId(p.id)}
+                    className="px-3 py-1 text-xs rounded-md font-medium bg-zinc-600 hover:bg-zinc-500 text-white transition"
+                  >
                     Edit
                   </button>
                   <button
                     onClick={() => handleDelete(p.id)}
                     disabled={isPending}
-                    className="text-red-400 hover:text-red-300"
+                    className="px-3 py-1 text-xs rounded-md font-medium bg-red-900/60 hover:bg-red-800 text-red-300 hover:text-red-200 transition"
                   >
                     Delete
                   </button>
                 </div>
               </div>
-              <div className="mt-2 flex gap-3 flex-wrap">
+              <div className="mt-3 flex gap-2 flex-wrap">
                 {p.tiers.map((t, i) => (
-                  <span key={i} className="text-xs text-zinc-400 bg-zinc-900 px-2 py-1 rounded">
+                  <span key={i} className="text-xs text-zinc-300 bg-zinc-700 px-2.5 py-1 rounded-md">
                     {t.type === "response" ? "Assign" : "Resolve"} within {t.hours}h
                   </span>
                 ))}
