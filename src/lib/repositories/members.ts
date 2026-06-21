@@ -8,6 +8,7 @@ export type MemberRow = {
   userId: string;
   email: string;
   name: string | null;
+  jobTitle: string | null;
   createdAt: string;
 };
 
@@ -16,7 +17,7 @@ export function membersRepo(supabase: SupabaseClient) {
     async list(tenantId: string): Promise<MemberRow[]> {
       const { data, error } = await supabase
         .from("memberships")
-        .select("id, role, created_at, user:users!inner(id, email, name)")
+        .select("id, role, job_title, created_at, user:users!inner(id, email, name)")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -28,6 +29,7 @@ export function membersRepo(supabase: SupabaseClient) {
           userId: u.id,
           email: u.email,
           name: u.name,
+          jobTitle: (m as Record<string, unknown>).job_title as string | null ?? null,
           createdAt: m.created_at,
         };
       });

@@ -96,7 +96,6 @@ export default async function TenantLayout({
               <SideLink href={`/${slug}/issues`} icon="🐛" label="Issues" />
               <SideLink href={`/${slug}/projects`} icon="📋" label="Projects" />
               <SideLink href={`/${slug}/roadmap`} icon="🗺️" label="Roadmap" />
-              <SideLink href={`/${slug}/docs`} icon="📖" label="Docs" />
             </div>
           </div>
 
@@ -116,6 +115,8 @@ export default async function TenantLayout({
               <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Admin</p>
               <div className="space-y-0.5">
                 <SideLink href={`/${slug}/admin`} icon="⚙️" label="Settings" />
+                <SideLink href={`/${slug}/docs`} icon="📖" label="Docs" />
+                <SideLink href={`/${slug}/support`} icon="🎫" label="Get Support" />
               </div>
             </div>
           )}

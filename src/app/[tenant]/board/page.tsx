@@ -51,7 +51,7 @@ export default async function BoardPage({
   const boardIssues = selectedSprint ? issues.filter((i) => i.sprint_id === selectedSprint.id) : issues;
 
   return (
-    <main className="mx-auto max-w-6xl px-3 py-4 sm:px-6 sm:py-6">
+    <main className="px-2 py-4">
       <SprintPanel
         slug={slug}
         projectId={current.id}

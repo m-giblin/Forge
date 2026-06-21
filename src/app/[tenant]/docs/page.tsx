@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation';
 import { getTenantContext } from '@/lib/auth';
 import { DocsHub } from './DocsHub';
 
@@ -8,11 +9,13 @@ export default async function DocsPage({
 }) {
   const { tenant } = await params;
   const ctx = await getTenantContext(tenant);
+  if (!ctx) redirect('/');
+  if (ctx.role !== 'owner' && ctx.role !== 'admin') redirect(`/${tenant}/board`);
 
   return (
     <DocsHub
-      role={ctx?.role ?? 'viewer'}
-      tenantName={ctx?.tenant.name ?? tenant}
+      role={ctx.role}
+      tenantName={ctx.tenant.name}
       slug={tenant}
     />
   );

@@ -10,6 +10,8 @@ import {
 } from "@/lib/services/members";
 import type { MembershipRole } from "@/lib/repositories/members";
 import { recordAudit } from "@/lib/audit";
+// eslint-disable-next-line no-restricted-imports -- admin: service-role required, tenant context verified by getTenantContext (sec09)
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 function assertAdmin(role: string) {
   if (role !== "owner" && role !== "admin") throw new Error("Only owners and admins manage members.");
@@ -65,5 +67,19 @@ export async function removeMemberAction(slug: string, membershipId: string) {
   assertAdmin(ctx.role);
   await removeMember(ctx.tenant.id, membershipId);
   await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "member.remove", target: membershipId });
+  revalidatePath(`/${slug}/admin/members`);
+}
+
+export async function setJobTitleAction(slug: string, membershipId: string, jobTitle: string) {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  assertAdmin(ctx.role);
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc
+    .from("memberships")
+    .update({ job_title: jobTitle.trim() || null })
+    .eq("id", membershipId)
+    .eq("tenant_id", ctx.tenant.id);
+  if (error) throw error;
   revalidatePath(`/${slug}/admin/members`);
 }

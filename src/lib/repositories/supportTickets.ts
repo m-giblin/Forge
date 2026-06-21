@@ -1,5 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export type TicketAttachment = {
+  name: string;
+  type: string;
+  size: number;
+  data: string; // base64 data URL
+};
+
 export type SupportTicket = {
   id: string;
   tenant_id: string;
@@ -12,12 +19,14 @@ export type SupportTicket = {
   ai_triage_summary: string | null;
   ai_guidance: string | null;
   platform_notes: string | null;
+  attachments: TicketAttachment[];
   escalation_email_sent_at: string | null;
   resolved_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
+// attachments column added in migration 0056 — selected separately so queries don't fail pre-migration
 const COLS =
   "id, tenant_id, submitted_by, actor_label, title, body, status, priority, ai_triage_summary, ai_guidance, platform_notes, escalation_email_sent_at, resolved_at, created_at, updated_at";
 
@@ -35,17 +44,21 @@ export function supportTicketsRepo(supabase: SupabaseClient) {
       title: string;
       body: string;
       priority?: SupportTicket["priority"];
+      attachments?: TicketAttachment[];
     }): Promise<SupportTicket> {
+      const row: Record<string, unknown> = {
+        tenant_id: input.tenant_id,
+        submitted_by: input.submitted_by ?? null,
+        actor_label: input.actor_label ?? null,
+        title: input.title,
+        body: input.body,
+        priority: input.priority ?? "medium",
+      };
+      // attachments column exists after migration 0056 — only include when non-empty to avoid pre-migration errors
+      if (input.attachments?.length) row.attachments = input.attachments;
       const { data, error } = await supabase
         .from("support_tickets")
-        .insert({
-          tenant_id: input.tenant_id,
-          submitted_by: input.submitted_by ?? null,
-          actor_label: input.actor_label ?? null,
-          title: input.title,
-          body: input.body,
-          priority: input.priority ?? "medium",
-        })
+        .insert(row)
         .select(COLS)
         .single();
       if (error) throw error;

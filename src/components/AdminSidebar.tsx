@@ -52,10 +52,6 @@ const NAV = [
       { seg: "activity", label: "Audit Log", icon: "📜" },
     ],
   },
-  {
-    group: "Support",
-    items: [{ seg: "support", label: "Get Support", icon: "🎫" }],
-  },
 ];
 
 export default function AdminSidebar({ slug }: { slug: string }) {

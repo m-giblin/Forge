@@ -6,10 +6,11 @@ import {
   revokeInviteAction,
   changeRoleAction,
   removeMemberAction,
+  setJobTitleAction,
 } from "./actions";
 import type { MembershipRole } from "@/lib/repositories/members";
 
-type Member = { membershipId: string; role: MembershipRole; userId: string; email: string; name: string | null };
+type Member = { membershipId: string; role: MembershipRole; userId: string; email: string; name: string | null; jobTitle: string | null };
 type Invite = { id: string; email: string | null; role: MembershipRole; expires_at: string };
 
 const MEMBER_ROLES: MembershipRole[] = ["owner", "admin", "member", "viewer"];
@@ -21,15 +22,19 @@ export default function MembersManager({
   members,
   invites,
   readOnly = false,
+  showJobTitles = false,
 }: {
   slug: string;
   currentUserId: string;
   members: Member[];
   invites: Invite[];
   readOnly?: boolean;
+  showJobTitles?: boolean;
 }) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [editingJobTitle, setEditingJobTitle] = useState<string | null>(null);
+  const [jobTitleDraft, setJobTitleDraft] = useState("");
 
   // invite form
   const [inviteRole, setInviteRole] = useState<MembershipRole>("member");
@@ -148,6 +153,7 @@ export default function MembersManager({
           <thead>
             <tr className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-400">
               <th className="px-4 py-2.5 font-medium">Member</th>
+              {showJobTitles && <th className="px-4 py-2.5 font-medium">Job Title</th>}
               <th className="px-4 py-2.5 font-medium">Role</th>
               <th className="px-4 py-2.5"></th>
             </tr>
@@ -159,6 +165,41 @@ export default function MembersManager({
                   <div className="text-neutral-800">{m.name || m.email}</div>
                   {m.name && <div className="text-xs text-neutral-400">{m.email}</div>}
                 </td>
+                {showJobTitles && (
+                  <td className="px-4 py-2.5">
+                    {editingJobTitle === m.membershipId ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          autoFocus
+                          value={jobTitleDraft}
+                          onChange={(e) => setJobTitleDraft(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              run(() => setJobTitleAction(slug, m.membershipId, jobTitleDraft));
+                              setEditingJobTitle(null);
+                            }
+                            if (e.key === "Escape") setEditingJobTitle(null);
+                          }}
+                          placeholder="e.g. Developer"
+                          className="w-32 rounded border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                        />
+                        <button
+                          onClick={() => { run(() => setJobTitleAction(slug, m.membershipId, jobTitleDraft)); setEditingJobTitle(null); }}
+                          className="text-xs text-indigo-600 hover:underline"
+                        >Save</button>
+                        <button onClick={() => setEditingJobTitle(null)} className="text-xs text-neutral-400 hover:underline">✕</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => { setEditingJobTitle(m.membershipId); setJobTitleDraft(m.jobTitle ?? ""); }}
+                        disabled={readOnly}
+                        className="text-xs text-neutral-500 hover:text-neutral-900 disabled:pointer-events-none"
+                      >
+                        {m.jobTitle || <span className="text-neutral-300 italic">Add title…</span>}
+                      </button>
+                    )}
+                  </td>
+                )}
                 <td className="px-4 py-2.5">
                   <select
                     value={m.role}
