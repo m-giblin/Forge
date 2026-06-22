@@ -726,3 +726,67 @@ export async function searchSimilarIdeasAction(
     .limit(4);
   return (data ?? []) as Array<{ id: string; title: string; status: string }>;
 }
+
+// ---------------------------------------------------------------------------
+// AI Consensus Builder — synthesizes discussion thread into themes/consensus
+// ---------------------------------------------------------------------------
+
+export interface ConsensusSynthesis {
+  themes: string[];
+  agreement: string[];
+  contention: string[];
+  recommended_next: string;
+  summary: string;
+}
+
+export async function synthesizeDiscussionAction(
+  slug: string,
+  ideaId: string
+): Promise<ConsensusSynthesis> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+
+  const svc = createSupabaseServiceClient();
+  const [ideaRow, commentsData] = await Promise.all([
+    svc.from("ideas").select("title, description").eq("id", ideaId).eq("tenant_id", ctx.tenant.id).single(),
+    svc.from("idea_comments").select("body, created_at").eq("idea_id", ideaId).eq("tenant_id", ctx.tenant.id).is("deleted_at", null).order("created_at"),
+  ]);
+
+  const comments = (commentsData.data ?? []) as Array<{ body: string; created_at: string }>;
+  if (comments.length < 3) {
+    throw new Error("Need at least 3 comments to synthesize consensus.");
+  }
+
+  const { serverEnv } = await import("@/lib/env");
+  const env = serverEnv();
+  if (!env.GROK_API_KEY) {
+    throw new Error("AI not configured. Add GROK_API_KEY to enable consensus synthesis.");
+  }
+
+  const idea = ideaRow.data as { title: string; description: string | null } | null;
+  const ideaContext = `IDEA: "${idea?.title ?? ""}"\n${idea?.description ? `DESCRIPTION: ${idea.description.slice(0, 500)}` : ""}`;
+  const thread = comments.map((c, i) => `[Comment ${i + 1}]: ${c.body.slice(0, 400)}`).join("\n");
+
+  const system = `You are a skilled facilitator analyzing a team discussion. Extract structured insights. Respond ONLY with valid JSON, no prose or markdown.`;
+  const user = `${ideaContext}\n\nDISCUSSION (${comments.length} comments):\n${thread.slice(0, 4000)}\n\nRespond with JSON: {"themes": ["<2-4 key themes discussed>"], "agreement": ["<2-3 points of clear consensus>"], "contention": ["<1-2 unresolved tensions>"], "recommended_next": "<one concrete next step the team should take>", "summary": "<2-sentence neutral summary of where the discussion stands>"}`;
+
+  const res = await fetch("https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.GROK_API_KEY}` },
+    body: JSON.stringify({
+      model: "grok-3-mini",
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      temperature: 0.3,
+      max_tokens: 600,
+    }),
+    signal: AbortSignal.timeout(20_000),
+  });
+
+  if (!res.ok) throw new Error(`AI API error ${res.status}`);
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const text = json.choices?.[0]?.message?.content ?? "";
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("AI returned unexpected format.");
+
+  return JSON.parse(jsonMatch[0]) as ConsensusSynthesis;
+}
