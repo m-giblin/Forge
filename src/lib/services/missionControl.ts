@@ -55,6 +55,12 @@ export type MissionControlData = {
   portfolio: PortfolioProject[];
   throughput: ThroughputWeek[];
   avgCycleDays: number | null;
+  /** % of done issues that are bugs (change failure proxy) */
+  bugFailRate: number | null;
+  /** Avg days from bug created → done (MTTR proxy) */
+  avgBugCycleDays: number | null;
+  /** Issues shipped per week over last 4 weeks */
+  weeklyVelocity: number | null;
 };
 
 type LeanIssue = {
@@ -64,6 +70,7 @@ type LeanIssue = {
   title: string;
   status: string;
   priority: string;
+  type: string;
   assignee_id: string | null;
   reporter_id: string | null;
   labels: string[] | null;
@@ -127,7 +134,7 @@ export async function loadMissionControl(input: {
   const [issuesRes, eventsRes, projects, nameRes] = await Promise.all([
     supabase
       .from("issues")
-      .select("id, project_id, number, title, status, priority, assignee_id, reporter_id, labels, created_at, updated_at")
+      .select("id, project_id, number, title, status, priority, type, assignee_id, reporter_id, labels, created_at, updated_at")
       .eq("tenant_id", input.tenantId)
       .order("updated_at", { ascending: false })
       .limit(2000),
@@ -270,6 +277,30 @@ export async function loadMissionControl(input: {
   const summary = bits.length ? bits.join(" · ") : "No activity yet — this is where your week comes together.";
   const narrative = `Welcome back, ${firstName}. ${scope === "mine" ? "Your" : "Team"} last 7 days: ${summary}.`;
 
+  // ---- Issue-based DORA proxies ----
+  const doneIssues = scoped.filter((i) => i.status === DONE);
+  const doneBugs = doneIssues.filter((i) => i.type === "bug");
+  const bugFailRate = doneIssues.length > 0
+    ? Math.round((doneBugs.length / doneIssues.length) * 1000) / 10
+    : null;
+
+  const bugCycleDurations: number[] = [];
+  for (const i of doneBugs) {
+    const doneAt = doneEventByIssue.get(i.id);
+    if (!doneAt) continue;
+    const d = (new Date(doneAt).getTime() - new Date(i.created_at).getTime()) / MS_DAY;
+    if (d >= 0) bugCycleDurations.push(d);
+  }
+  const avgBugCycleDays = bugCycleDurations.length
+    ? Math.round((bugCycleDurations.reduce((s, d) => s + d, 0) / bugCycleDurations.length) * 10) / 10
+    : null;
+
+  // Avg issues done per week over last 4 weeks
+  const last4 = throughput.slice(-4);
+  const weeklyVelocity = last4.length > 0
+    ? Math.round((last4.reduce((s, w) => s + w.done, 0) / last4.length) * 10) / 10
+    : null;
+
   return {
     greetingName: firstName,
     scope,
@@ -280,5 +311,8 @@ export async function loadMissionControl(input: {
     portfolio,
     throughput,
     avgCycleDays,
+    bugFailRate,
+    avgBugCycleDays,
+    weeklyVelocity,
   };
 }

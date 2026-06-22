@@ -44,16 +44,6 @@ function ThroughputBars({ data }: { data: ThroughputWeek[] }) {
   );
 }
 
-function Sparkline({ data, color }: { data: number[]; color: string }) {
-  const width = 84, height = 26;
-  const max = Math.max(...data), min = Math.min(...data), range = max - min || 1;
-  const pts = data.map((v, i) => `${(i / (data.length - 1)) * width},${height - ((v - min) / range) * (height - 4) - 2}`).join(" ");
-  return (
-    <svg width={width} height={height}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
 
 export default function MissionControl({ slug, data }: { slug: string; data: MissionControlData }) {
   const { scope, canSeeTeam, stats } = data;
@@ -220,39 +210,45 @@ export default function MissionControl({ slug, data }: { slug: string; data: Mis
         )}
       </div>
 
-      {/* Engineering Intelligence — PREVIEW (sample data; needs Git/CI integration) */}
+      {/* Engineering Intelligence — real issue-based metrics */}
       <div className="rounded-xl border border-neutral-200 bg-neutral-50/60 p-5">
         <div className="flex items-center gap-2 mb-1">
           <h2 className="font-semibold text-neutral-900">Engineering intelligence</h2>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">PREVIEW</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">LIVE</span>
         </div>
         <p className="text-sm text-neutral-500 mb-4">
-          Sample data. DORA four-keys, commit→deploy cycle phases and delivery forecasting activate when you connect a Git/CI provider — Forge doesn&rsquo;t collect deploy data yet.
+          Issue-based metrics. Connect a Git/CI provider to unlock commit→deploy DORA four-keys.
         </p>
 
-        {/* DORA tiles (sample) */}
-        <div className="grid grid-cols-4 gap-3 opacity-90">
-          <DoraSample label="Deploy freq" value="2.4" unit="/day" band="ELITE" data={[1.8, 2, 1.9, 2.2, 2.1, 2.4]} />
-          <DoraSample label="Lead time" value="8.2" unit="hrs" band="ELITE" data={[12, 11, 10, 9.5, 9, 8.2]} />
-          <DoraSample label="Change fail" value="4.1" unit="%" band="ELITE" data={[6, 5.5, 5, 4.8, 4.4, 4.1]} />
-          <DoraSample label="Recovery" value="47" unit="min" band="ELITE" data={[50, 48, 52, 49, 47, 47]} />
+        <div className="grid grid-cols-4 gap-3">
+          <MetricTile
+            label="Lead time"
+            value={data.avgCycleDays != null ? `${data.avgCycleDays}d` : "—"}
+            sub="avg issue cycle"
+            good={data.avgCycleDays != null && data.avgCycleDays < 7}
+          />
+          <MetricTile
+            label="Velocity"
+            value={data.weeklyVelocity != null ? `${data.weeklyVelocity}/wk` : "—"}
+            sub="issues shipped (4wk avg)"
+            good={data.weeklyVelocity != null && data.weeklyVelocity > 0}
+          />
+          <MetricTile
+            label="Bug rate"
+            value={data.bugFailRate != null ? `${data.bugFailRate}%` : "—"}
+            sub="bugs of closed issues"
+            good={data.bugFailRate != null && data.bugFailRate < 20}
+          />
+          <MetricTile
+            label="Bug cycle"
+            value={data.avgBugCycleDays != null ? `${data.avgBugCycleDays}d` : "—"}
+            sub="avg bug resolution time"
+            good={data.avgBugCycleDays != null && data.avgBugCycleDays < 5}
+          />
         </div>
 
-        {/* 4-phase cycle (sample) */}
-        <div className="mt-4 bg-white rounded-lg border border-neutral-200 p-4">
-          <p className="text-sm font-medium text-neutral-700 mb-3">Cycle time breakdown · commit → production <span className="text-neutral-400">(sample)</span></p>
-          <div className="flex h-9 rounded-lg overflow-hidden">
-            {[
-              { n: "Coding", h: 6, c: "bg-indigo-500" },
-              { n: "Pickup", h: 11, c: "bg-amber-500" },
-              { n: "Review", h: 4, c: "bg-sky-500" },
-              { n: "Deploy", h: 3, c: "bg-emerald-500" },
-            ].map((p) => (
-              <div key={p.n} className={`flex items-center justify-center ${p.c}`} style={{ width: `${(p.h / 24) * 100}%` }}>
-                <span className="text-[11px] font-semibold text-white">{p.h}h</span>
-              </div>
-            ))}
-          </div>
+        <div className="mt-4 rounded-lg bg-amber-50 border border-amber-100 px-4 py-2.5 text-xs text-amber-700">
+          🔗 Connect GitHub/GitLab in <Link href={`/${slug}/admin/settings/git`} className="underline font-medium">Git settings</Link> to unlock deploy frequency, change failure rate, and MTTR from real CI data.
         </div>
       </div>
     </main>
@@ -280,20 +276,14 @@ function StatTile({
   );
 }
 
-function DoraSample({ label, value, unit, band, data }: { label: string; value: string; unit: string; band: string; data: number[] }) {
+function MetricTile({ label, value, sub, good }: { label: string; value: string; sub: string; good?: boolean }) {
   return (
     <div className="bg-white rounded-xl border border-neutral-200 p-4">
-      <div className="flex items-start justify-between">
-        <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">{label}</p>
-        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700">{band}</span>
-      </div>
-      <div className="mt-2 flex items-end justify-between">
-        <div>
-          <span className="text-2xl font-bold text-neutral-900">{value}</span>
-          <span className="text-sm text-neutral-500 ml-1">{unit}</span>
-        </div>
-        <Sparkline data={data} color="#16a34a" />
-      </div>
+      <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">{label}</p>
+      <p className={`mt-2 text-2xl font-bold ${value === "—" ? "text-neutral-300" : good ? "text-green-700" : "text-neutral-900"}`}>
+        {value}
+      </p>
+      <p className="mt-1 text-[11px] text-neutral-400">{sub}</p>
     </div>
   );
 }
