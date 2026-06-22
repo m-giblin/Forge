@@ -52,6 +52,7 @@ const NAV = [
     group: "AI & Data",
     items: [
       { seg: "settings/ai", label: "AI Settings", icon: "✨" },
+      { seg: "release-notes", label: "Release Notes", icon: "📝" },
       { seg: "import", label: "Import Issues", icon: "📥" },
       { seg: "support", label: "Support Queue", icon: "🎧" },
     ],
