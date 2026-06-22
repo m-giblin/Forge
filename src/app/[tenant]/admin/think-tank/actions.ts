@@ -99,3 +99,17 @@ export async function deleteTemplateAction(slug: string, templateId: string): Pr
   await tenantIdeaTemplatesRepo(supabase).remove(ctx.tenant.id, templateId);
   revalidatePath(`/${slug}/admin/think-tank`);
 }
+
+export async function setBlindVotingAction(slug: string, enabled: boolean): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  requireAdmin(ctx.role);
+  // eslint-disable-next-line no-restricted-imports -- service-role needed to upsert platform_config
+  const { createSupabaseServiceClient } = await import("@/lib/supabase/service");
+  const svc = createSupabaseServiceClient();
+  await svc.from("platform_config").upsert(
+    { tenant_id: ctx.tenant.id, key: "tt_blind_voting", value: enabled ? "true" : "false" },
+    { onConflict: "tenant_id,key" }
+  );
+  revalidatePath(`/${slug}/think-tank`);
+}

@@ -24,12 +24,14 @@ interface Props {
   allTags: string[];
   members: Array<{ id: string; name: string | null; email: string }>;
   canCreate: boolean;
+  blindVoting?: boolean;
+  isAdmin?: boolean;
 }
 
 type SortMode = "recent" | "votes";
 type ViewMode = "list" | "matrix";
 
-export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, members, canCreate }: Props) {
+export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, members, canCreate, blindVoting = false, isAdmin = false }: Props) {
   const [ideas, setIdeas] = useState(initialIdeas);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -135,6 +137,19 @@ export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, m
         </div>
       </div>
 
+      {/* Blind voting banner */}
+      {blindVoting && (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <span className="text-lg">🔒</span>
+          <div>
+            <span className="font-semibold">Blind voting is active.</span>
+            {isAdmin
+              ? " Vote counts are visible to admins only. Disable in Admin → Think Tank settings."
+              : " Vote counts are hidden until voting closes. You can still vote — your vote is recorded."}
+          </div>
+        </div>
+      )}
+
       {/* Onboarding / empty state */}
       {!hasIdeas ? (
         <div className="mt-16 flex flex-col items-center text-center">
@@ -216,7 +231,7 @@ export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, m
               className="h-9 rounded-lg border border-neutral-200 px-2 text-sm text-neutral-600 outline-none focus:border-neutral-400"
             >
               <option value="recent">Sort: Recent</option>
-              <option value="votes">Sort: Most voted</option>
+              {!blindVoting && <option value="votes">Sort: Most voted</option>}
             </select>
             <label className="flex cursor-pointer items-center gap-1.5 text-sm text-neutral-500">
               <input
@@ -250,6 +265,8 @@ export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, m
                   slug={slug}
                   query={debouncedSearch}
                   onVote={() => handleVoteToggle(idea.id)}
+                  blindVoting={blindVoting}
+                  isAdmin={isAdmin}
                 />
               ))}
             </div>
@@ -265,11 +282,15 @@ function IdeaCard({
   slug,
   query,
   onVote,
+  blindVoting,
+  isAdmin,
 }: {
   idea: IdeaSummary;
   slug: string;
   query: string;
   onVote: () => void;
+  blindVoting: boolean;
+  isAdmin: boolean;
 }) {
   const meta = STATUS_META[idea.status] ?? STATUS_META.new;
   const lastActivity = formatRelative(idea.updated_at);
@@ -294,7 +315,7 @@ function IdeaCard({
         }`}
       >
         <span className="text-base leading-none">▲</span>
-        <span>{idea.vote_count}</span>
+        <span>{blindVoting && !isAdmin ? "—" : idea.vote_count}</span>
       </button>
 
       {/* Card link */}
