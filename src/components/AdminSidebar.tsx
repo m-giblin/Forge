@@ -8,6 +8,7 @@ const NAV = [
     group: "Overview",
     items: [
       { seg: "", label: "Dashboard", icon: "⬡" },
+      { seg: "engineering-health", label: "Eng Health", icon: "📈" },
       { seg: "activity", label: "Audit Log", icon: "📋" },
       { seg: "usage", label: "AI Usage", icon: "📊" },
     ],
