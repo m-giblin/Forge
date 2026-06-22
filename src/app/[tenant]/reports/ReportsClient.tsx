@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import type { ReportsData } from "@/lib/services/reports";
 
@@ -108,6 +108,16 @@ function Widget({
   );
 }
 
+type SavedReport = { name: string; from: string; to: string; projectId: string; savedAt: string };
+const SAVED_KEY = "forge:saved_reports";
+
+function loadSaved(slug: string): SavedReport[] {
+  try { return JSON.parse(localStorage.getItem(`${SAVED_KEY}:${slug}`) ?? "[]"); } catch { return []; }
+}
+function saveSaved(slug: string, reports: SavedReport[]) {
+  localStorage.setItem(`${SAVED_KEY}:${slug}`, JSON.stringify(reports));
+}
+
 // ── main component ───────────────────────────────────────────────────────────
 export default function ReportsClient({
   slug, data, from, to, projectId,
@@ -119,6 +129,13 @@ export default function ReportsClient({
   const [localTo, setLocalTo]     = useState(to);
   const [localProject, setLocalProject] = useState(projectId);
   const [drillWidget, setDrillWidget]   = useState<string | null>(null);
+  const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
+  const [saveNameInput, setSaveNameInput] = useState("");
+  const [showSaveForm, setShowSaveForm] = useState(false);
+
+  // Load saved reports from localStorage on mount (setTimeout defers past render)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { const t = setTimeout(() => setSavedReports(loadSaved(slug)), 0); return () => clearTimeout(t); }, []);
 
   function applyFilters() {
     const p = new URLSearchParams();
@@ -130,6 +147,33 @@ export default function ReportsClient({
 
   function toggleDrill(id: string) {
     setDrillWidget(prev => prev === id ? null : id);
+  }
+
+  function saveReport() {
+    const name = saveNameInput.trim();
+    if (!name) return;
+    const next = [
+      { name, from: localFrom, to: localTo, projectId: localProject, savedAt: new Date().toISOString() },
+      ...savedReports.filter((r) => r.name !== name),
+    ].slice(0, 10);
+    saveSaved(slug, next);
+    setSavedReports(next);
+    setSaveNameInput("");
+    setShowSaveForm(false);
+  }
+
+  function loadReport(r: SavedReport) {
+    const p = new URLSearchParams();
+    if (r.from) p.set("from", r.from);
+    if (r.to)   p.set("to", r.to);
+    if (r.projectId) p.set("project", r.projectId);
+    router.push(`/${slug}/reports?${p.toString()}`);
+  }
+
+  function deleteReport(name: string) {
+    const next = savedReports.filter((r) => r.name !== name);
+    saveSaved(slug, next);
+    setSavedReports(next);
   }
 
   const maxStatus   = Math.max(1, ...data.byStatus.map((b) => b.count));
@@ -161,8 +205,51 @@ export default function ReportsClient({
             className="px-4 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium">
             Apply
           </button>
+          <button onClick={() => setShowSaveForm((s) => !s)}
+            className="px-3 py-1.5 text-sm border border-neutral-300 bg-white hover:bg-neutral-50 text-neutral-700 rounded-lg font-medium">
+            💾 Save
+          </button>
+          {savedReports.length > 0 && (
+            <div className="relative group">
+              <button className="px-3 py-1.5 text-sm border border-neutral-300 bg-white hover:bg-neutral-50 text-neutral-700 rounded-lg font-medium">
+                📋 My Reports ({savedReports.length})
+              </button>
+              <div className="absolute right-0 top-full mt-1 z-20 hidden group-hover:block w-64 rounded-xl border border-neutral-200 bg-white shadow-lg overflow-hidden">
+                {savedReports.map((r) => (
+                  <div key={r.name} className="flex items-center gap-1 px-3 py-2 hover:bg-neutral-50">
+                    <button onClick={() => loadReport(r)} className="flex-1 text-left text-sm text-neutral-800 truncate">
+                      {r.name}
+                      <span className="ml-1 text-[10px] text-neutral-400">
+                        {r.from}→{r.to}
+                      </span>
+                    </button>
+                    <button onClick={() => deleteReport(r.name)} className="text-neutral-300 hover:text-red-500 text-xs px-1">✕</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
+
+      {showSaveForm && (
+        <div className="flex items-center gap-2 p-3 rounded-xl border border-indigo-100 bg-indigo-50">
+          <span className="text-sm text-indigo-700 font-medium shrink-0">Save as:</span>
+          <input
+            value={saveNameInput}
+            onChange={(e) => setSaveNameInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && saveReport()}
+            placeholder="e.g. Q2 Sprint Review"
+            className="flex-1 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-sm outline-none focus:border-indigo-400"
+          />
+          <button onClick={saveReport} className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700">
+            Save
+          </button>
+          <button onClick={() => setShowSaveForm(false)} className="text-sm text-neutral-500 hover:text-neutral-700">
+            Cancel
+          </button>
+        </div>
+      )}
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
