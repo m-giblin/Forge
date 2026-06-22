@@ -31,17 +31,15 @@ export default async function ThinkTankAdminPage({
   const readOnly = !isAdmin || ctx.impersonating;
 
   return (
-    <div className="space-y-10">
+    <div className="space-y-8">
       <div>
-        <h2 className="mb-1 text-base font-semibold text-neutral-900">Think Tank Settings</h2>
-        <p className="mb-6 text-sm text-neutral-500">
-          Manage the AI Sounding Board lenses available to your team. Custom lenses appear after the built-in defaults.
+        <h1 className="text-xl font-bold text-neutral-900">Think Tank Settings</h1>
+        <p className="mt-1 text-sm text-neutral-500">
+          Configure AI lenses and idea templates available to your team.
         </p>
-        <PillManager slug={slug} pills={pills} readOnly={readOnly} />
       </div>
 
-      <hr className="border-neutral-100" />
-
+      <PillManager slug={slug} pills={pills} readOnly={readOnly} />
       <TemplateManager slug={slug} templates={templates} readOnly={readOnly} />
     </div>
   );
