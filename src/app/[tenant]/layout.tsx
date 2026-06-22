@@ -45,8 +45,8 @@ export default async function TenantLayout({
   ]);
 
   const [initialNotifications, unreadCount, unassignedCount, flags, userRow, visibleProjects, superAdminRow] = await Promise.all([
-    notificationsRepo(supabase).list(ctx.appUserId, { limit: 20, includeRead: false }),
-    notificationsRepo(supabase).unreadCount(ctx.appUserId),
+    notificationsRepo(supabase).list(ctx.tenant.id, ctx.appUserId, { limit: 20, includeRead: false }),
+    notificationsRepo(supabase).unreadCount(ctx.tenant.id, ctx.appUserId),
     issuesRepo(svc).countUnassigned(ctx.tenant.id),
     loadTenantFlags(ctx.tenant.id),
     (async () => { try { return await supabase.from("users").select("email_digest").eq("id", ctx.appUserId).maybeSingle(); } catch { return { data: null }; } })(),

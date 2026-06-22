@@ -9,28 +9,27 @@ export async function markAllReadAction(slug: string) {
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
   const supabase = await createSupabaseServerClient();
-  await notificationsRepo(supabase).markAllRead(ctx.appUserId);
+  await notificationsRepo(supabase).markAllRead(ctx.tenant.id, ctx.appUserId);
 }
 
 export async function markReadAction(slug: string, id: string) {
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
   const supabase = await createSupabaseServerClient();
-  await notificationsRepo(supabase).markRead(ctx.appUserId, id);
+  await notificationsRepo(supabase).markRead(ctx.tenant.id, ctx.appUserId, id);
 }
 
 export async function deleteNotificationAction(slug: string, id: string) {
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
   const supabase = await createSupabaseServerClient();
-  await notificationsRepo(supabase).delete(ctx.appUserId, id);
+  await notificationsRepo(supabase).delete(ctx.tenant.id, ctx.appUserId, id);
 }
 
 export async function setEmailDigestAction(slug: string, enabled: boolean) {
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
   const supabase = await createSupabaseServerClient();
-  // Best-effort — column may not exist until migration 0042 runs.
   try {
     await supabase
       .from("users")
