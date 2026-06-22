@@ -26,6 +26,12 @@ create index if not exists idx_issue_signoffs_tenant on public.issue_signoffs(te
 
 alter table public.issue_signoffs enable row level security;
 
+-- Drop first in case migration was partially applied
+drop policy if exists issue_signoffs_select on public.issue_signoffs;
+drop policy if exists issue_signoffs_insert on public.issue_signoffs;
+drop policy if exists issue_signoffs_update on public.issue_signoffs;
+drop policy if exists issue_signoffs_delete on public.issue_signoffs;
+
 -- Members can read; owner/admin can insert/delete; any member can sign (update signed_by)
 create policy issue_signoffs_select on public.issue_signoffs
   for select using (
@@ -72,6 +78,9 @@ create table if not exists public.roadmap_phases (
 create index if not exists idx_roadmap_phases_tenant on public.roadmap_phases(tenant_id);
 
 alter table public.roadmap_phases enable row level security;
+
+drop policy if exists roadmap_phases_select on public.roadmap_phases;
+drop policy if exists roadmap_phases_write on public.roadmap_phases;
 
 create policy roadmap_phases_select on public.roadmap_phases
   for select using (
