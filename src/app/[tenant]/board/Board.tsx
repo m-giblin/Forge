@@ -390,14 +390,14 @@ export default function Board({
         />
       )}
 
-      <div className="flex gap-4 overflow-x-auto pb-4">
+      <div className="flex gap-3 overflow-x-auto pb-4">
         {groupBy === "priority" ? (() => {
           const orderedPriorities = [...priorities].sort((a, b) => a.position - b.position);
           return orderedPriorities.map((p) => {
             const colIssues = filtered.filter((i) => i.priority === p.key).sort((a, b) => a.position - b.position);
             if (colIssues.length === 0) return null;
             return (
-              <div key={p.key} className="flex w-72 shrink-0 flex-col rounded-xl bg-neutral-100/70 p-3">
+              <div key={p.key} className="flex w-64 shrink-0 flex-col rounded-xl bg-neutral-100/70 p-3">
                 <div className="mb-2 flex items-center justify-between px-1">
                   <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
                     {p.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: p.color }} />}
@@ -418,7 +418,7 @@ export default function Board({
               key={status.key}
               onDragOver={(e) => canEdit && e.preventDefault()}
               onDrop={() => onDrop(status.key)}
-              className="flex w-72 shrink-0 flex-col rounded-xl bg-neutral-100/70 p-3"
+              className="flex w-64 shrink-0 flex-col rounded-xl bg-neutral-100/70 p-3"
             >
               <div className="mb-2 flex items-center justify-between px-1">
                 <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
@@ -440,7 +440,7 @@ export default function Board({
             ...assigneeCols.map((col) => ({ key: col.member.userId, label: col.member.label, color: avatarColor(col.member.userId), issues: col.issues })),
           ];
           return cols.map((col) => (
-            <div key={col.key} className="flex w-72 shrink-0 flex-col rounded-xl bg-neutral-100/70 p-3">
+            <div key={col.key} className="flex w-64 shrink-0 flex-col rounded-xl bg-neutral-100/70 p-3">
               <div className="mb-2 flex items-center justify-between px-1">
                 <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
                   <span className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold text-white" style={{ backgroundColor: col.color }}>
