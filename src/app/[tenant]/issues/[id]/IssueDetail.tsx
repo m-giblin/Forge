@@ -149,6 +149,7 @@ export default function IssueDetail({
   const [startDate, setStartDate] = useState(issue.start_date ?? "");
   const [dueDate, setDueDate] = useState(issue.due_date ?? "");
   const [phase, setPhase] = useState(issue.phase ?? "");
+  const [storyPoints, setStoryPoints] = useState<string>(issue.story_points != null ? String(issue.story_points) : "");
   const [customValues, setCustomValues] = useState<Record<string, string>>(
     Object.fromEntries(customFields.map((f) => [f.key, String((issue.custom_values ?? {})[f.key] ?? "")]))
   );
@@ -220,6 +221,7 @@ export default function IssueDetail({
     (startDate || null) !== issue.start_date ||
     (dueDate || null) !== issue.due_date ||
     (phase || null) !== issue.phase ||
+    (storyPoints ? Number(storyPoints) : null) !== issue.story_points ||
     customFields.some((f) => customValues[f.key] !== String((issue.custom_values ?? {})[f.key] ?? ""));
 
   function save() {
@@ -239,6 +241,7 @@ export default function IssueDetail({
           startDate: startDate || null,
           dueDate: dueDate || null,
           phase: phase || null,
+          storyPoints: storyPoints ? Number(storyPoints) : null,
           customValues,
         });
         setSaved(true);
@@ -781,6 +784,35 @@ export default function IssueDetail({
               <option value="testing">Testing</option>
               <option value="deployment">Deployment</option>
             </select>
+          </div>
+
+          <div className={sideSection}>
+            <p className={sideLabel}>Story Points</p>
+            <div className="flex items-center gap-2">
+              {[1, 2, 3, 5, 8, 13, 21].map((pt) => (
+                <button
+                  key={pt}
+                  disabled={readOnly}
+                  onClick={() => { setStoryPoints(storyPoints === String(pt) ? "" : String(pt)); setSaved(false); }}
+                  className={`h-7 w-7 rounded-md text-xs font-semibold border transition-colors ${
+                    storyPoints === String(pt)
+                      ? "bg-indigo-600 border-indigo-600 text-white"
+                      : "border-neutral-200 text-neutral-600 hover:border-indigo-300 hover:text-indigo-700"
+                  } disabled:opacity-40 disabled:cursor-not-allowed`}
+                >
+                  {pt}
+                </button>
+              ))}
+              <input
+                type="number"
+                min="1"
+                value={storyPoints}
+                disabled={readOnly}
+                onChange={(e) => { setStoryPoints(e.target.value); setSaved(false); }}
+                placeholder="?"
+                className="w-10 rounded-md border border-neutral-200 px-1.5 py-1 text-xs text-center outline-none focus:border-indigo-400 disabled:opacity-40"
+              />
+            </div>
           </div>
 
           {catOptions.length > 0 && (

@@ -172,6 +172,7 @@ export type IssuePatch = {
   startDate?: string | null;
   dueDate?: string | null;
   phase?: string | null;
+  storyPoints?: number | null;
   customValues?: Record<string, unknown>;
 };
 
@@ -212,6 +213,7 @@ export async function updateIssue(
   if (patch.startDate !== undefined) dbPatch.start_date = patch.startDate || null;
   if (patch.dueDate !== undefined) dbPatch.due_date = patch.dueDate || null;
   if (patch.phase !== undefined) dbPatch.phase = patch.phase || null;
+  if (patch.storyPoints !== undefined) dbPatch.story_points = patch.storyPoints ?? null;
   if (patch.customValues !== undefined) dbPatch.custom_values = { ...before.custom_values, ...patch.customValues };
 
   const updated = await repo.update(tenantId, id, dbPatch);
