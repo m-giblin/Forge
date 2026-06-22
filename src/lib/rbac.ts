@@ -135,3 +135,14 @@ export function rbacCanDo(
   const defaults = baseRole === "member" ? MEMBER_DEFAULTS : VIEWER_DEFAULTS;
   return defaults[permission];
 }
+
+/**
+ * Convenience wrapper — checks a permission against a TenantContext-shaped object.
+ * Import this instead of rbacCanDo at call sites to avoid spreading ctx fields.
+ */
+export function ctxCanDo(
+  ctx: { role: "owner" | "admin" | "member" | "viewer"; customRolePermissions: RbacPermissionSet | null },
+  permission: RbacPermission
+): boolean {
+  return rbacCanDo(permission, ctx.role, ctx.customRolePermissions);
+}

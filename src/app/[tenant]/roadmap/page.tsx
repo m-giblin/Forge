@@ -1,5 +1,6 @@
 import { getTenantContext } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { ctxCanDo } from "@/lib/rbac";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 // eslint-disable-next-line no-restricted-imports -- service-role: phases are admin-only; user JWT may not see them
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
@@ -34,6 +35,7 @@ export default async function RoadmapPage({
   const { tenant: slug } = await params;
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
+  if (!ctxCanDo(ctx, "view_roadmap")) redirect(`/${slug}/board`);
 
   const supabase = await createSupabaseServerClient();
   const svc = createSupabaseServiceClient();

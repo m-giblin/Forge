@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { ctxCanDo } from "@/lib/rbac";
 
 export const runtime = "nodejs";
 
@@ -14,6 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ tena
   const { tenant: slug } = await params;
   const ctx = await getTenantContext(slug);
   if (!ctx) return new Response("Unauthorized", { status: 401 });
+  if (!ctxCanDo(ctx, "export_data")) return new Response("Forbidden", { status: 403 });
 
   const url = new URL(req.url);
   const statusFilter  = url.searchParams.get("status") ?? "";

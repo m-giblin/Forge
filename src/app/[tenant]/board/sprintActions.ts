@@ -2,12 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
+import { ctxCanDo } from "@/lib/rbac";
 // eslint-disable-next-line no-restricted-imports -- service-role: sprint writes bypass user-JWT RLS (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { sprintsRepo, type Sprint } from "@/lib/repositories/sprints";
 
-function assertCanEdit(role: string) {
-  if (role === "viewer") throw new Error("Viewers cannot manage sprints.");
+function assertCanEdit(ctx: Parameters<typeof ctxCanDo>[0]) {
+  if (!ctxCanDo(ctx, "manage_sprints")) throw new Error("You don't have permission to manage sprints.");
 }
 
 function svc() {
@@ -24,7 +25,7 @@ export async function createSprintAction(
 ): Promise<Sprint> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertCanEdit(ctx.role);
+  assertCanEdit(ctx);
   const sprint = await svc().create({
     tenantId: ctx.tenant.id,
     projectId,
@@ -40,7 +41,7 @@ export async function createSprintAction(
 export async function startSprintAction(slug: string, sprintId: string): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertCanEdit(ctx.role);
+  assertCanEdit(ctx);
   await svc().update(ctx.tenant.id, sprintId, { status: "active" });
   revalidatePath(`/${slug}/board`);
 }
@@ -48,7 +49,7 @@ export async function startSprintAction(slug: string, sprintId: string): Promise
 export async function completeSprintAction(slug: string, sprintId: string): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertCanEdit(ctx.role);
+  assertCanEdit(ctx);
   await svc().update(ctx.tenant.id, sprintId, { status: "completed" });
   revalidatePath(`/${slug}/board`);
 }
@@ -56,7 +57,7 @@ export async function completeSprintAction(slug: string, sprintId: string): Prom
 export async function addIssueToSprintAction(slug: string, sprintId: string, issueId: string): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertCanEdit(ctx.role);
+  assertCanEdit(ctx);
   await svc().addIssue(sprintId, ctx.tenant.id, issueId);
   revalidatePath(`/${slug}/board`);
 }
@@ -64,7 +65,7 @@ export async function addIssueToSprintAction(slug: string, sprintId: string, iss
 export async function removeIssueFromSprintAction(slug: string, issueId: string): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertCanEdit(ctx.role);
+  assertCanEdit(ctx);
   await svc().removeIssue(ctx.tenant.id, issueId);
   revalidatePath(`/${slug}/board`);
 }

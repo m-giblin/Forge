@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
+import { ctxCanDo } from "@/lib/rbac";
 // eslint-disable-next-line no-restricted-imports -- service-role bulk update: tenant_id injected explicitly on every query (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -42,7 +43,7 @@ export async function bulkUpdateIssuesAction(slug: string, ids: string[], patch:
 export async function bulkDeleteIssuesAction(slug: string, ids: string[]) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (ctx.role !== "owner" && ctx.role !== "admin") throw new Error("Only owners and admins can delete issues.");
+  if (!ctxCanDo(ctx, "delete_issues")) throw new Error("You don't have permission to delete issues.");
   if (ids.length === 0) return;
 
   const supabase = createSupabaseServiceClient();

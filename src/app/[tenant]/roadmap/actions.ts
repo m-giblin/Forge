@@ -2,6 +2,7 @@
 
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ctxCanDo } from "@/lib/rbac";
 
 export async function saveRoadmapPositionAction(
   slug: string,
@@ -11,8 +12,7 @@ export async function saveRoadmapPositionAction(
 ) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  // Only owners/admins may reorder the roadmap
-  if (ctx.role !== "owner" && ctx.role !== "admin") return;
+  if (!ctxCanDo(ctx, "manage_roadmap")) return;
 
   const supabase = await createSupabaseServerClient();
   // roadmap_position/width are stored as 0-100 in our UI but the column is numeric(4,3) (0.000–1.000).

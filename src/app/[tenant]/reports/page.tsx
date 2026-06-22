@@ -1,5 +1,6 @@
 import { getTenantContext } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { ctxCanDo } from "@/lib/rbac";
 import { loadReports } from "@/lib/services/reports";
 import ReportsClient from "./ReportsClient";
 
@@ -16,6 +17,7 @@ export default async function ReportsPage({
   const sp = await searchParams;
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect(`/${slug}/auth/login`);
+  if (!ctxCanDo(ctx, "view_reports")) redirect(`/${slug}/board`);
 
   const now = new Date();
   const defaultFrom = new Date(now);

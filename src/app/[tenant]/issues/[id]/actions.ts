@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { updateIssue, deleteIssue, addIssueComment, type IssuePatch } from "@/lib/services/issues";
-import { canDo } from "@/lib/permissions";
+import { ctxCanDo } from "@/lib/rbac";
 // eslint-disable-next-line no-restricted-imports -- SEC-09: service-role required for watcher writes (no user RLS policy)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issueAttachmentsRepo } from "@/lib/repositories/issueAttachments";
@@ -65,7 +65,7 @@ export async function addCommentAction(
 ) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (!canDo(ctx.role, "viewer.comment", ctx.permissionOverrides)) throw new Error("Viewers cannot comment in this workspace.");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot comment in this workspace.");
   // Only owners and admins may mark a comment as a Decision
   const resolvedType =
     commentType === "decision" && (ctx.role === "owner" || ctx.role === "admin")
@@ -180,7 +180,7 @@ export async function unwatchIssueAction(slug: string, issueId: string): Promise
 export async function deleteIssueAction(slug: string, id: string) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (!canDo(ctx.role, "member.delete_issue", ctx.permissionOverrides)) {
+  if (!ctxCanDo(ctx, "delete_issues")) {
     throw new Error("You don't have permission to delete issues in this workspace.");
   }
   await deleteIssue(ctx.tenant.id, id);
