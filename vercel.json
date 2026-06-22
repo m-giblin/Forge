@@ -1,1 +1,12 @@
-{}
+{
+  "crons": [
+    {
+      "path": "/api/cron/sla-check",
+      "schedule": "0 * * * *"
+    },
+    {
+      "path": "/api/cron/board-monitor",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

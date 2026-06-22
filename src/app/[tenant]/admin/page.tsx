@@ -6,6 +6,8 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { membersRepo } from "@/lib/repositories/members";
 import { issuesRepo } from "@/lib/repositories/issues";
+import { getLatestBoardHealth } from "@/lib/services/boardMonitor";
+import BoardHealthWidget from "./BoardHealthWidget";
 
 function ragStatus(blocked: number, inReview: number, total: number): "on_track" | "at_risk" | "blocked" {
   if (blocked > 0) return "blocked";
@@ -31,11 +33,12 @@ export default async function AdminOverviewPage({ params }: { params: Promise<{ 
   const mRepo = membersRepo(svc);
   const iRepo = issuesRepo(svc);
 
-  const [projects, members, unassigned, allIssues] = await Promise.all([
+  const [projects, members, unassigned, allIssues, boardHealth] = await Promise.all([
     pRepo.listByTenant(ctx.tenant.id, ["active", "on_hold"]),
     mRepo.list(ctx.tenant.id),
     iRepo.countUnassigned(ctx.tenant.id),
     iRepo.listByTenant(ctx.tenant.id),
+    getLatestBoardHealth(ctx.tenant.id),
   ]);
 
   const openIssues = allIssues.filter((i) => i.status !== "done" && i.status !== "closed").length;
@@ -58,6 +61,9 @@ export default async function AdminOverviewPage({ params }: { params: Promise<{ 
           <p className="text-sm text-neutral-500">{ctx.tenant.name} · admin dashboard</p>
         </div>
       </div>
+
+      {/* AI Board Health — proactive, always visible */}
+      <BoardHealthWidget digest={boardHealth} slug={slug} />
 
       {/* KPI strip */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
