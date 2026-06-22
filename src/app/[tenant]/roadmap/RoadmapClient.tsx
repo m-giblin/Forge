@@ -19,12 +19,15 @@ const PHASE_COLORS = [
   { label: "Orange", value: "#f97316" },
 ];
 
+type DepEdge = { fromProjectId: string; toProjectId: string };
+
 type Props = {
   slug: string;
   projects: ProjectRow[];
   issueCounts: Record<string, IssueCountEntry>;
   phases: PhaseRow[];
   userRole: string;
+  deps?: DepEdge[];
 };
 
 type DraggingState = { id: string; startX: number; origPct: number };
@@ -57,8 +60,10 @@ function getMonthHeaders(): { label: string; pct: number }[] {
   return headers;
 }
 
-export default function RoadmapClient({ slug, projects, issueCounts, phases: initialPhases, userRole }: Props) {
+export default function RoadmapClient({ slug, projects, issueCounts, phases: initialPhases, userRole, deps = [] }: Props) {
   const trackRef = useRef<HTMLDivElement>(null);
+  const ganttRef = useRef<HTMLDivElement>(null);
+  const [arcPaths, setArcPaths] = useState<{ path: string; key: string }[]>([]);
 
   // Compute initial positions — prefer persisted DB value (roadmap_position * 100), fall back to created_at spread
   const initPositions = (): Record<string, number> => {
@@ -110,6 +115,42 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
   const [phaseError, setPhaseError] = useState<string | null>(null);
   const [phasePending, startPhaseTransition] = useTransition();
   const isAdmin = userRole === "owner" || userRole === "admin";
+
+  // Recompute arc paths whenever deps, positions, or widths change.
+  // Reads bar DOM positions via data-project-id attributes.
+  useEffect(() => {
+    if (deps.length === 0 || !ganttRef.current) { setArcPaths([]); return; }
+    const container = ganttRef.current;
+    const containerRect = container.getBoundingClientRect();
+
+    function barCenterX(projectId: string, isEnd: boolean): number | null {
+      const bar = container.querySelector<HTMLElement>(`[data-bar-id="${projectId}"]`);
+      if (!bar) return null;
+      const r = bar.getBoundingClientRect();
+      return (isEnd ? r.right : r.left) - containerRect.left;
+    }
+    function rowCenterY(projectId: string): number | null {
+      const row = container.querySelector<HTMLElement>(`[data-row-id="${projectId}"]`);
+      if (!row) return null;
+      const r = row.getBoundingClientRect();
+      return r.top + r.height / 2 - containerRect.top;
+    }
+
+    const paths: { path: string; key: string }[] = [];
+    for (const dep of deps) {
+      const x1 = barCenterX(dep.fromProjectId, true);
+      const y1 = rowCenterY(dep.fromProjectId);
+      const x2 = barCenterX(dep.toProjectId, false);
+      const y2 = rowCenterY(dep.toProjectId);
+      if (x1 == null || y1 == null || x2 == null || y2 == null) continue;
+      const cx = (x1 + x2) / 2;
+      paths.push({
+        key: `${dep.fromProjectId}-${dep.toProjectId}`,
+        path: `M ${x1} ${y1} C ${cx} ${y1}, ${cx} ${y2}, ${x2} ${y2}`,
+      });
+    }
+    setArcPaths(paths);
+  }, [deps, positions]);
 
   useEffect(() => {
     const onMouseMove = (e: MouseEvent) => {
@@ -461,7 +502,32 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
           </div>
         </div>
 
-        {/* Gantt rows */}
+        {/* Gantt rows + SVG arc overlay */}
+        <div ref={ganttRef} className="relative">
+        {arcPaths.length > 0 && (
+          <svg
+            className="pointer-events-none absolute inset-0 overflow-visible z-10"
+            style={{ width: "100%", height: "100%" }}
+          >
+            <defs>
+              <marker id="dep-arrow" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
+                <path d="M 0 0 L 7 3.5 L 0 7 Z" fill="#f59e0b" />
+              </marker>
+            </defs>
+            {arcPaths.map((a) => (
+              <path
+                key={a.key}
+                d={a.path}
+                fill="none"
+                stroke="#f59e0b"
+                strokeWidth="1.5"
+                strokeDasharray="4 3"
+                markerEnd="url(#dep-arrow)"
+                opacity="0.7"
+              />
+            ))}
+          </svg>
+        )}
         {projects.map((project) => {
           const counts = issueCounts[project.id] ?? { todo: 0, in_progress: 0, done: 0, total: 0 };
           const pct = positions[project.id] ?? 0;
@@ -472,7 +538,7 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
           const assignedPhase = phases.find((ph) => ph.id === project.phase_id);
 
           return (
-            <div key={project.id} className="border-b border-neutral-100 last:border-0">
+            <div key={project.id} data-row-id={project.id} className="border-b border-neutral-100 last:border-0">
               <div className="flex items-stretch">
                 {/* Left column */}
                 <div className="w-48 shrink-0 border-r border-neutral-100 px-4 py-3">
@@ -539,6 +605,7 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
 
                   {/* Draggable bar */}
                   <div
+                    data-bar-id={project.id}
                     className={`absolute top-3 h-8 rounded-md ${barColor} opacity-90 hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity flex items-center px-3 shadow-sm`}
                     style={{ left: `${pct}%`, width: `${w}%` }}
                     onMouseDown={(e) => {
@@ -586,6 +653,7 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
             </div>
           );
         })}
+        </div> {/* end ganttRef wrapper */}
       </div>
 
       {/* Cascade confirm callout */}

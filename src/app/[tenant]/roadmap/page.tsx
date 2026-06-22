@@ -101,9 +101,50 @@ export default async function RoadmapPage({
     }
   }
 
+  // Project-level dependency edges: if any issue in project A "blocks" an issue in project B,
+  // draw a dependency arc A→B on the roadmap. Deduplicated to unique project pairs.
+  type DepEdge = { fromProjectId: string; toProjectId: string };
+  const deps: DepEdge[] = [];
+
+  if (projectIds.length > 0) {
+    const svcLinks = createSupabaseServiceClient();
+    const { data: links } = await svcLinks
+      .from("issue_links")
+      .select("source_issue_id, target_issue_id")
+      .eq("tenant_id", ctx.tenant.id)
+      .eq("link_type", "blocks");
+
+    if (links && links.length > 0) {
+      const allIssueIds = Array.from(new Set([
+        ...links.map((l) => l.source_issue_id as string),
+        ...links.map((l) => l.target_issue_id as string),
+      ]));
+      const { data: issueProjects } = await svcLinks
+        .from("issues")
+        .select("id, project_id")
+        .in("id", allIssueIds);
+
+      const issueProjectMap = new Map<string, string>(
+        (issueProjects ?? []).map((i) => [i.id as string, i.project_id as string])
+      );
+
+      const seen = new Set<string>();
+      for (const l of links) {
+        const fp = issueProjectMap.get(l.source_issue_id as string);
+        const tp = issueProjectMap.get(l.target_issue_id as string);
+        if (!fp || !tp || fp === tp) continue;
+        const key = `${fp}→${tp}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          deps.push({ fromProjectId: fp, toProjectId: tp });
+        }
+      }
+    }
+  }
+
   return (
     <main className="max-w-6xl mx-auto px-6 py-8">
-      <RoadmapClient slug={slug} projects={rows} issueCounts={issueCounts} phases={phases} userRole={ctx.role} />
+      <RoadmapClient slug={slug} projects={rows} issueCounts={issueCounts} phases={phases} userRole={ctx.role} deps={deps} />
     </main>
   );
 }
