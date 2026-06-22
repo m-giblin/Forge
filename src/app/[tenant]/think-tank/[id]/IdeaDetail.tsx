@@ -135,9 +135,15 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.color}`}>
               {meta.label}
             </span>
-            {idea.creator_name && <span>by {idea.creator_name}</span>}
+            {(idea as IdeaRow & { is_anonymous?: boolean }).is_anonymous
+              ? <span className="text-neutral-400">👤 Anonymous</span>
+              : idea.creator_name && <span>by {idea.creator_name}</span>
+            }
             {idea.assignee_name && <span>· assigned to {idea.assignee_name}</span>}
             {idea.review_by && <ReviewByChip reviewBy={idea.review_by} />}
+            {(idea as IdeaRow & { linked_okr_id?: string | null; linked_okr_title?: string | null }).linked_okr_title && (
+              <span className="text-xs text-indigo-600">🎯 {(idea as IdeaRow & { linked_okr_title?: string | null }).linked_okr_title}</span>
+            )}
             {idea.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {idea.tags.map((t) => (

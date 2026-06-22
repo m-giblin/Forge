@@ -185,6 +185,45 @@ export default function ReportsClient({
         <TrendChart data={data.weeklyTrend} />
       </div>
 
+      {/* ── Velocity (throughput) bar chart ── */}
+      {data.weeklyTrend.length > 0 && (
+        <div className="bg-white rounded-xl border border-neutral-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-neutral-800">Throughput — issues closed per week</h2>
+              <p className="text-xs text-neutral-400 mt-0.5">Higher is faster. Target: consistent bar heights with no sudden drops.</p>
+            </div>
+            <span className="text-xs text-neutral-400 bg-neutral-100 rounded-full px-2 py-0.5">
+              avg {data.weeklyTrend.length > 0 ? Math.round(data.weeklyTrend.reduce((s, w) => s + w.closed, 0) / data.weeklyTrend.length * 10) / 10 : 0}/wk
+            </span>
+          </div>
+          {(() => {
+            const maxClosed = Math.max(1, ...data.weeklyTrend.map((w) => w.closed));
+            return (
+              <div className="flex items-end gap-1.5 h-28">
+                {data.weeklyTrend.map((w, i) => {
+                  const pct = (w.closed / maxClosed) * 100;
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                      <span className="text-[9px] text-neutral-500 font-medium">{w.closed > 0 ? w.closed : ""}</span>
+                      <div className="w-full rounded-t-sm transition-all"
+                        style={{
+                          height: `${Math.max(4, pct)}%`,
+                          backgroundColor: w.closed === 0 ? "#f1f5f9" : w.closed >= maxClosed * 0.8 ? "#22c55e" : w.closed >= maxClosed * 0.4 ? "#6366f1" : "#94a3b8",
+                        }}
+                      />
+                      {data.weeklyTrend.length <= 12 && (
+                        <span className="text-[9px] text-neutral-400 truncate w-full text-center">{w.label}</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       {/* ── 8-widget grid ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 

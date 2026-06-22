@@ -40,6 +40,8 @@ export async function createIdeaAction(
     description: (formData.get("description") as string)?.trim() || null,
     tags,
     is_private: formData.get("is_private") === "on",
+    is_anonymous: formData.get("is_anonymous") === "on",
+    linked_okr_id: (formData.get("linked_okr_id") as string) || null,
     assigned_to: (formData.get("assigned_to") as string) || null,
     review_by: rawReviewBy || null,
   });

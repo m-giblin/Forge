@@ -546,6 +546,7 @@ function NewIssueForm({
   const [aiDescription, setAiDescription] = useState("");
   const [aiPending, setAiPending] = useState(false);
   const [voiceListening, setVoiceListening] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   function startVoice() {
     const SpeechRecognition = (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition
@@ -620,6 +621,37 @@ function NewIssueForm({
 
   return (
     <div className="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+      {/* Quick templates */}
+      {showTemplates && (
+        <div className="mb-3 pb-3 border-b border-neutral-100">
+          <p className="text-xs font-semibold text-neutral-500 mb-2">Quick templates</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "🐛 Bug report", title: "[Bug] ", type: "bug", priority: "high" },
+              { label: "✨ Feature request", title: "[Feature] ", type: "feature", priority: "medium" },
+              { label: "⚙️ Tech debt", title: "[Debt] ", type: "task", priority: "low" },
+              { label: "🔒 Security issue", title: "[Security] ", type: "bug", priority: "urgent" },
+              { label: "📋 Task", title: "", type: "task", priority: "medium" },
+            ].map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                onClick={() => {
+                  setTitle(t.title);
+                  const matchType = types.find((x) => x.key === t.type);
+                  if (matchType) setType(matchType.key);
+                  const matchPri = priorities.find((x) => x.key === t.priority);
+                  if (matchPri) setPriority(matchPri.key);
+                  setShowTemplates(false);
+                }}
+                className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {/* AI Draft mode */}
       {aiMode ? (
         <div className="space-y-2">
@@ -687,6 +719,14 @@ function NewIssueForm({
           className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
         >
           {pending ? "Creating…" : "Create"}
+        </button>
+        <button
+          onClick={() => setShowTemplates((s) => !s)}
+          type="button"
+          title="Start from a template"
+          className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${showTemplates ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-neutral-200 text-neutral-500 hover:bg-neutral-50"}`}
+        >
+          📋 Templates
         </button>
         <button
           onClick={() => { setAiMode(true); setError(null); }}
