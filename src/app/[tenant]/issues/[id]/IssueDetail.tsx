@@ -16,6 +16,8 @@ import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 import TriageCard from "./TriageCard";
 import GitLinksCard from "./GitLinksCard";
 import MarkDuplicateButton from "./MarkDuplicateButton";
+import TimeTracker from "./TimeTracker";
+import type { TimeLog } from "./timeActions";
 import type { IssueCodeLink } from "@/lib/repositories/gitIntegration";
 import DecomposeButton from "./DecomposeButton";
 import PrImpactButton from "./PrImpactButton";
@@ -114,6 +116,7 @@ export default function IssueDetail({
   gitLinks = [],
   slaTimer,
   signoffs = [],
+  initialTimeLogs = [],
 }: {
   slug: string;
   issue: Issue;
@@ -138,6 +141,7 @@ export default function IssueDetail({
   gitLinks?: IssueCodeLink[];
   slaTimer?: SlaTimer;
   signoffs?: IssueSignoff[];
+  initialTimeLogs?: TimeLog[];
 }) {
   const [title, setTitle] = useState(issue.title);
   const [description, setDescription] = useState(issue.description ?? "");
@@ -886,6 +890,13 @@ export default function IssueDetail({
             slug={slug}
             issueId={issue.id}
             currentStatus={issue.status}
+            readOnly={readOnly}
+          />
+
+          <TimeTracker
+            slug={slug}
+            issueId={issue.id}
+            initialLogs={initialTimeLogs}
             readOnly={readOnly}
           />
 

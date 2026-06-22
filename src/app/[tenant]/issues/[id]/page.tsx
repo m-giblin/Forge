@@ -15,6 +15,7 @@ import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
 import { slaPoliciesRepo } from "@/lib/repositories/slaPolicies";
 import { computeSlaTimer } from "@/lib/services/sla";
 import IssueDetail from "./IssueDetail";
+import { listTimeLogsAction } from "./timeActions";
 
 export default async function IssuePage({ params }: { params: Promise<{ tenant: string; id: string }> }) {
   const { tenant: slug, id } = await params;
@@ -44,7 +45,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
   // Migration 0044 guard — graceful if not run yet
   const linksRepo = issueLinksRepo(svcClient);
   const projectKey = project?.key ?? "";
-  const [subIssues, links, gitLinks, slaPolicies, signoffsRaw] = await Promise.all([
+  const [subIssues, links, gitLinks, slaPolicies, signoffsRaw, timeLogs] = await Promise.all([
     linksRepo.listChildren(ctx.tenant.id, issue.id).catch(() => []),
     linksRepo.listForIssue(ctx.tenant.id, issue.id, projectKey).catch(() => []),
     gitIntegrationRepo(svcClient).listCodeLinks(ctx.tenant.id, issue.id).catch(() => []),
@@ -56,6 +57,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         .eq("tenant_id", ctx.tenant.id)
         .order("created_at")
     ).then((r) => r.data ?? []).catch(() => []),
+    listTimeLogsAction(slug, issue.id).catch(() => []),
   ]);
   // Flatten signer label (use email since PII not decrypted here — good enough for display)
   const signoffs = signoffsRaw.map((s: Record<string, unknown>) => ({
@@ -96,6 +98,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         gitLinks={gitLinks}
         slaTimer={slaTimer}
         signoffs={signoffs}
+        initialTimeLogs={timeLogs}
       />
     </main>
   );
