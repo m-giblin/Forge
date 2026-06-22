@@ -62,6 +62,7 @@ const NAV = [
     group: "Products",
     items: [
       { seg: "think-tank", label: "Think Tank", icon: "💡" },
+      { seg: "okrs", label: "OKRs", icon: "🎯" },
     ],
   },
 ];
