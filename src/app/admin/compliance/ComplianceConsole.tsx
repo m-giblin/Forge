@@ -242,7 +242,16 @@ export default function ComplianceConsole({
                   <td className="px-4 py-3 text-neutral-400 text-xs">{req.regulation}</td>
                   <td className="px-4 py-3 text-xs text-neutral-500">{timeAgo(req.created_at)}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      {req.request_type === "export" && (
+                        <a
+                          href={`/api/admin/compliance/export?email=${encodeURIComponent(req.requester_email)}`}
+                          download
+                          className="text-xs font-medium text-sky-400 hover:underline"
+                        >
+                          Download
+                        </a>
+                      )}
                       {req.status === "pending" && (
                         <button
                           onClick={() => run(() => updateComplianceStatusAction(req.id, "in_progress"))}
