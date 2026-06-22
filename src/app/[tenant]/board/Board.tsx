@@ -545,6 +545,27 @@ function NewIssueForm({
   const [aiMode, setAiMode] = useState(false);
   const [aiDescription, setAiDescription] = useState("");
   const [aiPending, setAiPending] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
+
+  function startVoice() {
+    const SpeechRecognition = (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition
+      ?? (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition;
+    if (!SpeechRecognition) { setError("Voice input not supported in this browser."); return; }
+    const rec = new (SpeechRecognition as new () => { continuous: boolean; interimResults: boolean; lang: string; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: (() => void) | null; onend: (() => void) | null; start: () => void })();
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.lang = "en-US";
+    setVoiceListening(true);
+    rec.onresult = (e) => {
+      const transcript = Array.from(e.results).map(r => r[0].transcript).join(" ");
+      setAiDescription(transcript);
+      setAiMode(true);
+      setVoiceListening(false);
+    };
+    rec.onerror = () => setVoiceListening(false);
+    rec.onend = () => setVoiceListening(false);
+    rec.start();
+  }
 
   function draftWithAI() {
     if (!aiDescription.trim()) return;
@@ -674,6 +695,14 @@ function NewIssueForm({
           className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
         >
           ✨ AI Draft
+        </button>
+        <button
+          onClick={startVoice}
+          type="button"
+          title="Dictate issue via microphone"
+          className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${voiceListening ? "border-red-300 bg-red-50 text-red-600 animate-pulse" : "border-neutral-200 text-neutral-500 hover:bg-neutral-50"}`}
+        >
+          {voiceListening ? "🎙 Listening…" : "🎙 Voice"}
         </button>
       </div>
       )}
