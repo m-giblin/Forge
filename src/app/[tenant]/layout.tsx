@@ -106,6 +106,7 @@ export default async function TenantLayout({
               <SideLink href={`/${slug}/reports`} icon="📊" label="Reports" />
               <SideLink href={`/${slug}/think-tank`} icon="💡" label="Think Tank" />
               <SideLink href={`/${slug}/stakeholder`} icon="📈" label="Stakeholder" />
+              <SideLink href={`/${slug}/changelog`} icon="📋" label="Changelog" />
             </div>
           </div>
 
