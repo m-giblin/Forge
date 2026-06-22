@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getTenantContext } from "@/lib/auth";
-// eslint-disable-next-line no-restricted-imports -- service-role for public changelog read
+// eslint-disable-next-line no-restricted-imports -- public changelog: no user JWT, service-role reads tenant + done issues
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export const revalidate = 3600;
@@ -37,14 +36,20 @@ export default async function ChangelogPage({
   params: Promise<{ tenant: string }>;
 }) {
   const { tenant: slug } = await params;
-  const ctx = await getTenantContext(slug);
-  if (!ctx) redirect("/");
-
   const svc = createSupabaseServiceClient();
+
+  const { data: tenant } = await svc
+    .from("tenants")
+    .select("id, name")
+    .eq("slug", slug)
+    .single();
+
+  if (!tenant) notFound();
+
   const { data } = await svc
     .from("issues")
     .select("id, number, title, type, priority, updated_at, projects(key, name)")
-    .eq("tenant_id", ctx.tenant.id)
+    .eq("tenant_id", tenant.id)
     .eq("status", "done")
     .order("updated_at", { ascending: false })
     .limit(200);
@@ -64,7 +69,7 @@ export default async function ChangelogPage({
       {/* Header */}
       <div className="mb-10 text-center">
         <p className="text-4xl mb-3">📋</p>
-        <h1 className="text-3xl font-bold text-neutral-900">{ctx.tenant.name} Changelog</h1>
+        <h1 className="text-3xl font-bold text-neutral-900">{tenant.name} Changelog</h1>
         <p className="mt-2 text-neutral-500">What we&apos;ve shipped, week by week.</p>
         <div className="mt-4 flex justify-center gap-4 text-sm text-neutral-400">
           <span>{issues.length} issues shipped</span>

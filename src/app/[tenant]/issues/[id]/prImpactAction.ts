@@ -54,9 +54,9 @@ export async function predictPrImpactAction(
 
   const prompt = `You are a senior software engineer reviewing a pull request before it merges. Assess the risk and impact.
 
-Issue: "${issue.title}"
+Issue: "${(issue.title as string).slice(0, 200)}"
 Type: ${issue.type} | Priority: ${issue.priority}
-Description: ${issue.description ? issue.description.slice(0, 500) : "No description provided."}
+Description: ${issue.description ? (issue.description as string).slice(0, 500) : "No description provided."}
 
 Linked PRs:
 ${prContext}

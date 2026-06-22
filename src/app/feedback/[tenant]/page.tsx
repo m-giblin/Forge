@@ -13,7 +13,7 @@ export default async function FeedbackPage({
   const svc = createSupabaseServiceClient();
   const { data: tenant } = await svc
     .from("tenants")
-    .select("id, name")
+    .select("name")
     .eq("slug", slug)
     .single();
 
@@ -29,7 +29,7 @@ export default async function FeedbackPage({
             Got a bug, idea, or question? Send it to <strong>{tenant.name}</strong>.
           </p>
         </div>
-        <FeedbackForm slug={slug} tenantId={tenant.id} tenantName={tenant.name} />
+        <FeedbackForm slug={slug} tenantName={tenant.name} />
         <p className="mt-6 text-center text-xs text-neutral-400">
           Powered by <span className="font-medium text-neutral-500">Forge</span>
         </p>

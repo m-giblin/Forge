@@ -43,8 +43,8 @@ export async function decomposeIssueAction(
 
   const prompt = `You are a senior engineering lead. Break down the following issue into 3-6 concrete, actionable sub-tasks.
 
-Issue: "${issue.title}"
-${issue.description ? `Description:\n${issue.description}` : ""}
+Issue: "${(issue.title as string).slice(0, 200)}"
+${issue.description ? `Description:\n${(issue.description as string).slice(0, 1000)}` : ""}
 
 Return a JSON array of sub-task objects. Each object must have:
 - title: string (short, action-oriented, max 80 chars)
@@ -71,8 +71,11 @@ Return ONLY the JSON array, no prose.`;
     const json = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
     const raw = json.choices?.[0]?.message?.content ?? "[]";
     const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed = JSON.parse(clean) as SubIssueDraft[];
-    return { subIssues: parsed };
+    const parsed: unknown = JSON.parse(clean);
+    if (!Array.isArray(parsed)) {
+      return { subIssues: [], error: "AI returned an unexpected format. Try again." };
+    }
+    return { subIssues: parsed as SubIssueDraft[] };
   } catch {
     return { subIssues: [], error: "AI decomposition failed. Try again." };
   }
@@ -90,31 +93,26 @@ export async function createSubIssuesAction(
 
   const svc = createSupabaseServiceClient();
 
-  // Get current max number for the project
-  const { data: maxRow } = await svc
-    .from("issues")
-    .select("number")
-    .eq("project_id", projectId)
-    .eq("tenant_id", ctx.tenant.id)
-    .order("number", { ascending: false })
-    .limit(1)
-    .single();
-
-  let nextNumber = (maxRow?.number ?? 0) + 1;
-
-  const rows = subIssues.map((s) => ({
-    tenant_id: ctx.tenant.id,
-    project_id: projectId,
-    parent_id: parentIssueId,
-    number: nextNumber++,
-    title: s.title,
-    description: s.description,
-    type: s.type,
-    priority: s.priority,
-    status: "todo",
-    reporter_id: ctx.appUserId,
-  }));
-
-  await svc.from("issues").insert(rows);
-  return { count: rows.length };
+  // Insert sub-issues one at a time, using the atomic next_issue_number() RPC
+  // to avoid TOCTOU races on concurrent decompose calls for the same project.
+  for (const s of subIssues) {
+    const { data: numData } = await svc.rpc("next_issue_number", {
+      p_tenant_id: ctx.tenant.id,
+      p_project_id: projectId,
+    });
+    const number = (numData as number | null) ?? 1;
+    await svc.from("issues").insert({
+      tenant_id: ctx.tenant.id,
+      project_id: projectId,
+      parent_id: parentIssueId,
+      number,
+      title: s.title.slice(0, 500),
+      description: s.description,
+      type: s.type,
+      priority: s.priority,
+      status: "todo",
+      reporter_id: ctx.appUserId,
+    });
+  }
+  return { count: subIssues.length };
 }

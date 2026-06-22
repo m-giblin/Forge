@@ -12,11 +12,10 @@ const TYPES = [
 
 interface Props {
   slug: string;
-  tenantId: string;
   tenantName: string;
 }
 
-export default function FeedbackForm({ tenantId }: Props) {
+export default function FeedbackForm({ slug }: Props) {
   const [type, setType] = useState("bug");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -30,7 +29,7 @@ export default function FeedbackForm({ tenantId }: Props) {
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      const result = await submitFeedbackAction(tenantId, { name, email, type, title, body });
+      const result = await submitFeedbackAction(slug, { name, email, type, title, body });
       if (result.ok) {
         setSuccess(true);
       } else {
