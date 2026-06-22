@@ -138,17 +138,20 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
                     const dueDate = issue.due_date ? new Date(issue.due_date) : null;
                     const isOverdue = dueDate && dueDate < today;
                     return (
-                      <div key={issue.id} className="flex items-start gap-3 px-4 py-3 hover:bg-neutral-50">
+                      <Link
+                        key={issue.id}
+                        href={`/${slug}/issues/${issue.id}`}
+                        className="flex items-start gap-3 px-4 py-3 hover:bg-neutral-50 transition-colors"
+                      >
                         <span className="mt-0.5 shrink-0 rounded-md bg-neutral-100 px-1.5 py-0.5 text-xs font-mono font-medium text-neutral-600">
                           {issue.project?.key ?? "?"}-{issue.number}
                         </span>
                         <div className="min-w-0 flex-1">
-                          <Link
-                            href={`/${slug}/issues/${issue.id}`}
-                            className="block truncate text-sm font-medium text-neutral-800 hover:text-neutral-900 hover:underline"
+                          <div
+                            className="block truncate text-sm font-medium text-neutral-800 hover:underline"
                           >
                             {issue.title}
-                          </Link>
+                          </div>
                           <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
                             <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_COLORS[issue.status] ?? "bg-neutral-100 text-neutral-600"}`}>
                               {statusLabel(issue.status)}
@@ -169,7 +172,7 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
                             <span>{relativeTime(issue.updated_at)}</span>
                           </div>
                         </div>
-                      </div>
+                      </Link>
                     );
                   })}
                 </div>

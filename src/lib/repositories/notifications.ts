@@ -85,6 +85,15 @@ export function notificationsRepo(supabase: SupabaseClient) {
         .eq("id", id);
       if (error) throw error;
     },
+
+    async delete(userId: string, id: string): Promise<void> {
+      const { error } = await supabase
+        .from("notifications")
+        .delete()
+        .eq("user_id", userId)
+        .eq("id", id);
+      if (error) throw error;
+    },
   };
 }
 

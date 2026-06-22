@@ -64,9 +64,9 @@ export default async function TenantLayout({
       {ctx.impersonating && <ImpersonationBanner tenantName={ctx.tenant.name} />}
 
       {/* ── Sidebar ── */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-neutral-200 bg-white">
+      <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-neutral-200 bg-white overflow-hidden">
         {/* Logo + workspace */}
-        <div className="flex items-center gap-2.5 border-b border-neutral-100 px-4 py-4">
+        <div className="flex items-center gap-2.5 border-b border-neutral-100 px-4 py-4 shrink-0">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-xs font-bold text-white">F</div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-neutral-900">{ctx.tenant.name}</p>
@@ -75,7 +75,7 @@ export default async function TenantLayout({
         </div>
 
         {/* Nav groups */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-5">
+        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-5 min-w-0">
 
           {/* My Work */}
           <div>
@@ -125,7 +125,7 @@ export default async function TenantLayout({
 
         {/* Platform Admin escape hatch — super admins only */}
         {isSuperAdmin && (
-          <div className="border-t border-neutral-100 px-2 py-2">
+          <div className="shrink-0 border-t border-neutral-100 px-2 py-2">
             <Link
               href="/admin"
               className="flex items-center gap-2 rounded-lg bg-neutral-900 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-700 transition-colors"
@@ -138,7 +138,7 @@ export default async function TenantLayout({
         )}
 
         {/* User footer */}
-        <div className="border-t border-neutral-100 px-3 py-3">
+        <div className="shrink-0 border-t border-neutral-100 px-3 py-3">
           <div className="flex items-center gap-2.5">
             <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
               {initials}

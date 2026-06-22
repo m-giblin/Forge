@@ -4,7 +4,7 @@ import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { type Notification } from "@/lib/repositories/notifications";
-import { markAllReadAction, markReadAction } from "@/app/[tenant]/notifications/actions";
+import { markAllReadAction, markReadAction, deleteNotificationAction } from "@/app/[tenant]/notifications/actions";
 
 function relTime(iso: string): string {
   const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
@@ -101,6 +101,12 @@ export default function InboxClient({
     } else if (n.issueId) {
       router.push(`/${slug}/issues/${n.issueId}`);
     }
+  }
+
+  function handleDelete(e: React.MouseEvent, id: string) {
+    e.stopPropagation();
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
+    startTransition(() => deleteNotificationAction(slug, id));
   }
 
   const filtered = notifications.filter((n) => {
@@ -200,17 +206,28 @@ export default function InboxClient({
                 )}
                 <p className="mt-1 text-xs text-neutral-400">{relTime(n.createdAt)}</p>
               </div>
-              {(n.linkPath || n.issueId) && (
-                <svg
-                  className="mt-1 h-4 w-4 shrink-0 text-neutral-300"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  viewBox="0 0 24 24"
+              <div className="flex shrink-0 items-center gap-2">
+                <button
+                  onClick={(e) => handleDelete(e, n.id)}
+                  className="rounded-lg p-1.5 text-neutral-400 hover:bg-neutral-100 hover:text-red-500 transition"
+                  title="Delete notification"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                </svg>
-              )}
+                  <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+                {(n.linkPath || n.issueId) && (
+                  <svg
+                    className="mt-0 h-4 w-4 text-neutral-300"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    viewBox="0 0 24 24"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                )}
+              </div>
             </li>
           ))}
         </ul>

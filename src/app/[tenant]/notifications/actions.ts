@@ -19,6 +19,13 @@ export async function markReadAction(slug: string, id: string) {
   await notificationsRepo(supabase).markRead(ctx.appUserId, id);
 }
 
+export async function deleteNotificationAction(slug: string, id: string) {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) redirect("/");
+  const supabase = await createSupabaseServerClient();
+  await notificationsRepo(supabase).delete(ctx.appUserId, id);
+}
+
 export async function setEmailDigestAction(slug: string, enabled: boolean) {
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
