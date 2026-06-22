@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
-import AdminTopNav from "@/components/AdminTopNav";
+import AdminSidebar from "@/components/AdminSidebar";
 
 export default async function AdminLayout({
   children,
@@ -20,33 +20,32 @@ export default async function AdminLayout({
   const roleLabel = ctx.impersonating ? "Support View" : ctx.role === "owner" ? "Owner · Super Admin" : "Admin";
 
   return (
-    <div className="flex min-h-full flex-col">
-      {/* Admin header bar */}
-      <div className="flex items-center gap-3 border-b border-neutral-800 bg-neutral-900 px-5 py-2.5">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-500 text-xs font-bold text-white">
-          {initials}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-white">{ctx.email}</p>
-          <p className="text-[11px] text-indigo-300">{roleLabel}</p>
-        </div>
-        <span className="rounded-full bg-indigo-600 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-white">
-          Admin
-        </span>
-      </div>
+    <div className="flex min-h-screen bg-neutral-50">
+      {/* Grouped sidebar */}
+      <AdminSidebar slug={slug} />
 
-      {!isAdmin && ctx.impersonating && (
-        <div className="bg-amber-50 px-5 py-2 text-sm text-amber-800">
-          Support view — read-only. Changes are disabled.
+      {/* Main content */}
+      <div className="flex flex-1 flex-col min-w-0">
+        {/* Header bar */}
+        <div className="flex items-center gap-3 border-b border-neutral-200 bg-white px-6 py-3 shrink-0">
+          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-neutral-900">{ctx.email}</p>
+            <p className="text-[11px] text-neutral-500">{roleLabel}</p>
+          </div>
+          {!isAdmin && ctx.impersonating && (
+            <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
+              Support View
+            </span>
+          )}
         </div>
-      )}
 
-      {/* Horizontal tab nav — replaces the old sidebar */}
-      <AdminTopNav slug={slug} />
-
-      {/* Content */}
-      <div className="flex-1 px-6 py-6">
-        {children}
+        {/* Content area */}
+        <div className="flex-1 overflow-y-auto px-6 py-6">
+          {children}
+        </div>
       </div>
     </div>
   );

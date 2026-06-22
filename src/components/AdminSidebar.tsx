@@ -1,96 +1,133 @@
 "use client";
 
+import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const NAV = [
+const ADMIN_GROUPS = [
   {
-    group: "Overview",
-    items: [{ seg: "", label: "Workspace", icon: "▣" }],
-  },
-  {
-    group: "People",
+    id: "overview",
+    label: "Overview",
     items: [
-      { seg: "members", label: "Members", icon: "👥" },
-      { seg: "projects", label: "Projects & Teams", icon: "📋" },
+      { id: "workspace", label: "Workspace", icon: "🏢", href: "/admin" },
+      { id: "audit", label: "Audit Log", icon: "📋", href: "/admin/activity" },
     ],
   },
   {
-    group: "Configuration",
+    id: "team",
+    label: "Team",
     items: [
-      { seg: "fields", label: "Fields & Categories", icon: "🏷" },
-      { seg: "api-keys", label: "API Keys", icon: "🔑" },
-      { seg: "import", label: "Import Issues", icon: "📥" },
-      { seg: "think-tank", label: "Think Tank", icon: "💡" },
-      { seg: "notifications", label: "Notifications", icon: "🔔" },
-      { seg: "integration", label: "SDK Integration", icon: "🔌" },
+      { id: "members", label: "Members", icon: "👥", href: "/admin/members" },
+      { id: "roles", label: "Roles", icon: "🔐", href: "/admin/roles" },
     ],
   },
   {
-    group: "Integrations",
+    id: "projects",
+    label: "Projects & Work",
     items: [
-      { seg: "settings/git", label: "GitHub", icon: "🐙" },
-      { seg: "settings/webhooks", label: "Webhooks", icon: "⚡" },
-      { seg: "settings/chat", label: "Slack / Teams", icon: "💬" },
-      { seg: "settings/automations", label: "Automations", icon: "🤖" },
+      { id: "projects", label: "Projects", icon: "📁", href: "/admin/projects" },
+      { id: "fields", label: "Fields", icon: "🗂️", href: "/admin/fields" },
     ],
   },
   {
-    group: "Security",
+    id: "integrations",
+    label: "Integrations",
     items: [
-      { seg: "settings/sso", label: "SSO", icon: "🔐" },
-      { seg: "settings/permissions", label: "Permissions", icon: "🛡" },
-      { seg: "settings/sla", label: "SLA Policies", icon: "📊" },
-      { seg: "settings/security", label: "Security", icon: "🔒" },
+      { id: "github", label: "GitHub", icon: "🐙", href: "/admin/settings/git" },
+      { id: "webhooks", label: "Webhooks", icon: "⚡", href: "/admin/settings/webhooks" },
+      { id: "chat", label: "Slack / Teams", icon: "💬", href: "/admin/settings/chat" },
+      { id: "sdk", label: "SDK & Import", icon: "📦", href: "/admin/import" },
     ],
   },
   {
-    group: "Monitoring",
+    id: "automation",
+    label: "Automation",
     items: [
-      { seg: "settings/ai", label: "AI Settings", icon: "✨" },
-      { seg: "usage", label: "AI Usage", icon: "📈" },
-      { seg: "activity", label: "Audit Log", icon: "📜" },
+      { id: "automations", label: "Automations", icon: "⚙️", href: "/admin/settings/automations" },
+      { id: "notifications", label: "Notifications", icon: "🔔", href: "/admin/notifications" },
+    ],
+  },
+  {
+    id: "developer",
+    label: "Developer",
+    items: [
+      { id: "api_keys", label: "API Keys", icon: "🗝️", href: "/admin/api-keys" },
     ],
   },
 ];
 
 export default function AdminSidebar({ slug }: { slug: string }) {
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({});
 
-  function isActive(seg: string) {
-    const href = `/${slug}/admin${seg ? `/${seg}` : ""}`;
-    if (seg === "") return pathname === `/${slug}/admin`;
-    return pathname.startsWith(href);
+  function isActive(href: string): boolean {
+    const path = pathname.replace(`/${slug}`, "");
+    return path === href || path.startsWith(href + "/");
   }
 
   return (
-    <nav className="flex w-52 shrink-0 flex-col gap-4 overflow-y-auto py-1">
-      {NAV.map((section) => (
-        <div key={section.group}>
-          <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-500">
-            {section.group}
-          </p>
-          <div className="space-y-0.5">
-            {section.items.map((item) => {
-              const active = isActive(item.seg);
-              return (
-                <Link
-                  key={item.seg}
-                  href={`/${slug}/admin${item.seg ? `/${item.seg}` : ""}`}
-                  className={`flex items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors ${
-                    active
-                      ? "bg-neutral-900 text-white"
-                      : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+    <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-neutral-200 bg-white overflow-hidden">
+      {/* Header */}
+      <div className="shrink-0 border-b border-neutral-100 px-4 py-3">
+        <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Admin</div>
+      </div>
+
+      {/* Nav groups */}
+      <nav className="flex-1 overflow-y-auto py-2 px-2 space-y-1">
+        {ADMIN_GROUPS.map((group) => {
+          const isCollapsed = collapsed[group.id];
+          const groupActive = group.items.some((i) => isActive(`/${slug}${i.href}`));
+
+          return (
+            <div key={group.id} className="mb-2">
+              <button
+                onClick={() => setCollapsed((p) => ({ ...p, [group.id]: !p[group.id] }))}
+                className="w-full flex items-center gap-1 px-2 py-1 mb-0.5 group transition"
+              >
+                <span
+                  className={`text-[10px] font-bold uppercase tracking-widest transition ${
+                    groupActive ? "text-indigo-600" : "text-neutral-400 group-hover:text-neutral-600"
                   }`}
                 >
-                  <span className="text-base leading-none">{item.icon}</span>
-                  <span className="truncate">{item.label}</span>
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-    </nav>
+                  {group.label}
+                </span>
+                <div className="flex-1" />
+                <span className={`text-neutral-400 text-[10px] transition ${isCollapsed ? "rotate-0" : "rotate-90"}`}>
+                  ›
+                </span>
+              </button>
+
+              {!isCollapsed &&
+                group.items.map((item) => {
+                  const active = isActive(`/${slug}${item.href}`);
+                  return (
+                    <Link
+                      key={item.id}
+                      href={`/${slug}${item.href}`}
+                      className={`flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition mb-0.5 ${
+                        active
+                          ? "bg-indigo-600 text-white shadow-sm"
+                          : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                      }`}
+                    >
+                      <span className="w-4 text-center">{item.icon}</span>
+                      <span className="flex-1">{item.label}</span>
+                    </Link>
+                  );
+                })}
+            </div>
+          );
+        })}
+      </nav>
+
+      {/* Search footer */}
+      <div className="shrink-0 p-2 border-t border-neutral-100">
+        <button className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-400 hover:border-neutral-300 hover:text-neutral-600 hover:bg-neutral-50 transition">
+          <span>🔍</span>
+          <span className="flex-1 text-left">Search settings</span>
+          <kbd className="text-[9px] font-mono bg-neutral-100 border border-neutral-200 px-1 rounded">⌘K</kbd>
+        </button>
+      </div>
+    </aside>
   );
 }
