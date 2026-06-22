@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { predictPrImpactAction } from "./prImpactAction";
+import Modal from "@/components/Modal";
 
 interface Props {
   slug: string;
@@ -51,9 +52,8 @@ export default function PrImpactButton({ slug, issueId, readOnly }: Props) {
         PR Impact Prediction
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
+      <Modal open={open} onClose={() => setOpen(false)} label="PR Impact Prediction" className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
+          <div>
             <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-4">
               <div>
                 <p className="font-semibold text-neutral-900">PR Impact Prediction</p>
@@ -140,8 +140,7 @@ export default function PrImpactButton({ slug, issueId, readOnly }: Props) {
               </button>
             </div>
           </div>
-        </div>
-      )}
+      </Modal>
     </>
   );
 }
