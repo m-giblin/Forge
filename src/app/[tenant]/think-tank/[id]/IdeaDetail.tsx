@@ -9,6 +9,7 @@ import IdeaComments from "./IdeaComments";
 import SoundingBoard from "./SoundingBoard";
 import IdeaDecisions from "./IdeaDecisions";
 import IdeaSignoffs from "./IdeaSignoffs";
+import IdeaPRDPanel from "./IdeaPRDPanel";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -426,6 +427,11 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         initialTurns={recentAiTurns}
         customPills={customPills}
       />
+
+      {/* Idea-to-PRD — shown when idea is approved/ready and not yet converted */}
+      {!isViewer && !isTerminal && (idea.status === "approved" || idea.status === "ready") && (
+        <IdeaPRDPanel slug={slug} ideaId={idea.id} ideaTitle={idea.title} />
+      )}
 
       {/* AI Facilitator hints — shown when AI hasn't been used and conditions are met */}
       {!isViewer && !isTerminal && recentAiTurns.length === 0 && activeCommentCount >= 20 && (
