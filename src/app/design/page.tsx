@@ -1789,229 +1789,652 @@ function CollaboratorShell({onCmdK}:{onCmdK:()=>void}) {
 }
 
 // ══════════════════════════════════════════════════════════════
-//  ADMIN SHELL
+//  ADMIN SHELL — Two design concepts for admin navigation
 // ══════════════════════════════════════════════════════════════
 
-function AdminShell({onCmdK}:{onCmdK:()=>void}) {
-  const [view,setView] = useState("workspace");
-  const [memberRole,setMemberRole] = useState<Record<string,string>>(Object.fromEntries(TEAM.map(m=>[m.id,m.role])));
+const ADMIN_GROUPS = [
+  {
+    id:"overview", label:"Overview", icon:"◈",
+    items:[
+      {id:"workspace",   label:"Workspace",   icon:"🏢", badge:0,  desc:"General settings, branding, billing"},
+      {id:"audit",       label:"Audit Log",   icon:"📋", badge:2,  desc:"All admin actions, security events"},
+      {id:"ai_usage",    label:"AI Usage",    icon:"✦",  badge:0,  desc:"Token consumption, cost breakdown"},
+    ]
+  },
+  {
+    id:"team", label:"Team", icon:"◈",
+    items:[
+      {id:"members",     label:"Members",     icon:"👥", badge:1,  desc:"Invite, manage roles, remove"},
+      {id:"roles",       label:"Roles",       icon:"🔐", badge:0,  desc:"Custom roles & permission sets"},
+      {id:"sso",         label:"SSO / Login", icon:"🔑", badge:0,  desc:"SAML, Google Workspace, Okta"},
+      {id:"security",    label:"Security",    icon:"🛡️", badge:1,  desc:"2FA enforcement, IP allowlist"},
+    ]
+  },
+  {
+    id:"projects", label:"Projects & Work", icon:"◈",
+    items:[
+      {id:"projects",    label:"Projects",    icon:"📁", badge:0,  desc:"Create, archive, transfer"},
+      {id:"fields",      label:"Fields",      icon:"🗂️", badge:0,  desc:"Custom fields & categories"},
+      {id:"sla",         label:"SLA",         icon:"⏱️", badge:0,  desc:"Response & resolution policies"},
+    ]
+  },
+  {
+    id:"integrations", label:"Integrations", icon:"◈",
+    items:[
+      {id:"github",      label:"GitHub",      icon:"🐙", badge:0,  desc:"Commits, PRs linked to issues"},
+      {id:"webhooks",    label:"Webhooks",    icon:"⚡", badge:0,  desc:"Outbound event streams"},
+      {id:"chat",        label:"Slack / Teams",icon:"💬",badge:0,  desc:"Notifications & slash commands"},
+      {id:"sdk",         label:"SDK & Import", icon:"📦",badge:0,  desc:"JS SDK, CSV import, Jira migration"},
+    ]
+  },
+  {
+    id:"automation", label:"Automation", icon:"◈",
+    items:[
+      {id:"automations", label:"Automations", icon:"⚙️", badge:0, desc:"Auto-assign, close, label rules"},
+      {id:"notifications",label:"Notifications",icon:"🔔",badge:0, desc:"Digests, @mentions, watchers"},
+      {id:"ai",          label:"AI Settings", icon:"🤖", badge:0, desc:"Grok model, context window, tone"},
+    ]
+  },
+  {
+    id:"developer", label:"Developer", icon:"◈",
+    items:[
+      {id:"api_keys",    label:"API Keys",    icon:"🗝️", badge:0,  desc:"Create & rotate service tokens"},
+      {id:"think_tank",  label:"Think Tank",  icon:"💡", badge:0,  desc:"Roadmap ideation & AI synthesis"},
+      {id:"changelog",   label:"Changelog",   icon:"📣", badge:0,  desc:"Release notes & version history"},
+    ]
+  },
+];
 
-  const navItems = [
-    {id:"workspace",icon:"🏢", label:"Workspace",  badge:0},
-    {id:"members",  icon:"👥", label:"Members",    badge:1},
-    {id:"settings", icon:"⚙️", label:"Settings",   badge:0},
-    {id:"audit",    icon:"📋", label:"Audit Log",  badge:2},
-  ];
+const ALL_ADMIN_ITEMS = ADMIN_GROUPS.flatMap(g=>g.items);
 
-  const projects = [
-    {key:"FORGE",name:"Forge Issue Tracker",status:"on_track", health:68, open:12},
-    {key:"WEB",  name:"Travli Web App",      status:"at_risk",  health:52, open:8},
-    {key:"MOB",  name:"Travli Mobile",       status:"on_track", health:81, open:3},
-    {key:"INFRA",name:"Platform Infra",      status:"blocked",  health:34, open:4},
-  ];
+const statusCfg = {
+  on_track:{label:"On Track",bg:"bg-emerald-50",text:"text-emerald-700",border:"border-emerald-200",dot:"bg-emerald-500"},
+  at_risk: {label:"At Risk", bg:"bg-amber-50",  text:"text-amber-700",  border:"border-amber-200",  dot:"bg-amber-400"},
+  blocked: {label:"Blocked", bg:"bg-red-50",    text:"text-red-700",    border:"border-red-200",    dot:"bg-red-500"},
+} as Record<string,{label:string;bg:string;text:string;border:string;dot:string}>;
 
-  const auditLog = [
-    {icon:"🔒",text:"FORGE-52 created — SEC-05 Make IMPERSONATION_SECRET mandatory",user:"u1",time:"1 day ago"},
-    {icon:"👤",text:"Dana Walsh joined workspace as QA Engineer",user:"u4",time:"3h ago"},
-    {icon:"⚙️",text:"Feature flag think_tank enabled for all users",user:"u1",time:"2 days ago"},
-    {icon:"🔑",text:"API key rotated for FORGE project",user:"u1",time:"3 days ago"},
-    {icon:"📧",text:"5 workspace invitations sent",user:"u4",time:"4 days ago"},
-    {icon:"🛡️",text:"RLS policies updated — isolation test passed",user:"u2",time:"5 days ago"},
-  ];
+const PROJECTS = [
+  {key:"FORGE",name:"Forge Issue Tracker",status:"on_track",health:68,open:12},
+  {key:"WEB",  name:"Travli Web App",      status:"at_risk", health:52,open:8},
+  {key:"MOB",  name:"Travli Mobile",       status:"on_track",health:81,open:3},
+  {key:"INFRA",name:"Platform Infra",      status:"blocked", health:34,open:4},
+];
 
-  const statusCfg = {
-    on_track:{label:"On Track",bg:"bg-emerald-50",text:"text-emerald-700",border:"border-emerald-200",dot:"bg-emerald-500"},
-    at_risk: {label:"At Risk", bg:"bg-amber-50",  text:"text-amber-700",  border:"border-amber-200",  dot:"bg-amber-400"},
-    blocked: {label:"Blocked", bg:"bg-red-50",    text:"text-red-700",    border:"border-red-200",    dot:"bg-red-500"},
-  } as Record<string,{label:string;bg:string;text:string;border:string;dot:string}>;
+const AUDIT_LOG = [
+  {icon:"🔒",text:"FORGE-52 created — SEC-05 Make IMPERSONATION_SECRET mandatory",user:"u1",time:"1h ago",   sev:"high"},
+  {icon:"👤",text:"Dana Walsh joined workspace as QA Engineer",                    user:"u4",time:"3h ago",   sev:"info"},
+  {icon:"🛡️",text:"Failed login attempt from IP 185.220.101.47 (Tor exit node)",   user:"u1",time:"5h ago",   sev:"high"},
+  {icon:"⚙️",text:"Feature flag think_tank enabled for all users",                 user:"u1",time:"2d ago",   sev:"info"},
+  {icon:"🔑",text:"API key rotated — FORGE project (reason: quarterly rotation)",  user:"u1",time:"3d ago",   sev:"info"},
+  {icon:"📧",text:"5 workspace invitations sent",                                  user:"u4",time:"4d ago",   sev:"info"},
+  {icon:"🛡️",text:"RLS policies updated — isolation test passed 33/33",            user:"u2",time:"5d ago",   sev:"info"},
+  {icon:"🔐",text:"SSO configuration updated — Okta SAML endpoint changed",       user:"u1",time:"6d ago",   sev:"medium"},
+];
 
-  const features = [
-    {key:"think_tank",    label:"Think Tank",         desc:"AI idea capture + provenance",on:true},
-    {key:"ai_copilot",    label:"AI Co-pilot",        desc:"Issue suggestions + auto-summaries",on:true},
-    {key:"dashboards",    label:"Dashboards",         desc:"Cross-project analytics",on:false},
-    {key:"project_portal",label:"Project Portal",     desc:"Stakeholder embed view",on:false},
-    {key:"group_fields",  label:"Custom Fields",      desc:"Per-tenant field configuration",on:false},
-  ];
-  const [featureState,setFeatureState] = useState(Object.fromEntries(features.map(f=>[f.key,f.on])));
+const FEATURES = [
+  {key:"think_tank",     label:"Think Tank",      desc:"AI idea capture + provenance tracking", on:true},
+  {key:"ai_copilot",     label:"AI Co-pilot",     desc:"Issue suggestions + auto-summaries",    on:true},
+  {key:"rbac",           label:"Custom Roles",    desc:"Granular permission sets per member",   on:false},
+  {key:"dashboards",     label:"Dashboards",      desc:"Cross-project analytics & charts",      on:false},
+  {key:"stakeholder",    label:"Stakeholder View",desc:"Read-only embed for external viewers",  on:false},
+];
 
+function Toggle({on,onToggle}:{on:boolean;onToggle:()=>void}) {
   return (
-    <div className="flex h-[calc(100vh-112px)] overflow-hidden">
-      <div className="w-52 shrink-0 bg-white border-r border-neutral-200 flex flex-col">
-        <div className="px-3 py-3 border-b border-neutral-100">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400">Admin</div>
-          <div className="flex items-center gap-2 mt-2">
-            <Av id="u1" size="sm"/>
-            <div>
-              <div className="text-xs font-semibold text-neutral-900">Matt Giblin</div>
-              <div className="text-[10px] text-indigo-600 font-semibold">Super Admin</div>
+    <button onClick={onToggle} className={`w-10 h-5 rounded-full transition-colors relative shrink-0 ${on?"bg-indigo-500":"bg-neutral-200"}`}>
+      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${on?"left-5":"left-0.5"}`}/>
+    </button>
+  );
+}
+
+function AdminContent({view}:{view:string}) {
+  const [memberRole,setMemberRole] = useState<Record<string,string>>(Object.fromEntries(TEAM.map(m=>[m.id,m.role])));
+  const [featureState,setFeatureState] = useState(Object.fromEntries(FEATURES.map(f=>[f.key,f.on])));
+
+  if(view==="workspace") return (
+    <div className="space-y-5 max-w-2xl">
+      <div>
+        <h2 className="text-lg font-bold text-neutral-900">Workspace Settings</h2>
+        <p className="text-sm text-neutral-500 mt-0.5">General configuration for the Travli workspace</p>
+      </div>
+      <div className="bg-white rounded-xl border border-neutral-200 divide-y divide-neutral-100">
+        <div className="p-5">
+          <div className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-4">Identity</div>
+          <div className="space-y-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-xl bg-indigo-600 flex items-center justify-center text-white text-lg font-bold shrink-0">T</div>
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-neutral-900">Travli</div>
+                <div className="text-xs text-neutral-400">travli.forge.app · Slug: travli</div>
+              </div>
+              <button className="px-3 py-1.5 rounded-lg border border-neutral-200 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition">Change logo</button>
             </div>
           </div>
         </div>
-        <nav className="p-2 flex-1">
-          {navItems.map(n=>(
-            <button key={n.id} onClick={()=>setView(n.id)}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium transition mb-0.5 text-left ${view===n.id?"bg-neutral-900 text-white":"text-neutral-600 hover:bg-neutral-100"}`}>
-              <span>{n.icon}</span>{n.label}
-              {n.badge>0 && <span className="ml-auto text-[10px] font-bold bg-red-500 text-white rounded-full px-1.5">{n.badge}</span>}
-            </button>
+        <div className="p-5">
+          <div className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-4">Feature Flags</div>
+          <div className="space-y-4">
+            {FEATURES.map(f=>(
+              <div key={f.key} className="flex items-center gap-4">
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-neutral-800">{f.label}</div>
+                  <div className="text-xs text-neutral-400">{f.desc}</div>
+                </div>
+                <Toggle on={featureState[f.key]} onToggle={()=>setFeatureState(p=>({...p,[f.key]:!p[f.key]}))}/>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="p-5">
+          <div className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-3">Danger Zone</div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm font-medium text-neutral-800">Delete workspace</div>
+              <div className="text-xs text-neutral-400">Permanently removes all data. Cannot be undone.</div>
+            </div>
+            <button className="px-3 py-1.5 rounded-lg border border-red-200 text-xs font-medium text-red-600 hover:bg-red-50 transition">Delete workspace</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  if(view==="members") return (
+    <div className="space-y-4 max-w-3xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-neutral-900">Members</h2>
+          <p className="text-sm text-neutral-500 mt-0.5">{TEAM.length} members · 1 pending invite</p>
+        </div>
+        <button className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">+ Invite member</button>
+      </div>
+      <div className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 flex items-center gap-3">
+        <span className="text-amber-500 text-base">⏳</span>
+        <div className="flex-1 text-sm text-amber-800">
+          <span className="font-semibold">1 pending invite</span> — riley@acme.io was invited 2 days ago
+        </div>
+        <button className="text-xs font-semibold text-amber-700 hover:text-amber-900">Resend</button>
+        <button className="text-xs font-semibold text-red-500 hover:text-red-700 ml-2">Cancel</button>
+      </div>
+      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+        <div className="grid grid-cols-[2fr_1fr_80px_90px] gap-3 px-5 py-2.5 border-b border-neutral-100 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">
+          <div>Member</div><div>Role</div><div>Last seen</div><div></div>
+        </div>
+        {TEAM.map(m=>(
+          <div key={m.id} className="grid grid-cols-[2fr_1fr_80px_90px] gap-3 items-center px-5 py-3 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 transition">
+            <div className="flex items-center gap-3">
+              <Av id={m.id} size="sm"/>
+              <div>
+                <div className="text-sm font-medium text-neutral-900">{m.name}</div>
+                <div className="text-[11px] text-neutral-400">{m.role.toLowerCase()}@travli.io</div>
+              </div>
+            </div>
+            <select value={memberRole[m.id]} onChange={e=>setMemberRole(p=>({...p,[m.id]:e.target.value}))}
+              className="text-xs border border-neutral-200 rounded-lg px-2 py-1.5 bg-white text-neutral-700 focus:outline-none focus:border-indigo-400">
+              {["Lead Dev","Developer","Designer","Product","QA Eng","Admin"].map(r=><option key={r}>{r}</option>)}
+            </select>
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold w-fit ${m.online?"bg-emerald-100 text-emerald-700":"bg-neutral-100 text-neutral-500"}`}>
+              {m.online?"Now":"3d ago"}
+            </span>
+            <div className="flex gap-1">
+              <button className="text-xs text-neutral-500 hover:text-neutral-800 px-2 py-1 rounded hover:bg-neutral-100 transition">Edit</button>
+              <button className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition">Remove</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if(view==="audit") return (
+    <div className="space-y-4 max-w-2xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-neutral-900">Audit Log</h2>
+          <p className="text-sm text-neutral-500 mt-0.5">All admin actions and security events</p>
+        </div>
+        <button className="px-3 py-1.5 rounded-lg border border-neutral-200 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition">Export CSV</button>
+      </div>
+      <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
+        <span className="text-red-500">🛡️</span>
+        <div className="text-sm text-red-800 flex-1"><span className="font-semibold">2 high-severity events</span> in the last 24 hours</div>
+        <button className="text-xs font-semibold text-red-700 hover:text-red-900">Review</button>
+      </div>
+      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+        {AUDIT_LOG.map((e,i)=>(
+          <div key={i} className="flex items-start gap-3 px-4 py-3 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 transition">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm shrink-0 ${e.sev==="high"?"bg-red-100":e.sev==="medium"?"bg-amber-100":"bg-neutral-100"}`}>{e.icon}</div>
+            <div className="flex-1 min-w-0">
+              <div className="text-xs text-neutral-800 leading-snug">{e.text}</div>
+              <div className="flex items-center gap-2 mt-1">
+                <Av id={e.user} size="xs"/>
+                <span className="text-[10px] text-neutral-400">{teamById[e.user]?.name} · {e.time}</span>
+                {e.sev==="high" && <span className="text-[10px] font-bold text-red-600 bg-red-50 px-1.5 py-0.5 rounded">HIGH</span>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if(view==="github") return (
+    <div className="space-y-4 max-w-2xl">
+      <h2 className="text-lg font-bold text-neutral-900">GitHub Integration</h2>
+      <div className="bg-white rounded-xl border border-neutral-200 divide-y divide-neutral-100">
+        <div className="p-5 flex items-center gap-4">
+          <div className="w-10 h-10 rounded-xl bg-neutral-900 flex items-center justify-center text-xl">🐙</div>
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-neutral-900">acme-corp / forge</div>
+            <div className="text-xs text-neutral-400">Connected · 2 repos syncing</div>
+          </div>
+          <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-emerald-100 text-emerald-700">Connected</span>
+          <button className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition">Disconnect</button>
+        </div>
+        <div className="p-5">
+          <div className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-3">Linked Repositories</div>
+          {["acme-corp/forge","acme-corp/travli-web"].map(r=>(
+            <div key={r} className="flex items-center gap-3 py-2">
+              <span className="text-neutral-400">📂</span>
+              <span className="text-sm text-neutral-700 flex-1">{r}</span>
+              <button className="text-xs text-neutral-400 hover:text-red-500 transition">Remove</button>
+            </div>
           ))}
+          <button className="mt-2 text-xs text-indigo-600 hover:text-indigo-800 font-medium">+ Add repository</button>
+        </div>
+        <div className="p-5">
+          <div className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-3">Sync Settings</div>
+          {[
+            {label:"Auto-link commits to issues by key (e.g. FORGE-45)",on:true},
+            {label:"Auto-close issue when PR merges to main",on:true},
+            {label:"Post PR status to issue comments",on:false},
+          ].map((s,i)=>{
+            const [on,setOn] = useState(s.on);
+            return (
+              <div key={i} className="flex items-center gap-4 py-2">
+                <div className="text-sm text-neutral-700 flex-1">{s.label}</div>
+                <Toggle on={on} onToggle={()=>setOn(p=>!p)}/>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  if(view==="api_keys") return (
+    <div className="space-y-4 max-w-2xl">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-neutral-900">API Keys</h2>
+          <p className="text-sm text-neutral-500 mt-0.5">Service tokens for external access</p>
+        </div>
+        <button className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">+ New key</button>
+      </div>
+      <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
+        {[
+          {name:"Forge Self (dogfood)",key:"fk_prod_••••••••4f2a",project:"FORGE",created:"2026-01-15",last:"2 min ago",active:true},
+          {name:"CI/CD Pipeline",      key:"fk_prod_••••••••8b91",project:"ALL",  created:"2026-03-02",last:"14h ago",  active:true},
+          {name:"Old Zapier (unused)", key:"fk_prod_••••••••c3e7",project:"WEB",  created:"2025-11-12",last:"47d ago",  active:false},
+        ].map((k,i)=>(
+          <div key={i} className="px-5 py-3.5 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 transition">
+            <div className="flex items-center gap-3">
+              <div className="flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-neutral-900">{k.name}</span>
+                  {!k.active && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-400">INACTIVE</span>}
+                </div>
+                <div className="text-xs text-neutral-400 font-mono mt-0.5">{k.key} · project: {k.project}</div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-xs text-neutral-500">Last used {k.last}</div>
+                <div className="text-[10px] text-neutral-400">Created {k.created}</div>
+              </div>
+              <button className="text-xs text-neutral-400 hover:text-red-500 px-2 py-1 rounded hover:bg-red-50 transition ml-2">Revoke</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if(view==="security") return (
+    <div className="space-y-4 max-w-2xl">
+      <h2 className="text-lg font-bold text-neutral-900">Security</h2>
+      <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
+        <span className="text-red-500">⚠️</span>
+        <div className="text-sm text-red-800 flex-1"><span className="font-semibold">Action needed:</span> 2FA is not enforced — 2 members have it disabled</div>
+        <button className="text-xs font-semibold text-red-700 hover:text-red-900 underline">Enforce now</button>
+      </div>
+      <div className="bg-white rounded-xl border border-neutral-200 divide-y divide-neutral-100">
+        <div className="p-5">
+          <div className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-4">Authentication</div>
+          {[
+            {label:"Require 2FA for all members",desc:"Members without 2FA will be locked out",on:false},
+            {label:"Session timeout after 8 hours of inactivity",desc:"Users will need to re-authenticate",on:true},
+            {label:"Restrict login to SSO only",desc:"Disables email/password login entirely",on:false},
+          ].map((s,i)=>{
+            const [on,setOn]=useState(s.on);
+            return (
+              <div key={i} className="flex items-center gap-4 py-3 border-b border-neutral-50 last:border-0">
+                <div className="flex-1">
+                  <div className="text-sm font-medium text-neutral-800">{s.label}</div>
+                  <div className="text-xs text-neutral-400">{s.desc}</div>
+                </div>
+                <Toggle on={on} onToggle={()=>setOn(p=>!p)}/>
+              </div>
+            );
+          })}
+        </div>
+        <div className="p-5">
+          <div className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-3">IP Allowlist</div>
+          <div className="text-sm text-neutral-500 mb-3">No IP restrictions configured — all IPs are allowed</div>
+          <button className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">+ Add IP range</button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Default for any other view
+  const item = ALL_ADMIN_ITEMS.find(i=>i.id===view);
+  return (
+    <div className="max-w-2xl space-y-4">
+      <h2 className="text-lg font-bold text-neutral-900">{item?.label ?? view}</h2>
+      <div className="bg-white rounded-xl border border-neutral-200 p-8 text-center">
+        <div className="text-4xl mb-3">{item?.icon ?? "⚙️"}</div>
+        <div className="text-sm font-medium text-neutral-700 mb-1">{item?.label} settings</div>
+        <div className="text-xs text-neutral-400">{item?.desc}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── CONCEPT A: Grouped Left Sidebar ──────────────────────────
+
+function ConceptA({onCmdK}:{onCmdK:()=>void}) {
+  const [view,setView] = useState("workspace");
+  const [collapsed,setCollapsed] = useState<Record<string,boolean>>({});
+
+  const activeGroup = ADMIN_GROUPS.find(g=>g.items.some(i=>i.id===view));
+
+  return (
+    <div className="flex h-full overflow-hidden">
+      {/* Sidebar */}
+      <div className="w-56 shrink-0 bg-white border-r border-neutral-200 flex flex-col">
+        {/* User header */}
+        <div className="px-4 py-3.5 border-b border-neutral-100 flex items-center gap-2.5">
+          <Av id="u1" size="sm"/>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold text-neutral-900 truncate">Matt Giblin</div>
+            <div className="text-[10px] text-indigo-600 font-semibold">Super Admin</div>
+          </div>
+          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-neutral-900 text-white">ADMIN</span>
+        </div>
+
+        {/* Nav groups */}
+        <nav className="flex-1 overflow-y-auto py-2 px-2">
+          {ADMIN_GROUPS.map(g=>{
+            const isCollapsed = collapsed[g.id];
+            const groupActive = g.items.some(i=>i.id===view);
+            const totalBadge = g.items.reduce((s,i)=>s+i.badge,0);
+            return (
+              <div key={g.id} className="mb-1">
+                <button
+                  onClick={()=>setCollapsed(p=>({...p,[g.id]:!p[g.id]}))}
+                  className="w-full flex items-center gap-1 px-2 py-1 mb-0.5 group"
+                >
+                  <span className={`text-[9px] font-bold uppercase tracking-widest transition ${groupActive?"text-indigo-600":"text-neutral-400 group-hover:text-neutral-600"}`}>
+                    {g.label}
+                  </span>
+                  <div className="flex-1"/>
+                  {totalBadge>0 && !isCollapsed && <span className="text-[9px] font-bold bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center">{totalBadge}</span>}
+                  <span className={`text-neutral-400 text-[10px] transition ${isCollapsed?"rotate-0":"rotate-90"}`}>›</span>
+                </button>
+
+                {!isCollapsed && g.items.map(item=>{
+                  const active = view===item.id;
+                  return (
+                    <button key={item.id} onClick={()=>setView(item.id)}
+                      className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition mb-0.5 text-left ${
+                        active
+                          ? "bg-indigo-600 text-white shadow-sm"
+                          : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                      }`}>
+                      <span className="w-4 text-center">{item.icon}</span>
+                      <span className="flex-1">{item.label}</span>
+                      {item.badge>0 && (
+                        <span className={`text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center ${active?"bg-white/20 text-white":"bg-red-500 text-white"}`}>
+                          {item.badge}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })}
         </nav>
-        <div className="p-3 border-t border-neutral-100">
-          <button onClick={onCmdK} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 transition">
-            <span>🔍</span><span className="flex-1 text-left">Search</span><kbd className="text-[10px] font-mono bg-neutral-100 border border-neutral-200 px-1 rounded">⌘K</kbd>
+
+        {/* Search footer */}
+        <div className="p-2 border-t border-neutral-100">
+          <button onClick={onCmdK} className="w-full flex items-center gap-2 px-2.5 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-400 hover:border-neutral-300 hover:text-neutral-600 hover:bg-neutral-50 transition">
+            <span>🔍</span><span className="flex-1 text-left">Search settings</span>
+            <kbd className="text-[9px] font-mono bg-neutral-100 border border-neutral-200 px-1 rounded">⌘K</kbd>
           </button>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto bg-neutral-50 p-4">
-        {/* WORKSPACE OVERVIEW */}
-        {view==="workspace" && (
-          <div className="max-w-[1000px] space-y-4">
-            <div className="flex items-center justify-between">
-              <h1 className="text-xl font-bold text-neutral-900">Workspace Overview</h1>
-              <button className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">Export Summary</button>
-            </div>
-            <div className="grid grid-cols-4 gap-3">
-              {[
-                {v:"4",         l:"Active Projects", sub:"2 on track, 1 blocked", c:"text-neutral-900"},
-                {v:`${TEAM.length}`,l:"Team Members",    sub:"4 online now",         c:"text-indigo-600"},
-                {v:"15",        l:"Open Issues",     sub:"Sprint 6 active",      c:"text-neutral-900"},
-                {v:"3",         l:"Security Alerts", sub:"From Think Tank audit", c:"text-red-600"},
-              ].map(k=>(
-                <div key={k.l} className="bg-white rounded-xl border border-neutral-200 p-4">
-                  <div className={`text-2xl font-bold ${k.c}`}>{k.v}</div>
-                  <div className="text-xs font-semibold text-neutral-700 mt-1">{k.l}</div>
-                  <div className="text-[11px] text-neutral-400">{k.sub}</div>
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              {projects.map(p=>{
-                const s = statusCfg[p.status];
-                return (
-                  <div key={p.key} className="bg-white rounded-xl border border-neutral-200 p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div>
-                        <div className="text-sm font-semibold text-neutral-900">{p.name}</div>
-                        <div className="text-[10px] text-neutral-400">{p.key}</div>
-                      </div>
-                      <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full text-[10px] font-bold border ${s.bg} ${s.text} ${s.border}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`}/>{s.label}
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-neutral-100 rounded-full overflow-hidden mb-2">
-                      <div className={`h-full rounded-full ${p.health>=70?"bg-emerald-500":p.health>=50?"bg-amber-400":"bg-red-500"}`} style={{width:`${p.health}%`}}/>
-                    </div>
-                    <div className="flex justify-between text-xs text-neutral-500">
-                      <span>{p.open} open issues</span><span>{p.health}% sprint complete</span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto bg-neutral-50">
+        {/* Breadcrumb */}
+        <div className="px-6 py-3 border-b border-neutral-200 bg-white flex items-center gap-2 text-xs text-neutral-400">
+          <span className="font-medium text-neutral-600">Settings</span>
+          <span>›</span>
+          <span className="text-neutral-400">{activeGroup?.label}</span>
+          <span>›</span>
+          <span className="font-semibold text-neutral-900">{ALL_ADMIN_ITEMS.find(i=>i.id===view)?.label}</span>
+        </div>
+        <div className="p-6">
+          <AdminContent view={view}/>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* MEMBERS */}
-        {view==="members" && (
-          <div className="max-w-[800px]">
-            <div className="flex items-center justify-between mb-4">
-              <h1 className="text-lg font-bold text-neutral-900">Team Members</h1>
-              <button className="px-4 py-2 rounded-xl bg-indigo-600 text-white text-sm font-semibold hover:bg-indigo-700 transition">+ Invite Member</button>
-            </div>
-            <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-4 px-4 py-2 border-b border-neutral-100 text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
-                <div>Member</div><div>Role</div><div>Status</div><div>Actions</div>
-              </div>
-              {TEAM.map(m=>(
-                <div key={m.id} className="grid grid-cols-[1fr_auto_auto_auto] gap-4 items-center px-4 py-3 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 transition">
-                  <div className="flex items-center gap-3">
-                    <Av id={m.id} size="sm"/>
-                    <div>
-                      <div className="text-sm font-medium text-neutral-900">{m.name}</div>
-                      <div className="text-[11px] text-neutral-400">member@acme.io</div>
-                    </div>
-                  </div>
-                  <select value={memberRole[m.id]} onChange={e=>setMemberRole(prev=>({...prev,[m.id]:e.target.value}))}
-                    className="text-xs border border-neutral-200 rounded-lg px-2 py-1.5 bg-white text-neutral-700 focus:outline-none focus:border-indigo-400">
-                    <option>Lead Dev</option><option>Developer</option><option>Designer</option><option>Product</option><option>QA Eng</option><option>Admin</option>
-                  </select>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${m.online?"bg-emerald-100 text-emerald-700":"bg-neutral-100 text-neutral-500"}`}>
-                    {m.online?"Online":"Away"}
-                  </span>
-                  <div className="flex gap-1">
-                    <button className="text-xs text-neutral-500 hover:text-neutral-800 px-2 py-1 rounded hover:bg-neutral-100 transition">Edit</button>
-                    <button className="text-xs text-red-500 hover:text-red-700 px-2 py-1 rounded hover:bg-red-50 transition">Remove</button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+// ── CONCEPT B: Settings Hub + Drill-down ─────────────────────
 
-        {/* SETTINGS */}
-        {view==="settings" && (
-          <div className="max-w-[700px] space-y-4">
-            <h1 className="text-lg font-bold text-neutral-900">Workspace Settings</h1>
-            <div className="bg-white rounded-xl border border-neutral-200 p-4">
-              <div className="text-sm font-semibold text-neutral-900 mb-3">Feature Flags</div>
-              <div className="space-y-3">
-                {features.map(f=>(
-                  <div key={f.key} className="flex items-center gap-4">
-                    <div className="flex-1">
-                      <div className="text-sm font-medium text-neutral-800">{f.label}</div>
-                      <div className="text-xs text-neutral-500">{f.desc}</div>
-                    </div>
-                    <button onClick={()=>setFeatureState(prev=>({...prev,[f.key]:!prev[f.key]}))}
-                      className={`w-10 h-5 rounded-full transition-colors relative ${featureState[f.key]?"bg-indigo-500":"bg-neutral-200"}`}>
-                      <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${featureState[f.key]?"left-5":"left-0.5"}`}/>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="bg-white rounded-xl border border-neutral-200 p-4">
-              <div className="text-sm font-semibold text-neutral-900 mb-3">Integrations</div>
-              {[
-                {name:"GitHub",  icon:"🐙", status:"Connected", detail:"acme-corp/forge"},
-                {name:"Slack",   icon:"💬", status:"Connected", detail:"#engineering"},
-                {name:"Stripe",  icon:"💳", status:"Connected", detail:"Live keys"},
-                {name:"Upstash", icon:"⚡", status:"Pending",   detail:"INFRA-15 in progress"},
-              ].map(i=>(
-                <div key={i.name} className="flex items-center gap-3 py-2 border-b border-neutral-50 last:border-0">
-                  <div className="w-8 h-8 rounded-lg bg-neutral-100 flex items-center justify-center text-base">{i.icon}</div>
-                  <div className="flex-1">
-                    <div className="text-sm font-medium text-neutral-800">{i.name}</div>
-                    <div className="text-xs text-neutral-400">{i.detail}</div>
-                  </div>
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${i.status==="Connected"?"bg-emerald-100 text-emerald-700":"bg-amber-100 text-amber-700"}`}>{i.status}</span>
-                  <button className="text-xs text-neutral-500 hover:text-neutral-800 px-2 py-1 rounded hover:bg-neutral-100 transition">Configure</button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+const GROUP_ILLUSTRATIONS: Record<string,string> = {
+  overview:"◈", team:"◉", projects:"◧", integrations:"⬡", automation:"◎", developer:"◆"
+};
+const GROUP_COLORS: Record<string,string> = {
+  overview:"from-indigo-500 to-indigo-600",
+  team:     "from-violet-500 to-violet-600",
+  projects: "from-blue-500 to-blue-600",
+  integrations:"from-cyan-500 to-cyan-600",
+  automation:"from-emerald-500 to-emerald-600",
+  developer:"from-amber-500 to-amber-600",
+};
+const GROUP_LIGHT: Record<string,string> = {
+  overview:"bg-indigo-50 border-indigo-100",
+  team:     "bg-violet-50 border-violet-100",
+  projects: "bg-blue-50 border-blue-100",
+  integrations:"bg-cyan-50 border-cyan-100",
+  automation:"bg-emerald-50 border-emerald-100",
+  developer:"bg-amber-50 border-amber-100",
+};
+const GROUP_TEXT: Record<string,string> = {
+  overview:"text-indigo-700",
+  team:     "text-violet-700",
+  projects: "text-blue-700",
+  integrations:"text-cyan-700",
+  automation:"text-emerald-700",
+  developer:"text-amber-700",
+};
 
-        {/* AUDIT LOG */}
-        {view==="audit" && (
-          <div className="max-w-[700px]">
-            <h1 className="text-lg font-bold text-neutral-900 mb-4">Audit Log</h1>
-            <div className="bg-white rounded-xl border border-neutral-200 overflow-hidden">
-              {auditLog.map((entry,i)=>(
-                <div key={i} className="flex items-start gap-3 px-4 py-3 border-b border-neutral-50 last:border-0 hover:bg-neutral-50 transition">
-                  <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center text-sm shrink-0">{entry.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-neutral-800 leading-snug">{entry.text}</div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Av id={entry.user} size="xs"/>
-                      <span className="text-[10px] text-neutral-400">{teamById[entry.user]?.name} · {entry.time}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+function ConceptB({onCmdK}:{onCmdK:()=>void}) {
+  const [activeGroup,setActiveGroup] = useState<string|null>(null);
+  const [view,setView] = useState<string|null>(null);
+  const [recentViews] = useState(["members","api_keys","github","audit"]);
+
+  const group = ADMIN_GROUPS.find(g=>g.id===activeGroup);
+
+  // Hub screen
+  if(!activeGroup) return (
+    <div className="flex-1 overflow-y-auto bg-neutral-50 p-6">
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold text-neutral-900">Settings</h2>
+            <p className="text-sm text-neutral-500 mt-0.5">Travli workspace · Super Admin</p>
           </div>
-        )}
+          <button onClick={onCmdK} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-500 hover:border-neutral-300 hover:bg-white transition">
+            🔍 Search settings <kbd className="text-[9px] font-mono bg-neutral-100 border border-neutral-200 px-1.5 py-0.5 rounded ml-1">⌘K</kbd>
+          </button>
+        </div>
+
+        {/* Alerts */}
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            {icon:"🛡️",color:"bg-red-50 border-red-200 text-red-800",msg:"Security: 2FA not enforced for 2 members",target:"team"},
+            {icon:"👤",color:"bg-amber-50 border-amber-200 text-amber-800",msg:"1 pending invite — riley@acme.io",target:"team"},
+          ].map((a,i)=>(
+            <button key={i} onClick={()=>{setActiveGroup(a.target);setView(a.target==="team"?i===0?"security":"members":a.target);}}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl border text-left text-sm font-medium transition hover:opacity-90 ${a.color}`}>
+              <span className="text-base">{a.icon}</span>
+              <span className="flex-1">{a.msg}</span>
+              <span className="text-xs opacity-60">→</span>
+            </button>
+          ))}
+        </div>
+
+        {/* Recently visited */}
+        <div>
+          <div className="text-xs font-bold uppercase tracking-widest text-neutral-400 mb-2">Recently visited</div>
+          <div className="flex gap-2 flex-wrap">
+            {recentViews.map(v=>{
+              const item = ALL_ADMIN_ITEMS.find(i=>i.id===v);
+              const grp = ADMIN_GROUPS.find(g=>g.items.some(i=>i.id===v));
+              return item && grp ? (
+                <button key={v} onClick={()=>{setActiveGroup(grp.id);setView(v);}}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white border border-neutral-200 text-xs font-medium text-neutral-600 hover:border-neutral-300 hover:bg-neutral-50 transition">
+                  <span>{item.icon}</span>{item.label}
+                </button>
+              ) : null;
+            })}
+          </div>
+        </div>
+
+        {/* Category cards */}
+        <div className="grid grid-cols-3 gap-4">
+          {ADMIN_GROUPS.map(g=>{
+            const totalBadge = g.items.reduce((s,i)=>s+i.badge,0);
+            return (
+              <button key={g.id} onClick={()=>{setActiveGroup(g.id);setView(g.items[0].id);}}
+                className="bg-white rounded-2xl border border-neutral-200 p-5 text-left hover:border-neutral-300 hover:shadow-md transition-all group">
+                <div className={`w-11 h-11 rounded-xl bg-gradient-to-br ${GROUP_COLORS[g.id]} flex items-center justify-center text-white text-xl mb-4 group-hover:scale-105 transition-transform`}>
+                  {GROUP_ILLUSTRATIONS[g.id]}
+                </div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-bold text-neutral-900">{g.label}</span>
+                  {totalBadge>0 && <span className="text-[9px] font-bold bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center">{totalBadge}</span>}
+                </div>
+                <p className="text-xs text-neutral-400 leading-relaxed">{g.items.map(i=>i.label).join(" · ")}</p>
+                <div className="mt-3 text-[10px] font-semibold text-neutral-400 group-hover:text-indigo-600 transition">
+                  {g.items.length} settings →
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  // Drill-down: show group sidebar + content
+  return (
+    <div className="flex h-full overflow-hidden">
+      {/* Contextual mini sidebar */}
+      <div className="w-52 shrink-0 bg-white border-r border-neutral-200 flex flex-col">
+        {/* Back to hub */}
+        <button onClick={()=>{setActiveGroup(null);setView(null);}}
+          className="flex items-center gap-2 px-4 py-3.5 border-b border-neutral-100 text-xs font-medium text-neutral-500 hover:text-neutral-900 hover:bg-neutral-50 transition">
+          <span>←</span> All settings
+        </button>
+
+        {/* Group identity */}
+        <div className="px-4 py-3 border-b border-neutral-100">
+          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${GROUP_COLORS[group?.id??""]} flex items-center justify-center text-white text-base mb-2`}>
+            {GROUP_ILLUSTRATIONS[group?.id??""]}
+          </div>
+          <div className="text-sm font-bold text-neutral-900">{group?.label}</div>
+        </div>
+
+        {/* Group items */}
+        <nav className="flex-1 p-2">
+          {group?.items.map(item=>{
+            const active = view===item.id;
+            return (
+              <button key={item.id} onClick={()=>setView(item.id)}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition mb-0.5 text-left ${
+                  active
+                    ? `${GROUP_LIGHT[group.id]} ${GROUP_TEXT[group.id]} border font-semibold`
+                    : "text-neutral-600 hover:bg-neutral-100"
+                }`}>
+                <span className="w-4 text-center">{item.icon}</span>
+                <span className="flex-1">{item.label}</span>
+                {item.badge>0 && <span className="text-[9px] font-bold bg-red-500 text-white rounded-full w-4 h-4 flex items-center justify-center">{item.badge}</span>}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto bg-neutral-50">
+        {/* Breadcrumb */}
+        <div className="px-6 py-3 border-b border-neutral-200 bg-white flex items-center gap-2 text-xs text-neutral-400">
+          <button onClick={()=>{setActiveGroup(null);setView(null);}} className="hover:text-neutral-700 transition">Settings</button>
+          <span>›</span>
+          <button onClick={()=>setView(group?.items[0].id??null)} className="hover:text-neutral-700 transition">{group?.label}</button>
+          <span>›</span>
+          <span className="font-semibold text-neutral-900">{ALL_ADMIN_ITEMS.find(i=>i.id===view)?.label}</span>
+        </div>
+        <div className="p-6">
+          <AdminContent view={view??""} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminShell({onCmdK}:{onCmdK:()=>void}) {
+  const [concept,setConcept] = useState<"A"|"B">("A");
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-112px)] overflow-hidden">
+      {/* Concept switcher bar */}
+      <div className="shrink-0 flex items-center gap-4 px-5 py-2.5 bg-neutral-900 border-b border-neutral-800">
+        <span className="text-xs font-bold text-neutral-400 uppercase tracking-widest">Admin Nav Design</span>
+        <div className="flex items-center gap-1 bg-neutral-800 rounded-lg p-0.5">
+          {(["A","B"] as const).map(c=>(
+            <button key={c} onClick={()=>setConcept(c)}
+              className={`px-4 py-1.5 rounded-md text-xs font-semibold transition ${concept===c?"bg-white text-neutral-900 shadow":"text-neutral-400 hover:text-white"}`}>
+              {c==="A"?"A · Grouped Sidebar":"B · Settings Hub"}
+            </button>
+          ))}
+        </div>
+        <div className="text-xs text-neutral-500">
+          {concept==="A"
+            ? "Persistent grouped sidebar — GitHub / Linear / Stripe pattern"
+            : "Card hub + drill-down — Stripe dashboard / Intercom pattern"}
+        </div>
+      </div>
+
+      {/* Concept renders */}
+      <div className="flex-1 overflow-hidden flex flex-col">
+        {concept==="A" && <ConceptA onCmdK={onCmdK}/>}
+        {concept==="B" && <ConceptB onCmdK={onCmdK}/>}
       </div>
     </div>
   );
