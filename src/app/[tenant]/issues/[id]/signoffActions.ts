@@ -42,7 +42,7 @@ export async function unsignIssueAction(slug: string, signoffId: string, issueId
 
   const svc = createSupabaseServiceClient();
   // Only the signer or an admin can revoke
-  const { data: row } = await svc.from("issue_signoffs").select("signed_by").eq("id", signoffId).single();
+  const { data: row } = await svc.from("issue_signoffs").select("signed_by").eq("id", signoffId).eq("tenant_id", ctx.tenant.id).single();
   if (row?.signed_by !== ctx.appUserId && ctx.role !== "owner" && ctx.role !== "admin") {
     throw new Error("You can only revoke your own approval.");
   }

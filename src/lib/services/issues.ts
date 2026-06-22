@@ -270,6 +270,15 @@ export async function updateIssue(
     void (async () => {
       try {
         const svc = createSupabaseServiceClient();
+        // Verify assignee is a member of this tenant before reading their profile.
+        const { data: membership } = await svc
+          .from("memberships")
+          .select("user_id")
+          .eq("tenant_id", tenantId)
+          .eq("user_id", patch.assigneeId!)
+          .maybeSingle();
+        if (!membership) return;
+
         const { data: assignee } = await svc
           .from("users")
           .select("email, name")
@@ -280,6 +289,7 @@ export async function updateIssue(
         const { data: project } = await svc
           .from("projects")
           .select("key")
+          .eq("tenant_id", tenantId)
           .eq("id", updated.project_id)
           .maybeSingle();
 
