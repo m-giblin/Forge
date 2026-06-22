@@ -44,10 +44,23 @@ export async function GET(req: NextRequest) {
   let skipped = 0;
 
   for (const user of users ?? []) {
+    // Only include notifications from tenants the user is currently a member of.
+    // This prevents digest leakage if the user was removed from a tenant after the notification was created.
+    const { data: memberships } = await supabase
+      .from("memberships")
+      .select("tenant_id")
+      .eq("user_id", user.id);
+    const activeTenantIds = (memberships ?? []).map((m) => m.tenant_id);
+    if (activeTenantIds.length === 0) {
+      skipped++;
+      continue;
+    }
+
     const { data: notifs, error: notifErr } = await supabase
       .from("notifications")
       .select("id, tenant_id, type, title, body, link_path, created_at")
       .eq("user_id", user.id)
+      .in("tenant_id", activeTenantIds)
       .is("read_at", null)
       .gte("created_at", since)
       .order("created_at", { ascending: false })
