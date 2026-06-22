@@ -106,6 +106,29 @@ export default function AdminSidebar({ slug }: { slug: string }) {
           </div>
         </div>
       ))}
+
+      {/* External links */}
+      <div className="mt-auto pt-2 border-t border-neutral-100">
+        <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Public</p>
+        <a
+          href={`/feedback/${slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+        >
+          <span className="text-base leading-none">💬</span>
+          <span className="truncate">Feedback Portal ↗</span>
+        </a>
+        <a
+          href={`/${slug}/changelog`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 hover:text-neutral-900 transition-colors"
+        >
+          <span className="text-base leading-none">📋</span>
+          <span className="truncate">Public Changelog ↗</span>
+        </a>
+      </div>
     </nav>
   );
 }
