@@ -17,6 +17,7 @@ import TriageCard from "./TriageCard";
 import GitLinksCard from "./GitLinksCard";
 import type { IssueCodeLink } from "@/lib/repositories/gitIntegration";
 import DecomposeButton from "./DecomposeButton";
+import PrImpactButton from "./PrImpactButton";
 import SlaChip from "@/components/SlaChip";
 import type { SlaTimer } from "@/lib/services/sla";
 
@@ -849,6 +850,12 @@ export default function IssueDetail({
           />
 
           <GitLinksCard links={gitLinks} />
+
+          <PrImpactButton
+            slug={slug}
+            issueId={issue.id}
+            readOnly={readOnly}
+          />
 
           <div className={`${sideSection} space-y-3`}>
             <div>
