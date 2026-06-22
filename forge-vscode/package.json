@@ -1,0 +1,125 @@
+{
+  "name": "forge-issues",
+  "displayName": "Forge Issues",
+  "description": "Forge issue tracker sidebar for VS Code — view and create issues without leaving your editor.",
+  "version": "0.1.0",
+  "publisher": "forge-dev",
+  "repository": { "type": "git", "url": "https://github.com/m-giblin/Forge" },
+  "license": "MIT",
+  "engines": { "vscode": "^1.85.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./out/extension.js",
+  "icon": "icon.png",
+  "contributes": {
+    "configuration": {
+      "title": "Forge Issues",
+      "properties": {
+        "forge.apiUrl": {
+          "type": "string",
+          "default": "https://useforge.dev",
+          "description": "Base URL of your Forge instance (no trailing slash)."
+        },
+        "forge.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Forge API key (Settings → API Keys in Forge).",
+          "markdownDescription": "Forge API key. Get one from **Settings → API Keys** in your Forge workspace."
+        },
+        "forge.projectKey": {
+          "type": "string",
+          "default": "",
+          "description": "Project key to show (e.g. FORGE, WEB). Leave blank to show all projects."
+        },
+        "forge.tenantSlug": {
+          "type": "string",
+          "default": "",
+          "description": "Your Forge workspace slug (the subdomain or path segment, e.g. 'acme')."
+        }
+      }
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "forge-sidebar",
+          "title": "Forge Issues",
+          "icon": "resources/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "forge-sidebar": [
+        {
+          "id": "forge.issuesView",
+          "name": "Issues",
+          "icon": "resources/icon.svg"
+        },
+        {
+          "id": "forge.myIssuesView",
+          "name": "My Issues"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "forge.refresh",
+        "title": "Forge: Refresh Issues",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "forge.createIssue",
+        "title": "Forge: Create Issue",
+        "icon": "$(add)"
+      },
+      {
+        "command": "forge.openInBrowser",
+        "title": "Forge: Open in Browser",
+        "icon": "$(link-external)"
+      },
+      {
+        "command": "forge.configure",
+        "title": "Forge: Open Settings"
+      },
+      {
+        "command": "forge.copyIssueKey",
+        "title": "Forge: Copy Issue Key"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "forge.refresh",
+          "when": "view == forge.issuesView || view == forge.myIssuesView",
+          "group": "navigation"
+        },
+        {
+          "command": "forge.createIssue",
+          "when": "view == forge.issuesView || view == forge.myIssuesView",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "forge.openInBrowser",
+          "when": "viewItem == forgeIssue",
+          "group": "inline"
+        },
+        {
+          "command": "forge.copyIssueKey",
+          "when": "viewItem == forgeIssue",
+          "group": "1_forge"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package --no-dependencies"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.0"
+  }
+}
