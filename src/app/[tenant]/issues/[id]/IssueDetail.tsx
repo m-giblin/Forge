@@ -16,6 +16,7 @@ import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 import TriageCard from "./TriageCard";
 import GitLinksCard from "./GitLinksCard";
 import type { IssueCodeLink } from "@/lib/repositories/gitIntegration";
+import DecomposeButton from "./DecomposeButton";
 import SlaChip from "@/components/SlaChip";
 import type { SlaTimer } from "@/lib/services/sla";
 
@@ -821,6 +822,13 @@ export default function IssueDetail({
             slug={slug}
             issueId={issue.id}
             suggestion={issue.triage_suggestion}
+            readOnly={readOnly}
+          />
+
+          <DecomposeButton
+            slug={slug}
+            issueId={issue.id}
+            projectId={issue.project_id}
             readOnly={readOnly}
           />
 
