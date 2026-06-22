@@ -228,6 +228,79 @@ export async function sendStandupToSlack(tenantId: string, tenantSlug: string, d
   }).catch(() => null);
 }
 
+export async function sendStandupEmail(tenantId: string, tenantSlug: string, digest: StandupDigest): Promise<void> {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (!resendKey) return;
+
+  const svc = createSupabaseServiceClient();
+
+  // Get configured digest email list from platform_config
+  const { data: cfgRow } = await svc
+    .from("platform_config")
+    .select("value")
+    .eq("tenant_id", tenantId)
+    .eq("key", "standup_email_recipients")
+    .maybeSingle();
+
+  const recipientsRaw = cfgRow?.value as string | null;
+  if (!recipientsRaw) return;
+  const recipients = recipientsRaw.split(",").map((e) => e.trim()).filter(Boolean);
+  if (recipients.length === 0) return;
+
+  const { data: tenantRow } = await svc.from("tenants").select("name").eq("id", tenantId).single();
+  const tenantName = tenantRow?.name ?? "Your Workspace";
+
+  const LABELS: Record<string, string> = { shipped: "✅ Shipped", in_progress: "🔄 In Progress", blocked: "🚨 Blocked", needs_triage: "⚠️ Needs Triage" };
+  const sectionsHtml = digest.entries
+    .filter((e) => e.items.length > 0)
+    .map((e) => `
+      <div style="margin-bottom:16px">
+        <p style="margin:0 0 6px;font-weight:600;font-size:14px;color:#374151">${LABELS[e.section] ?? e.section}</p>
+        <ul style="margin:0;padding-left:20px;color:#4b5563;font-size:13px;line-height:1.6">
+          ${e.items.map((i) => `<li>${i}</li>`).join("")}
+        </ul>
+      </div>
+    `).join("");
+
+  const statsHtml = `
+    <div style="display:flex;gap:16px;margin-bottom:20px;flex-wrap:wrap">
+      ${[
+        { label: "Shipped", val: digest.stats.shipped_today, color: "#059669" },
+        { label: "In Progress", val: digest.stats.in_progress, color: "#2563eb" },
+        { label: "Blocked", val: digest.stats.blocked, color: "#dc2626" },
+        { label: "Unassigned", val: digest.stats.unassigned, color: "#9ca3af" },
+      ].map((s) => `<div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:8px;padding:10px 16px;min-width:80px">
+        <p style="margin:0;font-size:20px;font-weight:700;color:${s.color}">${s.val}</p>
+        <p style="margin:0;font-size:11px;color:#6b7280">${s.label}</p>
+      </div>`).join("")}
+    </div>
+  `;
+
+  const html = `
+    <div style="font-family:system-ui,-apple-system,sans-serif;max-width:560px;margin:0 auto;padding:24px;color:#1f2937">
+      <p style="margin:0 0 4px;font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:.05em">Daily Standup</p>
+      <h1 style="margin:0 0 4px;font-size:22px;font-weight:700">${tenantName}</h1>
+      <p style="margin:0 0 20px;font-size:13px;color:#6b7280">${digest.date_label}</p>
+      ${statsHtml}
+      ${digest.ai_summary ? `<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px 16px;margin-bottom:20px"><p style="margin:0;font-size:13px;color:#1e40af">${digest.ai_summary}</p></div>` : ""}
+      ${sectionsHtml}
+      <p style="margin-top:24px;font-size:11px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:12px">
+        You're receiving this because you're subscribed to standup digests for ${tenantName} on Forge.
+        <a href="https://forge.app/${tenantSlug}/admin" style="color:#6b7280">Manage preferences</a>
+      </p>
+    </div>
+  `;
+
+  const { Resend } = await import("resend");
+  const resend = new Resend(resendKey);
+  await resend.emails.send({
+    from: `${tenantName} <digest@mail.useforge.dev>`,
+    to: recipients,
+    subject: `📋 Standup Digest — ${digest.date_label} | ${tenantName}`,
+    html,
+  }).catch(() => null);
+}
+
 export async function getLatestStandupDigest(tenantId: string): Promise<StandupDigest | null> {
   const svc = createSupabaseServiceClient();
   const { data } = await svc

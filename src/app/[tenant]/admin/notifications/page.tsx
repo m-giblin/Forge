@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { getSetting } from "@/lib/platformSettings";
 import { getTenantSettings } from "@/lib/tenantSettings";
+// eslint-disable-next-line no-restricted-imports -- admin page: service-role to read platform_config
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import NotificationsForm from "./NotificationsForm";
 
 export default async function NotificationsPage({
@@ -14,9 +16,11 @@ export default async function NotificationsPage({
   if (!ctx) redirect("/");
   if (ctx.role !== "owner" && ctx.role !== "admin") redirect(`/${slug}/admin`);
 
-  const [storedKey, tenantBranding] = await Promise.all([
+  const svc = createSupabaseServiceClient();
+  const [storedKey, tenantBranding, standupRecipientsRow] = await Promise.all([
     getSetting("resend_api_key"),
     getTenantSettings(ctx.tenant.id, ["email_display_name", "email_primary_color", "email_from_name"]),
+    svc.from("platform_config").select("value").eq("tenant_id", ctx.tenant.id).eq("key", "standup_email_recipients").maybeSingle(),
   ]);
 
   return (
@@ -32,6 +36,7 @@ export default async function NotificationsPage({
           emailDisplayName: tenantBranding["email_display_name"] || ctx.tenant.name,
           emailPrimaryColor: tenantBranding["email_primary_color"] || "#111827",
           emailFromName: tenantBranding["email_from_name"] || `${ctx.tenant.name} via Forge`,
+          standupEmailRecipients: (standupRecipientsRow.data?.value as string) || "",
         }}
       />
     </section>
