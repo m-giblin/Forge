@@ -15,6 +15,7 @@ import { SubIssuesCard, LinkedIssuesCard } from "./IssueHierarchy";
 import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 import TriageCard from "./TriageCard";
 import GitLinksCard from "./GitLinksCard";
+import MarkDuplicateButton from "./MarkDuplicateButton";
 import type { IssueCodeLink } from "@/lib/repositories/gitIntegration";
 import DecomposeButton from "./DecomposeButton";
 import PrImpactButton from "./PrImpactButton";
@@ -846,6 +847,13 @@ export default function IssueDetail({
             slug={slug}
             issueId={issue.id}
             links={links}
+            readOnly={readOnly}
+          />
+
+          <MarkDuplicateButton
+            slug={slug}
+            issueId={issue.id}
+            currentStatus={issue.status}
             readOnly={readOnly}
           />
 
