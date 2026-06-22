@@ -252,6 +252,26 @@ export default function ComplianceConsole({
                           Download
                         </a>
                       )}
+                      {req.request_type === "deletion" && req.status !== "completed" && req.status !== "denied" && (
+                        <button
+                          onClick={() => {
+                            if (!confirm(`Permanently erase all data for ${req.requester_email}? This cannot be undone.`)) return;
+                            run(async () => {
+                              const res = await fetch("/api/admin/compliance/erase", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ email: req.requester_email }),
+                              });
+                              if (!res.ok) throw new Error((await res.json()).error ?? "Erasure failed");
+                              await updateComplianceStatusAction(req.id, "completed", "Automated erasure completed.");
+                            });
+                          }}
+                          disabled={isPending}
+                          className="text-xs font-medium text-red-400 hover:underline disabled:opacity-40"
+                        >
+                          Erase
+                        </button>
+                      )}
                       {req.status === "pending" && (
                         <button
                           onClick={() => run(() => updateComplianceStatusAction(req.id, "in_progress"))}
