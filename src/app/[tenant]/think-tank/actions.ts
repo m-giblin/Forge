@@ -870,3 +870,19 @@ Write a PRD as JSON with these exact fields:
 
   return JSON.parse(jsonMatch[0]) as IdeaPRD;
 }
+
+export async function updateIdeaScoresAction(
+  slug: string,
+  ideaId: string,
+  impact: number | null,
+  effort: number | null
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Unauthorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot edit scores.");
+  const supabase = await createSupabaseServerClient();
+  await ideasRepo(supabase).update(ctx.tenant.id, ideaId, {
+    impact_score: impact,
+    effort_score: effort,
+  });
+}

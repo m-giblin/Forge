@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useTransition } from "react";
 import Link from "next/link";
 import type { IdeaSummary } from "@/lib/repositories/ideas";
 import { toggleVoteAction } from "./actions";
+import ImpactEffortMatrix from "./ImpactEffortMatrix";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -26,6 +27,7 @@ interface Props {
 }
 
 type SortMode = "recent" | "votes";
+type ViewMode = "list" | "matrix";
 
 export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, members, canCreate }: Props) {
   const [ideas, setIdeas] = useState(initialIdeas);
@@ -36,6 +38,7 @@ export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, m
   const [filterAssignee, setFilterAssignee] = useState<string>("");
   const [showArchived, setShowArchived] = useState(false);
   const [sortBy, setSortBy] = useState<SortMode>("recent");
+  const [viewMode, setViewMode] = useState<ViewMode>("list");
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 300);
@@ -104,14 +107,32 @@ export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, m
             Capture and mature ideas — from rough concept to project.
           </p>
         </div>
-        {canCreate && (
-          <Link
-            href={`/${slug}/think-tank/new`}
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
-          >
-            + New Idea
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {hasIdeas && (
+            <div className="flex rounded-lg border border-neutral-200 overflow-hidden text-sm">
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-3 py-1.5 font-medium transition-colors ${viewMode === "list" ? "bg-neutral-900 text-white" : "text-neutral-500 hover:bg-neutral-50"}`}
+              >
+                ☰ List
+              </button>
+              <button
+                onClick={() => setViewMode("matrix")}
+                className={`px-3 py-1.5 font-medium transition-colors ${viewMode === "matrix" ? "bg-neutral-900 text-white" : "text-neutral-500 hover:bg-neutral-50"}`}
+              >
+                ⊞ Matrix
+              </button>
+            </div>
+          )}
+          {canCreate && (
+            <Link
+              href={`/${slug}/think-tank/new`}
+              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+            >
+              + New Idea
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Onboarding / empty state */}
@@ -142,6 +163,8 @@ export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, m
             </Link>
           )}
         </div>
+      ) : viewMode === "matrix" ? (
+        <ImpactEffortMatrix slug={slug} ideas={ideas} />
       ) : (
         <>
           {/* Filters */}
