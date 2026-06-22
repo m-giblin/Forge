@@ -19,7 +19,7 @@ export default function DevilsAdvocateButton({
     setError(null);
     startTransition(async () => {
       try {
-        const res = await soundingBoardAction(slug, ideaId, ["devils_advocate"], null, []);
+        const res = await soundingBoardAction(slug, ideaId, ["devils_advocate"], "");
         setResult(res.text);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Challenge failed");
