@@ -174,11 +174,20 @@ export function LinkedIssuesCard({
     });
   }
 
+  const openBlockers = links.filter(
+    (l) => l.linkType === "blocks" && l.direction === "inbound" && l.targetStatus !== "done"
+  );
+
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+    <div className={`rounded-xl border bg-white p-4 ${openBlockers.length > 0 ? "border-red-300" : "border-neutral-200"}`}>
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 flex items-center gap-2">
           Linked issues {links.length > 0 && `(${links.length})`}
+          {openBlockers.length > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700 border border-red-200">
+              🚫 BLOCKED
+            </span>
+          )}
         </p>
         {!readOnly && (
           <button onClick={() => setAdding((s) => !s)} className="text-xs text-neutral-400 hover:text-neutral-700">

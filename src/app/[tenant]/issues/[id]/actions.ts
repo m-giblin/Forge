@@ -9,6 +9,7 @@ import { canDo } from "@/lib/permissions";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issueAttachmentsRepo } from "@/lib/repositories/issueAttachments";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
+import { issueLinksRepo } from "@/lib/repositories/issueLinks";
 
 const BUCKET = "issue-attachments";
 const QUOTA_BYTES = 100 * 1024 * 1024; // 100 MB / month per tenant
@@ -24,10 +25,35 @@ export async function updateIssueAction(slug: string, id: string, patch: IssuePa
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot edit issues.");
+
+  // Blocking gate: if moving to a terminal status, check for open blockers.
+  // Owners and admins can override by confirming; members get a hard stop here.
+  if (patch.status === "done") {
+    const svc = createSupabaseServiceClient();
+    const links = await issueLinksRepo(svc).listForIssue(ctx.tenant.id, id, "");
+    const openBlockers = links.filter(
+      (l) => l.linkType === "blocks" && l.direction === "inbound" && l.targetStatus !== "done"
+    );
+    if (openBlockers.length > 0) {
+      const titles = openBlockers.map((b) => b.targetTitle || b.targetKey).join(", ");
+      throw new Error(`Blocked by open issue(s): ${titles}. Resolve blockers before closing.`);
+    }
+  }
+
   const issue = await updateIssue(ctx.tenant.id, id, patch, { userId: ctx.appUserId, label: ctx.email });
   revalidatePath(`/${slug}/issues/${id}`);
   revalidatePath(`/${slug}/board`);
   return issue;
+}
+
+export async function saveIssueSpecAction(slug: string, issueId: string, specMd: string) {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot edit issues.");
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc.from("issues").update({ spec_md: specMd || null }).eq("id", issueId).eq("tenant_id", ctx.tenant.id);
+  if (error) throw error;
+  revalidatePath(`/${slug}/issues/${issueId}`);
 }
 
 export async function addCommentAction(

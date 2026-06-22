@@ -6,7 +6,9 @@ import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
 import { isUnassignedOverdue, unassignedThresholdMs } from "@/lib/sla";
-import { updateIssueAction, deleteIssueAction, addCommentAction, watchIssueAction, unwatchIssueAction } from "./actions";
+import { updateIssueAction, deleteIssueAction, addCommentAction, watchIssueAction, unwatchIssueAction, saveIssueSpecAction } from "./actions";
+import { IssueSpecPanel } from "./IssueSpec";
+import { IssueSignoffsPanel, type IssueSignoff } from "./IssueSignoffs";
 import IssueAttachments from "./IssueAttachments";
 import type { IssueAttachment } from "@/lib/repositories/issueAttachments";
 import { SubIssuesCard, LinkedIssuesCard } from "./IssueHierarchy";
@@ -108,6 +110,7 @@ export default function IssueDetail({
   links = [],
   gitLinks = [],
   slaTimer,
+  signoffs = [],
 }: {
   slug: string;
   issue: Issue;
@@ -131,6 +134,7 @@ export default function IssueDetail({
   links?: IssueLinkWithKey[];
   gitLinks?: IssueCodeLink[];
   slaTimer?: SlaTimer;
+  signoffs?: IssueSignoff[];
 }) {
   const [title, setTitle] = useState(issue.title);
   const [description, setDescription] = useState(issue.description ?? "");
@@ -544,6 +548,28 @@ export default function IssueDetail({
               )}
             </div>
           )}
+
+          {/* ─ Spec / PRD section ─ */}
+          <div className="bg-white rounded-xl border border-neutral-200 p-6">
+            <IssueSpecPanel
+              slug={slug}
+              issueId={issue.id}
+              initialSpec={issue.spec_md ?? null}
+              readOnly={readOnly}
+            />
+          </div>
+
+          {/* ─ Sign-offs section ─ */}
+          <div className="bg-white rounded-xl border border-neutral-200 p-6">
+            <IssueSignoffsPanel
+              slug={slug}
+              issueId={issue.id}
+              signoffs={signoffs ?? []}
+              readOnly={readOnly}
+              userRole={userRole}
+              currentUserId={currentUserId}
+            />
+          </div>
 
           {/* ─ Activity section ─ */}
           <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
