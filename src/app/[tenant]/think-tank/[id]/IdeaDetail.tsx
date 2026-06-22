@@ -10,6 +10,7 @@ import SoundingBoard from "./SoundingBoard";
 import IdeaDecisions from "./IdeaDecisions";
 import IdeaSignoffs from "./IdeaSignoffs";
 import IdeaPRDPanel from "./IdeaPRDPanel";
+import DevilsAdvocateButton from "./DevilsAdvocateButton";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -431,6 +432,11 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
       {/* Idea-to-PRD — shown when idea is approved/ready and not yet converted */}
       {!isViewer && !isTerminal && (idea.status === "approved" || idea.status === "ready") && (
         <IdeaPRDPanel slug={slug} ideaId={idea.id} ideaTitle={idea.title} />
+      )}
+
+      {/* Devil's Advocate — visible on all non-terminal ideas */}
+      {!isViewer && !isTerminal && (
+        <DevilsAdvocateButton slug={slug} ideaId={idea.id} />
       )}
 
       {/* AI Facilitator hints — shown when AI hasn't been used and conditions are met */}
