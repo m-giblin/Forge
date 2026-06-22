@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { MissionControlData, AttentionTag, ThroughputWeek } from "@/lib/services/missionControl";
+import { AiDisclosureFooter } from "@/components/AiBadge";
 
 /**
  * Mission Control — the tenant login hub ("Design E"), wired to REAL issue data.
@@ -93,6 +94,7 @@ export default function MissionControl({ slug, data }: { slug: string; data: Mis
             <span className="text-[10px] text-indigo-400">Updated now</span>
           </div>
           <p className="text-sm text-neutral-800 leading-relaxed">{data.narrative}</p>
+          <AiDisclosureFooter model="Grok (xAI)" />
           {stats.open > 0 && (
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-indigo-700">
               {stats.inProgress > 0 && <span>🏃 {stats.inProgress} in progress</span>}

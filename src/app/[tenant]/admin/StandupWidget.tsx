@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { StandupDigest, StandupEntry } from "@/lib/services/standupDigest";
+import { AiBadge, AiDisclosureFooter } from "@/components/AiBadge";
 
 const SECTION_META: Record<StandupEntry["section"], { emoji: string; label: string; color: string }> = {
   shipped: { emoji: "✅", label: "Shipped", color: "text-green-700 bg-green-50 border-green-200" },
@@ -61,7 +62,10 @@ export default function StandupWidget({
         </div>
         <div className="flex items-center gap-3">
           {digest && (
-            <span className="text-xs text-neutral-400">Generated {timeAgo(digest.generated_at)}</span>
+            <span className="flex items-center gap-1.5">
+              <AiBadge model="Grok (xAI)" />
+              <span className="text-xs text-neutral-400">{timeAgo(digest.generated_at)}</span>
+            </span>
           )}
           <button
             onClick={generate}
@@ -113,9 +117,12 @@ export default function StandupWidget({
 
             {/* AI summary */}
             {digest.ai_summary && (
-              <p className="text-sm text-neutral-700 leading-relaxed italic border-l-2 border-indigo-300 pl-3">
-                {digest.ai_summary}
-              </p>
+              <div>
+                <p className="text-sm text-neutral-700 leading-relaxed italic border-l-2 border-indigo-300 pl-3">
+                  {digest.ai_summary}
+                </p>
+                <AiDisclosureFooter model="Grok (xAI)" />
+              </div>
             )}
 
             {/* Sections — collapsible */}
