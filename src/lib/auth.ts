@@ -1,8 +1,10 @@
 import "server-only";
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { readImpersonation } from "@/lib/impersonation";
 import { requireSuperAdmin } from "@/lib/super-admin";
+import { getIpAllowlist, isIpAllowed, extractClientIp } from "@/lib/services/ipAllowlist";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PermissionOverrides } from "@/lib/permissions";
 
@@ -107,6 +109,16 @@ export async function getTenantContext(slug: string): Promise<TenantContext | nu
       .eq("user_id", appUserId) // scope to THIS user — unique per (tenant,user)
       .maybeSingle();
     if (membership) {
+      // IP allowlist check — owners always bypass so they can never lock themselves out.
+      if (membership.role !== "owner") {
+        const allowlist = await getIpAllowlist(tenant.id);
+        if (allowlist.length > 0) {
+          const reqHeaders = await headers();
+          const clientIp = extractClientIp(reqHeaders);
+          if (!clientIp || !isIpAllowed(clientIp, allowlist)) return null;
+        }
+      }
+
       let customRolePermissions: import("@/lib/rbac").RbacPermissionSet | null = null;
       if (membership.custom_role_id) {
         const { data: cr } = await supabase
