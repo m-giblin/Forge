@@ -208,11 +208,20 @@ export default function CommandPalette({ slug }: { slug: string }) {
         )}
 
         {/* Footer hint */}
-        <div className="flex items-center gap-4 border-t border-neutral-100 px-4 py-2 text-[11px] text-neutral-400">
-          <span><kbd className="font-sans">↑↓</kbd> navigate</span>
-          <span><kbd className="font-sans">↵</kbd> select</span>
-          <span><kbd className="font-sans">esc</kbd> close</span>
-          <span className="ml-auto"><kbd className="font-sans">⌘K</kbd> toggle</span>
+        <div className="border-t border-neutral-100 px-4 pt-2 pb-1">
+          <p className="text-[10px] text-neutral-400 mb-1">
+            Filter: <code className="bg-neutral-100 px-1 rounded">status:todo</code>{" "}
+            <code className="bg-neutral-100 px-1 rounded">priority:high</code>{" "}
+            <code className="bg-neutral-100 px-1 rounded">type:bug</code>{" "}
+            <code className="bg-neutral-100 px-1 rounded">assignee:me</code>{" "}
+            <code className="bg-neutral-100 px-1 rounded">project:WEB</code>
+          </p>
+          <div className="flex items-center gap-4 py-1 text-[11px] text-neutral-400">
+            <span><kbd className="font-sans">↑↓</kbd> navigate</span>
+            <span><kbd className="font-sans">↵</kbd> select</span>
+            <span><kbd className="font-sans">esc</kbd> close</span>
+            <span className="ml-auto"><kbd className="font-sans">⌘K</kbd> toggle</span>
+          </div>
         </div>
       </div>
     </div>
