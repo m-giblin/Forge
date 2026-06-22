@@ -7,7 +7,7 @@ import { type Issue } from "@/lib/repositories/issues";
 import { type Sprint } from "@/lib/repositories/sprints";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { isUnassignedOverdue } from "@/lib/sla";
-import { createIssueAction, moveIssueAction } from "./actions";
+import { createIssueAction, moveIssueAction, draftIssueFromDescriptionAction } from "./actions";
 import IssueCard from "./IssueCard";
 
 type Project = { id: string; key: string; name: string };
@@ -542,6 +542,28 @@ function NewIssueForm({
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [aiMode, setAiMode] = useState(false);
+  const [aiDescription, setAiDescription] = useState("");
+  const [aiPending, setAiPending] = useState(false);
+
+  function draftWithAI() {
+    if (!aiDescription.trim()) return;
+    setAiPending(true);
+    startTransition(async () => {
+      try {
+        const draft = await draftIssueFromDescriptionAction(slug, aiDescription);
+        setTitle(draft.title);
+        setPriority(draft.priority);
+        setType(draft.type);
+        setAiMode(false);
+        setAiDescription("");
+      } catch {
+        setError("AI draft failed — try typing the title manually.");
+      } finally {
+        setAiPending(false);
+      }
+    });
+  }
 
   // Categories rendered as flat options with sub-categories indented.
   const tops = categories.filter((c) => !c.parent_id);
@@ -577,6 +599,35 @@ function NewIssueForm({
 
   return (
     <div className="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+      {/* AI Draft mode */}
+      {aiMode ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-indigo-600">✨ Describe the issue in plain English</p>
+            <button onClick={() => setAiMode(false)} className="text-xs text-neutral-400 hover:text-neutral-700">Cancel</button>
+          </div>
+          <textarea
+            autoFocus
+            value={aiDescription}
+            onChange={(e) => setAiDescription(e.target.value)}
+            placeholder="e.g. The login button on mobile doesn't work when the keyboard is open — it gets pushed off screen and clicking elsewhere closes the keyboard..."
+            rows={3}
+            className="w-full rounded-lg border border-indigo-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 resize-none"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={draftWithAI}
+              disabled={aiPending || !aiDescription.trim()}
+              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {aiPending ? "Drafting…" : "Generate fields →"}
+            </button>
+            <button onClick={() => setAiMode(false)} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50">
+              Manual
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-wrap items-center gap-2">
         <input
           autoFocus
@@ -616,7 +667,16 @@ function NewIssueForm({
         >
           {pending ? "Creating…" : "Create"}
         </button>
+        <button
+          onClick={() => { setAiMode(true); setError(null); }}
+          type="button"
+          title="Describe the issue in plain English and let AI fill the fields"
+          className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+        >
+          ✨ AI Draft
+        </button>
       </div>
+      )}
 
       {customFields.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-3 border-t border-neutral-100 pt-3">
