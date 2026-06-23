@@ -307,14 +307,18 @@ function ReportDoc({ data, project, projectName, from, to }: {
         {/* TOC rows */}
         {SECTIONS.map((sec) => (
           <View key={sec.num} style={s.tocRow}>
+            {/* Number */}
             <Text style={s.tocNum}>{sec.num}</Text>
+            {/* Title + sub + dots on same block */}
             <View style={{ flex: 1 }}>
-              <Text style={s.tocTitle}>{sec.title}</Text>
-              <Text style={[s.tocSub, { marginTop: 1 }]}>{sec.sub}</Text>
-            </View>
-            <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 0 }}>
-              <View style={s.tocDots} />
-              <Text style={s.tocPage}>{sec.page}</Text>
+              {/* Title line with dots leader and page number */}
+              <View style={{ flexDirection: "row", alignItems: "flex-end" }}>
+                <Text style={s.tocTitle}>{sec.title}</Text>
+                <View style={{ flex: 1, height: 1, backgroundColor: P.slate300, marginHorizontal: 8, marginBottom: 3 }} />
+                <Text style={s.tocPage}>{sec.page}</Text>
+              </View>
+              {/* Subtitle below */}
+              <Text style={[s.tocSub, { marginTop: 2 }]}>{sec.sub}</Text>
             </View>
           </View>
         ))}
