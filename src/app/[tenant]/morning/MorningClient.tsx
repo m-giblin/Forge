@@ -1,0 +1,693 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import type { MorningBriefing, BriefingIssue, SprintHealth, WorkloadEntry, BlockerIssue, ProjectSprintSummary, MemberActivityEntry } from "@/lib/services/morningBriefing";
+
+// ── Shared primitives ─────────────────────────────────────────────────────
+
+const STATUS_META: Record<string, { label: string; cls: string }> = {
+  backlog:     { label: "Backlog",     cls: "bg-neutral-100 text-neutral-500 border-neutral-200" },
+  todo:        { label: "To Do",       cls: "bg-blue-50 text-blue-600 border-blue-200" },
+  in_progress: { label: "In Progress", cls: "bg-indigo-50 text-indigo-700 border-indigo-200" },
+  in_review:   { label: "In Review",   cls: "bg-amber-50 text-amber-700 border-amber-200" },
+  done:        { label: "Done",        cls: "bg-emerald-50 text-emerald-700 border-emerald-200" },
+  blocked:     { label: "Blocked",     cls: "bg-red-50 text-red-700 border-red-200" },
+};
+
+const PRI_META: Record<string, { dot: string; label: string }> = {
+  urgent: { dot: "bg-red-500",    label: "Urgent" },
+  high:   { dot: "bg-orange-400", label: "High" },
+  medium: { dot: "bg-yellow-400", label: "Medium" },
+  low:    { dot: "bg-neutral-300", label: "Low" },
+};
+
+function StatusBadge({ status }: { status: string }) {
+  const m = STATUS_META[status] ?? { label: status, cls: "bg-neutral-100 text-neutral-500 border-neutral-200" };
+  return (
+    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${m.cls}`}>
+      {m.label}
+    </span>
+  );
+}
+
+function PriBadge({ priority }: { priority: string }) {
+  const m = PRI_META[priority] ?? { dot: "bg-neutral-300", label: priority };
+  return (
+    <span className="flex items-center gap-1 text-[10px] font-medium text-neutral-500">
+      <span className={`inline-block h-2 w-2 rounded-full ${m.dot}`} />
+      {m.label}
+    </span>
+  );
+}
+
+function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return (
+    <div className={`rounded-xl border border-neutral-200 bg-white shadow-sm ${className}`}>
+      {children}
+    </div>
+  );
+}
+
+function CardHeader({ title, right }: { title: string; right?: React.ReactNode }) {
+  return (
+    <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-3.5">
+      <h3 className="text-sm font-semibold text-neutral-800">{title}</h3>
+      {right}
+    </div>
+  );
+}
+
+function EmptyState({ text }: { text: string }) {
+  return (
+    <div className="flex items-center justify-center py-8 text-sm text-neutral-400">{text}</div>
+  );
+}
+
+function ProgressBar({ pct, color = "bg-indigo-500" }: { pct: number; color?: string }) {
+  return (
+    <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
+      <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(100, pct)}%` }} />
+    </div>
+  );
+}
+
+// ── Issue row (used in multiple views) ────────────────────────────────────
+
+function IssueRow({ issue, slug, showProject = true }: { issue: BriefingIssue; slug: string; showProject?: boolean }) {
+  return (
+    <Link
+      href={`/${slug}/issues/${issue.id}`}
+      className="flex items-center gap-3 px-5 py-3 hover:bg-neutral-50 transition-colors group"
+    >
+      <span className="font-mono text-[10px] text-neutral-400 w-16 shrink-0">
+        {issue.projectKey}-{issue.number}
+      </span>
+      <span className="flex-1 text-sm text-neutral-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">
+        {issue.title}
+      </span>
+      <div className="flex items-center gap-2 shrink-0">
+        {issue.isOverdue && (
+          <span className="text-[10px] font-semibold text-red-600 bg-red-50 border border-red-200 rounded px-1.5 py-0.5">
+            Overdue
+          </span>
+        )}
+        {showProject && (
+          <span className="text-[10px] text-neutral-400 font-mono">{issue.projectKey}</span>
+        )}
+        <PriBadge priority={issue.priority} />
+        <StatusBadge status={issue.status} />
+      </div>
+    </Link>
+  );
+}
+
+// ── Sprint Health card ────────────────────────────────────────────────────
+
+function SprintCard({ sprint, slug }: { sprint: SprintHealth; slug: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const barColor = sprint.pctDone >= 70 ? "bg-emerald-500" : sprint.blocked > 0 ? "bg-red-400" : "bg-indigo-500";
+  const daysLabel = sprint.daysLeft === null ? null
+    : sprint.daysLeft < 0 ? "Overdue"
+    : sprint.daysLeft === 0 ? "Closes today"
+    : `${sprint.daysLeft}d left`;
+
+  return (
+    <Card>
+      <div className="px-5 py-4">
+        <div className="flex items-start justify-between gap-3 mb-1">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-0.5">
+              Active Sprint · {sprint.projectKey}
+            </p>
+            <h3 className="text-base font-bold text-neutral-900">{sprint.name}</h3>
+            {sprint.goal && (
+              <p className="text-xs text-neutral-500 mt-0.5 line-clamp-1">Goal: {sprint.goal}</p>
+            )}
+          </div>
+          {daysLabel && (
+            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+              sprint.daysLeft !== null && sprint.daysLeft <= 2
+                ? "bg-red-50 text-red-600 border border-red-200"
+                : "bg-neutral-100 text-neutral-600"
+            }`}>
+              {daysLabel}
+            </span>
+          )}
+        </div>
+
+        {/* Stats row */}
+        <div className="mt-3 flex items-center gap-5">
+          <div className="text-center">
+            <p className="text-xl font-bold text-emerald-600">{sprint.pctDone}%</p>
+            <p className="text-[10px] text-neutral-400">Done</p>
+          </div>
+          {sprint.blocked > 0 && (
+            <div className="text-center">
+              <p className="text-xl font-bold text-red-600">{sprint.blocked}</p>
+              <p className="text-[10px] text-neutral-400">Blocked</p>
+            </div>
+          )}
+          <div className="text-center">
+            <p className="text-xl font-bold text-amber-500">{sprint.inReview}</p>
+            <p className="text-[10px] text-neutral-400">In Review</p>
+          </div>
+          <div className="text-center">
+            <p className="text-xl font-bold text-indigo-600">{sprint.inProgressCount}</p>
+            <p className="text-[10px] text-neutral-400">In Progress</p>
+          </div>
+          <div className="ml-auto text-right">
+            <p className="text-sm font-semibold text-neutral-700">{sprint.done} / {sprint.total}</p>
+            <p className="text-[10px] text-neutral-400">issues done</p>
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <ProgressBar pct={sprint.pctDone} color={barColor} />
+        </div>
+      </div>
+
+      {/* Sprint issues toggle */}
+      {sprint.issues.length > 0 && (
+        <>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="w-full border-t border-neutral-100 px-5 py-2.5 text-left text-xs font-medium text-neutral-500 hover:bg-neutral-50 transition-colors flex items-center justify-between"
+          >
+            <span>Sprint Issues ({sprint.issues.length})</span>
+            <span className="text-neutral-300">{expanded ? "▲" : "▼"}</span>
+          </button>
+          {expanded && (
+            <div className="border-t border-neutral-100 divide-y divide-neutral-50">
+              {sprint.issues.map((i) => (
+                <IssueRow key={i.id} issue={i} slug={slug} showProject={false} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </Card>
+  );
+}
+
+// ── AI Digest card ────────────────────────────────────────────────────────
+
+function DigestCard({ digest, fresh }: { digest: MorningBriefing["digest"]; fresh: boolean }) {
+  const SECTION_META = {
+    shipped:      { icon: "✅", label: "Shipped" },
+    in_progress:  { icon: "🔄", label: "In Progress" },
+    blocked:      { icon: "🚨", label: "Blocked" },
+    needs_triage: { icon: "⚠️", label: "Needs Triage" },
+  };
+
+  if (!digest) {
+    return (
+      <Card>
+        <div className="flex items-center gap-3 px-5 py-4">
+          <span className="text-lg">✨</span>
+          <div>
+            <p className="text-sm font-semibold text-neutral-700">AI Digest</p>
+            <p className="text-xs text-neutral-400">No digest available yet — it generates at 6am daily.</p>
+          </div>
+        </div>
+      </Card>
+    );
+  }
+
+  const genTime = new Date(digest.generated_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
+  return (
+    <Card>
+      <div className="px-5 py-4 border-b border-neutral-100">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-base">✨</span>
+            <span className="text-sm font-semibold text-neutral-800">AI Digest</span>
+          </div>
+          <span className="text-[10px] text-neutral-400">
+            {fresh ? `Updated ${genTime}` : "Cached · refreshing soon"}
+          </span>
+        </div>
+        {digest.ai_summary && (
+          <p className="mt-2 text-xs text-neutral-600 leading-relaxed">{digest.ai_summary}</p>
+        )}
+      </div>
+      <div className="divide-y divide-neutral-50">
+        {digest.entries.slice(0, 4).map((entry) => {
+          const meta = SECTION_META[entry.section as keyof typeof SECTION_META] ?? { icon: "•", label: entry.section };
+          return (
+            <div key={entry.section} className="px-5 py-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400 mb-1.5">
+                {meta.icon} {meta.label}
+              </p>
+              <ul className="space-y-0.5">
+                {entry.items.slice(0, 4).map((item, i) => (
+                  <li key={i} className="text-xs text-neutral-600 line-clamp-1">· {item}</li>
+                ))}
+                {entry.items.length > 4 && (
+                  <li className="text-[10px] text-neutral-400">+{entry.items.length - 4} more</li>
+                )}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </Card>
+  );
+}
+
+// ── DEVELOPER VIEW ────────────────────────────────────────────────────────
+
+function DeveloperView({ briefing, slug }: { briefing: MorningBriefing; slug: string }) {
+  return (
+    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+      {/* Left column */}
+      <div className="space-y-5">
+        <DigestCard digest={briefing.digest} fresh={briefing.digestFresh} />
+
+        {/* My Work */}
+        <Card>
+          <CardHeader
+            title={`My Work`}
+            right={
+              <span className="rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-600">
+                {briefing.myIssues.length}
+              </span>
+            }
+          />
+          {briefing.myIssues.length === 0 ? (
+            <EmptyState text="No open issues assigned to you 🎉" />
+          ) : (
+            <div className="divide-y divide-neutral-50">
+              {briefing.myIssues.slice(0, 10).map((i) => (
+                <IssueRow key={i.id} issue={i} slug={slug} />
+              ))}
+              {briefing.myIssues.length > 10 && (
+                <div className="px-5 py-2.5">
+                  <Link href={`/${slug}/issues?assignee=me`} className="text-xs text-indigo-600 hover:underline">
+                    View all {briefing.myIssues.length} →
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Right column */}
+      <div className="space-y-5">
+        {briefing.primarySprint ? (
+          <SprintCard sprint={briefing.primarySprint} slug={slug} />
+        ) : (
+          <Card>
+            <div className="px-5 py-8 text-center text-sm text-neutral-400">No active sprint</div>
+          </Card>
+        )}
+
+        {briefing.unreadMentions > 0 && (
+          <Card>
+            <div className="flex items-center justify-between px-5 py-4">
+              <div className="flex items-center gap-3">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-50 text-lg">💬</span>
+                <div>
+                  <p className="text-sm font-semibold text-neutral-800">
+                    {briefing.unreadMentions} unread notification{briefing.unreadMentions !== 1 ? "s" : ""}
+                  </p>
+                  <p className="text-xs text-neutral-400">Comments and updates that mention you</p>
+                </div>
+              </div>
+              <Link
+                href={`/${slug}/notifications`}
+                className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
+              >
+                View →
+              </Link>
+            </div>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── PM VIEW ───────────────────────────────────────────────────────────────
+
+function PMView({ briefing, slug }: { briefing: MorningBriefing; slug: string }) {
+  return (
+    <div className="space-y-5">
+      {/* Project sprint summary row */}
+      {briefing.projectSprints.length > 0 && (
+        <div>
+          <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-neutral-400">Project Status</h3>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            {briefing.projectSprints.map((ps) => (
+              <ProjectSprintCard key={ps.projectId} ps={ps} slug={slug} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {/* Team Workload */}
+        <Card>
+          <CardHeader title="Team Workload" right={<span className="text-xs text-neutral-400">open issues</span>} />
+          {briefing.teamWorkload.length === 0 ? (
+            <EmptyState text="No open issues" />
+          ) : (
+            <div className="divide-y divide-neutral-50">
+              {briefing.teamWorkload.map((w) => (
+                <WorkloadRow key={w.userId ?? "unassigned"} entry={w} max={briefing.teamWorkload[0]?.openCount ?? 1} />
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Blockers */}
+        <Card>
+          <CardHeader
+            title="Blockers"
+            right={
+              briefing.blockers.length > 0 ? (
+                <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600 border border-red-200">
+                  {briefing.blockers.length}
+                </span>
+              ) : null
+            }
+          />
+          {briefing.blockers.length === 0 ? (
+            <div className="flex items-center gap-3 px-5 py-6">
+              <span className="text-lg">✅</span>
+              <p className="text-sm text-neutral-500">No blocked issues — all clear.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-neutral-50">
+              {briefing.blockers.map((b) => (
+                <BlockerRow key={b.id} blocker={b} slug={slug} />
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Overdue */}
+      {briefing.overdueIssues.length > 0 && (
+        <Card>
+          <CardHeader
+            title="Overdue Issues"
+            right={
+              <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600 border border-red-200">
+                {briefing.overdueIssues.length}
+              </span>
+            }
+          />
+          <div className="divide-y divide-neutral-50">
+            {briefing.overdueIssues.slice(0, 8).map((i) => (
+              <IssueRow key={i.id} issue={i} slug={slug} />
+            ))}
+          </div>
+        </Card>
+      )}
+
+      {/* Digest */}
+      <DigestCard digest={briefing.digest} fresh={briefing.digestFresh} />
+    </div>
+  );
+}
+
+function ProjectSprintCard({ ps, slug }: { ps: ProjectSprintSummary; slug: string }) {
+  const health = ps.blockedCount > 0 ? "blocked" : ps.overdueCount > 0 ? "overdue" : "ok";
+  const healthCls = health === "blocked" ? "text-red-600" : health === "overdue" ? "text-amber-600" : "text-emerald-600";
+  const healthLabel = health === "blocked" ? `${ps.blockedCount} blocked` : health === "overdue" ? `${ps.overdueCount} overdue` : "On track";
+
+  return (
+    <Link href={`/${slug}/projects/${ps.projectKey}`}>
+      <div className="rounded-xl border border-neutral-200 bg-white p-4 hover:shadow-md hover:border-neutral-300 transition-all cursor-pointer">
+        <div className="flex items-center justify-between mb-3">
+          <span className="font-mono text-xs font-bold text-neutral-500">{ps.projectKey}</span>
+          <span className={`text-xs font-semibold ${healthCls}`}>{healthLabel}</span>
+        </div>
+        <p className="text-sm font-semibold text-neutral-800 mb-2 line-clamp-1">{ps.projectName}</p>
+        {ps.sprint ? (
+          <>
+            <p className="text-[10px] text-neutral-400 mb-1">{ps.sprint.name}</p>
+            <ProgressBar pct={ps.sprint.pctDone} color={health === "blocked" ? "bg-red-400" : "bg-indigo-500"} />
+            <div className="mt-2 flex items-center justify-between text-[10px] text-neutral-400">
+              <span>{ps.sprint.pctDone}% done</span>
+              <span>{ps.sprint.daysLeft !== null ? `${ps.sprint.daysLeft}d left` : ""}</span>
+            </div>
+          </>
+        ) : (
+          <p className="text-xs text-neutral-400">No active sprint · {ps.openCount} open</p>
+        )}
+      </div>
+    </Link>
+  );
+}
+
+function WorkloadRow({ entry, max }: { entry: WorkloadEntry; max: number }) {
+  const pct = max > 0 ? (entry.openCount / max) * 100 : 0;
+  return (
+    <div className="px-5 py-3">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-sm font-medium text-neutral-800">{entry.name}</span>
+        <div className="flex items-center gap-2">
+          {entry.blockedCount > 0 && (
+            <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+              {entry.blockedCount} blocked
+            </span>
+          )}
+          {entry.urgentCount > 0 && (
+            <span className="text-[10px] font-semibold text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded border border-orange-200">
+              {entry.urgentCount} urgent
+            </span>
+          )}
+          <span className="text-xs font-bold text-neutral-600 w-6 text-right">{entry.openCount}</span>
+        </div>
+      </div>
+      <ProgressBar pct={pct} color="bg-indigo-400" />
+    </div>
+  );
+}
+
+function BlockerRow({ blocker, slug }: { blocker: BlockerIssue; slug: string }) {
+  return (
+    <Link
+      href={`/${slug}/issues/${blocker.id}`}
+      className="flex items-center gap-3 px-5 py-3 hover:bg-neutral-50 transition-colors group"
+    >
+      <span className="font-mono text-[10px] text-neutral-400 w-20 shrink-0">
+        {blocker.projectKey}-{blocker.number}
+      </span>
+      <span className="flex-1 text-sm text-neutral-800 line-clamp-1 group-hover:text-indigo-600 transition-colors">
+        {blocker.title}
+      </span>
+      <div className="flex items-center gap-2 shrink-0 text-xs text-neutral-500">
+        <span>{blocker.assigneeName}</span>
+        <span className="font-semibold text-red-600">{blocker.daysBlocked}d</span>
+      </div>
+    </Link>
+  );
+}
+
+// ── ADMIN VIEW ────────────────────────────────────────────────────────────
+
+function AdminView({ briefing, slug }: { briefing: MorningBriefing; slug: string }) {
+  const s = briefing.tenantStats;
+
+  return (
+    <div className="space-y-5">
+      {/* KPI tiles */}
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        {[
+          { label: "Open",        value: s.totalOpen,       color: "text-neutral-800" },
+          { label: "Done",        value: s.totalDone,       color: "text-emerald-600" },
+          { label: "In Progress", value: s.inProgressCount, color: "text-indigo-600" },
+          { label: "Blocked",     value: s.blocked,         color: s.blocked > 0 ? "text-red-600" : "text-neutral-400" },
+          { label: "Unassigned",  value: s.unassigned,      color: s.unassigned > 0 ? "text-amber-600" : "text-neutral-400" },
+          { label: "Overdue",     value: s.overdueOpen,     color: s.overdueOpen > 0 ? "text-red-600" : "text-neutral-400" },
+        ].map((kpi) => (
+          <div key={kpi.label} className="rounded-xl border border-neutral-200 bg-white px-4 py-4 text-center">
+            <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
+            <p className="text-[10px] text-neutral-400 mt-0.5 uppercase tracking-wide">{kpi.label}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+        {/* Member Activity */}
+        <Card>
+          <CardHeader title="Member Activity" right={<span className="text-xs text-neutral-400">last 7 days</span>} />
+          {briefing.memberActivity.length === 0 ? (
+            <EmptyState text="No members" />
+          ) : (
+            <div className="divide-y divide-neutral-50">
+              {briefing.memberActivity.map((m) => (
+                <MemberRow key={m.userId} member={m} />
+              ))}
+            </div>
+          )}
+        </Card>
+
+        {/* Blockers (admin perspective) */}
+        <Card>
+          <CardHeader
+            title="Blockers Requiring Attention"
+            right={
+              briefing.blockers.length > 0 ? (
+                <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600 border border-red-200">
+                  {briefing.blockers.length}
+                </span>
+              ) : null
+            }
+          />
+          {briefing.blockers.length === 0 ? (
+            <div className="flex items-center gap-3 px-5 py-6">
+              <span className="text-lg">✅</span>
+              <p className="text-sm text-neutral-500">No blocked issues.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-neutral-50">
+              {briefing.blockers.slice(0, 6).map((b) => (
+                <BlockerRow key={b.id} blocker={b} slug={slug} />
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Team Workload */}
+      <Card>
+        <CardHeader title="Team Workload" right={<Link href={`/${slug}/reports`} className="text-xs text-indigo-600 hover:underline">Full report →</Link>} />
+        {briefing.teamWorkload.length === 0 ? (
+          <EmptyState text="No open issues" />
+        ) : (
+          <div className="grid grid-cols-1 gap-0 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-neutral-100">
+            {briefing.teamWorkload.map((w, i) => (
+              <div key={w.userId ?? "unassigned"} className={i > 0 && i % 2 === 0 ? "sm:border-t sm:border-neutral-100" : ""}>
+                <WorkloadRow entry={w} max={briefing.teamWorkload[0]?.openCount ?? 1} />
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      {/* Digest */}
+      <DigestCard digest={briefing.digest} fresh={briefing.digestFresh} />
+    </div>
+  );
+}
+
+function MemberRow({ member }: { member: MemberActivityEntry }) {
+  const isQuiet = member.issuesUpdatedLast7d === 0;
+  return (
+    <div className="flex items-center gap-3 px-5 py-3">
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
+        {member.name.charAt(0).toUpperCase()}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-neutral-800 truncate">{member.name}</p>
+        <p className={`text-xs ${isQuiet ? "text-amber-500" : "text-neutral-400"}`}>{member.lastActiveLabel}</p>
+      </div>
+      <div className="text-right shrink-0">
+        <p className="text-sm font-bold text-neutral-700">{member.issuesOwned}</p>
+        <p className="text-[10px] text-neutral-400">owned</p>
+      </div>
+    </div>
+  );
+}
+
+// ── Greeting ──────────────────────────────────────────────────────────────
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function dateLabel(): string {
+  return new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
+}
+
+// ── Role tabs ─────────────────────────────────────────────────────────────
+
+type RoleTab = "developer" | "pm" | "admin";
+
+const ROLE_TABS: { id: RoleTab; label: string; icon: string }[] = [
+  { id: "developer", label: "Developer",  icon: "💻" },
+  { id: "pm",        label: "PM",         icon: "📊" },
+  { id: "admin",     label: "Admin",      icon: "⚙️" },
+];
+
+function defaultTab(role: string): RoleTab {
+  if (role === "owner" || role === "admin") return "admin";
+  if (role === "viewer") return "pm";
+  return "developer";
+}
+
+// ── Root component ────────────────────────────────────────────────────────
+
+export default function MorningClient({
+  slug,
+  role,
+  firstName,
+  briefing,
+}: {
+  slug: string;
+  role: string;
+  firstName: string;
+  briefing: MorningBriefing;
+}) {
+  const [activeTab, setActiveTab] = useState<RoleTab>(defaultTab(role));
+
+  return (
+    <div className="mx-auto max-w-6xl px-6 py-8">
+      {/* Header */}
+      <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-bold text-neutral-900">
+            {greeting()}, {firstName} 👋
+          </h1>
+          <p className="mt-0.5 text-sm text-neutral-400">{dateLabel()} · Here&apos;s your day</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            href={`/${slug}/board`}
+            className="rounded-lg border border-neutral-200 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition-colors"
+          >
+            Board →
+          </Link>
+          <Link
+            href={`/${slug}/issues`}
+            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 transition-colors"
+          >
+            All Issues →
+          </Link>
+        </div>
+      </div>
+
+      {/* Role tabs */}
+      <div className="mb-6 flex gap-1 border-b border-neutral-200">
+        {ROLE_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`-mb-px flex items-center gap-1.5 border-b-2 px-4 py-2 text-sm font-medium transition ${
+              activeTab === t.id
+                ? "border-neutral-900 text-neutral-900"
+                : "border-transparent text-neutral-500 hover:text-neutral-800"
+            }`}
+          >
+            <span>{t.icon}</span>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Views */}
+      {activeTab === "developer" && <DeveloperView briefing={briefing} slug={slug} />}
+      {activeTab === "pm"        && <PMView        briefing={briefing} slug={slug} />}
+      {activeTab === "admin"     && <AdminView     briefing={briefing} slug={slug} />}
+    </div>
+  );
+}
