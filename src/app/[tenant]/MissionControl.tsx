@@ -130,12 +130,12 @@ export default function MissionControl({ slug, data, members = [] }: {
         </div>
       </div>
 
-      {/* Headline stats (real counts) */}
+      {/* Headline stats (real counts) — each tile links to filtered issues */}
       <div className="grid grid-cols-4 gap-3">
-        <StatTile label="Open" value={stats.open} hint={scope === "mine" ? "assigned to you" : "across your team"} />
-        <StatTile label="In progress" value={stats.inProgress} hint="being worked now" />
-        <StatTile label="Shipped this week" value={stats.doneThisWeek} hint="moved to done" tone="good" />
-        <StatTile label="Unassigned" value={stats.unassigned} hint="need an owner" tone={stats.unassigned > 0 ? "warn" : "default"} />
+        <StatTile label="Open" value={stats.open} hint={scope === "mine" ? "assigned to you" : "across your team"} href={`/${slug}/issues?status=todo,in_progress,in_review,backlog`} />
+        <StatTile label="In progress" value={stats.inProgress} hint="being worked now" href={`/${slug}/issues?status=in_progress`} />
+        <StatTile label="Shipped this week" value={stats.doneThisWeek} hint="moved to done" tone="good" href={`/${slug}/issues?status=done`} />
+        <StatTile label="Unassigned" value={stats.unassigned} hint="need an owner" tone={stats.unassigned > 0 ? "warn" : "default"} href={`/${slug}/issues?assignee=none`} />
       </div>
 
       <div className="grid grid-cols-3 gap-5">
@@ -265,24 +265,26 @@ export default function MissionControl({ slug, data, members = [] }: {
 }
 
 function StatTile({
-  label,
-  value,
-  hint,
-  tone = "default",
+  label, value, hint, tone = "default", href,
 }: {
-  label: string;
-  value: number;
-  hint: string;
-  tone?: "default" | "good" | "warn";
+  label: string; value: number; hint: string;
+  tone?: "default" | "good" | "warn"; href?: string;
 }) {
   const hintCls = tone === "good" ? "text-green-600" : tone === "warn" ? "text-orange-600" : "text-neutral-500";
-  return (
-    <div className="bg-white rounded-xl border border-neutral-200 p-4">
+  const inner = (
+    <>
       <p className="text-xs font-medium text-neutral-500 uppercase tracking-wide">{label}</p>
       <p className="text-2xl font-bold text-neutral-900 mt-1">{value}</p>
       <p className={`text-xs mt-1 ${hintCls}`}>{hint}</p>
-    </div>
+      {href && <p className="text-[10px] text-neutral-300 mt-1.5">View all →</p>}
+    </>
   );
+  if (href) return (
+    <Link href={href} className="bg-white rounded-xl border border-neutral-200 p-4 block transition hover:shadow-md hover:border-neutral-300">
+      {inner}
+    </Link>
+  );
+  return <div className="bg-white rounded-xl border border-neutral-200 p-4">{inner}</div>;
 }
 
 function MetricTile({ label, value, sub, good }: { label: string; value: string; sub: string; good?: boolean }) {

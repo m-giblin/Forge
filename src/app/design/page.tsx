@@ -2441,10 +2441,607 @@ function AdminShell({onCmdK}:{onCmdK:()=>void}) {
 }
 
 // ══════════════════════════════════════════════════════════════
+//  DAY IN THE LIFE — data types
+// ══════════════════════════════════════════════════════════════
+
+type DitlGap = { label:string; desc:string; sev:"high"|"medium"|"low" };
+type DitlAI  = { label:string; desc:string; when:"scheduled"|"triggered"|"proactive"; toggle:boolean };
+type DitlStep = { time:string; title:string; screen:string; narrative:string; gaps:DitlGap[]; ai:DitlAI[] };
+
+const SEV_CFG = {
+  high:   {bg:"bg-red-50",   border:"border-red-200",   text:"text-red-800",   badge:"bg-red-500",   dot:"bg-red-500"},
+  medium: {bg:"bg-amber-50", border:"border-amber-200", text:"text-amber-800", badge:"bg-amber-500", dot:"bg-amber-400"},
+  low:    {bg:"bg-sky-50",   border:"border-sky-200",   text:"text-sky-800",   badge:"bg-sky-500",   dot:"bg-sky-400"},
+};
+const AI_TYPE_CFG = {
+  scheduled:  {label:"Scheduled",  bg:"bg-emerald-100", text:"text-emerald-700", border:"border-emerald-300"},
+  triggered:  {label:"Triggered",  bg:"bg-indigo-100",  text:"text-indigo-700",  border:"border-indigo-300"},
+  proactive:  {label:"Proactive",  bg:"bg-violet-100",  text:"text-violet-700",  border:"border-violet-300"},
+};
+
+// ── Developer Steps ──────────────────────────────────────────
+const DEV_STEPS: DitlStep[] = [
+  {
+    time:"8:00 AM", title:"Login & Morning Context", screen:"Home / Dashboard",
+    narrative:"Matt opens Forge. He wants to know what changed overnight, what's blocking him, and what to focus on. Right now this means checking Inbox, Board, and My Issues separately — three clicks before he even understands his day.",
+    gaps:[
+      {label:"No Unified Day-Start View", sev:"high", desc:"Developer must open 3-4 separate pages to orient: Inbox → My Issues → Board. There's no single 'here's your day' screen. Linear has a Home. Forge doesn't."},
+      {label:"No Priority Signal", sev:"high", desc:"Nothing tells Matt what's most important TODAY. Sprint deadline, blocked issues, estimates, and @mentions aren't synthesized into a starting point."},
+      {label:"No Page Memory", sev:"low", desc:"App always loads the last page — not a meaningful starting point. If Matt was on Roadmap yesterday, that's what he sees at 8am."},
+    ],
+    ai:[
+      {label:"Scheduled Morning Brief", when:"scheduled", toggle:true, desc:"Every day at 6am: AI analyzes sprint state, assigned issues, @mentions, and blockers → 4-bullet digest in inbox + email. 'FORGE-45 blocked 5d. Alex posted update 2h ago. INFRA-15 in progress — you may unblock today.' Per-tenant toggleable."},
+      {label:"AI Suggested Work Order", when:"proactive", toggle:true, desc:"Based on sprint clock, estimates, and blockers: 'Today's recommended order: FORGE-52 (1h, quick win) → WEB-204 (2h) → FORGE-47 (3h) → FORGE-45 (blocked, wait on Alex).' Saves 10 min of mental sorting each morning."},
+    ],
+  },
+  {
+    time:"8:20 AM", title:"Inbox Triage", screen:"Inbox",
+    narrative:"Matt opens Inbox to check notifications. He has 6 — a mix of @mentions that need replies, assignment updates, and informational status changes. He reads each one to decide if it needs action now or can wait.",
+    gaps:[
+      {label:"No Action vs FYI Split", sev:"high", desc:"All notifications look identical. '@Matt — sharing Redis env vars' (needs action) looks exactly like 'Casey merged PR #91' (purely informational). Same card, same visual weight."},
+      {label:"No Snooze / Defer", sev:"medium", desc:"Can mark as read or delete — but no way to say 'remind me about this at 2pm' or 'this is for after standup.' Binary read/unread is the only state."},
+      {label:"No Inbox Zero Workflow", sev:"low", desc:"No bulk actions beyond 'mark all read.' No 'archive this thread,' no grouping by issue. High-volume users will drown."},
+    ],
+    ai:[
+      {label:"AI Inbox Triage", when:"proactive", toggle:true, desc:"AI auto-categorizes each notification: 🔴 Action Needed (reply/decision expected), 🔵 FYI (informational), 🟡 Snooze (relevant later). Reduces morning decision fatigue dramatically."},
+      {label:"Overnight Activity Digest", when:"scheduled", toggle:true, desc:"Single notification instead of 6 separate pings: 'Overnight: 4 issues moved, 2 comments on your issues, 1 new assignment. See digest.' Per-user opt-in."},
+    ],
+  },
+  {
+    time:"9:00 AM", title:"Review Assigned Issues & Plan", screen:"My Issues",
+    narrative:"Matt reviews his 4 assigned issues: FORGE-45 blocked, FORGE-52 todo, WEB-204 in progress, FORGE-47 todo. He has to mentally cross-reference priorities, estimates, and the sprint deadline (4 days) to decide what to tackle first.",
+    gaps:[
+      {label:"No Suggested Work Order", sev:"high", desc:"Issues listed alphabetically/by creation. No 'start here' signal. Matt has to mentally weigh priority vs estimate vs blocker vs deadline himself. Every morning. For every developer on the team."},
+      {label:"Blocked Issues Clutter the List", sev:"medium", desc:"FORGE-45 (blocked, can't be worked on) sits with same visual weight as actionable items. Creates cognitive noise — he has to re-notice it's blocked every time he looks."},
+      {label:"No Capacity vs Estimate View", sev:"medium", desc:"4 issues, 11h estimated. 4 days left. Nothing shows how those numbers map to each other. Is he overloaded? On track? Impossible to tell from the current UI."},
+    ],
+    ai:[
+      {label:"AI Daily Focus Suggestion", when:"proactive", toggle:true, desc:"'Start with FORGE-52 (1h, closes a security gap before Sprint 6 ends). Then WEB-204 (2h, in progress). Skip FORGE-45 (blocked). FORGE-47 (3h) if you have afternoon capacity. You need ~6h today to stay on track.' Saves 10+ min of morning planning."},
+      {label:"Auto-Separate Blocked Issues", when:"proactive", toggle:false, desc:"Automatically moves blocked issues to a 'Waiting' section at the bottom of My Issues — not deleted, just de-prioritized. The actionable list is clean. No config needed — just reads the blocked status."},
+    ],
+  },
+  {
+    time:"9:15 AM", title:"Start Work on FORGE-52", screen:"Issue Detail — FORGE-52",
+    narrative:"Matt opens FORGE-52 (make IMPERSONATION_SECRET mandatory). Reads the description, wants to create a branch and start coding. Currently: manually copy the key, invent a branch name convention, create the branch, then write code.",
+    gaps:[
+      {label:"No 'Start Working' Flow", sev:"high", desc:"No single action that: changes status to In Progress + suggests branch name + opens GitHub. Matt must do all three manually in two different systems. Teams use inconsistent naming, breaking auto-link."},
+      {label:"No Branch Name Suggestion", sev:"medium", desc:"Matt invents his own convention each time. Result: some commits include the key (FORGE-52), some don't. Auto-linking fails silently when the key is missing."},
+      {label:"No Time or Context Capture", sev:"low", desc:"Nothing records 'Matt started this at 9:15am Monday.' No time-in-status tracking, no automatic work log. You can't report on how long issues actually sit in each state."},
+    ],
+    ai:[
+      {label:"AI Branch Name Generator", when:"triggered", toggle:true, desc:"On 'Start Working': suggests `sec/forge-52-impersonation-secret-mandatory` — follows team pattern, includes key for auto-link. One-click copy. If team has no convention, AI infers from last 10 branches."},
+      {label:"AI PR Description Draft", when:"triggered", toggle:true, desc:"When Matt opens a PR on GitHub: AI reads the issue description + commit messages and drafts a PR body. 'Fix: Make IMPERSONATION_SECRET mandatory at startup. App throws clear error if absent. Closes FORGE-52.'"},
+    ],
+  },
+  {
+    time:"10:30 AM", title:"Check Blocked Issue — FORGE-45", screen:"Issue Detail — FORGE-45",
+    narrative:"Matt checks on his blocked issue. 5 comments in the thread — decisions, questions, activity mixed together. He needs to understand: what was decided, what exactly he's waiting on, and who to ping if it doesn't resolve today.",
+    gaps:[
+      {label:"No Thread Summary", sev:"high", desc:"5 comments now. What about a 30-comment thread? Matt reads everything to answer 'where are we right now?' Key decisions are buried in discussion. No one highlighted 'this is the decision' except for the Decision badge on one comment."},
+      {label:"Blocker Clarity is Poor", sev:"high", desc:"'Blocked by INFRA-15' tag exists, but nothing says 'here is the exact thing you need from INFRA-15 before you can proceed.' The connection between blocker and required output is implicit."},
+      {label:"No ETA on Blocker", sev:"medium", desc:"Alex is working on INFRA-15. When will it close? Matt has no idea. No estimated completion, no 'last commit 2h ago' signal on the blocker issue."},
+    ],
+    ai:[
+      {label:"AI Thread Summary", when:"triggered", toggle:true, desc:"One-click: 'Decision (Matt, Jun 9): Use Upstash Redis + flag defaults OFF in prod. Blocked on: Alex provisioning Upstash + sharing env vars via 1Password. Status: Alex started INFRA-15 this morning. ETA: today.' 30 seconds vs 3 minutes of reading."},
+      {label:"Unblock Path Auto-Suggestion", when:"proactive", toggle:true, desc:"AI reads the thread and surfaces: 'When INFRA-15 closes, your next step: npm install @upstash/ratelimit and wire RATE_LIMITER_ENABLED flag. See comment #3 for env var names. Estimated: 2h.'"},
+      {label:"Auto-Notify When Blocker Clears", when:"triggered", toggle:false, desc:"Matt doesn't need to watch INFRA-15. When Alex closes it, Forge sends: 'FORGE-45 unblocked. INFRA-15 done. Env vars in 1Password → Forge Staging vault.' Instant — no polling."},
+    ],
+  },
+  {
+    time:"12:30 PM", title:"FORGE-52 → Move to In Review", screen:"Issue Detail → GitHub PR",
+    narrative:"Matt finishes his fix. He wants to: update status, create a PR, request the right reviewer, and notify the PM. Currently 4 separate manual steps across Forge and GitHub with no connection between them.",
+    gaps:[
+      {label:"Review Assignment is Guesswork", sev:"high", desc:"Matt has to know who to request review from. No sense of who has context, who has capacity, or who reviewed similar code before. Bad reviewer choice = slow review."},
+      {label:"PR and Status are Disconnected", sev:"medium", desc:"Opening a PR doesn't change the issue status. Matt must update both manually. Developers forget — issues stay 'In Progress' while PRs sit open, making the board inaccurate."},
+      {label:"No Review SLA Tracking", sev:"medium", desc:"After requesting a review, nothing tracks if it's been sitting 2 days with no response. Stale reviews are completely invisible until someone remembers to check."},
+    ],
+    ai:[
+      {label:"AI Reviewer Suggestion", when:"triggered", toggle:true, desc:"'Alex Chen reviewed 3 security issues last sprint — best context. Casey Park has 0 open reviews — most capacity. Recommend: Alex for quality, Casey for speed.' Matt picks, one click assigns."},
+      {label:"Auto-Status on PR Open", when:"triggered", toggle:true, desc:"When PR is opened referencing FORGE-52: status → In Review automatically. When PR merges to main: status → Done automatically. GitHub integration handles it — no manual updates needed."},
+      {label:"Review SLA Alert", when:"scheduled", toggle:true, desc:"If PR sits In Review with no activity for 48h: ping the reviewer and notify the PM. Configurable per-tenant (default 48h). Prevents sprint stalls from forgotten review requests."},
+    ],
+  },
+  {
+    time:"2:00 PM", title:"Sprint Board Check", screen:"Sprint Board",
+    narrative:"Quick board check — Matt wants to see where the team is, if anything moved while he was coding. Board shows cards in columns but no projection, no health score, no indication of which issues are at risk.",
+    gaps:[
+      {label:"No Velocity Forecast", sev:"high", desc:"Board shows NOW but not TRAJECTORY. '4 days left, 7 issues remaining' — is that achievable? Matt has to calculate mentally using estimates he may or may not remember accurately."},
+      {label:"Blocked Cards Blend In", sev:"medium", desc:"Blocked issues sit in Todo or In Progress with identical card styling. Zero visual distinction. FORGE-45 looks like active work — it's actually zombie work nobody can touch."},
+      {label:"No Stale Issue Alert", sev:"medium", desc:"WEB-198 (Dark Mode, assigned to Sarah) has had no activity in 3 days. Nobody knows. It doesn't show up anywhere unless someone manually sorts by 'last updated.'"},
+    ],
+    ai:[
+      {label:"AI Sprint Forecast Banner", when:"scheduled", toggle:true, desc:"Runs at 2pm daily. Overlay on board: 'At current velocity: 8/10 issues close by Friday. At risk: FORGE-45 (blocked, 5d) + WEB-198 (no activity, 3d). Recommended: reassign WEB-198 or descope.' Per-tenant toggle."},
+      {label:"Stale Issue Detector", when:"scheduled", toggle:true, desc:"Issues with no activity in 48h get an amber indicator: '⚠ No activity 3d.' AI surfaces: 'WEB-198 — Sarah Kim assigned. Last commit: 4 days ago. Is this still on track?' PM is cc'd automatically."},
+    ],
+  },
+  {
+    time:"3:00 PM", title:"FORGE-45 Unblocked — Resume", screen:"Inbox → Issue Detail",
+    narrative:"Alex closes INFRA-15. FORGE-45 is unblocked. Without proactive notifications, Matt would only know if he happened to check INFRA-15 manually or spotted it in his inbox between other tasks. With AI: instant notification + resume context.",
+    gaps:[
+      {label:"No Auto-Notify on Unblock", sev:"high", desc:"Matt must manually watch INFRA-15 to know when it closes. If he forgot to watch it, he won't find out until he happens to check FORGE-45. Hours of productivity lost while the blocker is already gone."},
+      {label:"No Resume Context", sev:"medium", desc:"Matt hasn't touched FORGE-45 in 2 days. Resuming requires re-reading 5 comments to reconstruct: what was decided, what env vars he needs, where to find them. Every interrupted issue has this tax."},
+    ],
+    ai:[
+      {label:"Instant Unblock Notification", when:"triggered", toggle:false, desc:"The moment INFRA-15 closes: 'FORGE-45 is unblocked. Alex provisioned Upstash Redis. Env vars in 1Password → Forge Staging vault.' No polling, no manual watching. Forge tracks the dependency graph."},
+      {label:"AI Resume Context Card", when:"triggered", toggle:true, desc:"When Matt opens FORGE-45 after 2+ days away: 'Resume: Last you left off — waiting on Redis. Decision: Upstash + flag OFF. Alex's latest: env vars ready in 1Password. Next step: npm install @upstash/ratelimit.' One card, no re-reading."},
+    ],
+  },
+  {
+    time:"5:00 PM", title:"End of Day — Standup Prep", screen:"(Feature Missing)",
+    narrative:"Standup is tomorrow morning. Matt wants to capture what he did today and what's planned. There is no standup or EOD summary feature in Forge. He manually recalls from memory and types into Slack — a daily ritual that Forge currently doesn't help with at all.",
+    gaps:[
+      {label:"No EOD / Standup Feature", sev:"high", desc:"Zero standup functionality exists. Matt reconstructs his day from memory or switches to GitHub/Forge in two tabs. Every developer on every team does this manually every day — massive accumulated friction."},
+      {label:"No Personal Activity Log", sev:"medium", desc:"There's no way to see: 'Today Matt: closed FORGE-52, commented on FORGE-45 ×2, moved WEB-204 to In Review.' The activity happened — it's just not surfaced anywhere for the user."},
+      {label:"No Slack/Teams Integration for Output", sev:"low", desc:"Even if Matt writes a standup in Forge, he'd still need to manually post it to Slack. No Slack integration means Forge is isolated from the team's existing async communication."},
+    ],
+    ai:[
+      {label:"AI Daily Standup Draft", when:"scheduled", toggle:true, desc:"At 4:45pm: AI builds standup from activity log. 'Done: FORGE-52 (SEC-05 — IMPERSONATION_SECRET now mandatory, PR open). In Progress: FORGE-45 (unblocked 3pm, wiring Upstash Redis now). Tomorrow: Open PR for FORGE-45, start FORGE-47.' Matt edits or approves."},
+      {label:"Auto-Post to Slack at EOD", when:"scheduled", toggle:true, desc:"Optionally post AI standup draft to configured Slack channel at 5pm. Matt sees a preview with 'Send' or 'Edit first.' Eliminates the tab-switch + manual typing ritual entirely."},
+    ],
+  },
+];
+
+// ── PM Steps ─────────────────────────────────────────────────
+const PM_STEPS: DitlStep[] = [
+  {
+    time:"8:00 AM", title:"Sprint Health Overview", screen:"Overview / Dashboard",
+    narrative:"Jordan's first act every morning is checking sprint health. What's the completion rate? What's blocked? What needs her intervention before standup? Right now this means navigating to Reports, then Board, then manually cross-referencing.",
+    gaps:[
+      {label:"No PM Dashboard", sev:"high", desc:"Sprint KPIs live in Reports (separate page). Team workload lives in Reports. Blockers live on the Board. Jordan must open all three and mentally synthesize. There is no single PM landing screen."},
+      {label:"No 'Attention Needed' Surfacing", sev:"high", desc:"Nothing proactively tells Jordan 'these 2 issues need your intervention today.' She has to find problems herself by reading every card, every metric, every status."},
+      {label:"No Trend vs Last Sprint", sev:"medium", desc:"Velocity shows 68% complete but no comparison to Sprint 5 at this same point in time. Is this better or worse than usual? Impossible to tell without navigating to Reports."},
+    ],
+    ai:[
+      {label:"Scheduled PM Morning Brief", when:"scheduled", toggle:true, desc:"7am daily: 'Sprint 6 health: 68% complete, 4 days left. 2 blocked (FORGE-45 × 5d, WEB-198 × 3d). Velocity on track but review stage is bottleneck (avg 3.8d). Recommended actions: ping Alex on FORGE-45, reassign or descope WEB-198.'"},
+      {label:"AI Sprint Risk Score", when:"proactive", toggle:true, desc:"Real-time risk indicator: Green/Amber/Red based on: issues blocked >3d, velocity trend, scope additions, unassigned issues. Jordan sees the score in the header — no digging required."},
+    ],
+  },
+  {
+    time:"8:30 AM", title:"Blocker Triage & Intervention", screen:"Issues / Board",
+    narrative:"Jordan sees 2 blockers. She wants to intervene: understand who's responsible, how long they've been stuck, and whether she needs to escalate or help. Currently she has to open each blocked issue, read the thread, and figure this out manually.",
+    gaps:[
+      {label:"No Blocker Surface in Overview", sev:"high", desc:"Blockers aren't surfaced on the PM's main view. She has to go to the Board, filter by 'blocked,' then open each issue. 3+ clicks to see a list that should be a widget on her home screen."},
+      {label:"No 'Days Blocked' Metric", sev:"high", desc:"Jordan can see that FORGE-45 is blocked but not how long it's been blocked. 5 days is a very different situation from 1 day — that context isn't visible without reading the activity timeline."},
+      {label:"No Action from Overview", sev:"medium", desc:"Even if Jordan sees a blocker, she has to open the issue to do anything about it (reassign, ping, post comment). No quick-action available at the list level."},
+    ],
+    ai:[
+      {label:"AI Blocker Alert with Action", when:"proactive", toggle:true, desc:"'FORGE-45 blocked 5 days. Dependency: INFRA-15 (Alex Chen, last activity 12h ago). Suggested action: Ping Alex with deadline context — sprint closes Friday. [Send message to Alex]' — one-click action from the alert."},
+      {label:"AI Escalation Recommendation", when:"triggered", toggle:true, desc:"If a blocker is >3 days old and the assigned dev hasn't posted in 24h: AI flags for PM intervention. 'WEB-198 has had no activity in 3 days. Sarah Kim is assigned. Recommend: schedule a sync or reassign to Casey.'"},
+    ],
+  },
+  {
+    time:"9:30 AM", title:"Sprint Planning — Adjust Scope", screen:"Sprint Plan",
+    narrative:"Jordan needs to adjust Sprint 6 based on new info: FORGE-45 might slip, WEB-212 got added mid-sprint. She wants to add a quick win and remove a low-priority item that won't get done. The drag-in/drag-out works, but there's no capacity guidance.",
+    gaps:[
+      {label:"No Capacity vs Estimate Warning", sev:"high", desc:"If Jordan adds FORGE-47 (3h) to the sprint, she has no idea if that puts the team over capacity. The current sprint plan shows issue count and total estimated hours but no 'team can do X hours this sprint' ceiling."},
+      {label:"No Impact Preview", sev:"medium", desc:"Moving an issue OUT of the sprint doesn't show what that means for sprint completeness. 'If you remove WEB-212, your sprint goes from 34h to 29h and forecast improves to 85%.'"},
+      {label:"No Scope Creep Alert", sev:"medium", desc:"3 issues were added mid-sprint. The sprint plan doesn't flag this. Jordan doesn't know if the team has accepted scope that's putting them at risk."},
+    ],
+    ai:[
+      {label:"AI Capacity Check on Add", when:"triggered", toggle:true, desc:"When Jordan drags FORGE-47 into the sprint: 'Adding this puts you at 34h for 4 days. Team capacity ≈ 32h. Risk: medium. Consider moving to Sprint 7 or descoping FORGE-49 (backlog, lower priority).'"},
+      {label:"AI Sprint Composition Suggestion", when:"proactive", toggle:true, desc:"'Based on velocity (24.6pt avg), team capacity (32h), and priority: optimal Sprint 7 composition includes: FORGE-47 + FORGE-49 + WEB-211. These hit the highest priority items within capacity.'"},
+    ],
+  },
+  {
+    time:"10:30 AM", title:"Reports & Cycle Time Analysis", screen:"Reports",
+    narrative:"Jordan reviews sprint metrics: velocity, cycle time, scope creep. The reports show numbers but no narrative. She has to interpret the data herself and decide what to do about the 3.8-day review bottleneck she spotted.",
+    gaps:[
+      {label:"Reports Show Numbers, Not Insights", sev:"high", desc:"Velocity: 24.6 pts. Cycle time: 3.8d in review. These are facts but not insights. What should Jordan DO? Nothing on the reports page tells her the recommended action."},
+      {label:"No Sprint-to-Sprint Comparison", sev:"medium", desc:"Is 3.8d review time better or worse than last sprint? The numbers are there but not shown in context. Jordan has to remember last sprint's numbers or switch sprints manually."},
+      {label:"No Stakeholder-Ready Export", sev:"high", desc:"Jordan needs to share sprint status with execs. She has to copy-paste data from Reports into a slide or email. There's no export, no stakeholder view, no shareable link."},
+    ],
+    ai:[
+      {label:"AI Insight Narrative", when:"proactive", toggle:true, desc:"Under each widget: AI writes a sentence. 'Review stage is your bottleneck at 3.8d avg (up from 2.1d last sprint). Root cause likely: all-hands review model. Suggest: designate 1-2 dedicated reviewers for Sprint 7.'"},
+      {label:"AI Stakeholder Summary Draft", when:"triggered", toggle:true, desc:"Click 'Draft Stakeholder Update': 'Sprint 6 is 68% complete with 4 days remaining. The team is on track. 2 blockers are being resolved — expected to close by Wednesday. No scope changes recommended.' Jordan edits and sends."},
+    ],
+  },
+  {
+    time:"12:00 PM", title:"Roadmap Review & Rescheduling", screen:"Roadmap",
+    narrative:"Jordan opens the roadmap to adjust timelines based on the sprint's progress. She knows the Dark Mode work is taking longer than planned — she wants to see how that ripples into Cruise Itinerary (which depends on it).",
+    gaps:[
+      {label:"No Dependency Validation", sev:"high", desc:"Jordan can drag Dark Mode to start later, but nothing prevents her from accidentally placing Cruise Itinerary BEFORE Dark Mode finishes. The dependency exists as metadata but isn't enforced on the gantt."},
+      {label:"No 'What If' Simulation", sev:"medium", desc:"Before committing a reschedule, Jordan has no way to preview 'if Dark Mode slips 2 weeks, here's the ripple effect on everything downstream.' She has to drag and look at the visual result."},
+      {label:"No Resource Overlay", sev:"low", desc:"Roadmap shows projects but not who's responsible for each phase. Jordan can't tell if sliding Dark Mode creates a resource conflict where Sarah Kim is double-booked in July."},
+    ],
+    ai:[
+      {label:"AI Cascade Preview", when:"triggered", toggle:false, desc:"When Jordan drags a bar: 'Moving Dark Mode +14d pushes Cruise Itinerary (which depends on it) from Jul 5 → Jul 19. Advisor Calendar Integration is not affected. Apply cascade?' Currently implemented as a confirm dialog — this extends it to the preview state."},
+      {label:"AI Schedule Risk Assessment", when:"proactive", toggle:true, desc:"Weekly: 'Dark Mode is currently 3 days behind the original plan. If the current rate continues, it will miss the Jul 5 start for Cruise Itinerary. Recommend: extend scope or add a second designer.'"},
+    ],
+  },
+  {
+    time:"2:00 PM", title:"Think Tank — Idea Review & Sign-off", screen:"Think Tank",
+    narrative:"3 ideas are in the Voting stage waiting for Jordan's sign-off. She needs to review each one, check for duplicates, and either approve or defer. Currently this means opening each idea individually and reading through the full thread.",
+    gaps:[
+      {label:"No 'Needs Sign-off' Queue", sev:"high", desc:"Ideas waiting for sign-off are mixed with all other ideas in the voting list. There's no 'inbox for approvals' — Jordan must filter manually or remember which ones are waiting for her specifically."},
+      {label:"No Duplicate Detection", sev:"medium", desc:"'Morning Digest' idea and 'Notification Center Bell' idea are 60% overlapping in scope. Without AI synthesis, Jordan might approve both and create redundant work."},
+      {label:"No Synthesis Across Ideas", sev:"medium", desc:"3 security ideas submitted by different people could be combined into 1 initiative. No tooling to surface this — Jordan has to spot the pattern herself."},
+    ],
+    ai:[
+      {label:"AI Duplicate Detection", when:"proactive", toggle:true, desc:"When a new idea is submitted: 'This idea has 60% overlap with TT-7 (Notification Center Bell). Key differences: TT-7 focuses on bell icon, this focuses on digest format. Suggest: view both before approving either.'"},
+      {label:"AI Initiative Synthesis", when:"triggered", toggle:true, desc:"Jordan clicks 'Synthesize cluster': 'These 3 security ideas (rate limiting, IP extraction, secret hardening) form a cohesive Security Hardening initiative. Suggest: approve as 1 initiative with 3 child issues.' Creates the tickets automatically."},
+      {label:"Scheduled Sign-off Reminder", when:"scheduled", toggle:true, desc:"PM receives a daily digest of ideas awaiting their sign-off: '3 ideas in Voting stage need your review. Oldest: 4 days. Sprint 7 planning starts Friday — decision needed before then.'"},
+    ],
+  },
+  {
+    time:"3:30 PM", title:"Workload Rebalancing", screen:"Team / Reports",
+    narrative:"Jordan sees Matt is overloaded (3 issues, 14h estimated) and Casey has capacity (1 issue, 3h estimated). She wants to reassign FORGE-47 from Matt to Casey. Currently she must open FORGE-47, navigate to the assignee field, and change it — no workload context available.",
+    gaps:[
+      {label:"No Workload View", sev:"high", desc:"There's no screen that shows: 'Matt: 3 issues / 14h open. Casey: 1 issue / 3h open.' The Reports > Assignee Load widget shows counts but no reassignment actions. Jordan has to open each issue to reassign."},
+      {label:"No Reassign from Board", sev:"medium", desc:"From the board, Jordan can see cards but can't reassign without opening the full issue detail. Small friction — but repeated daily, it adds up."},
+      {label:"No Workload Fairness Signal", sev:"low", desc:"No alert if someone is assigned >3× more estimated work than the team average. Overloading goes unnoticed until someone burns out or misses a deadline."},
+    ],
+    ai:[
+      {label:"AI Workload Balance Suggestion", when:"proactive", toggle:true, desc:"Daily: 'Matt has 3 open issues (14h). Casey has 1 open issue (3h). Team average: 6h open. Suggest: move FORGE-47 (3h, lowest priority of Matt's issues) to Casey to balance load.'"},
+      {label:"Sprint Capacity Warning on Assign", when:"triggered", toggle:true, desc:"When Jordan assigns a new issue to Matt: 'Matt already has 14h of open work with 4 days remaining. Team capacity suggests he's at risk. Assign to Casey Park (3h open) instead?'"},
+    ],
+  },
+  {
+    time:"4:30 PM", title:"Sprint Close Preparation", screen:"Sprint Plan / Reports",
+    narrative:"Sprint 6 closes Friday. Jordan needs to identify what won't complete, plan carryovers vs backlog moves, and prepare for the Sprint 7 planning session. Currently this requires manually reviewing each open issue and making judgment calls.",
+    gaps:[
+      {label:"No Sprint Close Checklist", sev:"high", desc:"No guided sprint close flow. Jordan has to remember: check all in-progress issues, identify carryovers, close done issues, update backlog, schedule retrospective. It's tribal knowledge, not a workflow."},
+      {label:"No Carryover Planning", sev:"medium", desc:"Issues that won't complete need to be categorized: carry to Sprint 7, move to backlog, or descope. No tooling exists for this — Jordan drags manually, no recommendation on which action fits each issue."},
+      {label:"No Retrospective Data", sev:"medium", desc:"After sprint close, there's no retrospective summary: 'Sprint 6 completed 10/15 planned issues. Blockers caused 2 misses. Scope crept 25%.' This has to be manually compiled from reports."},
+    ],
+    ai:[
+      {label:"AI Sprint Close Advisor", when:"triggered", toggle:true, desc:"Friday 9am: 'Sprint 6 close: 3 issues unfinished. Recommendation: FORGE-45 → carry to Sprint 7 (unblocked, active). WEB-198 → carry or reassign. FORGE-48 → move to backlog (low priority, not started). Apply all?'"},
+      {label:"AI Retrospective Summary", when:"scheduled", toggle:true, desc:"Auto-generated retro summary at sprint close: 'Completed 10/15 (67%). Main blocker: INFRA-15 caused 5-day delay on FORGE-45. Scope creep: +3 issues (+25%). Review bottleneck: avg 3.8d. Velocity: 31pts (above avg 24.6).'"},
+    ],
+  },
+];
+
+// ── Admin Steps ───────────────────────────────────────────────
+const ADMIN_STEPS: DitlStep[] = [
+  {
+    time:"8:00 AM", title:"Security & Audit Review", screen:"Audit Log",
+    narrative:"First thing Matt checks as admin: security events. Any suspicious logins overnight? Any high-severity flags? Currently: navigate to Admin → Audit Log, scan a flat chronological list, and manually identify anomalies.",
+    gaps:[
+      {label:"No High-Severity Alert Email", sev:"high", desc:"A Tor exit node attempted login at 5am. Matt doesn't know until he opens the audit log at 8am. 3 hours of exposure with no notification. Enterprise security requires immediate alerts for critical events."},
+      {label:"Audit Log is a Flat List", sev:"medium", desc:"All events look the same — a new member joining gets the same visual weight as a failed login from a known bad IP. Matt must scan every line to find what matters."},
+      {label:"No Threat Scoring", sev:"medium", desc:"'Failed login from 185.220.101.47' — is that high risk or normal? Matt has to know externally that this is a Tor exit node. Forge doesn't enrich the event with threat context."},
+    ],
+    ai:[
+      {label:"Scheduled Security Brief at 7am", when:"scheduled", toggle:true, desc:"'Overnight security: 1 high-severity event — failed login from Tor exit node 185.220.101.47 (1 attempt, no success, no follow-up activity). Risk level: low — likely automated scan. Recommend: no action needed. View full audit log.' Per-tenant toggle, email + in-app."},
+      {label:"Real-Time High-Severity Alert", when:"triggered", toggle:false, desc:"When audit event severity = HIGH: immediate notification to all admins. Not batchable — security events need instant visibility. Includes: event description, IP geo, threat context from public blocklists, and one-click action (block IP, lock user, dismiss)."},
+    ],
+  },
+  {
+    time:"9:00 AM", title:"New Member Setup — Dana Walsh", screen:"Members",
+    narrative:"Dana Walsh joined as QA Engineer. Matt needs to set her role correctly, verify her permissions, and make sure she sees what she should see. Currently: navigate to Members, find Dana, pick a role from a dropdown, hope it's right.",
+    gaps:[
+      {label:"No Role Setup Guidance", sev:"high", desc:"Which role should a QA Engineer have? Member? Custom? What can they see? The Members page shows a role dropdown but no explanation of what each role grants. Admins guess — and wrong role assignments are a security risk."},
+      {label:"No Permission Preview", sev:"high", desc:"Before saving, Matt has no way to see 'here's exactly what Dana will see with this role.' No preview mode. No 'test as this user' from the admin panel."},
+      {label:"No Onboarding Checklist", sev:"medium", desc:"No guided 'new member checklist': assign role → send intro resources → add to projects → verify access. Each step is manual and easy to forget."},
+    ],
+    ai:[
+      {label:"AI Role Recommendation", when:"triggered", toggle:true, desc:"When Dana is added with title 'QA Engineer': 'Suggested role: Member + View All Issues + Add Comments + No Admin Access. This matches how your other QA Engineers (none currently) are typically configured at similar-sized teams using Forge.'"},
+      {label:"Permission Preview Mode", when:"triggered", toggle:false, desc:"'Preview as Dana Walsh' button on the member detail page: Matt sees Forge exactly as Dana would with the selected role. No guessing — he can verify before saving. Especially valuable for roles with custom RBAC configurations."},
+    ],
+  },
+  {
+    time:"10:00 AM", title:"Feature Flag Management", screen:"Workspace Settings → Feature Flags",
+    narrative:"Based on positive feedback from the team, Matt wants to enable Think Tank for all users. He toggles it on. Currently there's no impact preview, no gradual rollout option, and no audit trail of what was changed and why.",
+    gaps:[
+      {label:"No Gradual Rollout", sev:"high", desc:"Feature flags are binary: on or off for everyone. Can't roll out Think Tank to 2 users first, then expand. No percentage-based rollout, no user group targeting. High risk for large teams."},
+      {label:"No Impact Preview", sev:"medium", desc:"'Enabling Think Tank affects 6 users' — but which users? Will this change their nav? Will it expose anything sensitive? No preview before the toggle is flipped."},
+      {label:"No Reason / Audit Entry", sev:"medium", desc:"When Matt toggles a flag, the audit log shows 'flag changed' but there's no way to attach a reason ('Enabled after Sprint 5 demo feedback'). Context is lost."},
+    ],
+    ai:[
+      {label:"AI Flag Impact Preview", when:"triggered", toggle:false, desc:"Before enabling: 'Enabling Think Tank will add a nav item for all 6 workspace members. 3 are on mobile — the nav will reorder. 0 users currently have Think Tank disabled individually (no conflicts).' One-click rollout or cancel."},
+      {label:"AI Rollout Recommendation", when:"triggered", toggle:true, desc:"For major flags: 'Recommend rolling out Think Tank to admins first (2 users) for 48h, then all members. Reduces risk of unexpected behavior at scale. Schedule rollout?' Staged deployment with one config."},
+    ],
+  },
+  {
+    time:"11:00 AM", title:"GitHub Integration Health Check", screen:"Integrations → GitHub",
+    narrative:"Matt wants to verify commits are linking to issues correctly and the webhook is healthy. Currently the integration page shows 'Connected' and a sync toggle — but no health metrics, no event feed, no way to test.",
+    gaps:[
+      {label:"No Integration Health Metrics", sev:"high", desc:"'Connected' is a binary status. No: last webhook received, events per day, link success rate, failed events, or error log. If the webhook silently breaks, Matt won't know until developers notice commits aren't linking."},
+      {label:"No Event Feed", sev:"medium", desc:"No visibility into 'the last 10 events that synced.' Can't verify 'did PR #89 actually link to FORGE-46?' without going to GitHub. Integration is a black box."},
+      {label:"No Test Button", sev:"low", desc:"No way to trigger a test webhook to verify the pipeline works end-to-end. Standard for mature integrations (Stripe, Segment, etc.) — Forge doesn't have it yet."},
+    ],
+    ai:[
+      {label:"AI Integration Health Summary", when:"scheduled", toggle:true, desc:"Daily: 'GitHub sync: 12 events in last 24h. Success rate: 92% (11/12 linked). 1 commit skipped: no issue key in message (commit abc123 by Alex Chen). Suggest: team commit convention guide.' Sent to admin inbox."},
+      {label:"Missing Key Alert", when:"triggered", toggle:true, desc:"When a commit has no issue key: notify the committing developer in Forge inbox: 'Your commit abc123 couldn't be linked to an issue. Add the issue key (e.g. FORGE-52) to your commit message for automatic tracking.' Teachable moment."},
+    ],
+  },
+  {
+    time:"1:00 PM", title:"Configure AI Settings", screen:"Automation → AI Settings",
+    narrative:"Matt wants to configure what AI features are active for his tenant, what runs on a schedule vs on-demand, and what users can toggle themselves. The AI Settings page currently exists as a placeholder — this is what it SHOULD look like.",
+    gaps:[
+      {label:"AI Settings Page is Placeholder", sev:"high", desc:"The current AI settings page shows a placeholder card. No per-feature toggles, no schedule configuration, no consent model, no cost controls, no activity log. AI either runs globally or doesn't — no nuance."},
+      {label:"No Per-Feature AI Toggles", sev:"high", desc:"All AI features are either all-on or all-off. Can't say 'enable morning digest but disable auto-standup posting.' Feature-level control is essential for enterprise tenants with specific compliance requirements."},
+      {label:"No AI Activity Log", sev:"medium", desc:"If AI posts a comment, summarizes a thread, or reassigns an issue — there's no log of what AI did, when, and why. Accountability and auditability are zero."},
+    ],
+    ai:[
+      {label:"Per-Feature AI Toggle Panel", when:"proactive", toggle:false, desc:"THIS IS THE GAP PAGE — this panel should exist with toggles for: Morning Brief (scheduled 6am), Inbox Triage, Standup Draft, Sprint Forecast, Reviewer Suggestions, Blocker Alerts, Think Tank Synthesis. Each independently toggleable per tenant."},
+      {label:"AI Activity Log", when:"triggered", toggle:false, desc:"Every AI action is logged: 'Jun 22 9:15am — AI summarized FORGE-45 thread (triggered by Matt Giblin). Jun 22 6:00am — Morning brief generated for 4 users (scheduled).' Admins can review, users can see their own AI interactions."},
+      {label:"AI Cost Controls", when:"proactive", toggle:true, desc:"Budget alert: 'AI has used 80% of the monthly token budget. Actions that consume the most: thread summaries (40%), morning briefs (35%). Suggest: limit thread summary to issues >5 comments to reduce cost by 60%.'"},
+    ],
+  },
+  {
+    time:"2:00 PM", title:"Cross-Project Portfolio Health", screen:"(Feature Missing)",
+    narrative:"Matt as admin owns 4 projects: FORGE, WEB, MOB, INFRA. He wants a single view of health across all of them. Currently: Reports are per-project only. He must open each project's report separately and mentally compare them.",
+    gaps:[
+      {label:"No Portfolio View", sev:"high", desc:"There is no cross-project health dashboard. Reports → Sprint/Velocity/Cycle time are all scoped to ONE project. As admin of 4 projects, Matt needs a portfolio view that shows all 4 in one place."},
+      {label:"No Risk Ranking", sev:"high", desc:"Matt knows INFRA is blocked but has no comparative ranking: INFRA is at 34% health, WEB at 52%, MOB at 81%, FORGE at 68%. That ordered list doesn't exist anywhere — he has to visit each project to reconstruct it."},
+      {label:"No Alert Aggregation", sev:"medium", desc:"Alerts (blockers, stale issues, security events) are per-project. There's no unified admin alert view: 'Across all projects, you have 3 blockers, 2 stale issues, 1 security event.'"},
+    ],
+    ai:[
+      {label:"AI Portfolio Health Dashboard", when:"proactive", toggle:true, desc:"Admin home: 4 project tiles with health scores (INFRA 34% 🔴, WEB 52% 🟡, FORGE 68% 🟢, MOB 81% 🟢). Click any tile to drill in. AI highlights: 'INFRA is your highest risk — blocked 5 days, dependency on Upstash provision. 2 projects on track.'"},
+      {label:"Cross-Project Standup", when:"scheduled", toggle:true, desc:"Weekly Monday 8am: 'Portfolio update: MOB shipped push fix (done). WEB dark mode slipping. FORGE sprint on track. INFRA critical — needs your attention today.' High-level exec summary for admin-as-PM use case."},
+    ],
+  },
+  {
+    time:"3:00 PM", title:"AI Token Usage & Cost Review", screen:"Overview → AI Usage",
+    narrative:"Matt wants to check how much the team is spending on AI features this month, which features consume the most, and whether he needs to set limits. The AI Usage page currently is a placeholder — no data at all.",
+    gaps:[
+      {label:"No AI Usage Analytics", sev:"high", desc:"AI Usage page = placeholder. Matt has no idea how many tokens are being consumed, what it costs, or which features are the biggest consumers. Flying blind on AI spend."},
+      {label:"No Budget Controls", sev:"high", desc:"No monthly budget cap, no per-feature limits, no alert at X% of budget. An unexpected spike in usage (e.g. AI summarizing every issue) could run up significant costs with no warning."},
+      {label:"No Per-User Breakdown", sev:"medium", desc:"Is one power user running AI thread summaries 50× per day? Or is usage evenly distributed? Without per-user data, there's no way to optimize or enforce fair-use."},
+    ],
+    ai:[
+      {label:"AI Usage Dashboard", when:"proactive", toggle:false, desc:"Shows: tokens this month (125k of 200k budget), cost estimate ($4.80), breakdown by feature (thread summary 40%, morning brief 35%, standup 15%, reviewer suggest 10%), top users, daily trend chart. Click any bar to see individual events."},
+      {label:"Budget Alert at 80%", when:"triggered", toggle:true, desc:"When token usage hits 80% of monthly budget: notify all admins. Include: which feature is consuming the most, projected end-of-month total, and option to: (a) increase budget, (b) disable high-consumption features, (c) do nothing."},
+    ],
+  },
+  {
+    time:"4:00 PM", title:"RBAC Rollout Decision", screen:"Workspace Settings → Feature Flags",
+    narrative:"After testing RBAC in staging, Matt is ready to enable it for all Travli users. The risk: enabling RBAC removes default permissions from 6 users — they'll lose access to some things until custom roles are assigned. If done wrong: everyone is locked out.",
+    gaps:[
+      {label:"No Pre-Rollout Safety Check", sev:"high", desc:"Enabling RBAC flips the flag immediately with no safety check: 'are all 6 members already assigned to a custom role?' If not, some users will lose access instantly. No warning, no confirmation of impact."},
+      {label:"No Rollback Plan", sev:"medium", desc:"If enabling RBAC breaks something, the rollback is: flip the flag off. But by then, users have been disrupted. No staged rollout, no dry-run mode, no 'simulate what happens if I enable this.'"},
+      {label:"No Role Pre-Assignment Flow", sev:"medium", desc:"Best practice: assign all users to custom roles BEFORE enabling RBAC. There's no guided flow for this — no 'step 1: assign roles, step 2: enable flag' wizard."},
+    ],
+    ai:[
+      {label:"AI Pre-Rollout Safety Check", when:"triggered", toggle:false, desc:"Before enabling RBAC: 'Safety check: 6 members in workspace. 4 have custom roles assigned. 2 do not (Casey Park, Dana Walsh). Enabling now will remove their default permissions immediately. Recommended: assign roles to Casey and Dana first. [Do it now →]'"},
+      {label:"Guided Rollout Wizard", when:"triggered", toggle:false, desc:"Enable RBAC button opens a 3-step wizard: (1) Review members without custom roles, (2) Assign roles (or choose a default), (3) Enable flag with confirmation. No guesswork, no lockout risk."},
+    ],
+  },
+  {
+    time:"5:00 PM", title:"End of Day Admin Summary", screen:"(Feature Missing)",
+    narrative:"Matt's admin day is done. He made several config changes — feature flags, member roles, AI settings, GitHub sync — and handled a security event. Right now, there's no EOD summary for admins. The audit log captures events but doesn't synthesize them into a useful recap.",
+    gaps:[
+      {label:"No Admin EOD Summary", sev:"medium", desc:"No 'here's what changed today' summary for admins. Matt has to scroll the audit log to reconstruct his own day. Especially problematic for team admins who share admin duties — they can't see what the other admin did."},
+      {label:"No Action Queue for Tomorrow", sev:"medium", desc:"'Review WEB-198 tomorrow.' 'Check if Dana's access is working.' 'Follow up on INFRA-15.' These are mental notes Matt keeps. Forge has no admin task/action queue."},
+    ],
+    ai:[
+      {label:"AI Admin Day Summary", when:"scheduled", toggle:true, desc:"At 5pm: 'Today you: enabled Think Tank for all users, added Dana Walsh (QA Engineer), resolved 1 security event (Tor login), reviewed GitHub sync (12 events, 92% success). Outstanding: 2 members without custom roles. Action tomorrow: assign RBAC roles to Casey + Dana.'"},
+      {label:"Recommended Actions for Tomorrow", when:"proactive", toggle:true, desc:"Based on today's activity and open issues: 'Tomorrow's admin to-do: (1) Assign RBAC roles to Casey Park + Dana Walsh before enabling RBAC. (2) Follow up with Alex on INFRA-15 close — FORGE-45 still blocked. (3) Review AI usage (currently at 62% of monthly budget).'"},
+    ],
+  },
+];
+
+// ── Day-In-Life Shell ────────────────────────────────────────
+
+const DITL_PERSONAS = [
+  {id:"developer", label:"Developer", emoji:"💻", user:"u1", name:"Matt Giblin", roleTitle:"Lead Developer", color:"bg-indigo-600", steps:DEV_STEPS},
+  {id:"pm",        label:"PM",        emoji:"📊", user:"u4", name:"Jordan Lee",  roleTitle:"Product Manager",color:"bg-amber-600",  steps:PM_STEPS},
+  {id:"admin",     label:"Admin",     emoji:"⚙️", user:"u1", name:"Matt Giblin", roleTitle:"Super Admin",    color:"bg-neutral-800",steps:ADMIN_STEPS},
+] as const;
+
+function DayInLifeShell({onCmdK}:{onCmdK:()=>void}) {
+  const [personaIdx,setPersonaIdx] = useState(0);
+  const [stepIdx,setStepIdx]       = useState(0);
+
+  const persona  = DITL_PERSONAS[personaIdx];
+  const steps    = persona.steps as unknown as DitlStep[];
+  const step     = steps[stepIdx];
+  const totalGaps = steps.reduce((a,s)=>a+s.gaps.length,0);
+  const totalAI   = steps.reduce((a,s)=>a+s.ai.length,0);
+
+  const handlePersona = (i:number)=>{ setPersonaIdx(i); setStepIdx(0); };
+
+  return (
+    <div className="flex h-[calc(100vh-112px)] overflow-hidden bg-neutral-50">
+
+      {/* ── Left sidebar ── */}
+      <div className="w-72 shrink-0 bg-white border-r border-neutral-200 flex flex-col overflow-hidden">
+
+        {/* Persona selector */}
+        <div className="p-3 border-b border-neutral-100 shrink-0">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-2">Persona</div>
+          <div className="space-y-1">
+            {DITL_PERSONAS.map((p,i)=>(
+              <button key={p.id} onClick={()=>handlePersona(i)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition text-left ${personaIdx===i?`${p.color} text-white shadow-sm`:"bg-neutral-50 hover:bg-neutral-100 text-neutral-700"}`}>
+                <span className="text-base">{p.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold">{p.name}</div>
+                  <div className={`text-[10px] ${personaIdx===i?"text-white/70":"text-neutral-400"}`}>{p.roleTitle}</div>
+                </div>
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${personaIdx===i?"bg-white/20 text-white":"bg-neutral-200 text-neutral-500"}`}>{p.steps.length}</span>
+              </button>
+            ))}
+          </div>
+          {/* Summary stats */}
+          <div className="mt-3 grid grid-cols-2 gap-1.5">
+            <div className="bg-red-50 border border-red-100 rounded-lg px-2.5 py-1.5 text-center">
+              <div className="text-sm font-bold text-red-700">{totalGaps}</div>
+              <div className="text-[10px] text-red-500">UX Gaps</div>
+            </div>
+            <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-2.5 py-1.5 text-center">
+              <div className="text-sm font-bold text-emerald-700">{totalAI}</div>
+              <div className="text-[10px] text-emerald-500">AI Opps</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Steps list */}
+        <div className="flex-1 overflow-y-auto py-2">
+          {steps.map((s,i)=>{
+            const active = i===stepIdx;
+            const highGaps = s.gaps.filter(g=>g.sev==="high").length;
+            return (
+              <button key={i} onClick={()=>setStepIdx(i)}
+                className={`w-full flex items-start gap-2.5 px-3 py-2.5 text-left transition hover:bg-neutral-50 ${active?"bg-indigo-50 border-r-2 border-indigo-500":""}`}>
+                {/* Time bubble */}
+                <div className={`mt-0.5 shrink-0 text-center ${active?"text-indigo-600":"text-neutral-400"}`}>
+                  <div className="text-[10px] font-bold">{s.time.split(" ")[0]}</div>
+                  <div className="text-[9px]">{s.time.split(" ")[1]}</div>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-xs font-semibold leading-snug ${active?"text-indigo-800":"text-neutral-800"}`}>{s.title}</div>
+                  <div className="text-[10px] text-neutral-400 truncate mt-0.5">{s.screen}</div>
+                  {(highGaps>0||s.ai.length>0) && (
+                    <div className="flex gap-1 mt-1">
+                      {highGaps>0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-bold">⚠ {highGaps}</span>}
+                      {s.ai.length>0 && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-600 font-bold">✨ {s.ai.length}</span>}
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Search footer */}
+        <div className="p-3 border-t border-neutral-100 shrink-0">
+          <button onClick={onCmdK} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-neutral-200 text-xs text-neutral-500 hover:border-neutral-300 hover:bg-neutral-50 transition">
+            <span>🔍</span><span className="flex-1 text-left">Search</span>
+            <kbd className="text-[10px] font-mono bg-neutral-100 border border-neutral-200 px-1 rounded">⌘K</kbd>
+          </button>
+        </div>
+      </div>
+
+      {/* ── Main content ── */}
+      <div className="flex-1 overflow-y-auto">
+
+        {/* Step header */}
+        <div className="sticky top-0 z-10 bg-white border-b border-neutral-200 px-6 py-3 flex items-center gap-4 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className={`w-9 h-9 rounded-xl ${persona.color} flex items-center justify-center text-white text-base shrink-0`}>{persona.emoji}</div>
+            <div>
+              <div className="text-base font-bold text-neutral-900">{step.time} — {step.title}</div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span className="text-xs text-neutral-400">🖥 {step.screen}</span>
+                <span className="text-neutral-200">·</span>
+                <span className="text-xs text-neutral-400">Step {stepIdx+1} of {steps.length}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex-1"/>
+          {/* Step nav */}
+          <div className="flex items-center gap-1">
+            <button onClick={()=>setStepIdx(i=>Math.max(0,i-1))} disabled={stepIdx===0}
+              className="w-8 h-8 rounded-lg border border-neutral-200 flex items-center justify-center text-neutral-500 hover:bg-neutral-50 disabled:opacity-30 transition text-sm">←</button>
+            <button onClick={()=>setStepIdx(i=>Math.min(steps.length-1,i+1))} disabled={stepIdx===steps.length-1}
+              className="w-8 h-8 rounded-lg border border-neutral-200 flex items-center justify-center text-neutral-500 hover:bg-neutral-50 disabled:opacity-30 transition text-sm">→</button>
+          </div>
+        </div>
+
+        <div className="p-6 max-w-[1200px] space-y-5">
+
+          {/* Progress track */}
+          <div className="flex gap-1">
+            {steps.map((_,i)=>(
+              <button key={i} onClick={()=>setStepIdx(i)}
+                className={`flex-1 h-1.5 rounded-full transition-colors ${i===stepIdx?`${persona.color}`:"bg-neutral-200 hover:bg-neutral-300"}`}
+                style={i===stepIdx?{}:{}}/>
+            ))}
+          </div>
+
+          {/* Narrative */}
+          <div className="bg-white rounded-xl border border-neutral-200 px-5 py-4">
+            <div className="flex items-start gap-3">
+              <Av id={persona.user} size="md"/>
+              <div>
+                <div className="text-xs font-bold text-neutral-900 mb-0.5">{persona.name} — {step.time}</div>
+                <p className="text-sm text-neutral-700 leading-relaxed">{step.narrative}</p>
+                {step.screen.includes("Missing") && (
+                  <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-100 border border-red-200 text-xs font-bold text-red-700">⛔ This screen doesn&apos;t exist yet in Forge</div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Two-column: gaps + AI */}
+          <div className="grid grid-cols-2 gap-4">
+
+            {/* UX Gaps */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">❌</span>
+                <div className="text-sm font-bold text-neutral-900">UX Gaps</div>
+                <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-700">{step.gaps.length}</span>
+              </div>
+              <div className="space-y-2">
+                {step.gaps.map((gap,i)=>{
+                  const sc = SEV_CFG[gap.sev];
+                  return (
+                    <div key={i} className={`rounded-xl border p-4 ${sc.bg} ${sc.border}`}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className={`w-2 h-2 rounded-full ${sc.dot} shrink-0`}/>
+                        <span className={`text-xs font-bold ${sc.text}`}>{gap.label}</span>
+                        <span className={`ml-auto text-[9px] font-bold px-1.5 py-0.5 rounded-full text-white ${sc.badge}`}>{gap.sev.toUpperCase()}</span>
+                      </div>
+                      <p className={`text-xs leading-relaxed ${sc.text} opacity-80`}>{gap.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* AI Opportunities */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-base">✨</span>
+                <div className="text-sm font-bold text-neutral-900">AI Opportunities</div>
+                <span className="ml-auto text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700">{step.ai.length}</span>
+              </div>
+              <div className="space-y-2">
+                {step.ai.map((opp,i)=>{
+                  const tc = AI_TYPE_CFG[opp.when];
+                  return (
+                    <div key={i} className="bg-white rounded-xl border border-emerald-200 p-4 shadow-sm">
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className="text-emerald-600">✨</span>
+                        <span className="text-xs font-bold text-neutral-900 flex-1 min-w-0">{opp.label}</span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${tc.bg} ${tc.text} ${tc.border}`}>{tc.label}</span>
+                          {opp.toggle && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-neutral-100 border border-neutral-200 text-neutral-500">Per-tenant toggle</span>}
+                        </div>
+                      </div>
+                      <p className="text-xs text-neutral-600 leading-relaxed">{opp.desc}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* All-day gap + AI summary bar at bottom */}
+          <div className="bg-white rounded-xl border border-neutral-200 px-5 py-3 flex items-center gap-6 text-sm">
+            <div className="text-xs font-bold text-neutral-500 uppercase tracking-widest">This day in total:</div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-red-500"/>
+              <span className="text-xs text-neutral-700"><strong className="text-red-700">{steps.reduce((a,s)=>a+s.gaps.filter(g=>g.sev==="high").length,0)}</strong> high-severity gaps</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-amber-400"/>
+              <span className="text-xs text-neutral-700"><strong className="text-amber-700">{steps.reduce((a,s)=>a+s.gaps.filter(g=>g.sev==="medium").length,0)}</strong> medium gaps</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-emerald-500"/>
+              <span className="text-xs text-neutral-700"><strong className="text-emerald-700">{steps.reduce((a,s)=>a+s.ai.filter(a=>a.when==="scheduled").length,0)}</strong> scheduled AI features</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-3 h-3 rounded-full bg-indigo-500"/>
+              <span className="text-xs text-neutral-700"><strong className="text-indigo-700">{steps.reduce((a,s)=>a+s.ai.filter(a=>a.toggle).length,0)}</strong> per-tenant toggleable</span>
+            </div>
+            <div className="ml-auto text-[11px] text-neutral-400">Step {stepIdx+1}/{steps.length} — click steps in sidebar or use ← → to navigate</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════════════════════════
 //  MAIN DESIGN PAGE
 // ══════════════════════════════════════════════════════════════
 
-type Role = "developer"|"pm"|"collaborator"|"admin"|"competitive";
+type Role = "developer"|"pm"|"collaborator"|"admin"|"competitive"|"dayinlife";
 
 const ROLE_CFG: Record<Role,{label:string;emoji:string;user:string;color:string;desc:string}> = {
   developer:   {label:"Developer",   emoji:"💻", user:"u1", color:"bg-indigo-600",  desc:"Matt Giblin — Lead Dev"},
@@ -2452,9 +3049,10 @@ const ROLE_CFG: Record<Role,{label:string;emoji:string;user:string;color:string;
   collaborator:{label:"Collaborator",emoji:"🤝", user:"u6", color:"bg-teal-600",    desc:"Dana Walsh — QA Eng"},
   admin:       {label:"Admin",       emoji:"⚙️", user:"u1", color:"bg-neutral-800", desc:"Matt Giblin — Super Admin"},
   competitive: {label:"Competitive",emoji:"🥊", user:"u1", color:"bg-rose-600",    desc:"Forge vs Competitors"},
+  dayinlife:   {label:"Day in Life", emoji:"📅", user:"u1", color:"bg-violet-600",  desc:"UX gaps + AI opportunities by persona"},
 };
 
-const UNREAD: Record<Role,number> = {developer:5,pm:3,collaborator:3,admin:4,competitive:0};
+const UNREAD: Record<Role,number> = {developer:5,pm:3,collaborator:3,admin:4,competitive:0,dayinlife:0};
 
 function CompetitiveShell({onCmdK}:{onCmdK:()=>void}) {
   const competitors = [
@@ -2660,6 +3258,7 @@ export default function DesignPage() {
         {role==="collaborator" && <CollaboratorShell onCmdK={()=>setCmdOpen(true)}/>}
         {role==="admin"        && <AdminShell        onCmdK={()=>setCmdOpen(true)}/>}
         {role==="competitive"  && <CompetitiveShell  onCmdK={()=>setCmdOpen(true)}/>}
+        {role==="dayinlife"    && <DayInLifeShell    onCmdK={()=>setCmdOpen(true)}/>}
       </div>
 
       {/* ── GLOBAL OVERLAYS ── */}

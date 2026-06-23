@@ -205,6 +205,24 @@ export default function ReportsClient({
             className="px-4 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg font-medium">
             Apply
           </button>
+          {/* Export buttons */}
+          <div className="flex items-center gap-1 rounded-lg border border-neutral-300 bg-white overflow-hidden">
+            <a
+              href={`/${slug}/reports/export/excel?from=${localFrom}&to=${localTo}${localProject ? `&project=${localProject}` : ""}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:bg-emerald-50 hover:text-emerald-700 transition-colors"
+              title="Export as Excel dashboard"
+            >
+              <span className="text-base">📊</span> Excel
+            </a>
+            <div className="w-px h-6 bg-neutral-200" />
+            <a
+              href={`/${slug}/reports/export/pdf?from=${localFrom}&to=${localTo}${localProject ? `&project=${localProject}` : ""}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-neutral-700 hover:bg-red-50 hover:text-red-700 transition-colors"
+              title="Export as PDF (C-Suite)"
+            >
+              <span className="text-base">📄</span> PDF
+            </a>
+          </div>
           <button onClick={() => setShowSaveForm((s) => !s)}
             className="px-3 py-1.5 text-sm border border-neutral-300 bg-white hover:bg-neutral-50 text-neutral-700 rounded-lg font-medium">
             💾 Save
