@@ -7,11 +7,9 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { loadProjectPortal, loadProjectCosts, loadProjectTimeline, type Health } from "@/lib/services/projectPortal";
 import { sprintsRepo } from "@/lib/repositories/sprints";
-import { issuesRepo } from "@/lib/repositories/issues";
 import ProjectOverview from "./ProjectOverview";
 import CostsTab from "./CostsTab";
 import TimelineTab from "./TimelineTab";
-import CanvasTab from "./CanvasTab";
 import { ProjectStatusBadge, ProjectDangerZone } from "./ProjectStatusControl";
 import ProjectEditPanel from "./ProjectEditPanel";
 
@@ -37,7 +35,7 @@ export default async function ProjectDetailPage({
 }) {
   const { tenant: slug, key } = await params;
   const { tab: tabParam } = await searchParams;
-  const tab = tabParam === "timeline" || tabParam === "costs" || tabParam === "canvas" ? tabParam : "overview";
+  const tab = tabParam === "timeline" || tabParam === "costs" ? tabParam : "overview";
 
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
@@ -48,12 +46,9 @@ export default async function ProjectDetailPage({
   if (!data) notFound();
 
   const svcClient = createSupabaseServiceClient();
-  const [wiki, sprintVelocity, canvasIssues] = await Promise.all([
+  const [wiki, sprintVelocity] = await Promise.all([
     projectWikiPagesRepo(supabase).getForProject(ctx.tenant.id, data.project.id),
     sprintsRepo(svcClient).velocity(ctx.tenant.id, data.project.id).catch(() => []),
-    tab === "canvas"
-      ? issuesRepo(svcClient).listByProject(ctx.tenant.id, data.project.id).catch(() => [])
-      : Promise.resolve([]),
   ]);
   const canEdit = ctx.role !== "viewer" && !ctx.impersonating;
   const isAdmin = (ctx.role === "owner" || ctx.role === "admin") && !ctx.impersonating;
@@ -65,7 +60,6 @@ export default async function ProjectDetailPage({
     { id: "board", label: "Board", href: `/${slug}/board?project=${data.project.key}`, active: false },
     { id: "timeline", label: "Timeline", href: `${base}?tab=timeline`, active: tab === "timeline" },
     { id: "costs", label: "Costs", href: `${base}?tab=costs`, active: tab === "costs" },
-    { id: "canvas", label: "Canvas", href: `${base}?tab=canvas`, active: tab === "canvas" },
   ];
 
   return (
@@ -147,7 +141,6 @@ export default async function ProjectDetailPage({
       {tab === "overview" && <ProjectOverview slug={slug} data={data} wiki={wiki} canEdit={canEdit} sprintVelocity={sprintVelocity} />}
       {tab === "timeline" && <TimelineTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} />}
       {tab === "costs" && <CostsTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} canEdit={canEdit} />}
-      {tab === "canvas" && <CanvasTab slug={slug} projectKey={data.project.key} projectId={data.project.id} issues={canvasIssues} />}
 
       {isAdmin && tab === "overview" && (
         <ProjectDangerZone slug={slug} projectKey={data.project.key} issueCount={data.total} />
