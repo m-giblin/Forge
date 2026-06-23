@@ -399,7 +399,7 @@ export default function IssueDetail({
       </div>
 
       {/* ── Two-column grid ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_270px] gap-0">
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_270px] gap-0 md:items-start">
         {/* ── LEFT: main content ── */}
         <div className="bg-white p-6 space-y-6 md:border-r md:border-neutral-200">
           {overdue && (
@@ -712,8 +712,8 @@ export default function IssueDetail({
           </div>
         </div>
 
-        {/* ── RIGHT: sidebar ── */}
-        <aside className="bg-neutral-50 p-5 space-y-4 md:border-l md:border-neutral-200">
+        {/* ── RIGHT: sidebar — sticky so it stays in view as left scrolls ── */}
+        <aside className="bg-neutral-50 p-5 space-y-4 md:border-l md:border-neutral-200 md:sticky md:top-0 md:max-h-screen md:overflow-y-auto">
           <div className={sideSection}>
             <p className={sideLabel}>Assignee</p>
             <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); setSaved(false); }} className={sidebarSelect}>
@@ -779,7 +779,7 @@ export default function IssueDetail({
           </div>
 
           <div className={sideSection}>
-            <p className={sideLabel}>Phase</p>
+            <p className={sideLabel} title="Phase = development stage (where in the build lifecycle). Distinct from Status, which tracks queue state (backlog → in progress → done).">Phase <span className="text-neutral-400 font-normal text-[10px]">(stage)</span></p>
             <select value={phase} disabled={readOnly} onChange={(e) => { setPhase(e.target.value); setSaved(false); }} className={sidebarSelect}>
               <option value="">— None —</option>
               <option value="discovery">Discovery</option>

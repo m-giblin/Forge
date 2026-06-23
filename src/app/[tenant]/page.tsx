@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { loadMissionControl, type ScopeKey } from "@/lib/services/missionControl";
 import { loadTenantFlags } from "@/lib/services/featureFlags";
+import { listMembers } from "@/lib/services/members";
 import MissionControl from "./MissionControl";
 
 // Tenant landing = Mission Control: the post-login hub. Real data from the issue
@@ -12,10 +13,10 @@ export default async function TenantHome({
   searchParams,
 }: {
   params: Promise<{ tenant: string }>;
-  searchParams: Promise<{ scope?: string }>;
+  searchParams: Promise<{ scope?: string; project?: string }>;
 }) {
   const { tenant: slug } = await params;
-  const { scope: scopeParam } = await searchParams;
+  const { scope: scopeParam, project: projectParam } = await searchParams;
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
 
@@ -24,14 +25,20 @@ export default async function TenantHome({
   if (!flags.dashboards) redirect(`/${slug}/board`);
 
   const scope: ScopeKey = scopeParam === "team" ? "team" : "mine";
-  const data = await loadMissionControl({
-    tenantId: ctx.tenant.id,
-    appUserId: ctx.appUserId,
-    role: ctx.role,
-    email: ctx.email,
-    impersonating: ctx.impersonating,
-    scope,
-  });
+  const [data, memberRows] = await Promise.all([
+    loadMissionControl({
+      tenantId: ctx.tenant.id,
+      appUserId: ctx.appUserId,
+      role: ctx.role,
+      email: ctx.email,
+      impersonating: ctx.impersonating,
+      scope,
+      projectKey: scopeParam === "team" && typeof projectParam === "string" ? projectParam : undefined,
+    }),
+    listMembers(ctx.tenant.id, ctx.impersonating),
+  ]);
 
-  return <MissionControl slug={slug} data={data} />;
+  const members = memberRows.map((m) => ({ userId: m.userId, label: m.name || m.email }));
+
+  return <MissionControl slug={slug} data={data} members={members} />;
 }

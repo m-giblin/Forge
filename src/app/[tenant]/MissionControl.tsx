@@ -1,6 +1,10 @@
+"use client";
+
 import Link from "next/link";
-import type { MissionControlData, AttentionTag, ThroughputWeek } from "@/lib/services/missionControl";
+import { useRouter, useSearchParams } from "next/navigation";
+import type { MissionControlData, ThroughputWeek } from "@/lib/services/missionControl";
 import { AiDisclosureFooter } from "@/components/AiBadge";
+import NeedsYouCards from "./NeedsYouCard";
 
 /**
  * Mission Control — the tenant login hub ("Design E"), wired to REAL issue data.
@@ -9,13 +13,6 @@ import { AiDisclosureFooter } from "@/components/AiBadge";
  * doesn't collect yet, so they render sample values behind a Preview badge.
  */
 
-const TAG_STYLE: Record<AttentionTag, { label: string; cls: string }> = {
-  BLOCKED: { label: "BLOCKED", cls: "bg-red-100 text-red-700" },
-  UNASSIGNED: { label: "UNASSIGNED", cls: "bg-orange-100 text-orange-700" },
-  IN_REVIEW: { label: "IN REVIEW", cls: "bg-purple-100 text-purple-700" },
-  STALE: { label: "STALE", cls: "bg-amber-100 text-amber-700" },
-  ASSIGNED: { label: "ASSIGNED", cls: "bg-sky-100 text-sky-700" },
-};
 
 function ThroughputBars({ data }: { data: ThroughputWeek[] }) {
   const w = 460, h = 150, pad = 24;
@@ -46,8 +43,15 @@ function ThroughputBars({ data }: { data: ThroughputWeek[] }) {
 }
 
 
-export default function MissionControl({ slug, data }: { slug: string; data: MissionControlData }) {
+export default function MissionControl({ slug, data, members = [] }: {
+  slug: string;
+  data: MissionControlData;
+  members?: { userId: string; label: string }[];
+}) {
   const { scope, canSeeTeam, stats } = data;
+  const router = useRouter();
+  const sp = useSearchParams();
+  const activeProject = sp.get("project") ?? "";
 
   const scopeTab = (key: "mine" | "team", label: string) => (
     <Link
@@ -59,6 +63,13 @@ export default function MissionControl({ slug, data }: { slug: string; data: Mis
       {label}
     </Link>
   );
+
+  function onProjectChange(key: string) {
+    const params = new URLSearchParams(sp.toString());
+    if (key) params.set("project", key);
+    else params.delete("project");
+    router.push(`/${slug}?${params.toString()}`);
+  }
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
@@ -78,9 +89,23 @@ export default function MissionControl({ slug, data }: { slug: string; data: Mis
           </p>
         </div>
         {canSeeTeam && (
-          <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-1">
-            {scopeTab("mine", "Mine")}
-            {scopeTab("team", "My Team")}
+          <div className="flex items-center gap-2">
+            {scope === "team" && data.portfolio.length > 1 && (
+              <select
+                value={activeProject}
+                onChange={(e) => onProjectChange(e.target.value)}
+                className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-sm text-neutral-700 outline-none focus:border-neutral-400"
+              >
+                <option value="">All projects</option>
+                {data.portfolio.map((p) => (
+                  <option key={p.key} value={p.key}>{p.name}</option>
+                ))}
+              </select>
+            )}
+            <div className="inline-flex rounded-lg border border-neutral-200 bg-white p-1">
+              {scopeTab("mine", "Mine")}
+              {scopeTab("team", "My Team")}
+            </div>
           </div>
         )}
       </div>
@@ -145,25 +170,7 @@ export default function MissionControl({ slug, data }: { slug: string; data: Mis
             </div>
           ) : (
             <>
-              <div className="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
-                {data.attention.map((a) => {
-                  const t = TAG_STYLE[a.tag];
-                  return (
-                    <Link
-                      key={a.issueId}
-                      href={`/${slug}/issues/${a.issueId}`}
-                      className="block p-2.5 rounded-lg border border-neutral-200 bg-white transition hover:shadow-sm hover:border-neutral-300"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${t.cls}`}>{t.label}</span>
-                        <span className="text-[11px] font-mono text-neutral-400">{a.ref}</span>
-                      </div>
-                      <p className="text-sm font-medium text-neutral-900 mt-1.5 leading-snug">{a.title}</p>
-                      <p className="text-xs text-neutral-500 mt-0.5">{a.meta}</p>
-                    </Link>
-                  );
-                })}
-              </div>
+              <NeedsYouCards slug={slug} items={data.attention} members={members} />
               <Link
                 href={`/${slug}/issues`}
                 className="mt-3 block text-center text-xs font-medium text-neutral-600 hover:text-neutral-900"

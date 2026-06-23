@@ -33,14 +33,22 @@ export default function CommandPalette({ slug }: { slug: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  // Global Cmd-K / Ctrl-K listener
+  function openPalette() {
+    setOpen(true);
+    setTimeout(() => {
+      setQuery("");
+      setSelected(0);
+      inputRef.current?.focus();
+    }, 0);
+  }
+
+  // Global Cmd-K / Ctrl-K listener + custom open event from sidebar button
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setOpen((o) => {
           if (!o) {
-            // Reset state when opening — schedule outside render
             setTimeout(() => {
               setQuery("");
               setSelected(0);
@@ -52,8 +60,14 @@ export default function CommandPalette({ slug }: { slug: string }) {
       }
       if (e.key === "Escape") setOpen(false);
     }
+    function onOpen() { openPalette(); }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("forge:palette:open", onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("forge:palette:open", onOpen);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Build results whenever query changes

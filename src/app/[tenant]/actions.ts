@@ -3,7 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import { createProject } from "@/lib/services/projects";
+import { updateIssue } from "@/lib/services/issues";
 import { recordAudit } from "@/lib/audit";
+
+export async function quickAssignAction(slug: string, issueId: string, assigneeId: string): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot assign issues.");
+  await updateIssue(ctx.tenant.id, issueId, { assigneeId }, { userId: ctx.appUserId, label: ctx.email ?? null });
+  revalidatePath(`/${slug}`);
+}
 
 function assertAdmin(role: string) {
   if (role !== "owner" && role !== "admin") throw new Error("Only owners and admins can create projects.");

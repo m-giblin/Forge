@@ -315,6 +315,12 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
         )}
       </div>
 
+      {/* Interaction hint */}
+      <div className="mb-4 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+        <span>⠿</span>
+        <span>Drag bars left/right to reschedule · Drag the right edge to resize scope · Click a bar to expand issue counts</span>
+      </div>
+
       {/* Phase management panel */}
       {showPhasePanel && isAdmin && (
         <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-5">
@@ -606,14 +612,17 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
                   {/* Draggable bar */}
                   <div
                     data-bar-id={project.id}
-                    className={`absolute top-3 h-8 rounded-md ${barColor} opacity-90 hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity flex items-center px-3 shadow-sm`}
+                    title="Drag to move · Right edge: resize"
+                    className={`absolute top-3 h-8 rounded-md ${barColor} opacity-90 hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity flex items-center gap-1.5 px-2 shadow-sm group`}
                     style={{ left: `${pct}%`, width: `${w}%` }}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       setDragging({ id: project.id, startX: e.clientX, origPct: pct });
                     }}
                   >
-                    <span className="text-xs font-medium text-white truncate select-none">
+                    {/* drag handle dots — visible on hover */}
+                    <span className="text-white/40 group-hover:text-white/70 text-[10px] select-none shrink-0 leading-none">⠿</span>
+                    <span className="text-xs font-medium text-white truncate select-none flex-1">
                       {project.name}
                     </span>
                   </div>

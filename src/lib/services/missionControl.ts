@@ -122,6 +122,7 @@ export async function loadMissionControl(input: {
   email: string | null;
   impersonating: boolean;
   scope: ScopeKey;
+  projectKey?: string;
 }): Promise<MissionControlData> {
   const supabase = input.impersonating
     ? createSupabaseServiceClient()
@@ -155,8 +156,15 @@ export async function loadMissionControl(input: {
   const visibleProjectIds = new Set(projects.map((p) => p.id));
 
   // Team issues = those in projects this user can see. Mine = assigned to me.
-  const teamIssues = allIssues.filter((i) => visibleProjectIds.has(i.project_id));
-  const mineIssues = teamIssues.filter((i) => i.assignee_id === input.appUserId);
+  const allTeamIssues = allIssues.filter((i) => visibleProjectIds.has(i.project_id));
+  // Optional project filter for team scope
+  const filterProjectId = input.projectKey
+    ? projects.find((p) => p.key === input.projectKey)?.id
+    : undefined;
+  const teamIssues = filterProjectId
+    ? allTeamIssues.filter((i) => i.project_id === filterProjectId)
+    : allTeamIssues;
+  const mineIssues = allTeamIssues.filter((i) => i.assignee_id === input.appUserId);
   const scoped = scope === "team" ? teamIssues : mineIssues;
 
   const refFor = (i: LeanIssue) => {

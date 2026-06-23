@@ -95,9 +95,25 @@ export default function IssuesTable({
   const prMap = useMemo(() => new Map(priorities.map((o) => [o.key, o])), [priorities]);
   const tyMap = useMemo(() => new Map(types.map((o) => [o.key, o])), [types]);
 
+  const sortBy = params.get("sort") ?? "created";
+  const sortDir = params.get("dir") ?? "desc";
+
+  function toggleSort(field: string) {
+    const next = new URLSearchParams(params.toString());
+    if (sortBy === field) {
+      next.set("dir", sortDir === "asc" ? "desc" : "asc");
+    } else {
+      next.set("sort", field);
+      next.set("dir", "desc");
+    }
+    router.replace(`${pathname}?${next.toString()}`);
+  }
+
+  const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    return issues
+    const rows = issues
       .filter((i) => statusFilter === "all" || i.status === statusFilter)
       .filter((i) => priorityFilter === "all" || i.priority === priorityFilter)
       .filter((i) => typeFilter === "all" || i.type === typeFilter)
@@ -106,9 +122,28 @@ export default function IssuesTable({
         if (assigneeFilter === "none") return !i.assignee_id;
         return i.assignee_id === assigneeFilter;
       })
-      .filter((i) => !needle || i.title.toLowerCase().includes(needle) || (i.description ?? "").toLowerCase().includes(needle))
-      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1));
-  }, [issues, q, statusFilter, priorityFilter, typeFilter, assigneeFilter]);
+      .filter((i) => !needle || i.title.toLowerCase().includes(needle) || (i.description ?? "").toLowerCase().includes(needle));
+
+    const dir = sortDir === "asc" ? 1 : -1;
+    rows.sort((a, b) => {
+      if (sortBy === "priority") {
+        const diff = (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9);
+        return diff * dir;
+      }
+      if (sortBy === "due") {
+        const av = a.due_date ?? "9999";
+        const bv = b.due_date ?? "9999";
+        return av < bv ? -dir : av > bv ? dir : 0;
+      }
+      if (sortBy === "updated") {
+        return a.updated_at < b.updated_at ? dir : -dir;
+      }
+      // default: created
+      return a.created_at < b.created_at ? dir : -dir;
+    });
+    return rows;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [issues, q, statusFilter, priorityFilter, typeFilter, assigneeFilter, sortBy, sortDir]);
 
   const allSelected = filtered.length > 0 && filtered.every((i) => selected.has(i.id));
   const someSelected = selected.size > 0;
@@ -411,11 +446,12 @@ export default function IssuesTable({
               <th className="px-4 py-2.5 font-medium">ID</th>
               <th className="px-4 py-2.5 font-medium">Title</th>
               <th className="px-4 py-2.5 font-medium">Type</th>
-              <th className="px-4 py-2.5 font-medium">Priority</th>
+              <SortTh label="Priority" field="priority" current={sortBy} dir={sortDir} onToggle={toggleSort} />
               <th className="px-4 py-2.5 font-medium">Assignee</th>
-              <th className="px-4 py-2.5 font-medium">Phase</th>
-              <th className="px-4 py-2.5 font-medium">Due</th>
+              <th className="px-4 py-2.5 font-medium">Phase <span className="normal-case font-normal text-[10px] text-neutral-300">(stage)</span></th>
+              <SortTh label="Due" field="due" current={sortBy} dir={sortDir} onToggle={toggleSort} />
               <th className="px-4 py-2.5 font-medium">Status</th>
+              <SortTh label="Updated" field="updated" current={sortBy} dir={sortDir} onToggle={toggleSort} />
               {customFields.map((f) => (
                 <th key={f.id} className="px-4 py-2.5 font-medium">{f.label}</th>
               ))}
@@ -494,7 +530,7 @@ export default function IssuesTable({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={9 + customFields.length} className="px-4 py-10 text-center text-sm text-neutral-400">
+                <td colSpan={10 + customFields.length} className="px-4 py-10 text-center text-sm text-neutral-400">
                   {hasFilters ? "No issues match the current filters." : "No issues yet."}
                 </td>
               </tr>
@@ -503,5 +539,28 @@ export default function IssuesTable({
         </table>
       </div>
     </div>
+  );
+}
+
+function SortTh({ label, field, current, dir, onToggle }: {
+  label: string;
+  field: string;
+  current: string;
+  dir: string;
+  onToggle: (f: string) => void;
+}) {
+  const active = current === field;
+  return (
+    <th className="px-4 py-2.5 font-medium">
+      <button
+        onClick={() => onToggle(field)}
+        className={`flex items-center gap-1 hover:text-neutral-700 transition-colors ${active ? "text-neutral-900" : "text-neutral-400"}`}
+      >
+        {label}
+        <span className="text-[10px]">
+          {active ? (dir === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+      </button>
+    </th>
   );
 }

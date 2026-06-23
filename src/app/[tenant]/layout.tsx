@@ -12,6 +12,7 @@ import ImpersonationBanner from "@/components/ImpersonationBanner";
 import ReportBugButton from "@/components/ReportBugButton";
 import NotificationBell from "@/components/NotificationBell";
 import CommandPalette from "@/components/CommandPalette";
+import SidebarSearchButton from "@/components/SidebarSearchButton";
 
 export default async function TenantLayout({
   children,
@@ -72,6 +73,11 @@ export default async function TenantLayout({
             <p className="truncate text-sm font-semibold text-neutral-900">{ctx.tenant.name}</p>
             <p className="text-[11px] text-neutral-400 capitalize">{ctx.role}</p>
           </div>
+        </div>
+
+        {/* Search button */}
+        <div className="shrink-0 px-2 py-2 border-b border-neutral-100">
+          <SidebarSearchButton />
         </div>
 
         {/* Nav groups */}
