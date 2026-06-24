@@ -33,11 +33,22 @@ type Props = {
 type DraggingState = { id: string; startX: number; origPct: number };
 type CascadeState = { movedId: string; movedName: string; shift: number; dependents: { id: string; name: string }[] };
 
-function getBarColor(status: string): string {
-  if (status === "in_progress") return "bg-indigo-500";
-  if (status === "done") return "bg-emerald-500";
-  if (status === "todo") return "bg-sky-500";
-  return "bg-neutral-400";
+// Vivid per-project palette — each project gets its own color regardless of status
+const PROJECT_PALETTE = [
+  { bg: "#6366f1", light: "#eef2ff", text: "#4338ca" }, // indigo
+  { bg: "#0ea5e9", light: "#e0f2fe", text: "#0369a1" }, // sky
+  { bg: "#10b981", light: "#d1fae5", text: "#047857" }, // emerald
+  { bg: "#f59e0b", light: "#fef3c7", text: "#b45309" }, // amber
+  { bg: "#f43f5e", light: "#ffe4e6", text: "#be123c" }, // rose
+  { bg: "#8b5cf6", light: "#ede9fe", text: "#6d28d9" }, // violet
+  { bg: "#14b8a6", light: "#ccfbf1", text: "#0f766e" }, // teal
+  { bg: "#f97316", light: "#ffedd5", text: "#c2410c" }, // orange
+  { bg: "#ec4899", light: "#fce7f3", text: "#be185d" }, // pink
+  { bg: "#84cc16", light: "#f7fee7", text: "#4d7c0f" }, // lime
+];
+
+function projectPalette(index: number) {
+  return PROJECT_PALETTE[index % PROJECT_PALETTE.length];
 }
 
 function estimateWidthPct(issueCount: number): number {
@@ -439,7 +450,7 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
         {/* Phase swimlane bands (shown at top if phases exist) */}
         {phases.length > 0 && (
           <div className="flex border-b border-neutral-200 bg-neutral-50">
-            <div className="w-48 shrink-0 border-r border-neutral-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+            <div className="w-64 shrink-0 border-r border-neutral-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
               Phases
             </div>
             <div className="relative flex-1 h-8">
@@ -484,7 +495,7 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
 
         {/* Month headers */}
         <div className="flex border-b border-neutral-100 bg-neutral-50">
-          <div className="w-48 shrink-0 border-r border-neutral-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <div className="w-64 shrink-0 border-r border-neutral-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
             Project
           </div>
           <div className="relative flex-1 h-8 overflow-hidden">
@@ -534,11 +545,11 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
             ))}
           </svg>
         )}
-        {projects.map((project) => {
+        {projects.map((project, idx) => {
           const counts = issueCounts[project.id] ?? { todo: 0, in_progress: 0, done: 0, total: 0 };
           const pct = positions[project.id] ?? 0;
           const w = widths[project.id] ?? 10;
-          const barColor = getBarColor(project.status);
+          const palette = projectPalette(idx);
           const isExpanded = drillId === project.id;
           const donePct = counts.total > 0 ? Math.round((counts.done / counts.total) * 100) : 0;
           const assignedPhase = phases.find((ph) => ph.id === project.phase_id);
@@ -546,59 +557,66 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
           return (
             <div key={project.id} data-row-id={project.id} className="border-b border-neutral-100 last:border-0">
               <div className="flex items-stretch">
-                {/* Left column */}
-                <div className="w-48 shrink-0 border-r border-neutral-100 px-4 py-3">
-                  <button
-                    className="w-full text-left"
-                    onClick={() => setDrillId(isExpanded ? null : project.id)}
-                  >
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-mono font-semibold text-neutral-400 bg-neutral-100 px-1.5 py-0.5 rounded">
-                        {project.key}
-                      </span>
-                      {assignedPhase && (
-                        <span
-                          className="text-[9px] font-bold rounded px-1 py-0.5 text-white truncate max-w-16"
-                          style={{ background: assignedPhase.color }}
-                          title={assignedPhase.name}
-                        >
-                          {assignedPhase.name}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm font-medium text-neutral-800 truncate">{project.name}</p>
-                    {counts.total > 0 && (
-                      <div className="mt-1.5">
-                        <div className="h-1 rounded-full bg-neutral-200 overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-emerald-500 transition-all"
-                            style={{ width: `${donePct}%` }}
-                          />
-                        </div>
-                        <p className="text-[10px] text-neutral-400 mt-0.5">{donePct}% done</p>
-                      </div>
-                    )}
-                  </button>
-                  {isAdmin && phases.length > 0 && (
-                    <select
-                      value={project.phase_id ?? ""}
-                      onChange={(e) => handleAssignPhase(project.id, e.target.value || null)}
-                      className="mt-1.5 w-full rounded border border-neutral-200 px-1 py-0.5 text-[10px] text-neutral-500 outline-none hover:border-neutral-400"
-                      title="Assign to phase"
+                {/* Left column — colored accent strip + project info */}
+                <div className="w-64 shrink-0 border-r border-neutral-100 flex">
+                  {/* Color accent strip */}
+                  <div className="w-1 shrink-0 rounded-tl rounded-bl" style={{ background: palette.bg }} />
+                  <div className="flex-1 px-4 py-3">
+                    <button
+                      className="w-full text-left"
+                      onClick={() => setDrillId(isExpanded ? null : project.id)}
                     >
-                      <option value="">No phase</option>
-                      {phases.map((ph) => (
-                        <option key={ph.id} value={ph.id}>{ph.name}</option>
-                      ))}
-                    </select>
-                  )}
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded"
+                          style={{ background: palette.light, color: palette.text }}
+                        >
+                          {project.key}
+                        </span>
+                        {assignedPhase && (
+                          <span
+                            className="text-[9px] font-bold rounded px-1.5 py-0.5 text-white truncate max-w-20"
+                            style={{ background: assignedPhase.color }}
+                            title={assignedPhase.name}
+                          >
+                            {assignedPhase.name}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm font-semibold text-neutral-800 truncate">{project.name}</p>
+                      {counts.total > 0 && (
+                        <div className="mt-2">
+                          <div className="h-1.5 rounded-full bg-neutral-200 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${donePct}%`, background: palette.bg }}
+                            />
+                          </div>
+                          <p className="text-[10px] mt-0.5" style={{ color: palette.text }}>{donePct}% done</p>
+                        </div>
+                      )}
+                    </button>
+                    {isAdmin && phases.length > 0 && (
+                      <select
+                        value={project.phase_id ?? ""}
+                        onChange={(e) => handleAssignPhase(project.id, e.target.value || null)}
+                        className="mt-1.5 w-full rounded border border-neutral-200 px-1 py-0.5 text-[10px] text-neutral-500 outline-none hover:border-neutral-400"
+                        title="Assign to phase"
+                      >
+                        <option value="">No phase</option>
+                        {phases.map((ph) => (
+                          <option key={ph.id} value={ph.id}>{ph.name}</option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
                 </div>
 
                 {/* Gantt track */}
                 <div
                   ref={trackRef}
                   className="relative flex-1 py-3 select-none"
-                  style={{ minHeight: "60px" }}
+                  style={{ minHeight: "68px", background: `linear-gradient(to right, ${palette.light}18, transparent 30%)` }}
                 >
                   {/* Grid lines */}
                   {monthHeaders.map((m) => (
@@ -613,50 +631,66 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
                   <div
                     data-bar-id={project.id}
                     title="Drag to move · Right edge: resize"
-                    className={`absolute top-3 h-8 rounded-md ${barColor} opacity-90 hover:opacity-100 cursor-grab active:cursor-grabbing transition-opacity flex items-center gap-1.5 px-2 shadow-sm group`}
-                    style={{ left: `${pct}%`, width: `${w}%` }}
+                    className="absolute top-3 h-10 rounded-lg cursor-grab active:cursor-grabbing flex items-center gap-2 px-3 shadow-md group transition-shadow hover:shadow-lg"
+                    style={{
+                      left: `${pct}%`,
+                      width: `${w}%`,
+                      background: `linear-gradient(135deg, ${palette.bg}, ${palette.bg}cc)`,
+                    }}
                     onMouseDown={(e) => {
                       e.preventDefault();
                       setDragging({ id: project.id, startX: e.clientX, origPct: pct });
                     }}
                   >
-                    {/* drag handle dots — visible on hover */}
-                    <span className="text-white/40 group-hover:text-white/70 text-[10px] select-none shrink-0 leading-none">⠿</span>
-                    <span className="text-xs font-medium text-white truncate select-none flex-1">
+                    <span className="text-white/50 group-hover:text-white/80 text-[10px] select-none shrink-0 leading-none">⠿</span>
+                    <span className="text-xs font-semibold text-white truncate select-none flex-1">
                       {project.name}
                     </span>
+                    {counts.total > 0 && (
+                      <span className="shrink-0 text-[10px] font-bold text-white/80 bg-black/20 rounded px-1.5 py-0.5">
+                        {donePct}%
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
               {/* Drill-down */}
               {isExpanded && (
-                <div className="border-t border-neutral-100 bg-neutral-50 px-4 py-3 ml-48">
-                  <div className="flex items-center gap-6 text-sm">
-                    <span className="text-neutral-500">
-                      <span className="font-semibold text-sky-600">{counts.todo}</span> todo
+                <div className="border-t border-neutral-100 px-5 py-3 ml-64" style={{ background: palette.light }}>
+                  <div className="flex items-center gap-6 text-sm flex-wrap">
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-sky-400" />
+                      <span className="font-semibold text-sky-700">{counts.todo}</span>
+                      <span className="text-neutral-500 text-xs">todo</span>
                     </span>
-                    <span className="text-neutral-500">
-                      <span className="font-semibold text-indigo-600">{counts.in_progress}</span> in progress
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-indigo-500" />
+                      <span className="font-semibold text-indigo-700">{counts.in_progress}</span>
+                      <span className="text-neutral-500 text-xs">in progress</span>
                     </span>
-                    <span className="text-neutral-500">
-                      <span className="font-semibold text-emerald-600">{counts.done}</span> done
+                    <span className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                      <span className="font-semibold text-emerald-700">{counts.done}</span>
+                      <span className="text-neutral-500 text-xs">done</span>
                     </span>
-                    <span className="text-neutral-500">
-                      <span className="font-semibold text-neutral-700">{counts.total}</span> total
+                    <span className="flex items-center gap-1.5">
+                      <span className="font-semibold text-neutral-700">{counts.total}</span>
+                      <span className="text-neutral-500 text-xs">total</span>
                     </span>
+                    {project.target_go_live && (
+                      <span className="text-xs text-neutral-500">
+                        🎯 Target: {new Date(project.target_go_live).toLocaleDateString()}
+                      </span>
+                    )}
                     <Link
                       href={`/${slug}/issues?project=${project.key}`}
-                      className="ml-auto text-indigo-600 hover:text-indigo-800 font-medium text-sm"
+                      className="ml-auto text-sm font-semibold hover:underline"
+                      style={{ color: palette.text }}
                     >
                       View issues →
                     </Link>
                   </div>
-                  {project.target_go_live && (
-                    <p className="text-xs text-neutral-400 mt-1">
-                      Target go-live: {new Date(project.target_go_live).toLocaleDateString()}
-                    </p>
-                  )}
                 </div>
               )}
             </div>
