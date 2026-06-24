@@ -7,8 +7,7 @@
 import "server-only";
 // eslint-disable-next-line no-restricted-imports
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { getLatestStandupDigest, generateStandupDigest, type StandupDigest } from "@/lib/services/standupDigest";
-import { serverEnv } from "@/lib/env";
+import { getLatestStandupDigest, type StandupDigest } from "@/lib/services/standupDigest";
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -137,11 +136,9 @@ function lastActiveLabel(daysAgoN: number): string {
 export async function loadMorningBriefing({
   tenantId,
   appUserId,
-  impersonating,
 }: {
   tenantId: string;
   appUserId: string;
-  impersonating: boolean;
 }): Promise<MorningBriefing> {
   const svc = createSupabaseServiceClient();
 
@@ -380,26 +377,14 @@ export async function loadMorningBriefing({
     };
   }).sort((a, b) => b.issuesUpdatedLast7d - a.issuesUpdatedLast7d);
 
-  // ── Digest: use cache or regenerate ─────────────────────────────────
-  let digest = digestCached;
-  let digestFresh = true;
-  if (!digest || !impersonating) {
-    // Regenerate if stale (>18h) — skip in impersonation to avoid AI cost
-    const age = digest
-      ? (Date.now() - new Date(digest.generated_at).getTime()) / 3_600_000
-      : Infinity;
-    const env = serverEnv();
-    if (age > 18 && env.GROK_API_KEY && !impersonating) {
-      try {
-        digest = await generateStandupDigest(tenantId);
-        digestFresh = true;
-      } catch {
-        digestFresh = false;
-      }
-    } else {
-      digestFresh = age < 18;
-    }
-  }
+  // ── Digest: read from cache only — generation is owned by the 6am cron ──
+  // Never block a page render on an AI call. The cron at /api/cron/standup-digest
+  // pre-generates per tenant and stores in platform_config. Null here = no digest
+  // yet today; the banner shows a "generates at 6am" message instead.
+  const digest = digestCached;
+  const digestFresh = digest
+    ? (Date.now() - new Date(digest.generated_at).getTime()) / 3_600_000 < 20
+    : false;
 
   return {
     digest,

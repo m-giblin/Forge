@@ -17,7 +17,6 @@ export default async function MorningPage({
     loadMorningBriefing({
       tenantId: ctx.tenant.id,
       appUserId: ctx.appUserId,
-      impersonating: ctx.impersonating,
     }),
     listMembers(ctx.tenant.id, ctx.impersonating),
   ]);
