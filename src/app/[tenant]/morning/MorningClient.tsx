@@ -190,9 +190,23 @@ function SprintCard({ sprint, slug }: { sprint: SprintHealth; slug: string }) {
   );
 }
 
-// ── AI Digest card ────────────────────────────────────────────────────────
+// ── AI Digest — top banner (compact, always first) ───────────────────────
 
-function DigestCard({ digest, fresh }: { digest: MorningBriefing["digest"]; fresh: boolean }) {
+function DigestBanner({ digest, fresh }: { digest: MorningBriefing["digest"]; fresh: boolean }) {
+  const [expanded, setExpanded] = useState(false);
+
+  if (!digest) {
+    return (
+      <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-5 py-3.5 flex items-center gap-3">
+        <span className="text-base">✨</span>
+        <p className="text-sm text-indigo-600 font-medium">AI Digest</p>
+        <p className="text-xs text-indigo-400">No digest yet — generates at 6am daily.</p>
+      </div>
+    );
+  }
+
+  const genTime = new Date(digest.generated_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+
   const SECTION_META = {
     shipped:      { icon: "✅", label: "Shipped" },
     in_progress:  { icon: "🔄", label: "In Progress" },
@@ -200,59 +214,56 @@ function DigestCard({ digest, fresh }: { digest: MorningBriefing["digest"]; fres
     needs_triage: { icon: "⚠️", label: "Needs Triage" },
   };
 
-  if (!digest) {
-    return (
-      <Card>
-        <div className="flex items-center gap-3 px-5 py-4">
-          <span className="text-lg">✨</span>
-          <div>
-            <p className="text-sm font-semibold text-neutral-700">AI Digest</p>
-            <p className="text-xs text-neutral-400">No digest available yet — it generates at 6am daily.</p>
-          </div>
-        </div>
-      </Card>
-    );
-  }
-
-  const genTime = new Date(digest.generated_at).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-
   return (
-    <Card>
-      <div className="px-5 py-4 border-b border-neutral-100">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-base">✨</span>
-            <span className="text-sm font-semibold text-neutral-800">AI Digest</span>
+    <div className="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-white overflow-hidden">
+      {/* Summary row — always visible */}
+      <div className="flex items-start gap-3 px-5 py-4">
+        <span className="text-lg mt-0.5 shrink-0">✨</span>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-bold text-indigo-800">AI Digest</span>
+            <span className="text-[10px] text-indigo-400">
+              {fresh ? `Updated ${genTime}` : "Cached"}
+            </span>
           </div>
-          <span className="text-[10px] text-neutral-400">
-            {fresh ? `Updated ${genTime}` : "Cached · refreshing soon"}
-          </span>
+          {digest.ai_summary && (
+            <p className="text-sm text-indigo-900 leading-relaxed">{digest.ai_summary}</p>
+          )}
         </div>
-        {digest.ai_summary && (
-          <p className="mt-2 text-xs text-neutral-600 leading-relaxed">{digest.ai_summary}</p>
+        {digest.entries.length > 0 && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="shrink-0 rounded-lg border border-indigo-200 bg-white px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-50 transition-colors"
+          >
+            {expanded ? "Less ▲" : "Details ▼"}
+          </button>
         )}
       </div>
-      <div className="divide-y divide-neutral-50">
-        {digest.entries.slice(0, 4).map((entry) => {
-          const meta = SECTION_META[entry.section as keyof typeof SECTION_META] ?? { icon: "•", label: entry.section };
-          return (
-            <div key={entry.section} className="px-5 py-3">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-neutral-400 mb-1.5">
-                {meta.icon} {meta.label}
-              </p>
-              <ul className="space-y-0.5">
-                {entry.items.slice(0, 4).map((item, i) => (
-                  <li key={i} className="text-xs text-neutral-600 line-clamp-1">· {item}</li>
-                ))}
-                {entry.items.length > 4 && (
-                  <li className="text-[10px] text-neutral-400">+{entry.items.length - 4} more</li>
-                )}
-              </ul>
-            </div>
-          );
-        })}
-      </div>
-    </Card>
+
+      {/* Expandable detail rows */}
+      {expanded && digest.entries.length > 0 && (
+        <div className="border-t border-indigo-100 divide-y divide-indigo-50 bg-white">
+          {digest.entries.map((entry) => {
+            const meta = SECTION_META[entry.section as keyof typeof SECTION_META] ?? { icon: "•", label: entry.section };
+            return (
+              <div key={entry.section} className="px-5 py-3 flex gap-4">
+                <span className="text-[11px] font-bold uppercase tracking-wide text-neutral-400 w-24 shrink-0 pt-0.5">
+                  {meta.icon} {meta.label}
+                </span>
+                <ul className="flex-1 space-y-0.5">
+                  {entry.items.slice(0, 5).map((item, i) => (
+                    <li key={i} className="text-xs text-neutral-600 line-clamp-1">· {item}</li>
+                  ))}
+                  {entry.items.length > 5 && (
+                    <li className="text-[10px] text-neutral-400">+{entry.items.length - 5} more</li>
+                  )}
+                </ul>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -260,11 +271,12 @@ function DigestCard({ digest, fresh }: { digest: MorningBriefing["digest"]; fres
 
 function DeveloperView({ briefing, slug }: { briefing: MorningBriefing; slug: string }) {
   return (
-    <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+    <div className="space-y-5">
+      <DigestBanner digest={briefing.digest} fresh={briefing.digestFresh} />
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
       {/* Left column */}
       <div className="space-y-5">
-        <DigestCard digest={briefing.digest} fresh={briefing.digestFresh} />
-
         {/* My Work */}
         <Card>
           <CardHeader
@@ -326,6 +338,7 @@ function DeveloperView({ briefing, slug }: { briefing: MorningBriefing; slug: st
           </Card>
         )}
       </div>
+      </div>
     </div>
   );
 }
@@ -335,6 +348,8 @@ function DeveloperView({ briefing, slug }: { briefing: MorningBriefing; slug: st
 function PMView({ briefing, slug }: { briefing: MorningBriefing; slug: string }) {
   return (
     <div className="space-y-5">
+      <DigestBanner digest={briefing.digest} fresh={briefing.digestFresh} />
+
       {/* Project sprint summary row */}
       {briefing.projectSprints.length > 0 && (
         <div>
@@ -356,7 +371,7 @@ function PMView({ briefing, slug }: { briefing: MorningBriefing; slug: string })
           ) : (
             <div className="divide-y divide-neutral-50">
               {briefing.teamWorkload.map((w) => (
-                <WorkloadRow key={w.userId ?? "unassigned"} entry={w} max={briefing.teamWorkload[0]?.openCount ?? 1} />
+                <WorkloadRow key={w.userId ?? "unassigned"} entry={w} max={briefing.teamWorkload[0]?.openCount ?? 1} slug={slug} />
               ))}
             </div>
           )}
@@ -408,8 +423,6 @@ function PMView({ briefing, slug }: { briefing: MorningBriefing; slug: string })
         </Card>
       )}
 
-      {/* Digest */}
-      <DigestCard digest={briefing.digest} fresh={briefing.digestFresh} />
     </div>
   );
 }
@@ -444,12 +457,13 @@ function ProjectSprintCard({ ps, slug }: { ps: ProjectSprintSummary; slug: strin
   );
 }
 
-function WorkloadRow({ entry, max }: { entry: WorkloadEntry; max: number }) {
+function WorkloadRow({ entry, max, slug }: { entry: WorkloadEntry; max: number; slug: string }) {
   const pct = max > 0 ? (entry.openCount / max) * 100 : 0;
+  const href = `/${slug}/issues?assignee=${entry.userId ?? "none"}`;
   return (
-    <div className="px-5 py-3">
+    <Link href={href} className="block px-5 py-3 hover:bg-neutral-50 transition-colors group">
       <div className="flex items-center justify-between mb-1.5">
-        <span className="text-sm font-medium text-neutral-800">{entry.name}</span>
+        <span className="text-sm font-medium text-neutral-800 group-hover:text-indigo-600 transition-colors">{entry.name}</span>
         <div className="flex items-center gap-2">
           {entry.blockedCount > 0 && (
             <span className="text-[10px] font-semibold text-red-600 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
@@ -465,7 +479,7 @@ function WorkloadRow({ entry, max }: { entry: WorkloadEntry; max: number }) {
         </div>
       </div>
       <ProgressBar pct={pct} color="bg-indigo-400" />
-    </div>
+    </Link>
   );
 }
 
@@ -496,6 +510,8 @@ function AdminView({ briefing, slug }: { briefing: MorningBriefing; slug: string
 
   return (
     <div className="space-y-5">
+      <DigestBanner digest={briefing.digest} fresh={briefing.digestFresh} />
+
       {/* KPI tiles */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
         {[
@@ -564,15 +580,13 @@ function AdminView({ briefing, slug }: { briefing: MorningBriefing; slug: string
           <div className="grid grid-cols-1 gap-0 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-neutral-100">
             {briefing.teamWorkload.map((w, i) => (
               <div key={w.userId ?? "unassigned"} className={i > 0 && i % 2 === 0 ? "sm:border-t sm:border-neutral-100" : ""}>
-                <WorkloadRow entry={w} max={briefing.teamWorkload[0]?.openCount ?? 1} />
+                <WorkloadRow entry={w} max={briefing.teamWorkload[0]?.openCount ?? 1} slug={slug} />
               </div>
             ))}
           </div>
         )}
       </Card>
 
-      {/* Digest */}
-      <DigestCard digest={briefing.digest} fresh={briefing.digestFresh} />
     </div>
   );
 }
