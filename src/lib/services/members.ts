@@ -55,6 +55,8 @@ export async function createInvite(input: {
   role: MembershipRole;
   email: string | null;
   createdBy: string | null;
+  displayName?: string | null;
+  jobTitles?: string[];
 }): Promise<{ token: string }> {
   if (!ASSIGNABLE_ROLES.includes(input.role)) throw new Error("Invalid role.");
   const token = randomBytes(24).toString("hex");
@@ -65,6 +67,8 @@ export async function createInvite(input: {
     role: input.role,
     token_hash: hashKey(token),
     created_by: input.createdBy,
+    display_name: input.displayName ?? null,
+    job_titles: input.jobTitles ?? [],
   });
   return { token };
 }
@@ -154,6 +158,19 @@ export async function acceptInvite(token: string): Promise<string> {
   const claimed = await invites.claim(inv.id, appUserId);
   if (!claimed) throw new Error("This invite has already been used.");
   await membersRepo(svc).add(claimed.tenant_id, appUserId, claimed.role);
+
+  // Apply job titles set by the admin during invite, if any.
+  if (inv.job_titles?.length) {
+    await svc.from("memberships")
+      .update({ job_titles: inv.job_titles })
+      .eq("tenant_id", claimed.tenant_id)
+      .eq("user_id", appUserId);
+  }
+
+  // Apply display name hint if the user didn't already have a row (brand new signup).
+  if (inv.display_name && !existing) {
+    await svc.from("users").update({ name: inv.display_name }).eq("id", appUserId);
+  }
 
   // Accepted exception: slug lookup to build the redirect URL after claim. Single caller.
   const { data: tenant } = await svc.from("tenants").select("slug").eq("id", claimed.tenant_id).single();

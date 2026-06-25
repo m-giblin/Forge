@@ -17,7 +17,10 @@ function assertAdmin(role: string) {
   if (role !== "owner" && role !== "admin") throw new Error("Only owners and admins manage members.");
 }
 
-export async function createInviteAction(slug: string, input: { role: MembershipRole; email: string | null }) {
+export async function createInviteAction(
+  slug: string,
+  input: { role: MembershipRole; email: string | null; displayName?: string | null; jobTitles?: string[] }
+) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   assertAdmin(ctx.role);
@@ -26,6 +29,8 @@ export async function createInviteAction(slug: string, input: { role: Membership
     role: input.role,
     email: input.email?.trim() || null,
     createdBy: ctx.appUserId,
+    displayName: input.displayName?.trim() || null,
+    jobTitles: input.jobTitles ?? [],
   });
   await recordAudit({
     tenantId: ctx.tenant.id,

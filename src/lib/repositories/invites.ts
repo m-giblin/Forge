@@ -6,12 +6,14 @@ export type InviteRow = {
   tenant_id: string;
   email: string | null;
   role: MembershipRole;
+  display_name: string | null;
+  job_titles: string[];
   expires_at: string;
   accepted_at: string | null;
   created_at: string;
 };
 
-const COLS = "id, tenant_id, email, role, expires_at, accepted_at, created_at";
+const COLS = "id, tenant_id, email, role, display_name, job_titles, expires_at, accepted_at, created_at";
 
 export function invitesRepo(supabase: SupabaseClient) {
   return {
@@ -33,8 +35,18 @@ export function invitesRepo(supabase: SupabaseClient) {
       role: MembershipRole;
       token_hash: string;
       created_by: string | null;
+      display_name?: string | null;
+      job_titles?: string[];
     }): Promise<InviteRow> {
-      const { data, error } = await supabase.from("invites").insert(input).select(COLS).single();
+      const { data, error } = await supabase.from("invites").insert({
+        tenant_id: input.tenant_id,
+        email: input.email,
+        role: input.role,
+        token_hash: input.token_hash,
+        created_by: input.created_by,
+        display_name: input.display_name ?? null,
+        job_titles: input.job_titles ?? [],
+      }).select(COLS).single();
       if (error) throw error;
       return data as InviteRow;
     },
@@ -48,7 +60,7 @@ export function invitesRepo(supabase: SupabaseClient) {
     async findUsableByHash(tokenHash: string) {
       const { data, error } = await supabase
         .from("invites")
-        .select("id, tenant_id, email, role, expires_at, accepted_at")
+        .select("id, tenant_id, email, role, display_name, job_titles, expires_at, accepted_at")
         .eq("token_hash", tokenHash)
         .maybeSingle();
       if (error) throw error;
