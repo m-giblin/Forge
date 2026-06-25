@@ -63,7 +63,7 @@ export default async function ProjectDetailPage({
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <div className="w-full px-6 py-8">
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2 text-sm text-neutral-400">
         <Link href={`/${slug}/projects`} className="hover:text-neutral-600">Projects</Link>

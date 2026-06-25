@@ -31,7 +31,7 @@ export default async function ReportsPage({
 
   if (!data) {
     return (
-      <main className="max-w-6xl mx-auto px-6 py-10">
+      <main className="w-full px-6 py-10">
         <p className="text-neutral-500">Failed to load reports. Please try again.</p>
       </main>
     );
@@ -43,7 +43,7 @@ export default async function ReportsPage({
   );
 
   return (
-    <main className="max-w-6xl mx-auto px-6 py-8">
+    <main className="w-full px-6 py-8">
       <ReportsClient
         slug={slug}
         data={data}

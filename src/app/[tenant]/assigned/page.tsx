@@ -91,7 +91,7 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
   today.setHours(0, 0, 0, 0);
 
   return (
-    <main className="mx-auto max-w-4xl px-3 py-4 sm:px-6 sm:py-6">
+    <main className="w-full px-3 py-4 sm:px-6 sm:py-6">
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-neutral-900">Assigned to Me</h1>
         <p className="mt-1 text-sm text-neutral-500">Your open issues across all projects.</p>

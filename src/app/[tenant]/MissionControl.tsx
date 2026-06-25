@@ -75,7 +75,7 @@ export default function MissionControl({ slug, data, members = [] }: {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-8 space-y-5">
+    <main className="w-full px-6 py-8 space-y-5">
       {/* Header + scope toggle */}
       <div className="flex items-center justify-between">
         <div>

@@ -100,7 +100,7 @@ export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, m
   const hasIdeas = ideas.length > 0;
 
   return (
-    <div className="mx-auto max-w-5xl px-6 py-8">
+    <div className="w-full px-6 py-8">
       {/* Header */}
       <div className="mb-6 flex items-start justify-between">
         <div>

@@ -134,7 +134,7 @@ export default function CustomersClient({
   }
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 px-6 py-8">
+    <div className="w-full space-y-6 px-6 py-8">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-neutral-900">Customer Voice</h1>

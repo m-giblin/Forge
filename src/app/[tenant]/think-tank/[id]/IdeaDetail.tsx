@@ -116,7 +116,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
+    <div className="w-full px-6 py-8">
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2 text-sm text-neutral-400">
         <a href={`/${slug}/think-tank`} className="hover:text-neutral-600">Think Tank</a>

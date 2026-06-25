@@ -65,7 +65,7 @@ export default async function ChangelogPage({
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-12">
+    <div className="mx-auto max-w-5xl px-6 py-8">
       {/* Header */}
       <div className="mb-10 text-center">
         <p className="text-4xl mb-3">📋</p>
