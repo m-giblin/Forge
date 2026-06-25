@@ -243,7 +243,7 @@ export function LinkedIssuesCard({
             const label = l.direction === "outbound" ? meta!.out : meta!.inv;
             const linkedId = l.direction === "outbound" ? l.targetIssueId : l.sourceIssueId;
             return (
-              <li key={l.id} className="flex items-center gap-2 group">
+              <li key={l.id} className="flex items-center gap-2">
                 <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot(l.targetStatus)}`} />
                 <span className={`text-[11px] shrink-0 font-medium ${meta!.color}`}>{label}</span>
                 <Link href={`/${slug}/issues/${linkedId}`}
@@ -253,8 +253,11 @@ export function LinkedIssuesCard({
                 </Link>
                 {!readOnly && (
                   <button onClick={() => removeLink(l.id)} disabled={pending}
-                    className="hidden group-hover:block text-neutral-300 hover:text-red-500 text-sm leading-none">
-                    ×
+                    title="Remove link"
+                    className="flex-shrink-0 rounded p-1 text-neutral-300 hover:bg-red-50 hover:text-red-500 disabled:opacity-50 transition-colors">
+                    <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
                   </button>
                 )}
               </li>
@@ -353,7 +356,7 @@ export function SubIssuesCard({
       {subIssues.length > 0 && (
         <ul className="space-y-1 mb-2">
           {subIssues.map((i) => (
-            <li key={i.id} className="flex items-center gap-2 group">
+            <li key={i.id} className="flex items-center gap-2">
               <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot(i.status)}`} />
               <Link href={`/${slug}/issues/${i.id}`}
                 className="text-xs text-neutral-700 hover:text-neutral-900 truncate flex-1">
@@ -363,14 +366,14 @@ export function SubIssuesCard({
               <span className="text-[10px] shrink-0">{PRIORITY_ICON[i.priority] ?? ""}</span>
               {!readOnly && (
                 <button
-                  onClick={() => {
-                    startTransition(() => setParentIssueAction(slug, i.id, null));
-                  }}
+                  onClick={() => startTransition(() => setParentIssueAction(slug, i.id, null))}
                   disabled={pending}
                   title="Remove sub-issue"
-                  className="hidden group-hover:block text-neutral-300 hover:text-red-500 text-sm leading-none disabled:opacity-50"
+                  className="flex-shrink-0 rounded p-1 text-neutral-300 hover:bg-red-50 hover:text-red-500 disabled:opacity-50 transition-colors"
                 >
-                  ×
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
                 </button>
               )}
             </li>
