@@ -23,6 +23,8 @@ export async function createProjectAction(
   input: {
     name: string;
     key?: string | null;
+    description?: string | null;
+    status?: string | null;
     ownerUserId?: string | null;
     startDate?: string | null;
     targetGoLive?: string | null;
@@ -36,6 +38,8 @@ export async function createProjectAction(
     tenantId: ctx.tenant.id,
     name: input.name,
     key: input.key ?? null,
+    description: input.description ?? null,
+    status: input.status ?? null,
     ownerUserId: input.ownerUserId ?? null,
     startDate: input.startDate ?? null,
     targetGoLive: input.targetGoLive ?? null,

@@ -25,6 +25,8 @@ export type CreateProjectInput = {
   tenant_id: string;
   key: string;
   name: string;
+  description?: string | null;
+  status?: ProjectStatus;
   lead_user_id?: string | null;
   start_date?: string | null;
   target_go_live?: string | null;
@@ -113,6 +115,8 @@ export function projectsRepo(supabase: SupabaseClient) {
           tenant_id: input.tenant_id,
           key: input.key,
           name: input.name,
+          description: input.description ?? null,
+          status: input.status ?? "active",
           lead_user_id: input.lead_user_id ?? null,
           start_date: input.start_date ?? null,
           target_go_live: input.target_go_live ?? null,

@@ -40,11 +40,6 @@ export async function provisionTenant(input: {
 
   const tenant = await repo.insertTenant(name, slug);
 
-  // Seed a starter project so the new tenant can file issues immediately
-  // (the owner can rename it or add more from the landing page). Without this,
-  // issue creation is blocked until a project exists.
-  await projectsRepo(svc).create({ tenant_id: tenant.id, key: "GEN", name: "General" });
-
   // Seed example SLA policies (disabled) so new tenants can see what's possible
   // and enable/tweak without starting from a blank form.
   const slaRepo = slaPoliciesRepo(svc);
