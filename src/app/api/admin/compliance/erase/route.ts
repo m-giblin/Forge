@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { eraseSubjectData } from "@/lib/services/gdprErasure";
+import { requireSuperAdmin } from "@/lib/super-admin";
 
 // POST /api/admin/compliance/erase  { email }
 export async function POST(req: Request) {
+  if (!(await requireSuperAdmin())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const body = await req.json().catch(() => ({}));
   const { email } = body as { email?: string };
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });

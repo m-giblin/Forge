@@ -1,6 +1,26 @@
 import "server-only";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
+import { encryptSecret, decryptSecret } from "@/lib/encryption";
+
+
+// Values are stored as `enc:<base64json>` when encrypted so we can detect and
+// decrypt them transparently. Plain values (e.g. from before encryption was
+// added, or non-secret keys like workspace_id) pass through unchanged.
+function encodeSecret(plaintext: string): string {
+  const { enc, nonce, tag } = encryptSecret(plaintext);
+  return `enc:${JSON.stringify({ enc, nonce, tag })}`;
+}
+
+function decodeValue(raw: string): string {
+  if (!raw.startsWith("enc:")) return raw; // plaintext (workspace_id or legacy row)
+  try {
+    const { enc, nonce, tag } = JSON.parse(raw.slice(4)) as { enc: string; nonce: string; tag: string };
+    return decryptSecret(enc, nonce, tag);
+  } catch {
+    return raw; // corrupt/legacy — surface as-is rather than crashing
+  }
+}
 
 // --- Credential helpers (per-tenant, stored in platform_config) ---
 
@@ -16,7 +36,9 @@ export async function getSlackConfig(tenantId: string): Promise<{
     .eq("tenant_id", tenantId)
     .in("key", ["slack_bot_token", "slack_signing_secret", "slack_workspace_id"]);
 
-  const map = Object.fromEntries((data ?? []).map((r) => [r.key as string, r.value as string]));
+  const map = Object.fromEntries(
+    (data ?? []).map((r) => [r.key as string, decodeValue(r.value as string)])
+  );
   if (!map.slack_bot_token || !map.slack_signing_secret || !map.slack_workspace_id) return null;
   return {
     botToken: map.slack_bot_token,
@@ -31,9 +53,15 @@ export async function saveSlackConfig(
 ): Promise<void> {
   const svc = createSupabaseServiceClient();
   const rows = [
-    config.botToken !== undefined ? { tenant_id: tenantId, key: "slack_bot_token", value: config.botToken } : null,
-    config.signingSecret !== undefined ? { tenant_id: tenantId, key: "slack_signing_secret", value: config.signingSecret } : null,
-    config.workspaceId !== undefined ? { tenant_id: tenantId, key: "slack_workspace_id", value: config.workspaceId } : null,
+    config.botToken !== undefined
+      ? { tenant_id: tenantId, key: "slack_bot_token", value: encodeSecret(config.botToken) }
+      : null,
+    config.signingSecret !== undefined
+      ? { tenant_id: tenantId, key: "slack_signing_secret", value: encodeSecret(config.signingSecret) }
+      : null,
+    config.workspaceId !== undefined
+      ? { tenant_id: tenantId, key: "slack_workspace_id", value: config.workspaceId }
+      : null,
   ].filter(Boolean) as { tenant_id: string; key: string; value: string }[];
 
   if (rows.length === 0) return;

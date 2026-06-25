@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { exportSubjectData } from "@/lib/services/gdprExport";
+import { requireSuperAdmin } from "@/lib/super-admin";
 
 // GET /api/admin/compliance/export?email=<email>
 export async function GET(req: Request) {
+  if (!(await requireSuperAdmin())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   const email = new URL(req.url).searchParams.get("email");
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
   try {

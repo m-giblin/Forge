@@ -56,13 +56,11 @@ function stripHtml(html: string): string {
 
 export async function POST(req: NextRequest) {
   const secret = process.env.INBOUND_EMAIL_SECRET;
-  if (secret) {
-    const provided =
-      req.headers.get("x-webhook-secret") ??
-      req.headers.get("x-postmark-secret") ??
-      req.headers.get("authorization")?.replace(/^Bearer /, "");
-    if (provided !== secret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const provided =
+    req.headers.get("x-webhook-secret") ??
+    req.headers.get("x-postmark-secret") ??
+    req.headers.get("authorization")?.replace(/^Bearer /, "");
+  if (!secret || provided !== secret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   let body: Record<string, unknown>;
   try {
