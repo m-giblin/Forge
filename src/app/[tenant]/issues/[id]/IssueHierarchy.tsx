@@ -353,7 +353,7 @@ export function SubIssuesCard({
       {subIssues.length > 0 && (
         <ul className="space-y-1 mb-2">
           {subIssues.map((i) => (
-            <li key={i.id} className="flex items-center gap-2">
+            <li key={i.id} className="flex items-center gap-2 group">
               <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot(i.status)}`} />
               <Link href={`/${slug}/issues/${i.id}`}
                 className="text-xs text-neutral-700 hover:text-neutral-900 truncate flex-1">
@@ -361,6 +361,18 @@ export function SubIssuesCard({
                 {i.title}
               </Link>
               <span className="text-[10px] shrink-0">{PRIORITY_ICON[i.priority] ?? ""}</span>
+              {!readOnly && (
+                <button
+                  onClick={() => {
+                    startTransition(() => setParentIssueAction(slug, i.id, null));
+                  }}
+                  disabled={pending}
+                  title="Remove sub-issue"
+                  className="hidden group-hover:block text-neutral-300 hover:text-red-500 text-sm leading-none disabled:opacity-50"
+                >
+                  ×
+                </button>
+              )}
             </li>
           ))}
         </ul>
