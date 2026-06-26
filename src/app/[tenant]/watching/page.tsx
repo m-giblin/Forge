@@ -1,8 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-// eslint-disable-next-line no-restricted-imports -- service-role required: member name lookup bypasses RLS by design
+// eslint-disable-next-line no-restricted-imports -- service-role required: issue_watchers RLS blocks user JWT reads
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -53,10 +52,11 @@ export default async function WatchingPage({ params }: { params: Promise<{ tenan
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
 
-  const supabase = await createSupabaseServerClient();
+  // Use service client — issue_watchers RLS blocks user JWT reads
+  const svcAll = createSupabaseServiceClient();
 
   // Get watched issue IDs
-  const { data: watcherRows } = await supabase
+  const { data: watcherRows } = await svcAll
     .from("issue_watchers")
     .select("issue_id")
     .eq("user_id", ctx.appUserId)
@@ -66,7 +66,7 @@ export default async function WatchingPage({ params }: { params: Promise<{ tenan
 
   let issues: WatchedIssue[] = [];
   if (issueIds.length > 0) {
-    const { data } = await supabase
+    const { data } = await svcAll
       .from("issues")
       .select("id, number, title, status, priority, type, assignee_id, created_at, updated_at, project:project_id(key, name)")
       .in("id", issueIds)
@@ -79,7 +79,7 @@ export default async function WatchingPage({ params }: { params: Promise<{ tenan
   const assigneeIds = [...new Set(issues.map((i) => i.assignee_id).filter(Boolean))] as string[];
   const memberMap: Record<string, string> = {};
   if (assigneeIds.length > 0) {
-    const svc = createSupabaseServiceClient();
+    const svc = svcAll;
     const { data: members } = await svc
       .from("users")
       .select("id, full_name, email")
