@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { type Issue } from "@/lib/repositories/issues";
 import { type Sprint } from "@/lib/repositories/sprints";
@@ -227,9 +228,22 @@ export default function Board({
       )}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">
+          <Link
+            href={`/${slug}/projects/${currentProject.id}`}
+            className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-indigo-600 transition-colors"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Projects
+          </Link>
+          <span className="text-neutral-300">/</span>
+          <Link
+            href={`/${slug}/projects/${currentProject.id}`}
+            className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+          >
             {currentProject.key}
-          </span>
+          </Link>
           <h1 className="text-lg font-semibold text-neutral-900">{currentProject.name}</h1>
           {siblingProjects.length > 1 && (
             <div className="flex items-center gap-1.5">
