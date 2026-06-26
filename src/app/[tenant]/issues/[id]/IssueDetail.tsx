@@ -568,7 +568,7 @@ export default function IssueDetail({
 
           {!readOnly && (
             <div className="flex items-center justify-between">
-              <span className="text-xs text-neutral-400">
+              <span className={`text-xs transition-colors ${pending ? "text-neutral-400" : saved ? "text-green-600 font-medium" : "text-neutral-400"}`}>
                 {pending ? "Saving…" : saved ? "Saved ✓" : ""}
               </span>
               {canDelete && (
