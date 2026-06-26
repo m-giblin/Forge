@@ -73,19 +73,11 @@ function TrendChart({ data, compact }: { data: { label: string; opened: number; 
 
 // ── widget wrapper ───────────────────────────────────────────────────────────
 function Widget({
-  id, active, onToggle, title, subtitle, accentColor = "indigo", children,
+  id, onToggle, title, subtitle, accentColor = "indigo", children,
 }: {
-  id: string; active: boolean; onToggle: (id: string) => void;
+  id: string; onToggle: (id: string) => void;
   title: string; subtitle: string; accentColor?: string; children: React.ReactNode;
 }) {
-  const ring: Record<string, string> = {
-    indigo: "border-indigo-400 ring-1 ring-indigo-100",
-    amber:  "border-amber-400  ring-1 ring-amber-100",
-    red:    "border-red-400    ring-1 ring-red-100",
-    emerald:"border-emerald-400 ring-1 ring-emerald-100",
-    sky:    "border-sky-400    ring-1 ring-sky-100",
-    violet: "border-violet-400 ring-1 ring-violet-100",
-  };
   const hover: Record<string, string> = {
     indigo: "hover:border-indigo-300", amber: "hover:border-amber-300",
     red: "hover:border-red-300", emerald: "hover:border-emerald-300",
@@ -94,16 +86,13 @@ function Widget({
   return (
     <div
       onClick={() => onToggle(id)}
-      className={`bg-white rounded-xl border p-4 cursor-pointer transition hover:shadow-md ${active ? (ring[accentColor] ?? ring.indigo) : `border-neutral-200 ${hover[accentColor] ?? hover.indigo}`}`}
+      className={`bg-white rounded-xl border border-neutral-200 p-4 cursor-pointer transition hover:shadow-md group ${hover[accentColor] ?? hover.indigo}`}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm font-semibold text-neutral-900">{title}</div>
-        <span className="text-[10px] text-neutral-400">{subtitle}</span>
+        <span className="text-[10px] text-neutral-400 group-hover:text-indigo-500 transition">{subtitle} · details ↗</span>
       </div>
       {children}
-      <div className={`mt-3 text-[10px] text-center ${active ? "text-indigo-500 font-medium" : "text-neutral-400"}`}>
-        {active ? "▾ collapse" : "click to drill down ▾"}
-      </div>
     </div>
   );
 }
@@ -385,7 +374,7 @@ export default function ReportsClient({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
         {/* 1 — By status */}
-        <Widget id="status" active={drillWidget==="status"} onToggle={toggleDrill}
+        <Widget id="status" onToggle={toggleDrill}
           title="By Status" subtitle="all issues in range" accentColor="indigo">
           {data.byStatus.length === 0
             ? <p className="text-xs text-neutral-400 text-center py-3">No issues in range</p>
@@ -396,7 +385,7 @@ export default function ReportsClient({
         </Widget>
 
         {/* 2 — By priority */}
-        <Widget id="priority" active={drillWidget==="priority"} onToggle={toggleDrill}
+        <Widget id="priority" onToggle={toggleDrill}
           title="By Priority" subtitle="all issues in range" accentColor="amber">
           {data.byPriority.length === 0
             ? <p className="text-xs text-neutral-400 text-center py-3">No issues</p>
@@ -407,7 +396,7 @@ export default function ReportsClient({
         </Widget>
 
         {/* 3 — Bug vs Feature vs Task */}
-        <Widget id="type" active={drillWidget==="type"} onToggle={toggleDrill}
+        <Widget id="type" onToggle={toggleDrill}
           title="Bug vs Feature" subtitle="by issue type" accentColor="red">
           {data.byType.length === 0
             ? <p className="text-xs text-neutral-400 text-center py-3">No issues</p>
@@ -434,7 +423,7 @@ export default function ReportsClient({
         </Widget>
 
         {/* 4 — Cycle time */}
-        <Widget id="cycle" active={drillWidget==="cycle"} onToggle={toggleDrill}
+        <Widget id="cycle" onToggle={toggleDrill}
           title="Cycle Time" subtitle="avg days per stage" accentColor="violet">
           {data.avgCycleDays == null && data.cycleByStage.length === 0
             ? <p className="text-xs text-neutral-400 text-center py-3">No completed issues yet</p>
@@ -462,7 +451,7 @@ export default function ReportsClient({
         </Widget>
 
         {/* 5 — Assignee load */}
-        <Widget id="assignee" active={drillWidget==="assignee"} onToggle={toggleDrill}
+        <Widget id="assignee" onToggle={toggleDrill}
           title="Assignee Load" subtitle="open issues per person" accentColor="sky">
           {data.byAssignee.length === 0
             ? <p className="text-xs text-neutral-400 text-center py-3">No open issues</p>
@@ -473,7 +462,7 @@ export default function ReportsClient({
         </Widget>
 
         {/* 6 — Blocked time */}
-        <Widget id="blocked" active={drillWidget==="blocked"} onToggle={toggleDrill}
+        <Widget id="blocked" onToggle={toggleDrill}
           title="Blocked Issues" subtitle="days issues sat blocked" accentColor="red">
           {data.blockedIssues.length === 0
             ? <p className="text-xs text-neutral-400 text-center py-3">🎉 No blocked issues</p>
@@ -497,7 +486,7 @@ export default function ReportsClient({
         </Widget>
 
         {/* 7 — Open vs Closed */}
-        <Widget id="openclosed" active={drillWidget==="openclosed"} onToggle={toggleDrill}
+        <Widget id="openclosed" onToggle={toggleDrill}
           title="Open vs Closed" subtitle="in selected range" accentColor="emerald">
           <div className="flex flex-col items-center justify-center gap-3 py-2">
             <div className="flex w-full h-4 rounded-full overflow-hidden">
@@ -515,8 +504,8 @@ export default function ReportsClient({
           </div>
         </Widget>
 
-        {/* 8 — Open by assignee (existing, promoted to widget) */}
-        <Widget id="assignee-list" active={drillWidget==="assignee-list"} onToggle={toggleDrill}
+        {/* 8 — Workload Distribution */}
+        <Widget id="assignee-list" onToggle={toggleDrill}
           title="Workload Distribution" subtitle="open issues by assignee" accentColor="indigo">
           {data.byAssignee.length === 0
             ? <p className="text-xs text-neutral-400 text-center py-3">No open issues</p>
@@ -528,112 +517,147 @@ export default function ReportsClient({
         </Widget>
       </div>
 
-      {/* ── Drill-down panel ── */}
+      {/* ── Drill-down modal ── */}
       {drillWidget && (
-        <div className="bg-white rounded-xl border-2 border-indigo-300 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div className="text-sm font-bold text-neutral-900">
-              {drillWidget === "status"       && "🔍 Issues by Status — Full Breakdown"}
-              {drillWidget === "priority"     && "🔍 Issues by Priority"}
-              {drillWidget === "type"         && "🔍 Bug vs Feature — Issue List"}
-              {drillWidget === "cycle"        && "🔍 Cycle Time — In-Flight Issues"}
-              {drillWidget === "assignee"     && "🔍 Assignee Load — Open Issues"}
-              {drillWidget === "blocked"      && "🔍 Blocked Issues — Detail"}
-              {drillWidget === "openclosed"   && "🔍 Open Issues — What Remains"}
-              {drillWidget === "assignee-list"&& "🔍 Workload — Per Person"}
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setDrillWidget(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-neutral-200 shadow-2xl w-full max-w-lg p-6 max-h-[80vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-bold text-neutral-900">
+                {drillWidget === "status"        && "Issues by Status"}
+                {drillWidget === "priority"      && "Issues by Priority"}
+                {drillWidget === "type"          && "Bug vs Feature vs Task"}
+                {drillWidget === "cycle"         && "Cycle Time Breakdown"}
+                {drillWidget === "assignee"      && "Assignee Load"}
+                {drillWidget === "blocked"       && "Blocked Issues"}
+                {drillWidget === "openclosed"    && "Open vs Closed"}
+                {drillWidget === "assignee-list" && "Workload Distribution"}
+              </h2>
+              <div className="flex items-center gap-3">
+                {(drillWidget === "status" || drillWidget === "priority" || drillWidget === "assignee" || drillWidget === "assignee-list") && (
+                  <Link href={`/${slug}/issues`} onClick={() => setDrillWidget(null)}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-800 underline">
+                    Open Issues list →
+                  </Link>
+                )}
+                <button onClick={() => setDrillWidget(null)}
+                  className="text-neutral-400 hover:text-neutral-700 text-sm px-2 py-1 rounded-lg hover:bg-neutral-100">
+                  ✕
+                </button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Link href={`/${slug}/issues`}
-                className="text-xs font-medium text-indigo-600 hover:text-indigo-800 underline">
-                Open Issues list →
-              </Link>
-              <button onClick={() => setDrillWidget(null)} className="text-neutral-400 hover:text-neutral-700 text-xs">
-                ✕ Close
-              </button>
-            </div>
-          </div>
 
-          {/* Blocked drill-down shows blocked issue cards */}
-          {drillWidget === "blocked" && (
-            <div className="space-y-2">
-              {data.blockedIssues.length === 0
-                ? <p className="text-sm text-neutral-500 text-center py-6">No blocked issues — great work!</p>
-                : data.blockedIssues.map((b) => (
-                    <Link key={b.id} href={`/${slug}/issues/${b.id}`}
-                      className="flex items-center gap-3 px-3 py-2.5 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 transition">
-                      <span className="text-[11px] font-mono text-red-400 w-[72px] shrink-0">{b.key}</span>
-                      <span className="text-sm text-neutral-800 flex-1 truncate">{b.title}</span>
-                      <span className="text-xs text-neutral-500 shrink-0">{b.assigneeName}</span>
-                      <span className="text-xs font-bold text-red-600 shrink-0">{b.daysOld}d blocked</span>
-                    </Link>
-                  ))}
-            </div>
-          )}
-
-          {/* Other drills link into filtered issues list */}
-          {drillWidget !== "blocked" && (
-            <div>
-              <p className="text-sm text-neutral-600 mb-3">
-                {drillWidget === "openclosed" && `${data.openCount} open issues in this date range.`}
-                {drillWidget === "type" && `${typeTotal} total issues — ${data.byType.map(t => `${t.count} ${t.type}s`).join(", ")}.`}
-                {drillWidget === "cycle" && `Average cycle time: ${data.avgCycleDays ?? "—"} days from creation to done.`}
-                {(drillWidget === "status" || drillWidget === "priority" || drillWidget === "assignee" || drillWidget === "assignee-list") &&
-                  `${data.totalOpen} open issues across ${data.byAssignee.filter(a => a.assigneeId).length} assignees.`}
-              </p>
+            {/* Status */}
+            {drillWidget === "status" && (
               <div className="grid gap-2">
-                {drillWidget === "status" && data.byStatus.map((s) => (
-                  <Link key={s.status} href={`/${slug}/issues?status=${s.status}`}
-                    className="flex items-center gap-3 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 transition">
-                    <span className="w-3 h-3 rounded-full shrink-0"
-                      style={{ backgroundColor: STATUS_COLORS[s.status] ?? "#94a3b8" }} />
+                {data.byStatus.map((s) => (
+                  <Link key={s.status} href={`/${slug}/issues?status=${s.status}`} onClick={() => setDrillWidget(null)}
+                    className="flex items-center gap-3 px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl hover:bg-neutral-100 transition">
+                    <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: STATUS_COLORS[s.status] ?? "#94a3b8" }} />
                     <span className="text-sm text-neutral-800 flex-1">{STATUS_LABELS[s.status] ?? s.status}</span>
-                    <span className="text-sm font-bold text-neutral-600">{s.count}</span>
+                    <span className="text-sm font-bold text-neutral-700">{s.count}</span>
                   </Link>
                 ))}
-                {drillWidget === "priority" && data.byPriority.map((p) => (
-                  <Link key={p.priority} href={`/${slug}/issues?priority=${p.priority}`}
-                    className="flex items-center gap-3 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg hover:bg-neutral-100 transition">
-                    <span className="w-3 h-3 rounded-sm shrink-0"
-                      style={{ backgroundColor: PRIORITY_COLORS[p.priority] ?? "#94a3b8" }} />
+              </div>
+            )}
+
+            {/* Priority */}
+            {drillWidget === "priority" && (
+              <div className="grid gap-2">
+                {data.byPriority.map((p) => (
+                  <Link key={p.priority} href={`/${slug}/issues?priority=${p.priority}`} onClick={() => setDrillWidget(null)}
+                    className="flex items-center gap-3 px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl hover:bg-neutral-100 transition">
+                    <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: PRIORITY_COLORS[p.priority] ?? "#94a3b8" }} />
                     <span className="text-sm text-neutral-800 flex-1 capitalize">{p.priority}</span>
-                    <span className="text-sm font-bold text-neutral-600">{p.count}</span>
+                    <span className="text-sm font-bold text-neutral-700">{p.count}</span>
                   </Link>
                 ))}
-                {(drillWidget === "assignee" || drillWidget === "assignee-list") && data.byAssignee.map((a) => (
-                  <div key={a.assigneeId ?? "__unassigned__"}
-                    className="flex items-center gap-3 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg">
-                    <span className="text-sm text-neutral-800 flex-1">{a.name}</span>
-                    <span className="text-sm font-bold text-neutral-600">{a.count} open</span>
-                  </div>
-                ))}
-                {(drillWidget === "type") && data.byType.map((t) => (
-                  <div key={t.type} className="flex items-center gap-3 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg">
+              </div>
+            )}
+
+            {/* Type */}
+            {drillWidget === "type" && (
+              <div className="grid gap-2">
+                <p className="text-xs text-neutral-500 mb-1">{typeTotal} total issues</p>
+                {data.byType.map((t) => (
+                  <div key={t.type} className="flex items-center gap-3 px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl">
                     <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: TYPE_COLORS[t.type] ?? "#94a3b8" }} />
                     <span className="text-sm text-neutral-800 flex-1 capitalize">{t.type}</span>
-                    <span className="text-sm font-bold text-neutral-600">{t.count}</span>
+                    <span className="text-xs text-neutral-500">{Math.round((t.count / typeTotal) * 100)}%</span>
+                    <span className="text-sm font-bold text-neutral-700">{t.count}</span>
                   </div>
                 ))}
-                {drillWidget === "openclosed" && (
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
-                      <div className="text-2xl font-bold text-emerald-700">{data.closedCount}</div>
-                      <div className="text-xs text-emerald-600 mt-1">Closed in range</div>
-                    </div>
-                    <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center">
-                      <div className="text-2xl font-bold text-red-600">{data.openCount}</div>
-                      <div className="text-xs text-red-500 mt-1">Still open</div>
-                    </div>
-                  </div>
-                )}
-                {drillWidget === "cycle" && data.cycleByStage.map((s) => (
-                  <div key={s.label} className="flex items-center gap-3 px-3 py-2 bg-neutral-50 border border-neutral-200 rounded-lg">
+              </div>
+            )}
+
+            {/* Cycle time */}
+            {drillWidget === "cycle" && (
+              <div className="grid gap-2">
+                {data.cycleByStage.map((s) => (
+                  <div key={s.label} className="flex items-center gap-3 px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl">
                     <span className="text-sm text-neutral-800 flex-1">{s.label}</span>
                     <span className="text-sm font-bold text-violet-600">{s.avgDays}d avg</span>
                   </div>
                 ))}
+                {data.avgCycleDays != null && (
+                  <div className="mt-2 px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-xl text-center">
+                    <span className="text-sm text-violet-700">Overall avg: </span>
+                    <span className="text-sm font-bold text-violet-800">{data.avgCycleDays}d</span>
+                    <span className="text-xs text-violet-500"> created → done</span>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Assignee / Workload */}
+            {(drillWidget === "assignee" || drillWidget === "assignee-list") && (
+              <div className="grid gap-2">
+                {data.byAssignee.map((a) => (
+                  <div key={a.assigneeId ?? "__unassigned__"}
+                    className="flex items-center gap-3 px-3 py-2.5 bg-neutral-50 border border-neutral-200 rounded-xl">
+                    <span className="text-sm text-neutral-800 flex-1">{a.name}</span>
+                    <span className="text-sm font-bold text-neutral-700">{a.count} open</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Blocked */}
+            {drillWidget === "blocked" && (
+              <div className="grid gap-2">
+                {data.blockedIssues.length === 0
+                  ? <p className="text-sm text-neutral-500 text-center py-6">No blocked issues — great work!</p>
+                  : data.blockedIssues.map((b) => (
+                      <Link key={b.id} href={`/${slug}/issues/${b.id}`} onClick={() => setDrillWidget(null)}
+                        className="flex items-center gap-3 px-3 py-2.5 bg-red-50 border border-red-200 rounded-xl hover:bg-red-100 transition">
+                        <span className="text-[11px] font-mono text-red-400 w-[72px] shrink-0">{b.key}</span>
+                        <span className="text-sm text-neutral-800 flex-1 truncate">{b.title}</span>
+                        <span className="text-xs text-neutral-500 shrink-0">{b.assigneeName}</span>
+                        <span className="text-xs font-bold text-red-600 shrink-0">{b.daysOld}d</span>
+                      </Link>
+                    ))}
+              </div>
+            )}
+
+            {/* Open vs Closed */}
+            {drillWidget === "openclosed" && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-6 bg-emerald-50 border border-emerald-200 rounded-2xl text-center">
+                  <div className="text-3xl font-bold text-emerald-700">{data.closedCount}</div>
+                  <div className="text-xs text-emerald-600 mt-1">Closed in range</div>
+                </div>
+                <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-center">
+                  <div className="text-3xl font-bold text-red-600">{data.openCount}</div>
+                  <div className="text-xs text-red-500 mt-1">Still open</div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
