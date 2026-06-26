@@ -2,9 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
-import { createIssue, moveIssue } from "@/lib/services/issues";
-import type { IssuePriority, IssueStatus, IssueType } from "@/lib/repositories/issues";
+import { createIssue, moveIssue, COLUMN_PAGE_SIZE } from "@/lib/services/issues";
+import type { Issue, IssuePriority, IssueStatus, IssueType } from "@/lib/repositories/issues";
 import { ctxCanDo } from "@/lib/rbac";
+// eslint-disable-next-line no-restricted-imports -- service-role required for child-count and load-more reads
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 // Every action re-checks tenant membership server-side. The client cannot be
 // trusted; authorization lives here + RLS, never in the UI.
@@ -41,13 +43,50 @@ export async function createIssueAction(
   return issue;
 }
 
-export async function moveIssueAction(slug: string, id: string, status: IssueStatus) {
+export async function moveIssueAction(
+  slug: string,
+  id: string,
+  status: IssueStatus,
+): Promise<{ pendingChildCount: number }> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot move issues");
 
   await moveIssue(ctx.tenant.id, id, status);
   revalidatePath(`/${slug}/board`);
+
+  // Count children not yet on the new status so the board can prompt a cascade.
+  const svc = createSupabaseServiceClient();
+  const { count } = await svc
+    .from("issues")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("parent_id", id)
+    .neq("status", status);
+  return { pendingChildCount: count ?? 0 };
+}
+
+export async function loadMoreForStatusAction(
+  slug: string,
+  projectId: string,
+  status: string,
+  offset: number,
+): Promise<{ issues: Issue[]; hasMore: boolean }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc
+    .from("issues")
+    .select("*")
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("project_id", projectId)
+    .eq("status", status)
+    .order("position", { ascending: true })
+    .range(offset, offset + COLUMN_PAGE_SIZE - 1);
+
+  const issues = (data ?? []) as Issue[];
+  return { issues, hasMore: issues.length === COLUMN_PAGE_SIZE };
 }
 
 export interface IssueDraft {

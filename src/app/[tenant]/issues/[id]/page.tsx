@@ -45,7 +45,13 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
   // Migration 0044 guard — graceful if not run yet
   const linksRepo = issueLinksRepo(svcClient);
   const projectKey = project?.key ?? "";
-  const [subIssues, links, gitLinks, slaPolicies, signoffsRaw, timeLogs] = await Promise.all([
+  const parentIssuePromise = issue.parent_id
+    ? Promise.resolve(
+        svcClient.from("issues").select("id, number, title, projects!inner(key)").eq("id", issue.parent_id).eq("tenant_id", ctx.tenant.id).single()
+      ).then((q) => q).then((r) => r.data as { id: string; number: number; title: string; projects: { key: string } } | null).catch(() => null)
+    : Promise.resolve(null as { id: string; number: number; title: string; projects: { key: string } } | null);
+
+  const [subIssues, links, gitLinks, slaPolicies, signoffsRaw, timeLogs, parentIssue] = await Promise.all([
     linksRepo.listChildren(ctx.tenant.id, issue.id).catch(() => []),
     linksRepo.listForIssue(ctx.tenant.id, issue.id, projectKey).catch(() => []),
     gitIntegrationRepo(svcClient).listCodeLinks(ctx.tenant.id, issue.id).catch(() => []),
@@ -58,6 +64,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         .order("created_at")
     ).then((r) => r.data ?? []).catch(() => []),
     listTimeLogsAction(slug, issue.id).catch(() => []),
+    parentIssuePromise,
   ]);
   // Flatten signer label (use email since PII not decrypted here — good enough for display)
   const signoffs = signoffsRaw.map((s: Record<string, unknown>) => ({
@@ -93,6 +100,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         userRole={ctx.role}
         watchers={watchers.map((w) => w.userId)}
         currentUserId={ctx.appUserId}
+        parentIssue={parentIssue ?? undefined}
         subIssues={subIssues}
         links={links}
         gitLinks={gitLinks}

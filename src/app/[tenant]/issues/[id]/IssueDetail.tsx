@@ -6,7 +6,7 @@ import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
 import { isUnassignedOverdue, unassignedThresholdMs } from "@/lib/sla";
-import { updateIssueAction, deleteIssueAction, addCommentAction, watchIssueAction, unwatchIssueAction, saveIssueSpecAction } from "./actions";
+import { updateIssueAction, deleteIssueAction, addCommentAction, watchIssueAction, unwatchIssueAction, saveIssueSpecAction, cascadeStatusToChildrenAction } from "./actions";
 import { IssueSpecPanel } from "./IssueSpec";
 import { IssueSignoffsPanel, type IssueSignoff } from "./IssueSignoffs";
 import IssueAttachments from "./IssueAttachments";
@@ -129,6 +129,7 @@ export default function IssueDetail({
   userRole,
   watchers: initialWatchers,
   currentUserId,
+  parentIssue,
   subIssues = [],
   links = [],
   gitLinks = [],
@@ -154,6 +155,7 @@ export default function IssueDetail({
   userRole: string;
   watchers: string[];
   currentUserId: string;
+  parentIssue?: { id: string; number: number; title: string; projects: { key: string } };
   subIssues?: { id: string; number: number; title: string; status: string; priority: string }[];
   links?: IssueLinkWithKey[];
   gitLinks?: IssueCodeLink[];
@@ -215,6 +217,10 @@ export default function IssueDetail({
   }
 
   const [comments, setComments] = useState<IssueComment[]>(initialComments);
+  type SubIssue = { id: string; number: number; title: string; status: string; priority: string };
+  const [liveSubIssues, setLiveSubIssues] = useState<SubIssue[]>(subIssues);
+  const [cascadePrompt, setCascadePrompt] = useState<{ newStatus: string; count: number } | null>(null);
+  const [cascading, startCascade] = useTransition();
   const [commentBody, setCommentBody] = useState("");
   const [commentType, setCommentType] = useState<"comment" | "decision">("comment");
   const [replyToId, setReplyToId] = useState<string | null>(null);
@@ -317,10 +323,25 @@ export default function IssueDetail({
           customValues,
         });
         setSaved(true);
+        // After saving parent, check if any children are on a different status
+        const laggingChildren = liveSubIssues.filter((c) => c.status !== newStatus);
+        if (laggingChildren.length > 0) {
+          setCascadePrompt({ newStatus, count: laggingChildren.length });
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to update status");
         setStatus(status);
       }
+    });
+  }
+
+  function confirmCascade() {
+    if (!cascadePrompt) return;
+    const { newStatus } = cascadePrompt;
+    setCascadePrompt(null);
+    startCascade(async () => {
+      await cascadeStatusToChildrenAction(slug, issue.id, newStatus);
+      setLiveSubIssues((prev) => prev.map((c) => ({ ...c, status: newStatus })));
     });
   }
 
@@ -414,7 +435,7 @@ export default function IssueDetail({
   const boardHref = `/${slug}/board?project=${projectKey}`;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
+    <div className="overflow-clip rounded-xl border border-neutral-200 bg-white">
       {/* ── Header: breadcrumb ── */}
       <div className="flex items-center gap-2 border-b border-neutral-200 bg-neutral-50 px-5 py-3 text-sm">
         <Link href={boardHref} className="text-neutral-400 hover:text-neutral-700" aria-label="Back to board">
@@ -424,6 +445,18 @@ export default function IssueDetail({
         <span className="text-neutral-300">/</span>
         <Link href={boardHref} className="text-neutral-600 hover:text-neutral-900">Issues</Link>
         <span className="text-neutral-300">/</span>
+        {parentIssue && (
+          <>
+            <Link
+              href={`/${slug}/issues/${parentIssue.id}`}
+              className="max-w-[200px] truncate text-neutral-600 hover:text-neutral-900"
+              title={`${parentIssue.projects.key}-${parentIssue.number}: ${parentIssue.title}`}
+            >
+              {parentIssue.projects.key}-{parentIssue.number}: {parentIssue.title}
+            </Link>
+            <span className="text-neutral-300">/</span>
+          </>
+        )}
         <span className="font-semibold text-neutral-900">{issueKey}</span>
         <div className="ml-auto flex items-center gap-3">
           {readOnly && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs text-amber-700">read-only</span>}
@@ -438,6 +471,29 @@ export default function IssueDetail({
           {overdue && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               Unassigned for over {thresholdLabel} — assign an owner.
+            </div>
+          )}
+
+          {cascadePrompt && (
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800 flex items-center justify-between gap-4">
+              <span>
+                This issue has <strong>{cascadePrompt.count} sub-issue{cascadePrompt.count !== 1 ? "s" : ""}</strong> not yet in <strong>{cascadePrompt.newStatus.replace("_", " ")}</strong>. Move them too?
+              </span>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={confirmCascade}
+                  disabled={cascading}
+                  className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {cascading ? "Moving…" : "Yes, move all"}
+                </button>
+                <button
+                  onClick={() => setCascadePrompt(null)}
+                  className="rounded-md border border-blue-200 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                >
+                  No thanks
+                </button>
+              </div>
             </div>
           )}
 
@@ -771,6 +827,7 @@ export default function IssueDetail({
                 suggestion={issue.triage_suggestion}
                 readOnly={readOnly}
                 inline
+                onCommentAdded={(c) => setComments((prev) => [...prev, c])}
               />
               <DecomposeButton
                 slug={slug}
@@ -783,6 +840,8 @@ export default function IssueDetail({
                 issueId={issue.id}
                 readOnly={readOnly}
                 userRole={userRole}
+                onSubIssuesCreated={(items) => setLiveSubIssues((prev) => [...prev, ...items])}
+                onCommentAdded={(c) => setComments((prev) => [...prev, c])}
               />
               {/* Persistent PR Impact badge */}
               {issue.latest_pr_impact && (() => {
@@ -948,7 +1007,7 @@ export default function IssueDetail({
                 Story Points
                 <InfoTooltip text="An estimate of effort using the Fibonacci scale. 1 = trivial (under an hour). 3 = small (a day). 5 = medium (2–3 days). 8 = large (a week). 13+ = break it down first." />
               </p>
-              <div className="flex items-center gap-1.5 flex-wrap">
+              <div className="flex items-center gap-1.5">
                 {[1, 2, 3, 5, 8, 13, 21].map((pt) => (
                   <button
                     key={pt}
@@ -981,12 +1040,32 @@ export default function IssueDetail({
           {/* ── 🔗 Relationships ── */}
           <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 space-y-3">
             <SideGroupLabel color="text-purple-600">🔗 Relationships</SideGroupLabel>
+
+            {/* Parent issue */}
+            {parentIssue && (
+              <div className="rounded-xl border border-neutral-200 bg-white p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 mb-2">Parent issue</p>
+                <Link
+                  href={`/${slug}/issues/${parentIssue.id}`}
+                  className="flex items-center gap-2 group"
+                >
+                  <span className="h-2 w-2 shrink-0 rounded-full bg-neutral-300" />
+                  <span className="font-mono text-[11px] text-neutral-400 shrink-0">
+                    {parentIssue.projects.key}-{parentIssue.number}
+                  </span>
+                  <span className="text-xs text-neutral-700 group-hover:text-neutral-900 truncate">
+                    {parentIssue.title}
+                  </span>
+                </Link>
+              </div>
+            )}
+
             <SubIssuesCard
               slug={slug}
               parentIssueId={issue.id}
               projectId={issue.project_id}
               projectKey={projectKey}
-              subIssues={subIssues}
+              subIssues={liveSubIssues}
               readOnly={readOnly}
               tooltip="Child tasks that must all be completed as part of resolving this issue. Useful for breaking a large issue into trackable steps."
             />

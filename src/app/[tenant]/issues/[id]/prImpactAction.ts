@@ -219,11 +219,13 @@ export async function reviewRiskGateAction(
   revalidatePath(`/${slug}/morning`);
 }
 
+export type CreatedSubIssue = { id: string; number: number; title: string; status: string; priority: string };
+
 export async function createActionItemsFromPredictionAction(
   slug: string,
   issueId: string,
   suggestions: string[],
-): Promise<void> {
+): Promise<{ subIssues: CreatedSubIssue[]; comment: import("@/lib/repositories/issueActivity").IssueComment }> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Unauthorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot create issues.");
@@ -240,6 +242,14 @@ export async function createActionItemsFromPredictionAction(
 
   if (!issue) throw new Error("Issue not found.");
 
+  const { data: parentFull } = await supabase
+    .from("issues")
+    .select("status")
+    .eq("id", issueId)
+    .eq("tenant_id", ctx.tenant.id)
+    .single();
+  const inheritedStatus = parentFull?.status ?? "todo";
+
   // Get max issue number for this project
   const { data: maxRow } = await svc
     .from("issues")
@@ -252,20 +262,23 @@ export async function createActionItemsFromPredictionAction(
 
   let nextNumber = ((maxRow?.number as number) ?? 0) + 1;
 
+  const created: CreatedSubIssue[] = [];
   for (const suggestion of suggestions) {
-    await svc.from("issues").insert({
+    const { data: row } = await svc.from("issues").insert({
       tenant_id: ctx.tenant.id,
       project_id: issue.project_id,
-      number: nextNumber++,
+      number: nextNumber,
       title: suggestion,
       type: "task",
       priority: "medium",
-      status: "todo",
-      parent_issue_id: issueId,
-    });
+      status: inheritedStatus,
+      parent_id: issueId,
+    }).select("id, number, title, status, priority").single();
+    if (row) created.push(row as CreatedSubIssue);
+    nextNumber++;
   }
 
-  await issueActivityRepo(svc).addComment({
+  const comment = await issueActivityRepo(svc).addComment({
     tenantId: ctx.tenant.id,
     issueId,
     authorId: null,
@@ -275,4 +288,5 @@ export async function createActionItemsFromPredictionAction(
 
   revalidatePath(`/${slug}/issues/${issueId}`);
   revalidatePath(`/${slug}/board`);
+  return { subIssues: created, comment };
 }

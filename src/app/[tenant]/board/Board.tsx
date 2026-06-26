@@ -8,7 +8,8 @@ import { type Issue } from "@/lib/repositories/issues";
 import { type Sprint } from "@/lib/repositories/sprints";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { isUnassignedOverdue } from "@/lib/sla";
-import { createIssueAction, moveIssueAction, draftIssueFromDescriptionAction } from "./actions";
+import { createIssueAction, moveIssueAction, loadMoreForStatusAction, draftIssueFromDescriptionAction } from "./actions";
+import { cascadeStatusToChildrenAction } from "../issues/[id]/actions";
 import IssueCard from "./IssueCard";
 
 type Project = { id: string; key: string; name: string };
@@ -68,6 +69,12 @@ export default function Board({
   const [dragId, setDragId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [, startTransition] = useTransition();
+  const [cascadePending, setCascadePending] = useState<{ issueId: string; newStatus: string; count: number } | null>(null);
+  const [cascading, startCascade] = useTransition();
+  // per-status: how many issues are loaded and whether more exist
+  const [colOffsets, setColOffsets] = useState<Map<string, number>>(new Map());
+  const [colHasMore, setColHasMore] = useState<Map<string, boolean>>(new Map());
+  const [loadingMore, setLoadingMore] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [filterPriorities, setFilterPriorities] = useState<Set<string>>(new Set());
   const [filterAssignee, setFilterAssignee] = useState("");
@@ -170,11 +177,44 @@ export default function Board({
     upsert({ ...current, status }); // optimistic
     startTransition(async () => {
       try {
-        await moveIssueAction(slug, id, status);
+        const { pendingChildCount } = await moveIssueAction(slug, id, status);
+        if (pendingChildCount > 0) {
+          setCascadePending({ issueId: id, newStatus: status, count: pendingChildCount });
+        }
       } catch {
         upsert(current); // revert on failure
       }
     });
+  }
+
+  function confirmCascade(yes: boolean) {
+    if (!cascadePending) return;
+    const { issueId, newStatus, count } = cascadePending;
+    setCascadePending(null);
+    if (!yes || count === 0) return;
+    startCascade(async () => {
+      await cascadeStatusToChildrenAction(slug, issueId, newStatus);
+    });
+  }
+
+  async function loadMore(status: string) {
+    const offset = colOffsets.get(status) ?? issues.filter((i) => i.status === status).length;
+    setLoadingMore((prev) => new Set(prev).add(status));
+    try {
+      const { issues: more, hasMore } = await loadMoreForStatusAction(slug, currentProject.id, status, offset);
+      if (more.length > 0) {
+        setIssues((prev) => {
+          const existingIds = new Set(prev.map((i) => i.id));
+          return [...prev, ...more.filter((i) => !existingIds.has(i.id))];
+        });
+        setColOffsets((prev) => new Map(prev).set(status, offset + more.length));
+        setColHasMore((prev) => new Map(prev).set(status, hasMore));
+      } else {
+        setColHasMore((prev) => new Map(prev).set(status, false));
+      }
+    } finally {
+      setLoadingMore((prev) => { const next = new Set(prev); next.delete(status); return next; });
+    }
   }
 
   // Velocity: count of done issues in the currently selected sprint
@@ -293,7 +333,30 @@ export default function Board({
 
       {total > issueLimit && (
         <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-          Showing {issueLimit} of {total} issues — use search or filters to narrow results.
+          Showing {issueLimit} of {total} issues — use the &ldquo;Load more&rdquo; button in each column to see the rest.
+        </div>
+      )}
+
+      {cascadePending && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span>
+            This issue has <strong>{cascadePending.count}</strong> sub-issue{cascadePending.count !== 1 ? "s" : ""} not yet in <strong>{cascadePending.newStatus}</strong>. Move them too?
+          </span>
+          <div className="ml-4 flex shrink-0 gap-2">
+            <button
+              onClick={() => confirmCascade(true)}
+              disabled={cascading}
+              className="rounded-md bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+            >
+              {cascading ? "Moving…" : "Yes, move all"}
+            </button>
+            <button
+              onClick={() => confirmCascade(false)}
+              className="rounded-md border border-amber-300 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100"
+            >
+              No thanks
+            </button>
+          </div>
         </div>
       )}
 
@@ -427,6 +490,8 @@ export default function Board({
           const colIssues = filtered
             .filter((i) => i.status === status.key)
             .sort((a, b) => a.position - b.position);
+          const isFiltered = !!(search.trim() || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory);
+          const showLoadMore = !isFiltered && (colHasMore.get(status.key) ?? (total > issueLimit && colIssues.length >= Math.floor(issueLimit / orderedStatuses.length)));
           return (
             <div
               key={status.key}
@@ -442,6 +507,15 @@ export default function Board({
                 <span className="text-xs text-neutral-400">{colIssues.length}</span>
               </div>
               <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee />
+              {showLoadMore && (
+                <button
+                  onClick={() => loadMore(status.key)}
+                  disabled={loadingMore.has(status.key)}
+                  className="mt-2 w-full rounded-lg border border-dashed border-neutral-300 py-1.5 text-xs text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 disabled:opacity-50 transition-colors"
+                >
+                  {loadingMore.has(status.key) ? "Loading…" : "Load more"}
+                </button>
+              )}
             </div>
           );
         }) : groupBy === "assignee" ? (() => {

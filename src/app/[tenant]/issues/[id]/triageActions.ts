@@ -7,7 +7,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { triageIssue, clearTriage } from "@/lib/services/triage";
 import { issuesRepo } from "@/lib/repositories/issues";
 import { fieldConfigRepo } from "@/lib/repositories/fieldConfig";
-import { issueActivityRepo } from "@/lib/repositories/issueActivity";
+import { issueActivityRepo, type IssueComment } from "@/lib/repositories/issueActivity";
 
 export async function runTriageAction(slug: string, issueId: string): Promise<void> {
   const ctx = await getTenantContext(slug);
@@ -20,7 +20,7 @@ export async function acceptTriageAction(
   slug: string,
   issueId: string,
   fields: { priority?: string; categoryLabel?: string | null; reasoning?: string },
-): Promise<void> {
+): Promise<IssueComment> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot edit issues.");
@@ -46,7 +46,7 @@ export async function acceptTriageAction(
   if (fields.categoryLabel) parts.push(`Category set to **${fields.categoryLabel}**`);
   if (fields.reasoning) parts.push(`\n_${fields.reasoning}_`);
 
-  await issueActivityRepo(svc).addComment({
+  const comment = await issueActivityRepo(svc).addComment({
     tenantId: ctx.tenant.id,
     issueId,
     authorId: null,
@@ -56,6 +56,7 @@ export async function acceptTriageAction(
 
   revalidatePath(`/${slug}/issues/${issueId}`);
   revalidatePath(`/${slug}/board`);
+  return comment;
 }
 
 export async function dismissTriageAction(slug: string, issueId: string): Promise<void> {

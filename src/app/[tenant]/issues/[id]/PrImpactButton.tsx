@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { predictPrImpactAction, reviewRiskGateAction, createActionItemsFromPredictionAction, type PrImpactPrediction } from "./prImpactAction";
+import { predictPrImpactAction, reviewRiskGateAction, createActionItemsFromPredictionAction, type PrImpactPrediction, type CreatedSubIssue } from "./prImpactAction";
+import type { IssueComment } from "@/lib/repositories/issueActivity";
 import Modal from "@/components/Modal";
 
 interface Props {
@@ -9,6 +10,8 @@ interface Props {
   issueId: string;
   readOnly: boolean;
   userRole: string;
+  onSubIssuesCreated?: (items: CreatedSubIssue[]) => void;
+  onCommentAdded?: (comment: IssueComment) => void;
 }
 
 const RISK_COLOR: Record<string, string> = {
@@ -22,7 +25,7 @@ const RISK_EMOJI: Record<string, string> = {
   low: "🟢", medium: "🟡", high: "🟠", critical: "🔴",
 };
 
-export default function PrImpactButton({ slug, issueId, readOnly, userRole }: Props) {
+export default function PrImpactButton({ slug, issueId, readOnly, userRole, onSubIssuesCreated, onCommentAdded }: Props) {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<PrImpactPrediction | null>(null);
   const [gateId, setGateId] = useState<string | null>(null);
@@ -65,7 +68,9 @@ export default function PrImpactButton({ slug, issueId, readOnly, userRole }: Pr
     if (!result?.suggestions?.length) return;
     startTransition(async () => {
       try {
-        await createActionItemsFromPredictionAction(slug, issueId, result.suggestions);
+        const { subIssues: created, comment } = await createActionItemsFromPredictionAction(slug, issueId, result.suggestions);
+        if (created.length) onSubIssuesCreated?.(created);
+        onCommentAdded?.(comment);
         setActionItemsCreated(true);
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to create action items.");

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import type { TriageSuggestion } from "@/lib/repositories/issues";
+import type { IssueComment } from "@/lib/repositories/issueActivity";
 import { runTriageAction, acceptTriageAction, dismissTriageAction } from "./triageActions";
 import { markDuplicateAction } from "./actions";
 
@@ -11,12 +12,14 @@ export default function TriageCard({
   suggestion,
   readOnly,
   inline = false,
+  onCommentAdded,
 }: {
   slug: string;
   issueId: string;
   suggestion: TriageSuggestion | null | undefined;
   readOnly: boolean;
   inline?: boolean;
+  onCommentAdded?: (comment: IssueComment) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [dismissed, setDismissed] = useState(false);
@@ -36,11 +39,12 @@ export default function TriageCard({
   function accept() {
     if (!suggestion) return;
     startTransition(async () => {
-      await acceptTriageAction(slug, issueId, {
+      const comment = await acceptTriageAction(slug, issueId, {
         priority: suggestion.priority,
         categoryLabel: suggestion.categoryLabel,
         reasoning: suggestion.reasoning,
       });
+      onCommentAdded?.(comment);
     });
   }
 

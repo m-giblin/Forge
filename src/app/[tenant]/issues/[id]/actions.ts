@@ -236,3 +236,20 @@ export async function markDuplicateAction(
   revalidatePath(`/${slug}/issues/${duplicateIssueId}`);
   revalidatePath(`/${slug}/issues/${canonicalIssueId}`);
 }
+
+export async function cascadeStatusToChildrenAction(
+  slug: string,
+  parentIssueId: string,
+  newStatus: string,
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot edit issues.");
+  const svc = createSupabaseServiceClient();
+  await svc.from("issues")
+    .update({ status: newStatus })
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("parent_id", parentIssueId);
+  revalidatePath(`/${slug}/issues/${parentIssueId}`);
+  revalidatePath(`/${slug}/board`);
+}

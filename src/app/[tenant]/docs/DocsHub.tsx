@@ -39,10 +39,16 @@ export function DocsHub({ role, tenantName, slug: _slug }: Props) {
     [activeKey]
   );
 
+  const roleKey = role === 'owner' || role === 'admin' ? role : role === 'member' ? 'member' : 'viewer';
+  const visibleSections = useMemo(
+    () => activeGuide.sections.filter((s) => s.roles.includes(roleKey as 'owner' | 'admin' | 'member' | 'viewer')),
+    [activeGuide, roleKey]
+  );
+
   const filteredSections = useMemo((): DocSectionType[] => {
-    if (!search.trim()) return activeGuide.sections;
+    if (!search.trim()) return visibleSections;
     const q = search.toLowerCase();
-    return activeGuide.sections
+    return visibleSections
       .map((section) => {
         const matchSection =
           section.title.toLowerCase().includes(q) ||

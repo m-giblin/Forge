@@ -15,7 +15,8 @@ import { notifyChat } from "@/lib/services/chatNotifications";
 
 export type Project = { id: string; key: string; name: string };
 
-export const BOARD_LIMIT = 150;
+export const BOARD_LIMIT = 200;
+export const COLUMN_PAGE_SIZE = 50;
 
 export type BoardData = {
   issues: Issue[];

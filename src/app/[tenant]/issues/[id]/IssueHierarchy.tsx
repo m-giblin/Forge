@@ -347,17 +347,10 @@ export function SubIssuesCard({
     <div className="rounded-xl border border-neutral-200 bg-white p-4">
       <div className="flex items-center justify-between mb-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 flex items-center gap-1.5">
-          Sub-issues{subIssues.length > 0 && <span className="font-normal">({done}/{subIssues.length} done)</span>}
+          Sub-issues
+          {subIssues.length > 0 && <span className="font-normal text-neutral-400">({done}/{subIssues.length} done)</span>}
           {tooltip && <InfoTip text={tooltip} />}
         </p>
-        {!readOnly && !mode && (
-          <div className="flex items-center gap-2">
-            <button onClick={() => setMode("existing")}
-              className="text-xs text-neutral-400 hover:text-neutral-700">Link existing</button>
-            <button onClick={() => setMode("new")}
-              className="text-xs text-neutral-400 hover:text-neutral-700">+ New</button>
-          </div>
-        )}
         {mode && (
           <button onClick={() => { setMode(null); setTitle(""); setError(null); }}
             className="text-xs text-neutral-400 hover:text-neutral-700">Cancel</button>
@@ -403,6 +396,16 @@ export function SubIssuesCard({
 
       {subIssues.length === 0 && !mode && (
         <p className="text-xs text-neutral-400">No sub-issues yet.</p>
+      )}
+
+      {/* Action buttons footer */}
+      {!readOnly && !mode && (
+        <div className="flex items-center gap-3 mt-2 pt-2 border-t border-neutral-100">
+          <button onClick={() => setMode("existing")}
+            className="text-xs text-neutral-400 hover:text-neutral-700">Link existing</button>
+          <button onClick={() => setMode("new")}
+            className="text-xs font-medium text-white bg-neutral-900 border border-neutral-900 rounded-md px-2.5 py-1 hover:bg-neutral-700 transition-colors">+ New</button>
+        </div>
       )}
 
       {/* Add: new issue */}
