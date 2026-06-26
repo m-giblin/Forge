@@ -37,6 +37,7 @@ export default function TriageCard({
       await acceptTriageAction(slug, issueId, {
         priority: suggestion.priority,
         categoryLabel: suggestion.categoryLabel,
+        reasoning: suggestion.reasoning,
       });
       // No setDismissed — let revalidatePath re-render the page so priority/category
       // fields update visibly and the card disappears naturally from server state.
