@@ -99,10 +99,13 @@ export default function DecomposeButton({ slug, issueId, projectId, readOnly }: 
     <>
       <button
         onClick={handleOpen}
-        className="flex w-full items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:border-indigo-300 hover:text-indigo-700 transition-colors"
+        className="w-full flex items-center gap-3 rounded-lg border border-violet-200 bg-white px-3 py-2.5 text-left hover:border-violet-400 hover:bg-violet-50 transition"
       >
-        <span>🤖</span>
-        AI Decompose
+        <span className="text-lg">🔨</span>
+        <div>
+          <p className="text-sm font-medium text-neutral-800">Decompose Issue</p>
+          <p className="text-xs text-neutral-400">Break into actionable sub-issues</p>
+        </div>
       </button>
 
       {open && (

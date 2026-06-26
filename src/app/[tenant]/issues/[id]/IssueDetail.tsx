@@ -742,6 +742,32 @@ export default function IssueDetail({
 
         {/* ── RIGHT: sidebar — sticky so it stays in view as left scrolls ── */}
         <aside className="bg-neutral-50 p-5 space-y-4 md:border-l md:border-neutral-200 md:sticky md:top-0 md:max-h-screen md:overflow-y-auto">
+
+          {/* ── AI Actions ── */}
+          {!readOnly && (
+            <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-violet-500 mb-3">✨ AI Actions</p>
+              <TriageCard
+                slug={slug}
+                issueId={issue.id}
+                suggestion={issue.triage_suggestion}
+                readOnly={readOnly}
+                inline
+              />
+              <DecomposeButton
+                slug={slug}
+                issueId={issue.id}
+                projectId={issue.project_id}
+                readOnly={readOnly}
+              />
+              <PrImpactButton
+                slug={slug}
+                issueId={issue.id}
+                readOnly={readOnly}
+              />
+            </div>
+          )}
+
           <div className={sideSection}>
             <p className={sideLabel}>Assignee</p>
             <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); saveField({ assigneeId: e.target.value || null }); }} className={sidebarSelect}>
@@ -886,20 +912,6 @@ export default function IssueDetail({
 
           {slaTimer && <SlaChip timer={slaTimer} />}
 
-          <TriageCard
-            slug={slug}
-            issueId={issue.id}
-            suggestion={issue.triage_suggestion}
-            readOnly={readOnly}
-          />
-
-          <DecomposeButton
-            slug={slug}
-            issueId={issue.id}
-            projectId={issue.project_id}
-            readOnly={readOnly}
-          />
-
           <SubIssuesCard
             slug={slug}
             parentIssueId={issue.id}
@@ -931,12 +943,6 @@ export default function IssueDetail({
           />
 
           <GitLinksCard links={gitLinks} />
-
-          <PrImpactButton
-            slug={slug}
-            issueId={issue.id}
-            readOnly={readOnly}
-          />
 
           <div className={`${sideSection} space-y-3`}>
             <div>

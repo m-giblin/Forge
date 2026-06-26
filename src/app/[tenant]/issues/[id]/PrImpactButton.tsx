@@ -46,10 +46,13 @@ export default function PrImpactButton({ slug, issueId, readOnly }: Props) {
     <>
       <button
         onClick={handlePredict}
-        className="flex w-full items-center gap-2 rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-medium text-neutral-700 hover:border-indigo-300 hover:text-indigo-700 transition-colors"
+        className="w-full flex items-center gap-3 rounded-lg border border-violet-200 bg-white px-3 py-2.5 text-left hover:border-violet-400 hover:bg-violet-50 transition"
       >
-        <span>🔮</span>
-        PR Impact Prediction
+        <span className="text-lg">🔮</span>
+        <div>
+          <p className="text-sm font-medium text-neutral-800">PR Impact Prediction</p>
+          <p className="text-xs text-neutral-400">AI risk assessment before merge</p>
+        </div>
       </button>
 
       <Modal open={open} onClose={() => setOpen(false)} label="PR Impact Prediction" className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden">
