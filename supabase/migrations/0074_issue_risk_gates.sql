@@ -28,7 +28,7 @@ ALTER TABLE issue_risk_gates ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "risk_gates_tenant_read" ON issue_risk_gates
   FOR SELECT USING (
     tenant_id IN (
-      SELECT tenant_id FROM tenant_members WHERE user_id = auth.uid()
+      SELECT tenant_id FROM public.memberships WHERE user_id = auth.uid()
     )
   );
 
