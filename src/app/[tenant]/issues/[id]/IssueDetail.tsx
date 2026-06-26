@@ -161,6 +161,21 @@ export default function IssueDetail({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
+  // Auto-save a single sidebar field immediately on change
+  function saveField(patch: Parameters<typeof updateIssueAction>[2]) {
+    if (readOnly) return;
+    setError(null);
+    setSaved(false);
+    startTransition(async () => {
+      try {
+        await updateIssueAction(slug, issue.id, patch);
+        setSaved(true);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to save");
+      }
+    });
+  }
+
   const [watchers, setWatchers] = useState<string[]>(initialWatchers);
   const [watchPending, startWatchTransition] = useTransition();
   const isWatching = watchers.includes(currentUserId);
@@ -433,7 +448,8 @@ export default function IssueDetail({
             <input
               value={title}
               disabled={readOnly}
-              onChange={(e) => { setTitle(e.target.value); setSaved(false); }}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={(e) => { if (e.target.value.trim()) saveField({ title: e.target.value.trim() }); }}
               className="w-full text-2xl font-semibold text-neutral-900 outline-none border-0 p-0 disabled:bg-white"
             />
           </div>
@@ -533,7 +549,8 @@ export default function IssueDetail({
             <textarea
               value={description}
               disabled={readOnly}
-              onChange={(e) => { setDescription(e.target.value); setSaved(false); }}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={(e) => saveField({ description: e.target.value || null })}
               rows={7}
               placeholder="Add a detailed description…"
               className="w-full rounded-lg border border-neutral-200 bg-white px-4 py-3 text-sm text-neutral-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100 disabled:bg-neutral-50"
@@ -544,13 +561,9 @@ export default function IssueDetail({
 
           {!readOnly && (
             <div className="flex items-center justify-between">
-              <button
-                onClick={save}
-                disabled={pending || !dirty || !title.trim()}
-                className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:bg-neutral-300 disabled:cursor-not-allowed transition"
-              >
-                {pending ? "Saving…" : "Save changes"}
-              </button>
+              <span className="text-xs text-neutral-400">
+                {pending ? "Saving…" : saved ? "Saved ✓" : ""}
+              </span>
               {canDelete && (
                 <button onClick={remove} disabled={pending} className="text-sm font-medium text-red-600 hover:text-red-700 disabled:opacity-40">
                   Delete issue
@@ -716,7 +729,7 @@ export default function IssueDetail({
         <aside className="bg-neutral-50 p-5 space-y-4 md:border-l md:border-neutral-200 md:sticky md:top-0 md:max-h-screen md:overflow-y-auto">
           <div className={sideSection}>
             <p className={sideLabel}>Assignee</p>
-            <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); setSaved(false); }} className={sidebarSelect}>
+            <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); saveField({ assigneeId: e.target.value || null }); }} className={sidebarSelect}>
               <option value="">Unassigned</option>
               {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
             </select>
@@ -756,31 +769,31 @@ export default function IssueDetail({
 
           <div className={sideSection}>
             <p className={sideLabel}>Priority</p>
-            <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); setSaved(false); }} className={sidebarSelect}>
+            <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); saveField({ priority: e.target.value }); }} className={sidebarSelect}>
               {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
           </div>
 
           <div className={sideSection}>
             <p className={sideLabel}>Type</p>
-            <select value={type} disabled={readOnly} onChange={(e) => { setType(e.target.value); setSaved(false); }} className={sidebarSelect}>
+            <select value={type} disabled={readOnly} onChange={(e) => { setType(e.target.value); saveField({ type: e.target.value }); }} className={sidebarSelect}>
               {types.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
           </div>
 
           <div className={sideSection}>
             <p className={sideLabel}>Start date</p>
-            <input type="date" value={startDate} disabled={readOnly} onChange={(e) => { setStartDate(e.target.value); setSaved(false); }} className={sidebarSelect} />
+            <input type="date" value={startDate} disabled={readOnly} onChange={(e) => { setStartDate(e.target.value); saveField({ startDate: e.target.value || null }); }} className={sidebarSelect} />
           </div>
 
           <div className={sideSection}>
             <p className={sideLabel}>Due date</p>
-            <input type="date" value={dueDate} disabled={readOnly} onChange={(e) => { setDueDate(e.target.value); setSaved(false); }} className={sidebarSelect} />
+            <input type="date" value={dueDate} disabled={readOnly} onChange={(e) => { setDueDate(e.target.value); saveField({ dueDate: e.target.value || null }); }} className={sidebarSelect} />
           </div>
 
           <div className={sideSection}>
             <p className={sideLabel} title="Phase = development stage (where in the build lifecycle). Distinct from Status, which tracks queue state (backlog → in progress → done).">Phase <span className="text-neutral-400 font-normal text-[10px]">(stage)</span></p>
-            <select value={phase} disabled={readOnly} onChange={(e) => { setPhase(e.target.value); setSaved(false); }} className={sidebarSelect}>
+            <select value={phase} disabled={readOnly} onChange={(e) => { setPhase(e.target.value); saveField({ phase: e.target.value || null }); }} className={sidebarSelect}>
               <option value="">— None —</option>
               <option value="discovery">Discovery</option>
               <option value="design">Design</option>
@@ -797,7 +810,7 @@ export default function IssueDetail({
                 <button
                   key={pt}
                   disabled={readOnly}
-                  onClick={() => { setStoryPoints(storyPoints === String(pt) ? "" : String(pt)); setSaved(false); }}
+                  onClick={() => { const v = storyPoints === String(pt) ? "" : String(pt); setStoryPoints(v); saveField({ storyPoints: v ? Number(v) : null }); }}
                   className={`h-7 w-7 rounded-md text-xs font-semibold border transition-colors ${
                     storyPoints === String(pt)
                       ? "bg-indigo-600 border-indigo-600 text-white"
@@ -812,7 +825,8 @@ export default function IssueDetail({
                 min="1"
                 value={storyPoints}
                 disabled={readOnly}
-                onChange={(e) => { setStoryPoints(e.target.value); setSaved(false); }}
+                onBlur={(e) => saveField({ storyPoints: e.target.value ? Number(e.target.value) : null })}
+              onChange={(e) => setStoryPoints(e.target.value)}
                 placeholder="?"
                 className="w-10 rounded-md border border-neutral-200 px-1.5 py-1 text-xs text-center outline-none focus:border-indigo-400 disabled:opacity-40"
               />
@@ -822,7 +836,7 @@ export default function IssueDetail({
           {catOptions.length > 0 && (
             <div className={sideSection}>
               <p className={sideLabel}>Category</p>
-              <select value={categoryId} disabled={readOnly} onChange={(e) => { setCategoryId(e.target.value); setSaved(false); }} className={sidebarSelect}>
+              <select value={categoryId} disabled={readOnly} onChange={(e) => { setCategoryId(e.target.value); saveField({ categoryId: e.target.value || null }); }} className={sidebarSelect}>
                 <option value="">None</option>
                 {catOptions.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
               </select>
@@ -836,7 +850,7 @@ export default function IssueDetail({
                 <select
                   value={customValues[f.key] ?? ""}
                   disabled={readOnly}
-                  onChange={(e) => { setCustomValues((v) => ({ ...v, [f.key]: e.target.value })); setSaved(false); }}
+                  onChange={(e) => { const v = e.target.value; setCustomValues((cv) => ({ ...cv, [f.key]: v })); saveField({ customValues: { ...customValues, [f.key]: v } }); }}
                   className={sidebarSelect}
                 >
                   <option value="">—</option>
@@ -847,7 +861,8 @@ export default function IssueDetail({
                   type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
                   value={customValues[f.key] ?? ""}
                   disabled={readOnly}
-                  onChange={(e) => { setCustomValues((v) => ({ ...v, [f.key]: e.target.value })); setSaved(false); }}
+                  onChange={(e) => setCustomValues((cv) => ({ ...cv, [f.key]: e.target.value }))}
+                  onBlur={(e) => saveField({ customValues: { ...customValues, [f.key]: e.target.value } })}
                   className={sidebarSelect}
                 />
               )}
