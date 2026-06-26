@@ -54,9 +54,13 @@ export default function TriageCard({
     return (
       <div className="rounded-xl border border-neutral-200 bg-white p-4">
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 mb-2">AI Triage</p>
-        <div className="w-full rounded-lg border border-dashed border-violet-200 bg-violet-50 py-2 text-xs text-violet-400 text-center">
+        <button
+          onClick={runTriage}
+          disabled={pending}
+          className="w-full rounded-lg border border-dashed border-violet-200 bg-violet-50 py-2 text-xs text-violet-400 hover:bg-violet-100 transition disabled:opacity-50"
+        >
           {pending ? "Analyzing…" : "✨ Analyzing issue…"}
-        </div>
+        </button>
       </div>
     );
   }
