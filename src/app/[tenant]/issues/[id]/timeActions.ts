@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- service-role: time log writes bypass RLS (sec09)
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export type TimeLog = {
   id: string;
@@ -40,7 +42,7 @@ export async function logTimeAction(
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot log time.");
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
   const { error } = await supabase.from("issue_time_logs").insert({
     tenant_id: ctx.tenant.id,
     issue_id: issueId,
@@ -55,7 +57,7 @@ export async function logTimeAction(
 export async function deleteTimeLogAction(slug: string, logId: string, issueId: string): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  const supabase = await createSupabaseServerClient();
+  const supabase = createSupabaseServiceClient();
   const { error } = await supabase
     .from("issue_time_logs")
     .delete()
