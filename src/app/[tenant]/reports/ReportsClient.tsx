@@ -35,9 +35,9 @@ function HBar({ label, value, max, color }: { label: string; value: number; max:
   );
 }
 
-function TrendChart({ data }: { data: { label: string; opened: number; closed: number }[] }) {
+function TrendChart({ data, compact }: { data: { label: string; opened: number; closed: number }[]; compact?: boolean }) {
   if (data.length === 0) return <p className="text-xs text-neutral-400 text-center py-8">No data in range</p>;
-  const w = 500, h = 140, pad = 32;
+  const w = 500, h = compact ? 70 : 140, pad = compact ? 16 : 32;
   const maxVal = Math.max(1, ...data.map((d) => Math.max(d.opened, d.closed)));
   const xStep = (w - pad * 2) / Math.max(1, data.length - 1);
   const y = (v: number) => h - pad - (v / maxVal) * (h - pad * 2);
@@ -45,7 +45,7 @@ function TrendChart({ data }: { data: { label: string; opened: number; closed: n
   const closedPath = data.map((d, i) => `${i === 0 ? "M" : "L"} ${pad + i * xStep} ${y(d.closed)}`).join(" ");
   return (
     <div>
-      <svg viewBox={`0 0 ${w} ${h + 24}`} className="w-full">
+      <svg viewBox={`0 0 ${w} ${h + (compact ? 0 : 24)}`} className="w-full">
         {[0, maxVal].map((v) => (
           <line key={v} x1={pad} y1={y(v)} x2={w - pad} y2={y(v)} stroke="#f1f5f9" strokeWidth="1" />
         ))}
@@ -53,9 +53,9 @@ function TrendChart({ data }: { data: { label: string; opened: number; closed: n
         <path d={closedPath} fill="none" stroke="#22c55e" strokeWidth="2" strokeDasharray="4 2" />
         {data.map((d, i) => (
           <g key={i}>
-            <circle cx={pad + i * xStep} cy={y(d.opened)} r="3" fill="#6366f1" />
-            <circle cx={pad + i * xStep} cy={y(d.closed)} r="3" fill="#22c55e" />
-            {data.length <= 12 && (
+            <circle cx={pad + i * xStep} cy={y(d.opened)} r={compact ? 2 : 3} fill="#6366f1" />
+            <circle cx={pad + i * xStep} cy={y(d.closed)} r={compact ? 2 : 3} fill="#22c55e" />
+            {!compact && data.length <= 12 && (
               <text x={pad + i * xStep} y={h + 14} textAnchor="middle" fontSize="9" fill="#94a3b8">
                 {d.label}
               </text>
@@ -129,6 +129,7 @@ export default function ReportsClient({
   const [localTo, setLocalTo]     = useState(to);
   const [localProject, setLocalProject] = useState(projectId);
   const [drillWidget, setDrillWidget]   = useState<string | null>(null);
+  const [chartModal, setChartModal]     = useState<"trend" | "throughput" | null>(null);
   const [savedReports, setSavedReports] = useState<SavedReport[]>([]);
   const [saveNameInput, setSaveNameInput] = useState("");
   const [showSaveForm, setShowSaveForm] = useState(false);
@@ -284,48 +285,99 @@ export default function ReportsClient({
         ))}
       </div>
 
-      {/* Trend chart (full width) */}
-      <div className="bg-white rounded-xl border border-neutral-200 p-5">
-        <h2 className="text-sm font-semibold text-neutral-800 mb-4">Issues opened vs closed (weekly)</h2>
-        <TrendChart data={data.weeklyTrend} />
-      </div>
-
-      {/* ── Velocity (throughput) bar chart ── */}
-      {data.weeklyTrend.length > 0 && (
-        <div className="bg-white rounded-xl border border-neutral-200 p-5">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-semibold text-neutral-800">Throughput — issues closed per week</h2>
-              <p className="text-xs text-neutral-400 mt-0.5">Higher is faster. Target: consistent bar heights with no sudden drops.</p>
-            </div>
-            <span className="text-xs text-neutral-400 bg-neutral-100 rounded-full px-2 py-0.5">
-              avg {data.weeklyTrend.length > 0 ? Math.round(data.weeklyTrend.reduce((s, w) => s + w.closed, 0) / data.weeklyTrend.length * 10) / 10 : 0}/wk
-            </span>
+      {/* ── Compact chart row (click to expand) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {/* Trend chart */}
+        <button
+          onClick={() => setChartModal("trend")}
+          className="bg-white rounded-xl border border-neutral-200 p-4 text-left hover:border-indigo-300 hover:shadow-md transition cursor-pointer group"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-neutral-800">Opened vs Closed (weekly)</h2>
+            <span className="text-[10px] text-neutral-400 group-hover:text-indigo-500 transition">click to expand ↗</span>
           </div>
-          {(() => {
-            const maxClosed = Math.max(1, ...data.weeklyTrend.map((w) => w.closed));
-            return (
-              <div className="flex items-end gap-1.5 h-28">
-                {data.weeklyTrend.map((w, i) => {
-                  const pct = (w.closed / maxClosed) * 100;
-                  return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
-                      <span className="text-[9px] text-neutral-500 font-medium">{w.closed > 0 ? w.closed : ""}</span>
+          <TrendChart data={data.weeklyTrend} compact />
+        </button>
+
+        {/* Throughput chart */}
+        {data.weeklyTrend.length > 0 && (
+          <button
+            onClick={() => setChartModal("throughput")}
+            className="bg-white rounded-xl border border-neutral-200 p-4 text-left hover:border-indigo-300 hover:shadow-md transition cursor-pointer group"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-sm font-semibold text-neutral-800">Throughput (closed/week)</h2>
+              <span className="text-[10px] text-neutral-400 group-hover:text-indigo-500 transition">
+                avg {Math.round(data.weeklyTrend.reduce((s, w) => s + w.closed, 0) / data.weeklyTrend.length * 10) / 10}/wk · click to expand ↗
+              </span>
+            </div>
+            {(() => {
+              const maxClosed = Math.max(1, ...data.weeklyTrend.map((w) => w.closed));
+              return (
+                <div className="flex items-end gap-1 h-16">
+                  {data.weeklyTrend.map((w, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-0.5 min-w-0">
                       <div className="w-full rounded-t-sm transition-all"
                         style={{
-                          height: `${Math.max(4, pct)}%`,
+                          height: `${Math.max(4, (w.closed / maxClosed) * 100)}%`,
                           backgroundColor: w.closed === 0 ? "#f1f5f9" : w.closed >= maxClosed * 0.8 ? "#22c55e" : w.closed >= maxClosed * 0.4 ? "#6366f1" : "#94a3b8",
                         }}
                       />
-                      {data.weeklyTrend.length <= 12 && (
-                        <span className="text-[9px] text-neutral-400 truncate w-full text-center">{w.label}</span>
-                      )}
                     </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
+                  ))}
+                </div>
+              );
+            })()}
+          </button>
+        )}
+      </div>
+
+      {/* ── Chart modal ── */}
+      {chartModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+          onClick={() => setChartModal(null)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-neutral-200 shadow-2xl w-full max-w-3xl p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-base font-semibold text-neutral-900">
+                {chartModal === "trend" ? "Issues Opened vs Closed (weekly)" : "Throughput — Issues Closed per Week"}
+              </h2>
+              <button onClick={() => setChartModal(null)} className="text-neutral-400 hover:text-neutral-700 text-sm px-2 py-1 rounded-lg hover:bg-neutral-100">
+                ✕ Close
+              </button>
+            </div>
+
+            {chartModal === "trend" && <TrendChart data={data.weeklyTrend} />}
+
+            {chartModal === "throughput" && (() => {
+              const maxClosed = Math.max(1, ...data.weeklyTrend.map((w) => w.closed));
+              return (
+                <>
+                  <p className="text-xs text-neutral-400 mb-4">Higher is faster. Target: consistent bar heights with no sudden drops.</p>
+                  <div className="flex items-end gap-1.5 h-40">
+                    {data.weeklyTrend.map((w, i) => (
+                      <div key={i} className="flex-1 flex flex-col items-center gap-1 min-w-0">
+                        <span className="text-[9px] text-neutral-500 font-medium">{w.closed > 0 ? w.closed : ""}</span>
+                        <div className="w-full rounded-t-sm transition-all"
+                          style={{
+                            height: `${Math.max(4, (w.closed / maxClosed) * 100)}%`,
+                            backgroundColor: w.closed === 0 ? "#f1f5f9" : w.closed >= maxClosed * 0.8 ? "#22c55e" : w.closed >= maxClosed * 0.4 ? "#6366f1" : "#94a3b8",
+                          }}
+                        />
+                        {data.weeklyTrend.length <= 16 && (
+                          <span className="text-[9px] text-neutral-400 truncate w-full text-center">{w.label}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
         </div>
       )}
 
