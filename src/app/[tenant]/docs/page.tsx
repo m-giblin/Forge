@@ -10,7 +10,7 @@ export default async function DocsPage({
   const { tenant } = await params;
   const ctx = await getTenantContext(tenant);
   if (!ctx) redirect('/');
-  if (ctx.role !== 'owner' && ctx.role !== 'admin') redirect(`/${tenant}/board`);
+  if (!['owner', 'admin', 'member', 'viewer'].includes(ctx.role)) redirect(`/${tenant}/board`);
 
   return (
     <DocsHub

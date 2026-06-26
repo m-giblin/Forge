@@ -15,7 +15,8 @@ import { notifyChat } from "@/lib/services/chatNotifications";
 
 export type Project = { id: string; key: string; name: string };
 
-export const BOARD_LIMIT = 150;
+export const BOARD_LIMIT = 200;
+export const COLUMN_PAGE_SIZE = 50;
 
 export type BoardData = {
   issues: Issue[];
@@ -172,6 +173,7 @@ export type IssuePatch = {
   startDate?: string | null;
   dueDate?: string | null;
   phase?: string | null;
+  storyPoints?: number | null;
   customValues?: Record<string, unknown>;
 };
 
@@ -212,6 +214,7 @@ export async function updateIssue(
   if (patch.startDate !== undefined) dbPatch.start_date = patch.startDate || null;
   if (patch.dueDate !== undefined) dbPatch.due_date = patch.dueDate || null;
   if (patch.phase !== undefined) dbPatch.phase = patch.phase || null;
+  if (patch.storyPoints !== undefined) dbPatch.story_points = patch.storyPoints ?? null;
   if (patch.customValues !== undefined) dbPatch.custom_values = { ...before.custom_values, ...patch.customValues };
 
   const updated = await repo.update(tenantId, id, dbPatch);
@@ -270,6 +273,15 @@ export async function updateIssue(
     void (async () => {
       try {
         const svc = createSupabaseServiceClient();
+        // Verify assignee is a member of this tenant before reading their profile.
+        const { data: membership } = await svc
+          .from("memberships")
+          .select("user_id")
+          .eq("tenant_id", tenantId)
+          .eq("user_id", patch.assigneeId!)
+          .maybeSingle();
+        if (!membership) return;
+
         const { data: assignee } = await svc
           .from("users")
           .select("email, name")
@@ -280,6 +292,7 @@ export async function updateIssue(
         const { data: project } = await svc
           .from("projects")
           .select("key")
+          .eq("tenant_id", tenantId)
           .eq("id", updated.project_id)
           .maybeSingle();
 

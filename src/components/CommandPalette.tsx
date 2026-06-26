@@ -33,14 +33,22 @@ export default function CommandPalette({ slug }: { slug: string }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
 
-  // Global Cmd-K / Ctrl-K listener
+  function openPalette() {
+    setOpen(true);
+    setTimeout(() => {
+      setQuery("");
+      setSelected(0);
+      inputRef.current?.focus();
+    }, 0);
+  }
+
+  // Global Cmd-K / Ctrl-K listener + custom open event from sidebar button
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
         e.preventDefault();
         setOpen((o) => {
           if (!o) {
-            // Reset state when opening — schedule outside render
             setTimeout(() => {
               setQuery("");
               setSelected(0);
@@ -52,8 +60,14 @@ export default function CommandPalette({ slug }: { slug: string }) {
       }
       if (e.key === "Escape") setOpen(false);
     }
+    function onOpen() { openPalette(); }
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("forge:palette:open", onOpen);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("forge:palette:open", onOpen);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Build results whenever query changes
@@ -208,11 +222,20 @@ export default function CommandPalette({ slug }: { slug: string }) {
         )}
 
         {/* Footer hint */}
-        <div className="flex items-center gap-4 border-t border-neutral-100 px-4 py-2 text-[11px] text-neutral-400">
-          <span><kbd className="font-sans">↑↓</kbd> navigate</span>
-          <span><kbd className="font-sans">↵</kbd> select</span>
-          <span><kbd className="font-sans">esc</kbd> close</span>
-          <span className="ml-auto"><kbd className="font-sans">⌘K</kbd> toggle</span>
+        <div className="border-t border-neutral-100 px-4 pt-2 pb-1">
+          <p className="text-[10px] text-neutral-400 mb-1">
+            Filter: <code className="bg-neutral-100 px-1 rounded">status:todo</code>{" "}
+            <code className="bg-neutral-100 px-1 rounded">priority:high</code>{" "}
+            <code className="bg-neutral-100 px-1 rounded">type:bug</code>{" "}
+            <code className="bg-neutral-100 px-1 rounded">assignee:me</code>{" "}
+            <code className="bg-neutral-100 px-1 rounded">project:WEB</code>
+          </p>
+          <div className="flex items-center gap-4 py-1 text-[11px] text-neutral-400">
+            <span><kbd className="font-sans">↑↓</kbd> navigate</span>
+            <span><kbd className="font-sans">↵</kbd> select</span>
+            <span><kbd className="font-sans">esc</kbd> close</span>
+            <span className="ml-auto"><kbd className="font-sans">⌘K</kbd> toggle</span>
+          </div>
         </div>
       </div>
     </div>

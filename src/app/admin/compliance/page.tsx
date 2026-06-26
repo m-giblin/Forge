@@ -2,6 +2,7 @@ import { requireSuperAdmin } from "@/lib/super-admin";
 import { redirect } from "next/navigation";
 // eslint-disable-next-line no-restricted-imports -- admin/super-admin: service-role required, explicit tenant scoping applied (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import Link from "next/link";
 import ComplianceConsole from "./ComplianceConsole";
 
 type RawRequest = {
@@ -50,11 +51,20 @@ export default async function CompliancePage() {
 
   return (
     <main className="mx-auto max-w-6xl px-6 py-8">
-      <div>
-        <h1 className="text-xl font-semibold text-white">Compliance &amp; Data Governance</h1>
-        <p className="mt-1 text-sm text-neutral-400">
-          Track GDPR, CCPA, and other data subject requests. All actions are logged.
-        </p>
+      <div className="flex items-start justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-white">Compliance &amp; Data Governance</h1>
+          <p className="mt-1 text-sm text-neutral-400">
+            Track GDPR, CCPA, and other data subject requests. All actions are logged.
+          </p>
+        </div>
+        <Link
+          href="/legal/sub-processors"
+          target="_blank"
+          className="shrink-0 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-1.5 text-xs font-medium text-neutral-300 hover:bg-neutral-700 transition-colors"
+        >
+          Sub-processors ↗
+        </Link>
       </div>
       <ComplianceConsole requests={requests} tenants={tenants} />
     </main>

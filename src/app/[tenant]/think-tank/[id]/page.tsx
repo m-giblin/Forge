@@ -42,11 +42,19 @@ export default async function IdeaPage({
   const creatorName = rawIdea.created_by ? (userMap.get(rawIdea.created_by) ?? null) : null;
   const assigneeName = rawIdea.assigned_to ? (userMap.get(rawIdea.assigned_to) ?? null) : null;
 
+  const rawIdeaWithOkr = rawIdea as typeof rawIdea & { linked_okr_id?: string | null };
+  let linkedOkrTitle: string | null = null;
+  if (rawIdeaWithOkr.linked_okr_id) {
+    const { data: okr } = await supabase.from("okrs").select("title").eq("id", rawIdeaWithOkr.linked_okr_id).eq("tenant_id", ctx.tenant.id).maybeSingle();
+    linkedOkrTitle = okr?.title ?? null;
+  }
+
   const idea = {
     ...rawIdea,
     number: (rawIdea as unknown as Record<string, unknown>).number as number | null ?? null,
     creator_name: creatorName,
     assignee_name: assigneeName,
+    linked_okr_title: linkedOkrTitle,
   };
 
   const isCreator = idea.created_by === ctx.appUserId;

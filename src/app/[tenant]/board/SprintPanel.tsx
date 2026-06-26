@@ -22,6 +22,59 @@ function daysLeft(end: string | null) {
   return d;
 }
 
+function BurnDown({ startDate, endDate, total, done }: {
+  startDate: string;
+  endDate: string;
+  total: number;
+  done: number;
+}) {
+  const W = 260, H = 80, pad = 4;
+  const start = new Date(startDate + "T00:00:00").getTime();
+  const end   = new Date(endDate   + "T00:00:00").getTime();
+  const now   = Math.min(Date.now(), end);
+  const span  = Math.max(1, end - start);
+  const remaining = total - done;
+
+  const xOf = (t: number) => pad + ((t - start) / span) * (W - pad * 2);
+  const yOf = (v: number) => pad + ((total - v) / Math.max(1, total)) * (H - pad * 2);
+
+  // Ideal: start→total at day0, 0 at end
+  const ix0 = xOf(start), iy0 = yOf(total);
+  const ix1 = xOf(end),   iy1 = yOf(0);
+
+  // Actual: today's remaining
+  const ax = xOf(now), ay = yOf(remaining);
+
+  // Projection to end
+  const projEndY = yOf(remaining > 0 ? Math.max(0, remaining - (remaining * (end - now) / Math.max(1, end - now))) : 0);
+
+  const onTrack = remaining <= (total * (end - now) / Math.max(1, span));
+
+  return (
+    <div className="shrink-0" title={`Burn-down: ${done}/${total} done · ${remaining} remaining`}>
+      <svg width={W} height={H} className="block">
+        {/* ideal line */}
+        <line x1={ix0} y1={iy0} x2={ix1} y2={iy1} stroke="#e5e7eb" strokeWidth="1.5" strokeDasharray="4 3" />
+        {/* projection from now to end */}
+        <line x1={ax} y1={ay} x2={ix1} y2={projEndY} stroke={onTrack ? "#10b981" : "#f59e0b"} strokeWidth="1" strokeDasharray="3 2" opacity="0.6" />
+        {/* actual point */}
+        <circle cx={ax} cy={ay} r="4" fill={onTrack ? "#10b981" : "#f59e0b"} />
+        {/* today line */}
+        <line x1={ax} y1={pad} x2={ax} y2={H - pad} stroke="#d1d5db" strokeWidth="1" />
+        {/* labels */}
+        <text x={ix0} y={H - 1} fontSize="9" fill="#9ca3af">Start</text>
+        <text x={ix1 - 16} y={H - 1} fontSize="9" fill="#9ca3af">End</text>
+        <text x={ax + 5} y={ay - 3} fontSize="9" fill={onTrack ? "#059669" : "#d97706"} fontWeight="600">
+          {remaining} left
+        </text>
+      </svg>
+      <p className="text-[10px] text-neutral-400 text-center -mt-1">
+        {onTrack ? "✓ On track" : "⚠ Behind ideal"}
+      </p>
+    </div>
+  );
+}
+
 export default function SprintPanel({
   slug,
   projectId,
@@ -144,6 +197,18 @@ export default function SprintPanel({
               )}
             </div>
           </div>
+
+          {/* Burn-down chart — only when sprint is active and has dates + issues */}
+          {sprint.status === "active" && total > 0 && sprint.startDate && sprint.endDate && (
+            <div className="mt-3 pt-2 border-t border-neutral-100">
+              <BurnDown
+                startDate={sprint.startDate}
+                endDate={sprint.endDate}
+                total={total}
+                done={done}
+              />
+            </div>
+          )}
 
           {/* Issue chips for active sprint */}
           {sprint.status === "active" && sprintIssues.length > 0 && canEdit && (

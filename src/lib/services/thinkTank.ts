@@ -56,6 +56,8 @@ export async function createIdea(
     description?: string | null;
     tags?: string[];
     is_private?: boolean;
+    is_anonymous?: boolean;
+    linked_okr_id?: string | null;
     assigned_to?: string | null;
     review_by?: string | null;
   }

@@ -1,10 +1,12 @@
+import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { encryptSecret, decryptSecret } from "@/lib/encryption";
 
 export type WebhookEndpoint = {
   id: string;
   tenantId: string;
   url: string;
-  secret: string;
+  secret: string; // plaintext — decrypted on read, never stored in this form
   events: string[];
   enabled: boolean;
   createdAt: string;
@@ -19,12 +21,14 @@ export const WEBHOOK_EVENTS = [
 
 export type WebhookEvent = (typeof WEBHOOK_EVENTS)[number];
 
+const COLS = "id, tenant_id, url, secret_enc, secret_nonce, secret_tag, events, enabled, created_at";
+
 function mapRow(r: Record<string, unknown>): WebhookEndpoint {
   return {
     id: r.id as string,
     tenantId: r.tenant_id as string,
     url: r.url as string,
-    secret: r.secret as string,
+    secret: decryptSecret(r.secret_enc as string, r.secret_nonce as string, r.secret_tag as string),
     events: (r.events as string[]) ?? [],
     enabled: r.enabled as boolean,
     createdAt: r.created_at as string,
@@ -36,7 +40,7 @@ export function webhooksRepo(supabase: SupabaseClient) {
     async list(tenantId: string): Promise<WebhookEndpoint[]> {
       const { data, error } = await supabase
         .from("webhook_endpoints")
-        .select("id, tenant_id, url, secret, events, enabled, created_at")
+        .select(COLS)
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: true });
       if (error) throw error;
@@ -46,7 +50,7 @@ export function webhooksRepo(supabase: SupabaseClient) {
     async listEnabledForEvent(tenantId: string, event: WebhookEvent): Promise<WebhookEndpoint[]> {
       const { data, error } = await supabase
         .from("webhook_endpoints")
-        .select("id, tenant_id, url, secret, events, enabled, created_at")
+        .select(COLS)
         .eq("tenant_id", tenantId)
         .eq("enabled", true)
         .contains("events", [event]);
@@ -55,10 +59,18 @@ export function webhooksRepo(supabase: SupabaseClient) {
     },
 
     async create(tenantId: string, input: { url: string; secret: string; events: string[] }): Promise<WebhookEndpoint> {
+      const { enc, nonce, tag } = encryptSecret(input.secret);
       const { data, error } = await supabase
         .from("webhook_endpoints")
-        .insert({ tenant_id: tenantId, url: input.url, secret: input.secret, events: input.events })
-        .select("id, tenant_id, url, secret, events, enabled, created_at")
+        .insert({
+          tenant_id: tenantId,
+          url: input.url,
+          secret_enc: enc,
+          secret_nonce: nonce,
+          secret_tag: tag,
+          events: input.events,
+        })
+        .select(COLS)
         .single();
       if (error) throw error;
       return mapRow(data as Record<string, unknown>);

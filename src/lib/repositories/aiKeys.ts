@@ -1,51 +1,12 @@
 import "server-only";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 export type { AIProvider, SavedKeyInfo } from "@/lib/ai/providers";
 export { AI_PROVIDERS } from "@/lib/ai/providers";
 import type { AIProvider, SavedKeyInfo } from "@/lib/ai/providers";
+import { encryptSecret, decryptSecret } from "@/lib/encryption";
 
-// ---------------------------------------------------------------------------
-// Encryption helpers — AES-256-GCM
-// ---------------------------------------------------------------------------
-
-function getEncKey(): Buffer {
-  const raw = process.env.FORGE_AI_KEY_SECRET ?? "";
-  if (raw.length !== 64) {
-    throw new Error(
-      "FORGE_AI_KEY_SECRET must be a 64-char hex string (32 bytes). Generate: openssl rand -hex 32"
-    );
-  }
-  return Buffer.from(raw, "hex");
-}
-
-function encrypt(plaintext: string): { enc: string; nonce: string; tag: string } {
-  const key = getEncKey();
-  const nonce = randomBytes(12);
-  const cipher = createCipheriv("aes-256-gcm", key, nonce);
-  const enc = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
-  const tag = cipher.getAuthTag();
-  return {
-    enc: enc.toString("base64"),
-    nonce: nonce.toString("base64"),
-    tag: tag.toString("base64"),
-  };
-}
-
-function decrypt(enc: string, nonce: string, tag: string): string {
-  const key = getEncKey();
-  const decipher = createDecipheriv(
-    "aes-256-gcm",
-    key,
-    Buffer.from(nonce, "base64")
-  );
-  decipher.setAuthTag(Buffer.from(tag, "base64"));
-  const plain = Buffer.concat([
-    decipher.update(Buffer.from(enc, "base64")),
-    decipher.final(),
-  ]);
-  return plain.toString("utf8");
-}
+const encrypt = encryptSecret;
+const decrypt = decryptSecret;
 
 // ---------------------------------------------------------------------------
 // Repository — always use service-role client (bypasses RLS by design)

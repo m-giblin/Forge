@@ -12,6 +12,7 @@ import ImpersonationBanner from "@/components/ImpersonationBanner";
 import ReportBugButton from "@/components/ReportBugButton";
 import NotificationBell from "@/components/NotificationBell";
 import CommandPalette from "@/components/CommandPalette";
+import SidebarSearchButton from "@/components/SidebarSearchButton";
 
 export default async function TenantLayout({
   children,
@@ -45,8 +46,8 @@ export default async function TenantLayout({
   ]);
 
   const [initialNotifications, unreadCount, unassignedCount, flags, userRow, visibleProjects, superAdminRow] = await Promise.all([
-    notificationsRepo(supabase).list(ctx.appUserId, { limit: 20, includeRead: false }),
-    notificationsRepo(supabase).unreadCount(ctx.appUserId),
+    notificationsRepo(supabase).list(ctx.tenant.id, ctx.appUserId, { limit: 20, includeRead: false }),
+    notificationsRepo(supabase).unreadCount(ctx.tenant.id, ctx.appUserId),
     issuesRepo(svc).countUnassigned(ctx.tenant.id),
     loadTenantFlags(ctx.tenant.id),
     (async () => { try { return await supabase.from("users").select("email_digest").eq("id", ctx.appUserId).maybeSingle(); } catch { return { data: null }; } })(),
@@ -67,11 +68,18 @@ export default async function TenantLayout({
       <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-neutral-200 bg-white overflow-hidden">
         {/* Logo + workspace */}
         <div className="flex items-center gap-2.5 border-b border-neutral-100 px-4 py-4 shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-xs font-bold text-white">F</div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 overflow-hidden">
+            <img src="/logo-28.png" alt="Forge" className="h-7 w-7 object-cover" />
+          </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-neutral-900">{ctx.tenant.name}</p>
             <p className="text-[11px] text-neutral-400 capitalize">{ctx.role}</p>
           </div>
+        </div>
+
+        {/* Search button */}
+        <div className="shrink-0 px-2 py-2 border-b border-neutral-100">
+          <SidebarSearchButton />
         </div>
 
         {/* Nav groups */}
@@ -105,7 +113,19 @@ export default async function TenantLayout({
             <div className="space-y-0.5">
               <SideLink href={`/${slug}/reports`} icon="📊" label="Reports" />
               <SideLink href={`/${slug}/think-tank`} icon="💡" label="Think Tank" />
+              <SideLink href={`/${slug}/customers`} icon="🏢" label="Customers" />
               <SideLink href={`/${slug}/stakeholder`} icon="📈" label="Stakeholder" />
+              <SideLink href={`/${slug}/changelog`} icon="📋" label="Changelog" />
+            </div>
+          </div>
+
+          {/* User */}
+          <div>
+            <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">You</p>
+            <div className="space-y-0.5">
+              <SideLink href={`/${slug}/settings`} icon="🔔" label="Preferences" />
+              <SideLink href={`/${slug}/docs`} icon="📖" label="Docs" />
+              <SideLink href={`/${slug}/support`} icon="🎫" label="Get Support" />
             </div>
           </div>
 
@@ -116,8 +136,6 @@ export default async function TenantLayout({
               <div className="space-y-0.5">
                 <SideLink href={`/${slug}/admin`} icon="⚙️" label="Settings" />
                 {flags.rbac && <SideLink href={`/${slug}/admin/roles`} icon="🔐" label="Roles" />}
-                <SideLink href={`/${slug}/docs`} icon="📖" label="Docs" />
-                <SideLink href={`/${slug}/support`} icon="🎫" label="Get Support" />
               </div>
             </div>
           )}

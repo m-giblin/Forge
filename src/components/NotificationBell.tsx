@@ -75,6 +75,8 @@ export default function NotificationBell({
           },
           (payload) => {
             const row = payload.new as Record<string, unknown>;
+            // Drop notifications from other tenants — realtime can't filter on two columns
+            if ((row.tenant_id as string) !== tenantId) return;
             const n: Notification = {
               id: row.id as string,
               tenantId: row.tenant_id as string,

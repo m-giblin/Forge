@@ -242,7 +242,36 @@ export default function ComplianceConsole({
                   <td className="px-4 py-3 text-neutral-400 text-xs">{req.regulation}</td>
                   <td className="px-4 py-3 text-xs text-neutral-500">{timeAgo(req.created_at)}</td>
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2">
+                      {req.request_type === "export" && (
+                        <a
+                          href={`/api/admin/compliance/export?email=${encodeURIComponent(req.requester_email)}`}
+                          download
+                          className="text-xs font-medium text-sky-400 hover:underline"
+                        >
+                          Download
+                        </a>
+                      )}
+                      {req.request_type === "deletion" && req.status !== "completed" && req.status !== "denied" && (
+                        <button
+                          onClick={() => {
+                            if (!confirm(`Permanently erase all data for ${req.requester_email}? This cannot be undone.`)) return;
+                            run(async () => {
+                              const res = await fetch("/api/admin/compliance/erase", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ email: req.requester_email }),
+                              });
+                              if (!res.ok) throw new Error((await res.json()).error ?? "Erasure failed");
+                              await updateComplianceStatusAction(req.id, "completed", "Automated erasure completed.");
+                            });
+                          }}
+                          disabled={isPending}
+                          className="text-xs font-medium text-red-400 hover:underline disabled:opacity-40"
+                        >
+                          Erase
+                        </button>
+                      )}
                       {req.status === "pending" && (
                         <button
                           onClick={() => run(() => updateComplianceStatusAction(req.id, "in_progress"))}

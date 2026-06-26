@@ -1,8 +1,10 @@
 import "server-only";
+import { headers } from "next/headers";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { readImpersonation } from "@/lib/impersonation";
 import { requireSuperAdmin } from "@/lib/super-admin";
+import { getIpAllowlist, isIpAllowed, extractClientIp } from "@/lib/services/ipAllowlist";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PermissionOverrides } from "@/lib/permissions";
 
@@ -75,6 +77,7 @@ export type TenantContext = {
   email: string | null; // actor label for audit/governance stamping
   impersonating: boolean;
   permissionOverrides: PermissionOverrides;
+  customRolePermissions: import("@/lib/rbac").RbacPermissionSet | null;
 };
 
 /**
@@ -101,11 +104,31 @@ export async function getTenantContext(slug: string): Promise<TenantContext | nu
   if (tenant) {
     const { data: membership } = await supabase
       .from("memberships")
-      .select("role")
+      .select("role, custom_role_id")
       .eq("tenant_id", tenant.id)
       .eq("user_id", appUserId) // scope to THIS user — unique per (tenant,user)
       .maybeSingle();
     if (membership) {
+      // IP allowlist check — owners always bypass so they can never lock themselves out.
+      if (membership.role !== "owner") {
+        const allowlist = await getIpAllowlist(tenant.id);
+        if (allowlist.length > 0) {
+          const reqHeaders = await headers();
+          const clientIp = extractClientIp(reqHeaders);
+          if (!clientIp || !isIpAllowed(clientIp, allowlist)) return null;
+        }
+      }
+
+      let customRolePermissions: import("@/lib/rbac").RbacPermissionSet | null = null;
+      if (membership.custom_role_id) {
+        const { data: cr } = await supabase
+          .from("custom_roles")
+          .select("permissions")
+          .eq("id", membership.custom_role_id)
+          .eq("tenant_id", tenant.id)
+          .maybeSingle();
+        customRolePermissions = (cr?.permissions as import("@/lib/rbac").RbacPermissionSet) ?? null;
+      }
       return {
         tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
         role: membership.role as TenantContext["role"],
@@ -113,6 +136,7 @@ export async function getTenantContext(slug: string): Promise<TenantContext | nu
         email: user.email ?? null,
         impersonating: false,
         permissionOverrides: (tenant.permission_overrides ?? {}) as PermissionOverrides,
+        customRolePermissions,
       };
     }
   }
@@ -125,7 +149,7 @@ export async function getTenantContext(slug: string): Promise<TenantContext | nu
     const svc = createSupabaseServiceClient();
     const { data: t } = await svc.from("tenants").select("id, name, slug, permission_overrides").eq("slug", slug).maybeSingle();
     if (t && imp.tenantId === t.id) {
-      return { tenant: { id: t.id, name: t.name, slug: t.slug }, role: "viewer", appUserId, email: user.email ?? null, impersonating: true, permissionOverrides: (t.permission_overrides ?? {}) as PermissionOverrides };
+      return { tenant: { id: t.id, name: t.name, slug: t.slug }, role: "viewer", appUserId, email: user.email ?? null, impersonating: true, permissionOverrides: (t.permission_overrides ?? {}) as PermissionOverrides, customRolePermissions: null };
     }
   }
 

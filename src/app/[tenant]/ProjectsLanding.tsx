@@ -209,6 +209,8 @@ function NewProjectForm({
 }) {
   const [name, setName] = useState("");
   const [key, setKey] = useState("");
+  const [description, setDescription] = useState("");
+  const [status, setStatus] = useState("active");
   const [ownerUserId, setOwnerUserId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [targetGoLive, setTargetGoLive] = useState("");
@@ -228,6 +230,8 @@ function NewProjectForm({
         const { key: createdKey } = await createProjectAction(slug, {
           name,
           key: key || null,
+          description: description || null,
+          status,
           ownerUserId: ownerUserId || null,
           startDate: startDate || null,
           targetGoLive: targetGoLive || null,
@@ -249,6 +253,16 @@ function NewProjectForm({
           <label className={label}>Project name</label>
           <input required value={name} onChange={(e) => handleNameChange(e.target.value)} placeholder="Website Redesign" className={field} />
         </div>
+        <div className="sm:col-span-2">
+          <label className={label}>Description <span className="text-neutral-400">(optional)</span></label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="What is this project for? What will it deliver?"
+            rows={2}
+            className={`${field} resize-none`}
+          />
+        </div>
         <div>
           <label className={label}>Key <span className="text-neutral-400">(auto)</span></label>
           <input
@@ -258,6 +272,14 @@ function NewProjectForm({
             maxLength={8}
             className={`${field} font-mono`}
           />
+        </div>
+        <div>
+          <label className={label}>Status</label>
+          <select value={status} onChange={(e) => setStatus(e.target.value)} className={field}>
+            <option value="active">Active</option>
+            <option value="on_hold">On hold</option>
+            <option value="closed">Closed</option>
+          </select>
         </div>
         <div>
           <label className={label}>Owner</label>

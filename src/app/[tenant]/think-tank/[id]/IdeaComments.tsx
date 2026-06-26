@@ -8,6 +8,8 @@ import {
   deleteIdeaCommentAction,
   prepareAttachmentUploadAction,
   getAttachmentUrlAction,
+  synthesizeDiscussionAction,
+  type ConsensusSynthesis,
 } from "../actions";
 import type { IdeaComment, IdeaCommentAttachment } from "@/lib/repositories/ideas";
 
@@ -324,6 +326,24 @@ export default function IdeaComments({
   const [stagedFiles, setStagedFiles] = useState<StagedFile[]>([]);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [consensus, setConsensus] = useState<ConsensusSynthesis | null>(null);
+  const [consensusPending, setConsensusPending] = useState(false);
+  const [consensusError, setConsensusError] = useState<string | null>(null);
+
+  function synthesize() {
+    setConsensusError(null);
+    setConsensusPending(true);
+    startTransition(async () => {
+      try {
+        const result = await synthesizeDiscussionAction(slug, ideaId);
+        setConsensus(result);
+      } catch (e) {
+        setConsensusError(e instanceof Error ? e.message : "Synthesis failed");
+      } finally {
+        setConsensusPending(false);
+      }
+    });
+  }
 
   const topLevel = initialComments.filter((c) => c.parentId === null);
   const repliesMap = new Map<string, IdeaComment[]>();
@@ -397,7 +417,63 @@ export default function IdeaComments({
 
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-      <p className="mb-4 text-sm font-medium text-neutral-700">💬 Discussion</p>
+      <div className="mb-4 flex items-center justify-between">
+        <p className="text-sm font-medium text-neutral-700">💬 Discussion</p>
+        {topLevel.length >= 5 && (
+          <button
+            onClick={synthesize}
+            disabled={consensusPending}
+            className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+          >
+            {consensusPending ? (
+              <><span className="inline-block h-3 w-3 animate-spin rounded-full border border-indigo-500 border-t-transparent" /> Synthesizing…</>
+            ) : (
+              <>🤖 Synthesize consensus</>
+            )}
+          </button>
+        )}
+      </div>
+
+      {/* AI Consensus Panel */}
+      {consensusError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {consensusError}
+        </div>
+      )}
+      {consensus && (
+        <div className="mb-5 rounded-xl border border-indigo-200 bg-indigo-50 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wide text-indigo-500">🤖 AI Consensus Summary</p>
+            <button onClick={() => setConsensus(null)} className="text-xs text-indigo-400 hover:text-indigo-700">Dismiss</button>
+          </div>
+          <p className="text-sm text-indigo-900 leading-relaxed">{consensus.summary}</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {consensus.agreement.length > 0 && (
+              <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase text-green-600 mb-1">Points of Agreement</p>
+                <ul className="space-y-0.5">{consensus.agreement.map((a, i) => <li key={i} className="text-xs text-green-800">✓ {a}</li>)}</ul>
+              </div>
+            )}
+            {consensus.contention.length > 0 && (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase text-amber-600 mb-1">Open Tensions</p>
+                <ul className="space-y-0.5">{consensus.contention.map((c, i) => <li key={i} className="text-xs text-amber-800">⚡ {c}</li>)}</ul>
+              </div>
+            )}
+          </div>
+          {consensus.themes.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {consensus.themes.map((t, i) => (
+                <span key={i} className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs text-indigo-700">{t}</span>
+              ))}
+            </div>
+          )}
+          <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
+            <p className="text-[10px] font-bold uppercase text-indigo-400 mb-0.5">Recommended Next Step</p>
+            <p className="text-sm font-medium text-indigo-900">→ {consensus.recommended_next}</p>
+          </div>
+        </div>
+      )}
 
       {topLevel.length === 0 ? (
         <p className="mb-4 text-sm italic text-neutral-400">

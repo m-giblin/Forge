@@ -288,6 +288,53 @@ export const DOC_GUIDES: DocGuide[] = [
         ],
       },
       {
+        id: 'pr-risk-gates',
+        title: 'PR Risk Gates',
+        description: 'Review and approve AI-flagged high-risk changes before they reach Done',
+        icon: '🚨',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'What triggers a gate',
+            description:
+              'When a developer runs PR Impact Prediction and the result is High or Critical risk, Forge automatically opens a Risk Gate on that issue. The issue is blocked — it cannot be moved to Done until the gate is approved or denied by a PM or Admin. Medium risk issues surface as a warning on your dashboard but do not block.',
+          },
+          {
+            step: 2,
+            title: 'Find gated issues',
+            description:
+              'Open Mission Control (the morning briefing page) and look for the PR Risk Overview widget in your PM section. It shows two lists: Risk Gates — Needs Your Approval (blocked issues waiting for review) and Medium Risk — Monitor (open issues flagged medium risk, not blocking). Click any row to jump directly to the ticket.',
+            tip: 'The stat strip at the top of Mission Control shows a live Risk Gates count. If it is non-zero at standup time, check it before the daily meeting.',
+          },
+          {
+            step: 3,
+            title: 'Review a gated issue',
+            description:
+              'Open the issue. In the AI Actions sidebar section, you will see the PR Impact badge and a Risk Gate Review panel. Read the AI summary, concerns, and suggestions. Then choose Approve (the issue may proceed to Done) or Deny (the issue remains blocked). A reason is required for either decision.',
+            tip: 'A gate older than 24 hours shows a red ⏰ stale indicator on the dashboard. Stale gates mean a developer is waiting — prioritize these.',
+          },
+          {
+            step: 4,
+            title: 'Write a useful reason',
+            description:
+              'The reason you enter is posted as a system comment on the ticket and is permanently visible in the audit trail. If approving: note that you reviewed the concerns and what the developer confirmed was addressed. If denying: be specific about what must be fixed before you will approve — vague denials create back-and-forth.',
+          },
+          {
+            step: 5,
+            title: 'The audit trail',
+            description:
+              'Every PR Impact action is logged as a system comment: prediction run, gate opened, gate approved or denied (with reason and actor), action items created. This trail is permanent — use it in post-mortems, compliance reviews, or to understand the history of a risky change months later.',
+          },
+          {
+            step: 6,
+            title: 'When gates auto-lift',
+            description:
+              'If the developer re-runs the analysis and the result drops to Medium or Low, the gate is lifted automatically without needing your approval. You will see a "gate lifted" system comment on the ticket. The PM Risk Overview widget will remove the issue from the blocked list.',
+          },
+        ],
+      },
+      {
         id: 'stakeholder-reporting',
         title: 'Stakeholder Reporting',
         description: 'RAG status, report exports, and weekly automated emails',
@@ -434,6 +481,87 @@ export const DOC_GUIDES: DocGuide[] = [
             title: 'Use labels for cross-cutting concerns',
             description:
               'Apply labels like \'frontend\', \'backend\', \'needs-design\' from the issue card\'s label dropdown. Labels are filterable across all views and appear in the Issues export — useful for tracking tech debt or design debt across sprints.',
+          },
+        ],
+      },
+      {
+        id: 'pr-risk-overview-developer',
+        title: 'PR Risk Overview — What PMs See',
+        description: 'Understand the risk dashboard your PM watches so there are no surprises',
+        icon: '📊',
+        roles: ['member'],
+        steps: [
+          {
+            step: 1,
+            title: 'The PM has a live risk dashboard',
+            description:
+              'On Mission Control (the PM morning briefing), there is a PR Risk Overview widget that shows every open risk gate and every medium-risk issue across the tenant. Your PM can see blocked issues, how long they have been waiting, and which ones are overdue — in real time, without you telling them.',
+            tip: 'Do not wait for a PM to come to you. If your issue gets gated, comment on it immediately to explain what you are doing to address it. They can see the gate; they want to see you acting on it.',
+          },
+          {
+            step: 2,
+            title: 'What shows up as gated',
+            description:
+              'Any issue where PR Impact returned High or Critical risk is shown in the "Risk Gates — Needs Your Approval" section of the PM dashboard. Your name is not shown on the dashboard, but the issue number and title are. The PM can click straight through to the ticket and see the full AI analysis.',
+          },
+          {
+            step: 3,
+            title: 'What shows up as medium risk',
+            description:
+              'Issues where PR Impact returned Medium risk appear in the "Medium Risk — Monitor" section. These are not blocked — the PM is just watching them. If a medium-risk issue sits open for a while without progress, it will draw attention. Close it cleanly or re-run the analysis after fixing concerns to clear the badge.',
+          },
+          {
+            step: 4,
+            title: 'The 24-hour stale timer',
+            description:
+              'If a High or Critical gate sits open for more than 24 hours without PM review, a red ⏰ stale indicator appears on the dashboard. This is a signal to the PM that someone is waiting. Use it to your advantage — if your gate is stale, nudge your PM directly and reference the ticket number.',
+          },
+          {
+            step: 5,
+            title: 'Everything is in the audit trail',
+            description:
+              'Every PR Impact action — prediction run, gate opened, PM decision, your comments — is logged as a system comment on the ticket. If a PM asks why something was merged or what happened with a risky change, the full history is right there. This protects you as much as it protects the PM.',
+          },
+        ],
+      },
+      {
+        id: 'pr-impact-developer',
+        title: 'PR Impact Prediction',
+        description: 'Run AI risk analysis before merging and respond to risk gates on your issues',
+        icon: '🔬',
+        roles: ['member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Run an analysis',
+            description:
+              'Open any issue. In the right sidebar under AI Actions, click the PR Impact Prediction button. The AI analyzes the issue title, description, type, and priority, then returns a risk level (Low, Medium, High, or Critical) along with a scope summary, concerns, and suggested actions.',
+            tip: 'Run PR Impact before moving an issue to In Review — it gives your reviewer and PM early warning if the change is riskier than it looks.',
+          },
+          {
+            step: 2,
+            title: 'Understand the four risk levels',
+            description:
+              'Low: narrow scope, safe to merge with normal review. Medium: moderate complexity — review the listed concerns before merge, no gate opened. High: significant risk to stability, performance, or security — a gate is opened and the issue is blocked until a PM or Admin approves. Critical: severe risk (data loss potential, security vulnerability, or production outage risk) — same gate workflow as High but with higher urgency.',
+          },
+          {
+            step: 3,
+            title: 'Address a High or Critical gate',
+            description:
+              'When High or Critical risk is detected, a Risk Gate is opened on the issue. You will see an orange or red badge and a system comment explaining the block. The issue cannot be moved to Done until a PM or Admin approves the gate. Your job: review the listed concerns, optionally use "Create action items as sub-issues" to turn suggestions into trackable tasks, then address the concerns and notify the PM.',
+            tip: 'Re-run the analysis after fixing the concerns. If the risk drops to Medium or Low, the gate is automatically lifted and no PM approval is needed.',
+          },
+          {
+            step: 4,
+            title: 'Create action items from suggestions',
+            description:
+              'Inside the PR Impact modal, click "Create action items as sub-issues." Forge converts each AI suggestion into a linked sub-issue on the current ticket. Assign them, track them on the board, and resolve them before asking the PM to review the gate.',
+          },
+          {
+            step: 5,
+            title: 'Re-run after fixes',
+            description:
+              'Click Re-analyse at any time. Each run creates a new system comment with the updated result and updates the badge on the ticket. If the new result is Medium or Low on a previously gated issue, the gate lifts automatically — no manual PM step needed.',
           },
         ],
       },

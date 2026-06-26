@@ -63,7 +63,7 @@ export default async function ProjectDetailPage({
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-8">
+    <div className="w-full px-6 py-8">
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2 text-sm text-neutral-400">
         <Link href={`/${slug}/projects`} className="hover:text-neutral-600">Projects</Link>
@@ -99,9 +99,18 @@ export default async function ProjectDetailPage({
             </div>
           )}
         </div>
-        <Link href={`/${slug}/board?project=${data.project.key}`} className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">
-          Open board →
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <a
+            href={`/${slug}/projects/${data.project.key}/export/pptx`}
+            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700 transition-colors"
+            title="Export project status presentation"
+          >
+            📊 Export PPT
+          </a>
+          <Link href={`/${slug}/board?project=${data.project.key}`} className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">
+            Open board →
+          </Link>
+        </div>
       </div>
 
       {/* Archived banner */}

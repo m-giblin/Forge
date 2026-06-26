@@ -6,6 +6,10 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { membersRepo } from "@/lib/repositories/members";
 import { issuesRepo } from "@/lib/repositories/issues";
+import { getLatestBoardHealth } from "@/lib/services/boardMonitor";
+import { getLatestStandupDigest } from "@/lib/services/standupDigest";
+import BoardHealthWidget from "./BoardHealthWidget";
+import StandupWidget from "./StandupWidget";
 
 function ragStatus(blocked: number, inReview: number, total: number): "on_track" | "at_risk" | "blocked" {
   if (blocked > 0) return "blocked";
@@ -13,12 +17,18 @@ function ragStatus(blocked: number, inReview: number, total: number): "on_track"
   return "on_track";
 }
 
+const RAG_TOOLTIP = {
+  blocked: "Blocked: one or more issues in this project have status 'blocked'. Needs immediate attention.",
+  at_risk: "At Risk: more than 40% of open issues are stuck in review. Throughput may be stalled.",
+  on_track: "On Track: no blocked issues and review queue is healthy (<40% in review).",
+};
+
 function RagBadge({ status }: { status: "on_track" | "at_risk" | "blocked" }) {
   if (status === "blocked")
-    return <span className="rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600">● Blocked</span>;
+    return <span title={RAG_TOOLTIP.blocked} className="cursor-help rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600">● Blocked ⓘ</span>;
   if (status === "at_risk")
-    return <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">● At Risk</span>;
-  return <span className="rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-600">● On Track</span>;
+    return <span title={RAG_TOOLTIP.at_risk} className="cursor-help rounded-full border border-amber-200 bg-amber-50 px-2.5 py-0.5 text-xs font-semibold text-amber-600">● At Risk ⓘ</span>;
+  return <span title={RAG_TOOLTIP.on_track} className="cursor-help rounded-full border border-green-200 bg-green-50 px-2.5 py-0.5 text-xs font-semibold text-green-600">● On Track ⓘ</span>;
 }
 
 export default async function AdminOverviewPage({ params }: { params: Promise<{ tenant: string }> }) {
@@ -31,11 +41,13 @@ export default async function AdminOverviewPage({ params }: { params: Promise<{ 
   const mRepo = membersRepo(svc);
   const iRepo = issuesRepo(svc);
 
-  const [projects, members, unassigned, allIssues] = await Promise.all([
+  const [projects, members, unassigned, allIssues, boardHealth, standupDigest] = await Promise.all([
     pRepo.listByTenant(ctx.tenant.id, ["active", "on_hold"]),
     mRepo.list(ctx.tenant.id),
     iRepo.countUnassigned(ctx.tenant.id),
     iRepo.listByTenant(ctx.tenant.id),
+    getLatestBoardHealth(ctx.tenant.id),
+    getLatestStandupDigest(ctx.tenant.id),
   ]);
 
   const openIssues = allIssues.filter((i) => i.status !== "done" && i.status !== "closed").length;
@@ -57,6 +69,12 @@ export default async function AdminOverviewPage({ params }: { params: Promise<{ 
           <h1 className="text-xl font-bold text-neutral-900">Workspace Overview</h1>
           <p className="text-sm text-neutral-500">{ctx.tenant.name} · admin dashboard</p>
         </div>
+      </div>
+
+      {/* Proactive AI intelligence widgets — always visible, no button click needed */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <BoardHealthWidget digest={boardHealth} slug={slug} />
+        <StandupWidget digest={standupDigest} slug={slug} />
       </div>
 
       {/* KPI strip */}

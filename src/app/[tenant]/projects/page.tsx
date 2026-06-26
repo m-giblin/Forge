@@ -17,7 +17,7 @@ export default async function ProjectsPage({ params }: { params: Promise<{ tenan
   ]);
 
   return (
-    <main className="mx-auto max-w-5xl px-6 py-8">
+    <main className="w-full px-6 py-8">
       <ProjectsLanding
         slug={slug}
         tenantName={ctx.tenant.name}

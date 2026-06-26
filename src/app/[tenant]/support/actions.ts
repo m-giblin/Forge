@@ -53,7 +53,7 @@ export async function submitTicketAction(
       body: ticket.body,
       tenantName: ctx.tenant.name,
     });
-    await repo.updateTriage(ticket.id, {
+    await repo.updateTriage(ctx.tenant.id, ticket.id, {
       ai_triage_summary: triage.summary,
       ai_guidance: triage.guidance,
     });

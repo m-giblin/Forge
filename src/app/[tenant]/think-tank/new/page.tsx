@@ -23,11 +23,13 @@ export default async function NewIdeaPage({
     ? createSupabaseServiceClient()
     : await createSupabaseServerClient();
 
-  const [thinkTank, members, tenantTemplates] = await Promise.all([
+  const [thinkTank, members, tenantTemplates, okrData] = await Promise.all([
     getOrCreateDefaultThinkTank(ctx.tenant.id, ctx.appUserId, ctx.impersonating),
     membersRepo(supabase).list(ctx.tenant.id),
     tenantIdeaTemplatesRepo(supabase).list(ctx.tenant.id),
+    supabase.from("okrs").select("id, title, quarter").eq("tenant_id", ctx.tenant.id).eq("status", "active").order("quarter"),
   ]);
+  const okrs = (okrData.data ?? []) as Array<{ id: string; title: string; quarter: string | null }>;
 
   const memberOptions = members.map((m) => ({
     id: m.userId,
@@ -53,6 +55,7 @@ export default async function NewIdeaPage({
           thinkTankId={thinkTank.id}
           members={memberOptions}
           tenantTemplates={tenantTemplates}
+          okrs={okrs}
         />
       </div>
     </div>

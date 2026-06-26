@@ -121,7 +121,7 @@ export default function InboxClient({
       : "text-neutral-500 hover:text-neutral-800";
 
   return (
-    <main className="mx-auto max-w-3xl px-6 py-8">
+    <main className="w-full px-6 py-8">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">

@@ -8,6 +8,7 @@ type Settings = {
   emailDisplayName: string;
   emailPrimaryColor: string;
   emailFromName: string;
+  standupEmailRecipients: string;
 };
 
 export default function NotificationsForm({
@@ -121,6 +122,24 @@ export default function NotificationsForm({
             </div>
           </label>
         </div>
+      </div>
+
+      {/* Standup digest email recipients */}
+      <div className="rounded-xl border border-neutral-200 bg-white p-5 space-y-3">
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-900">Daily Standup Digest — Email Recipients</h3>
+          <p className="text-xs text-neutral-500 mt-0.5">
+            Standup digests are generated daily at 9 AM UTC. Add comma-separated email addresses to receive them.
+            Leave blank to send to Slack only.
+          </p>
+        </div>
+        <textarea
+          rows={3}
+          value={form.standupEmailRecipients}
+          onChange={(e) => set("standupEmailRecipients", e.target.value)}
+          placeholder="cto@company.com, team@company.com"
+          className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-200 resize-none"
+        />
       </div>
 
       {/* What triggers emails */}

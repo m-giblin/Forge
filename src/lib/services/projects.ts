@@ -110,6 +110,8 @@ export async function createProject(input: {
   tenantId: string;
   name: string;
   key?: string | null;
+  description?: string | null;
+  status?: string | null;
   ownerUserId?: string | null;
   startDate?: string | null;
   targetGoLive?: string | null;
@@ -131,6 +133,8 @@ export async function createProject(input: {
     tenant_id: input.tenantId,
     key,
     name,
+    description: input.description || null,
+    status: (input.status as import("@/lib/repositories/projects").ProjectStatus) || "active",
     lead_user_id: input.ownerUserId ?? null,
     start_date: input.startDate || null,
     target_go_live: input.targetGoLive || null,

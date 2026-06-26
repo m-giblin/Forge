@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { updateIssue, deleteIssue, addIssueComment, type IssuePatch } from "@/lib/services/issues";
-import { canDo } from "@/lib/permissions";
+import { ctxCanDo } from "@/lib/rbac";
 // eslint-disable-next-line no-restricted-imports -- SEC-09: service-role required for watcher writes (no user RLS policy)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issueAttachmentsRepo } from "@/lib/repositories/issueAttachments";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
+import { issueLinksRepo } from "@/lib/repositories/issueLinks";
+import { issueRiskGatesRepo } from "@/lib/repositories/issueRiskGates";
 
 const BUCKET = "issue-attachments";
 const QUOTA_BYTES = 100 * 1024 * 1024; // 100 MB / month per tenant
@@ -24,10 +26,45 @@ export async function updateIssueAction(slug: string, id: string, patch: IssuePa
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot edit issues.");
+
+  // Blocking gate: if moving to a terminal status, check for open blockers.
+  // Owners and admins can override by confirming; members get a hard stop here.
+  if (patch.status === "done") {
+    const svc = createSupabaseServiceClient();
+
+    // Block if there is an open risk gate (High/Critical PR Impact)
+    const activeGate = await issueRiskGatesRepo(svc).getActiveGate(ctx.tenant.id, id);
+    if (activeGate) {
+      throw new Error(
+        `This issue has an open ${activeGate.riskLevel.toUpperCase()} risk gate. A project manager or admin must approve it before closing.`
+      );
+    }
+
+    // Block if there are open blocker issues
+    const links = await issueLinksRepo(svc).listForIssue(ctx.tenant.id, id, "");
+    const openBlockers = links.filter(
+      (l) => l.linkType === "blocks" && l.direction === "inbound" && l.targetStatus !== "done"
+    );
+    if (openBlockers.length > 0) {
+      const titles = openBlockers.map((b) => b.targetTitle || b.targetKey).join(", ");
+      throw new Error(`Blocked by open issue(s): ${titles}. Resolve blockers before closing.`);
+    }
+  }
+
   const issue = await updateIssue(ctx.tenant.id, id, patch, { userId: ctx.appUserId, label: ctx.email });
   revalidatePath(`/${slug}/issues/${id}`);
   revalidatePath(`/${slug}/board`);
   return issue;
+}
+
+export async function saveIssueSpecAction(slug: string, issueId: string, specMd: string) {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot edit issues.");
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc.from("issues").update({ spec_md: specMd || null }).eq("id", issueId).eq("tenant_id", ctx.tenant.id);
+  if (error) throw error;
+  revalidatePath(`/${slug}/issues/${issueId}`);
 }
 
 export async function addCommentAction(
@@ -39,7 +76,7 @@ export async function addCommentAction(
 ) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (!canDo(ctx.role, "viewer.comment", ctx.permissionOverrides)) throw new Error("Viewers cannot comment in this workspace.");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot comment in this workspace.");
   // Only owners and admins may mark a comment as a Decision
   const resolvedType =
     commentType === "decision" && (ctx.role === "owner" || ctx.role === "admin")
@@ -154,7 +191,7 @@ export async function unwatchIssueAction(slug: string, issueId: string): Promise
 export async function deleteIssueAction(slug: string, id: string) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (!canDo(ctx.role, "member.delete_issue", ctx.permissionOverrides)) {
+  if (!ctxCanDo(ctx, "delete_issues")) {
     throw new Error("You don't have permission to delete issues in this workspace.");
   }
   await deleteIssue(ctx.tenant.id, id);
@@ -198,4 +235,21 @@ export async function markDuplicateAction(
 
   revalidatePath(`/${slug}/issues/${duplicateIssueId}`);
   revalidatePath(`/${slug}/issues/${canonicalIssueId}`);
+}
+
+export async function cascadeStatusToChildrenAction(
+  slug: string,
+  parentIssueId: string,
+  newStatus: string,
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot edit issues.");
+  const svc = createSupabaseServiceClient();
+  await svc.from("issues")
+    .update({ status: newStatus })
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("parent_id", parentIssueId);
+  revalidatePath(`/${slug}/issues/${parentIssueId}`);
+  revalidatePath(`/${slug}/board`);
 }

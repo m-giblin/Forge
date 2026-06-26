@@ -15,6 +15,7 @@ import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
 import { slaPoliciesRepo } from "@/lib/repositories/slaPolicies";
 import { computeSlaTimer } from "@/lib/services/sla";
 import IssueDetail from "./IssueDetail";
+import { listTimeLogsAction } from "./timeActions";
 
 export default async function IssuePage({ params }: { params: Promise<{ tenant: string; id: string }> }) {
   const { tenant: slug, id } = await params;
@@ -44,12 +45,35 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
   // Migration 0044 guard — graceful if not run yet
   const linksRepo = issueLinksRepo(svcClient);
   const projectKey = project?.key ?? "";
-  const [subIssues, links, gitLinks, slaPolicies] = await Promise.all([
+  const parentIssuePromise = issue.parent_id
+    ? Promise.resolve(
+        svcClient.from("issues").select("id, number, title, projects!inner(key)").eq("id", issue.parent_id).eq("tenant_id", ctx.tenant.id).single()
+      ).then((q) => q).then((r) => r.data as { id: string; number: number; title: string; projects: { key: string } } | null).catch(() => null)
+    : Promise.resolve(null as { id: string; number: number; title: string; projects: { key: string } } | null);
+
+  const [subIssues, links, gitLinks, slaPolicies, signoffsRaw, timeLogs, parentIssue] = await Promise.all([
     linksRepo.listChildren(ctx.tenant.id, issue.id).catch(() => []),
     linksRepo.listForIssue(ctx.tenant.id, issue.id, projectKey).catch(() => []),
     gitIntegrationRepo(svcClient).listCodeLinks(ctx.tenant.id, issue.id).catch(() => []),
     slaPoliciesRepo(svcClient).listEnabled(ctx.tenant.id).catch(() => []),
+    Promise.resolve(
+      svcClient.from("issue_signoffs")
+        .select("id, role_label, signed_by, signed_at, signer:users!signed_by(full_name_encrypted, email_encrypted)")
+        .eq("issue_id", issue.id)
+        .eq("tenant_id", ctx.tenant.id)
+        .order("created_at")
+    ).then((r) => r.data ?? []).catch(() => []),
+    listTimeLogsAction(slug, issue.id).catch(() => []),
+    parentIssuePromise,
   ]);
+  // Flatten signer label (use email since PII not decrypted here — good enough for display)
+  const signoffs = signoffsRaw.map((s: Record<string, unknown>) => ({
+    id: s.id as string,
+    role_label: s.role_label as string,
+    signed_by: s.signed_by as string | null,
+    signed_at: s.signed_at as string | null,
+    signer_label: null as string | null, // decryption deferred — show "Signed" for now
+  }));
   const slaTimer = computeSlaTimer(issue, slaPolicies);
 
   const readOnly = ctx.impersonating || ctx.role === "viewer";
@@ -76,10 +100,13 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         userRole={ctx.role}
         watchers={watchers.map((w) => w.userId)}
         currentUserId={ctx.appUserId}
+        parentIssue={parentIssue ?? undefined}
         subIssues={subIssues}
         links={links}
         gitLinks={gitLinks}
         slaTimer={slaTimer}
+        signoffs={signoffs}
+        initialTimeLogs={timeLogs}
       />
     </main>
   );

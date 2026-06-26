@@ -2,12 +2,14 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import Link from "next/link";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { type Issue } from "@/lib/repositories/issues";
 import { type Sprint } from "@/lib/repositories/sprints";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { isUnassignedOverdue } from "@/lib/sla";
-import { createIssueAction, moveIssueAction } from "./actions";
+import { createIssueAction, moveIssueAction, loadMoreForStatusAction, draftIssueFromDescriptionAction } from "./actions";
+import { cascadeStatusToChildrenAction } from "../issues/[id]/actions";
 import IssueCard from "./IssueCard";
 
 type Project = { id: string; key: string; name: string };
@@ -67,6 +69,12 @@ export default function Board({
   const [dragId, setDragId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [, startTransition] = useTransition();
+  const [cascadePending, setCascadePending] = useState<{ issueId: string; newStatus: string; count: number } | null>(null);
+  const [cascading, startCascade] = useTransition();
+  // per-status: how many issues are loaded and whether more exist
+  const [colOffsets, setColOffsets] = useState<Map<string, number>>(new Map());
+  const [colHasMore, setColHasMore] = useState<Map<string, boolean>>(new Map());
+  const [loadingMore, setLoadingMore] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [filterPriorities, setFilterPriorities] = useState<Set<string>>(new Set());
   const [filterAssignee, setFilterAssignee] = useState("");
@@ -169,11 +177,44 @@ export default function Board({
     upsert({ ...current, status }); // optimistic
     startTransition(async () => {
       try {
-        await moveIssueAction(slug, id, status);
+        const { pendingChildCount } = await moveIssueAction(slug, id, status);
+        if (pendingChildCount > 0) {
+          setCascadePending({ issueId: id, newStatus: status, count: pendingChildCount });
+        }
       } catch {
         upsert(current); // revert on failure
       }
     });
+  }
+
+  function confirmCascade(yes: boolean) {
+    if (!cascadePending) return;
+    const { issueId, newStatus, count } = cascadePending;
+    setCascadePending(null);
+    if (!yes || count === 0) return;
+    startCascade(async () => {
+      await cascadeStatusToChildrenAction(slug, issueId, newStatus);
+    });
+  }
+
+  async function loadMore(status: string) {
+    const offset = colOffsets.get(status) ?? issues.filter((i) => i.status === status).length;
+    setLoadingMore((prev) => new Set(prev).add(status));
+    try {
+      const { issues: more, hasMore } = await loadMoreForStatusAction(slug, currentProject.id, status, offset);
+      if (more.length > 0) {
+        setIssues((prev) => {
+          const existingIds = new Set(prev.map((i) => i.id));
+          return [...prev, ...more.filter((i) => !existingIds.has(i.id))];
+        });
+        setColOffsets((prev) => new Map(prev).set(status, offset + more.length));
+        setColHasMore((prev) => new Map(prev).set(status, hasMore));
+      } else {
+        setColHasMore((prev) => new Map(prev).set(status, false));
+      }
+    } finally {
+      setLoadingMore((prev) => { const next = new Set(prev); next.delete(status); return next; });
+    }
   }
 
   // Velocity: count of done issues in the currently selected sprint
@@ -227,9 +268,22 @@ export default function Board({
       )}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">
+          <Link
+            href={`/${slug}/projects/${currentProject.key}`}
+            className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-indigo-600 transition-colors"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Projects
+          </Link>
+          <span className="text-neutral-300">/</span>
+          <Link
+            href={`/${slug}/projects/${currentProject.key}`}
+            className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+          >
             {currentProject.key}
-          </span>
+          </Link>
           <h1 className="text-lg font-semibold text-neutral-900">{currentProject.name}</h1>
           {siblingProjects.length > 1 && (
             <div className="flex items-center gap-1.5">
@@ -279,7 +333,30 @@ export default function Board({
 
       {total > issueLimit && (
         <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-          Showing {issueLimit} of {total} issues — use search or filters to narrow results.
+          Showing {issueLimit} of {total} issues — use the &ldquo;Load more&rdquo; button in each column to see the rest.
+        </div>
+      )}
+
+      {cascadePending && (
+        <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span>
+            This issue has <strong>{cascadePending.count}</strong> sub-issue{cascadePending.count !== 1 ? "s" : ""} not yet in <strong>{cascadePending.newStatus}</strong>. Move them too?
+          </span>
+          <div className="ml-4 flex shrink-0 gap-2">
+            <button
+              onClick={() => confirmCascade(true)}
+              disabled={cascading}
+              className="rounded-md bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+            >
+              {cascading ? "Moving…" : "Yes, move all"}
+            </button>
+            <button
+              onClick={() => confirmCascade(false)}
+              className="rounded-md border border-amber-300 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100"
+            >
+              No thanks
+            </button>
+          </div>
         </div>
       )}
 
@@ -413,6 +490,8 @@ export default function Board({
           const colIssues = filtered
             .filter((i) => i.status === status.key)
             .sort((a, b) => a.position - b.position);
+          const isFiltered = !!(search.trim() || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory);
+          const showLoadMore = !isFiltered && (colHasMore.get(status.key) ?? (total > issueLimit && colIssues.length >= Math.floor(issueLimit / orderedStatuses.length)));
           return (
             <div
               key={status.key}
@@ -428,6 +507,15 @@ export default function Board({
                 <span className="text-xs text-neutral-400">{colIssues.length}</span>
               </div>
               <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee />
+              {showLoadMore && (
+                <button
+                  onClick={() => loadMore(status.key)}
+                  disabled={loadingMore.has(status.key)}
+                  className="mt-2 w-full rounded-lg border border-dashed border-neutral-300 py-1.5 text-xs text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 disabled:opacity-50 transition-colors"
+                >
+                  {loadingMore.has(status.key) ? "Loading…" : "Load more"}
+                </button>
+              )}
             </div>
           );
         }) : groupBy === "assignee" ? (() => {
@@ -542,6 +630,50 @@ function NewIssueForm({
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [aiMode, setAiMode] = useState(false);
+  const [aiDescription, setAiDescription] = useState("");
+  const [aiPending, setAiPending] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const [showTemplates, setShowTemplates] = useState(false);
+
+  function startVoice() {
+    const SpeechRecognition = (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown }).SpeechRecognition
+      ?? (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition;
+    if (!SpeechRecognition) { setError("Voice input not supported in this browser."); return; }
+    const rec = new (SpeechRecognition as new () => { continuous: boolean; interimResults: boolean; lang: string; onresult: ((e: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null; onerror: (() => void) | null; onend: (() => void) | null; start: () => void })();
+    rec.continuous = false;
+    rec.interimResults = false;
+    rec.lang = "en-US";
+    setVoiceListening(true);
+    rec.onresult = (e) => {
+      const transcript = Array.from(e.results).map(r => r[0].transcript).join(" ");
+      setAiDescription(transcript);
+      setAiMode(true);
+      setVoiceListening(false);
+    };
+    rec.onerror = () => setVoiceListening(false);
+    rec.onend = () => setVoiceListening(false);
+    rec.start();
+  }
+
+  function draftWithAI() {
+    if (!aiDescription.trim()) return;
+    setAiPending(true);
+    startTransition(async () => {
+      try {
+        const draft = await draftIssueFromDescriptionAction(slug, aiDescription);
+        setTitle(draft.title);
+        setPriority(draft.priority);
+        setType(draft.type);
+        setAiMode(false);
+        setAiDescription("");
+      } catch {
+        setError("AI draft failed — try typing the title manually.");
+      } finally {
+        setAiPending(false);
+      }
+    });
+  }
 
   // Categories rendered as flat options with sub-categories indented.
   const tops = categories.filter((c) => !c.parent_id);
@@ -577,6 +709,66 @@ function NewIssueForm({
 
   return (
     <div className="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+      {/* Quick templates */}
+      {showTemplates && (
+        <div className="mb-3 pb-3 border-b border-neutral-100">
+          <p className="text-xs font-semibold text-neutral-500 mb-2">Quick templates</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { label: "🐛 Bug report", title: "[Bug] ", type: "bug", priority: "high" },
+              { label: "✨ Feature request", title: "[Feature] ", type: "feature", priority: "medium" },
+              { label: "⚙️ Tech debt", title: "[Debt] ", type: "task", priority: "low" },
+              { label: "🔒 Security issue", title: "[Security] ", type: "bug", priority: "urgent" },
+              { label: "📋 Task", title: "", type: "task", priority: "medium" },
+            ].map((t) => (
+              <button
+                key={t.label}
+                type="button"
+                onClick={() => {
+                  setTitle(t.title);
+                  const matchType = types.find((x) => x.key === t.type);
+                  if (matchType) setType(matchType.key);
+                  const matchPri = priorities.find((x) => x.key === t.priority);
+                  if (matchPri) setPriority(matchPri.key);
+                  setShowTemplates(false);
+                }}
+                className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* AI Draft mode */}
+      {aiMode ? (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-indigo-600">✨ Describe the issue in plain English</p>
+            <button onClick={() => setAiMode(false)} className="text-xs text-neutral-400 hover:text-neutral-700">Cancel</button>
+          </div>
+          <textarea
+            autoFocus
+            value={aiDescription}
+            onChange={(e) => setAiDescription(e.target.value)}
+            placeholder="e.g. The login button on mobile doesn't work when the keyboard is open — it gets pushed off screen and clicking elsewhere closes the keyboard..."
+            rows={3}
+            className="w-full rounded-lg border border-indigo-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 resize-none"
+          />
+          <div className="flex gap-2">
+            <button
+              onClick={draftWithAI}
+              disabled={aiPending || !aiDescription.trim()}
+              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {aiPending ? "Drafting…" : "Generate fields →"}
+            </button>
+            <button onClick={() => setAiMode(false)} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50">
+              Manual
+            </button>
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-wrap items-center gap-2">
         <input
           autoFocus
@@ -616,7 +808,32 @@ function NewIssueForm({
         >
           {pending ? "Creating…" : "Create"}
         </button>
+        <button
+          onClick={() => setShowTemplates((s) => !s)}
+          type="button"
+          title="Start from a template"
+          className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${showTemplates ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-neutral-200 text-neutral-500 hover:bg-neutral-50"}`}
+        >
+          📋 Templates
+        </button>
+        <button
+          onClick={() => { setAiMode(true); setError(null); }}
+          type="button"
+          title="Describe the issue in plain English and let AI fill the fields"
+          className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+        >
+          ✨ AI Draft
+        </button>
+        <button
+          onClick={startVoice}
+          type="button"
+          title="Dictate issue via microphone"
+          className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${voiceListening ? "border-red-300 bg-red-50 text-red-600 animate-pulse" : "border-neutral-200 text-neutral-500 hover:bg-neutral-50"}`}
+        >
+          {voiceListening ? "🎙 Listening…" : "🎙 Voice"}
+        </button>
       </div>
+      )}
 
       {customFields.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-3 border-t border-neutral-100 pt-3">

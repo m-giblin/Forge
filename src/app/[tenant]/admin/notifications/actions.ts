@@ -4,6 +4,8 @@ import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { setSetting } from "@/lib/platformSettings";
 import { setTenantSetting } from "@/lib/tenantSettings";
+// eslint-disable-next-line no-restricted-imports -- service-role needed to upsert platform_config
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 export async function saveNotificationSettingsAction(
   slug: string,
@@ -12,6 +14,7 @@ export async function saveNotificationSettingsAction(
     emailDisplayName: string;
     emailPrimaryColor: string;
     emailFromName: string;
+    standupEmailRecipients: string;
   }
 ) {
   const ctx = await getTenantContext(slug);
@@ -20,12 +23,15 @@ export async function saveNotificationSettingsAction(
 
   const tenantId = ctx.tenant.id;
 
+  const svc = createSupabaseServiceClient();
   await Promise.all([
-    // Platform-level (Resend key applies across all tenants on this Forge instance).
     setSetting("resend_api_key", form.resendApiKey.trim()),
-    // Per-tenant branding.
     setTenantSetting(tenantId, "email_display_name", form.emailDisplayName.trim()),
     setTenantSetting(tenantId, "email_primary_color", form.emailPrimaryColor.trim()),
     setTenantSetting(tenantId, "email_from_name", form.emailFromName.trim()),
+    svc.from("platform_config").upsert(
+      { tenant_id: tenantId, key: "standup_email_recipients", value: form.standupEmailRecipients.trim() },
+      { onConflict: "tenant_id,key" }
+    ),
   ]);
 }

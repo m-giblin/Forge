@@ -9,6 +9,8 @@ import IdeaComments from "./IdeaComments";
 import SoundingBoard from "./SoundingBoard";
 import IdeaDecisions from "./IdeaDecisions";
 import IdeaSignoffs from "./IdeaSignoffs";
+import IdeaPRDPanel from "./IdeaPRDPanel";
+import DevilsAdvocateButton from "./DevilsAdvocateButton";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -114,7 +116,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-8">
+    <div className="w-full px-6 py-8">
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2 text-sm text-neutral-400">
         <a href={`/${slug}/think-tank`} className="hover:text-neutral-600">Think Tank</a>
@@ -133,9 +135,15 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
             <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.color}`}>
               {meta.label}
             </span>
-            {idea.creator_name && <span>by {idea.creator_name}</span>}
+            {(idea as IdeaRow & { is_anonymous?: boolean }).is_anonymous
+              ? <span className="text-neutral-400">👤 Anonymous</span>
+              : idea.creator_name && <span>by {idea.creator_name}</span>
+            }
             {idea.assignee_name && <span>· assigned to {idea.assignee_name}</span>}
             {idea.review_by && <ReviewByChip reviewBy={idea.review_by} />}
+            {(idea as IdeaRow & { linked_okr_id?: string | null; linked_okr_title?: string | null }).linked_okr_title && (
+              <span className="text-xs text-indigo-600">🎯 {(idea as IdeaRow & { linked_okr_title?: string | null }).linked_okr_title}</span>
+            )}
             {idea.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {idea.tags.map((t) => (
@@ -426,6 +434,16 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         initialTurns={recentAiTurns}
         customPills={customPills}
       />
+
+      {/* Idea-to-PRD — shown when idea is approved/ready and not yet converted */}
+      {!isViewer && !isTerminal && (idea.status === "approved" || idea.status === "ready") && (
+        <IdeaPRDPanel slug={slug} ideaId={idea.id} ideaTitle={idea.title} />
+      )}
+
+      {/* Devil's Advocate — visible on all non-terminal ideas */}
+      {!isViewer && !isTerminal && (
+        <DevilsAdvocateButton slug={slug} ideaId={idea.id} />
+      )}
 
       {/* AI Facilitator hints — shown when AI hasn't been used and conditions are met */}
       {!isViewer && !isTerminal && recentAiTurns.length === 0 && activeCommentCount >= 20 && (

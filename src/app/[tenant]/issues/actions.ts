@@ -2,8 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
-// eslint-disable-next-line no-restricted-imports -- service-role bulk update: tenant_id injected explicitly on every query (sec09)
+import { ctxCanDo } from "@/lib/rbac";
+// eslint-disable-next-line no-restricted-imports -- service-role delete: tenant_id injected explicitly (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { updateIssue } from "@/lib/services/issues";
+import type { IssuePatch } from "@/lib/services/issues";
 
 export type BulkPatch = {
   status?:     string;
@@ -19,21 +22,22 @@ export async function bulkUpdateIssuesAction(slug: string, ids: string[], patch:
   if (ctx.role === "viewer") throw new Error("Viewers cannot edit issues.");
   if (ids.length === 0) return;
 
-  const dbPatch: Record<string, unknown> = {};
-  if (patch.status     !== undefined) dbPatch.status      = patch.status;
-  if (patch.priority   !== undefined) dbPatch.priority    = patch.priority;
-  if (patch.type       !== undefined) dbPatch.type        = patch.type;
-  if (patch.assigneeId !== undefined) dbPatch.assignee_id = patch.assigneeId;
-  if (patch.phase      !== undefined) dbPatch.phase       = patch.phase;
+  const issuePatch: IssuePatch = {};
+  if (patch.status     !== undefined) issuePatch.status      = patch.status;
+  if (patch.priority   !== undefined) issuePatch.priority    = patch.priority;
+  if (patch.type       !== undefined) issuePatch.type        = patch.type;
+  if (patch.assigneeId !== undefined) issuePatch.assigneeId  = patch.assigneeId;
+  if (patch.phase      !== undefined) issuePatch.phase       = patch.phase;
 
-  const supabase = createSupabaseServiceClient();
-  const { error } = await supabase
-    .from("issues")
-    .update(dbPatch)
-    .eq("tenant_id", ctx.tenant.id)
-    .in("id", ids);
+  const actor = { userId: ctx.appUserId, label: ctx.email ?? null };
+  const results = await Promise.allSettled(
+    ids.map((id) => updateIssue(ctx.tenant.id, id, issuePatch, actor))
+  );
 
-  if (error) throw new Error(error.message);
+  const failed = results.filter((r) => r.status === "rejected");
+  if (failed.length > 0) {
+    throw new Error(`${failed.length} of ${ids.length} issues failed to update.`);
+  }
 
   revalidatePath(`/${slug}/issues`);
   revalidatePath(`/${slug}/board`);
@@ -42,7 +46,7 @@ export async function bulkUpdateIssuesAction(slug: string, ids: string[], patch:
 export async function bulkDeleteIssuesAction(slug: string, ids: string[]) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (ctx.role !== "owner" && ctx.role !== "admin") throw new Error("Only owners and admins can delete issues.");
+  if (!ctxCanDo(ctx, "delete_issues")) throw new Error("You don't have permission to delete issues.");
   if (ids.length === 0) return;
 
   const supabase = createSupabaseServiceClient();

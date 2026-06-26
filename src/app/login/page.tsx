@@ -156,7 +156,7 @@ function LoginForm() {
     <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Forge</h1>
+          <img src="/logo-384.png" alt="Forge" className="mx-auto mb-4 h-48 w-48 object-contain" />
           <p className="mt-1 text-sm text-neutral-500">Sign in to your workspace</p>
         </div>
         <form

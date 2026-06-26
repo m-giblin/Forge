@@ -86,7 +86,7 @@ export default function StakeholderClient({ projects, workspaceKpis, tenantName 
   const visible = filter === "all" ? projects : projects.filter((p) => p.key === filter);
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-8 space-y-6">
+    <main className="w-full px-6 py-8 space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
         <div>

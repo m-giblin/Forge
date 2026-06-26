@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import type { TriageSuggestion } from "@/lib/repositories/issues";
+import type { IssueComment } from "@/lib/repositories/issueActivity";
 import { runTriageAction, acceptTriageAction, dismissTriageAction } from "./triageActions";
 import { markDuplicateAction } from "./actions";
 
@@ -10,11 +11,15 @@ export default function TriageCard({
   issueId,
   suggestion,
   readOnly,
+  inline = false,
+  onCommentAdded,
 }: {
   slug: string;
   issueId: string;
   suggestion: TriageSuggestion | null | undefined;
   readOnly: boolean;
+  inline?: boolean;
+  onCommentAdded?: (comment: IssueComment) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const [dismissed, setDismissed] = useState(false);
@@ -34,11 +39,12 @@ export default function TriageCard({
   function accept() {
     if (!suggestion) return;
     startTransition(async () => {
-      await acceptTriageAction(slug, issueId, {
+      const comment = await acceptTriageAction(slug, issueId, {
         priority: suggestion.priority,
         categoryLabel: suggestion.categoryLabel,
+        reasoning: suggestion.reasoning,
       });
-      setDismissed(true);
+      onCommentAdded?.(comment);
     });
   }
 
@@ -49,26 +55,29 @@ export default function TriageCard({
     });
   }
 
+  // Inline mode: just the trigger button (used inside AI Actions group)
   if (!suggestion) {
     if (readOnly) return null;
     return (
-      <div className="rounded-xl border border-neutral-200 bg-white p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 mb-2">AI Triage</p>
-        <button
-          onClick={runTriage}
-          disabled={pending}
-          className="w-full rounded-lg border border-dashed border-neutral-300 py-2 text-xs text-neutral-500 hover:bg-neutral-50 transition disabled:opacity-50"
-        >
-          {pending ? "Analyzing…" : "✨ Run AI triage"}
-        </button>
-      </div>
+      <button
+        onClick={runTriage}
+        disabled={pending}
+        className="w-full flex items-center gap-3 rounded-lg border border-violet-200 bg-white px-3 py-2.5 text-left hover:border-violet-400 hover:bg-violet-50 transition disabled:opacity-50"
+      >
+        <span className="text-lg">🔍</span>
+        <div>
+          <p className="text-sm font-medium text-neutral-800">{pending ? "Analyzing…" : "Triage Issue"}</p>
+          <p className="text-xs text-neutral-400">Auto-classify priority & category</p>
+        </div>
+      </button>
     );
   }
 
+  // Suggestion available — show results card (full width, below the action buttons)
   return (
-    <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 space-y-3">
+    <div className={inline ? "rounded-lg border border-violet-200 bg-white p-3 space-y-2" : "rounded-xl border border-violet-200 bg-violet-50 p-4 space-y-3"}>
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">✨ AI Triage</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">✨ Triage Result</p>
         <span className="text-[11px] text-violet-400">{ageLabel}</span>
       </div>
 
@@ -94,11 +103,7 @@ export default function TriageCard({
                   </span>
                   {!readOnly && (
                     <button
-                      onClick={() =>
-                        startTransition(() =>
-                          markDuplicateAction(slug, issueId, d.id, `#${d.number}`)
-                        )
-                      }
+                      onClick={() => startTransition(() => markDuplicateAction(slug, issueId, d.id, `#${d.number}`))}
                       disabled={pending}
                       className="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-300 whitespace-nowrap disabled:opacity-50"
                     >
@@ -110,42 +115,23 @@ export default function TriageCard({
             </ul>
           </div>
         )}
-        {suggestion.duplicateCandidates === undefined && suggestion.duplicateTitles.length > 0 && (
-          <div className="flex items-start gap-2">
-            <span className="text-neutral-500 shrink-0 w-20 pt-0.5">Possible dup</span>
-            <ul className="space-y-0.5">
-              {suggestion.duplicateTitles.map((t, i) => (
-                <li key={i} className="text-amber-700 truncate max-w-[160px] text-xs" title={t}>⚠ {t}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <p className="text-neutral-500 leading-relaxed pt-1 border-t border-violet-200">
+        <p className="text-neutral-500 leading-relaxed pt-1 border-t border-violet-100">
           {suggestion.reasoning}
         </p>
       </div>
 
       {!readOnly && (
         <div className="flex gap-2 pt-1">
-          <button
-            onClick={accept}
-            disabled={pending}
-            className="flex-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-          >
+          <button onClick={accept} disabled={pending}
+            className="flex-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50">
             {pending ? "Applying…" : "Accept"}
           </button>
-          <button
-            onClick={runTriage}
-            disabled={pending}
-            className="rounded-lg border border-violet-200 px-3 py-1.5 text-xs text-violet-600 hover:bg-violet-100 disabled:opacity-50"
-          >
-            Re-run
+          <button onClick={runTriage} disabled={pending}
+            className="rounded-lg border border-violet-200 px-3 py-1.5 text-xs text-violet-600 hover:bg-violet-100 disabled:opacity-50">
+            Re-analyze
           </button>
-          <button
-            onClick={dismiss}
-            disabled={pending}
-            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-50 disabled:opacity-50"
-          >
+          <button onClick={dismiss} disabled={pending}
+            className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-50 disabled:opacity-50">
             Dismiss
           </button>
         </div>

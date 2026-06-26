@@ -10,7 +10,7 @@ export default async function InboxPage({ params }: { params: Promise<{ tenant: 
   if (!ctx) redirect("/");
 
   const supabase = await createSupabaseServerClient();
-  const notifications = await notificationsRepo(supabase).list(ctx.appUserId, {
+  const notifications = await notificationsRepo(supabase).list(ctx.tenant.id, ctx.appUserId, {
     limit: 100,
     includeRead: true,
   });

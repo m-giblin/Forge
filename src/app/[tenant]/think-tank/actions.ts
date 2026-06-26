@@ -40,6 +40,8 @@ export async function createIdeaAction(
     description: (formData.get("description") as string)?.trim() || null,
     tags,
     is_private: formData.get("is_private") === "on",
+    is_anonymous: formData.get("is_anonymous") === "on",
+    linked_okr_id: (formData.get("linked_okr_id") as string) || null,
     assigned_to: (formData.get("assigned_to") as string) || null,
     review_by: rawReviewBy || null,
   });
@@ -725,4 +727,164 @@ export async function searchSimilarIdeasAction(
     .ilike("title", `%${q}%`)
     .limit(4);
   return (data ?? []) as Array<{ id: string; title: string; status: string }>;
+}
+
+// ---------------------------------------------------------------------------
+// AI Consensus Builder — synthesizes discussion thread into themes/consensus
+// ---------------------------------------------------------------------------
+
+export interface ConsensusSynthesis {
+  themes: string[];
+  agreement: string[];
+  contention: string[];
+  recommended_next: string;
+  summary: string;
+}
+
+export async function synthesizeDiscussionAction(
+  slug: string,
+  ideaId: string
+): Promise<ConsensusSynthesis> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+
+  const svc = createSupabaseServiceClient();
+  const [ideaRow, commentsData] = await Promise.all([
+    svc.from("ideas").select("title, description").eq("id", ideaId).eq("tenant_id", ctx.tenant.id).single(),
+    svc.from("idea_comments").select("body, created_at").eq("idea_id", ideaId).eq("tenant_id", ctx.tenant.id).is("deleted_at", null).order("created_at"),
+  ]);
+
+  const comments = (commentsData.data ?? []) as Array<{ body: string; created_at: string }>;
+  if (comments.length < 3) {
+    throw new Error("Need at least 3 comments to synthesize consensus.");
+  }
+
+  const { serverEnv } = await import("@/lib/env");
+  const env = serverEnv();
+  if (!env.GROK_API_KEY) {
+    throw new Error("AI not configured. Add GROK_API_KEY to enable consensus synthesis.");
+  }
+
+  const idea = ideaRow.data as { title: string; description: string | null } | null;
+  const ideaContext = `IDEA: "${idea?.title ?? ""}"\n${idea?.description ? `DESCRIPTION: ${idea.description.slice(0, 500)}` : ""}`;
+  const thread = comments.map((c, i) => `[Comment ${i + 1}]: ${c.body.slice(0, 400)}`).join("\n");
+
+  const system = `You are a skilled facilitator analyzing a team discussion. Extract structured insights. Respond ONLY with valid JSON, no prose or markdown.`;
+  const user = `${ideaContext}\n\nDISCUSSION (${comments.length} comments):\n${thread.slice(0, 4000)}\n\nRespond with JSON: {"themes": ["<2-4 key themes discussed>"], "agreement": ["<2-3 points of clear consensus>"], "contention": ["<1-2 unresolved tensions>"], "recommended_next": "<one concrete next step the team should take>", "summary": "<2-sentence neutral summary of where the discussion stands>"}`;
+
+  const res = await fetch("https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.GROK_API_KEY}` },
+    body: JSON.stringify({
+      model: "grok-3-mini",
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      temperature: 0.3,
+      max_tokens: 600,
+    }),
+    signal: AbortSignal.timeout(20_000),
+  });
+
+  if (!res.ok) throw new Error(`AI API error ${res.status}`);
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const text = json.choices?.[0]?.message?.content ?? "";
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("AI returned unexpected format.");
+
+  return JSON.parse(jsonMatch[0]) as ConsensusSynthesis;
+}
+
+// ---------------------------------------------------------------------------
+// Idea-to-PRD — AI drafts a full Product Requirements Document
+// ---------------------------------------------------------------------------
+
+export interface IdeaPRD {
+  problem_statement: string;
+  goals: string[];
+  success_metrics: string[];
+  user_stories: string[];
+  in_scope: string[];
+  out_of_scope: string[];
+  technical_notes: string;
+  open_questions: string[];
+  risks: string[];
+}
+
+export async function generatePRDAction(
+  slug: string,
+  ideaId: string
+): Promise<IdeaPRD> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+
+  const svc = createSupabaseServiceClient();
+  const [ideaRes, commentsRes] = await Promise.all([
+    svc.from("ideas").select("title, description, tags").eq("id", ideaId).eq("tenant_id", ctx.tenant.id).single(),
+    svc.from("idea_comments").select("body").eq("idea_id", ideaId).eq("tenant_id", ctx.tenant.id).is("deleted_at", null).order("created_at").limit(20),
+  ]);
+
+  const idea = ideaRes.data as { title: string; description: string | null; tags: string[] } | null;
+  if (!idea) throw new Error("Idea not found.");
+
+  const { serverEnv } = await import("@/lib/env");
+  const env = serverEnv();
+  if (!env.GROK_API_KEY) throw new Error("AI not configured.");
+
+  const commentSummary = (commentsRes.data ?? []).map((c, i) => `[${i + 1}] ${(c.body as string).slice(0, 300)}`).join("\n");
+
+  const system = `You are an experienced product manager writing a Product Requirements Document (PRD). Be specific, actionable, and concise. Respond ONLY with valid JSON.`;
+  const user = `
+IDEA TITLE: ${idea.title}
+DESCRIPTION: ${idea.description?.slice(0, 600) ?? "(none)"}
+TAGS: ${(idea.tags ?? []).join(", ") || "(none)"}
+TEAM DISCUSSION HIGHLIGHTS:
+${commentSummary.slice(0, 2000) || "(no discussion yet)"}
+
+Write a PRD as JSON with these exact fields:
+{
+  "problem_statement": "<1-2 sentence description of the problem being solved>",
+  "goals": ["<3-4 measurable goals>"],
+  "success_metrics": ["<3-4 specific metrics to track success>"],
+  "user_stories": ["<3-5 user stories in format: As a [user], I want to [action] so that [benefit]>"],
+  "in_scope": ["<4-6 specific things that ARE included in this release>"],
+  "out_of_scope": ["<3-4 things explicitly NOT included>"],
+  "technical_notes": "<brief paragraph on key technical considerations or constraints>",
+  "open_questions": ["<2-4 decisions still to be made>"],
+  "risks": ["<2-3 key risks and mitigations>"]
+}`;
+
+  const res = await fetch("https://api.x.ai/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.GROK_API_KEY}` },
+    body: JSON.stringify({
+      model: "grok-3-mini",
+      messages: [{ role: "system", content: system }, { role: "user", content: user }],
+      temperature: 0.3,
+      max_tokens: 1500,
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!res.ok) throw new Error(`AI API error ${res.status}`);
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const text = json.choices?.[0]?.message?.content ?? "";
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) throw new Error("AI returned unexpected format.");
+
+  return JSON.parse(jsonMatch[0]) as IdeaPRD;
+}
+
+export async function updateIdeaScoresAction(
+  slug: string,
+  ideaId: string,
+  impact: number | null,
+  effort: number | null
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Unauthorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot edit scores.");
+  const supabase = await createSupabaseServerClient();
+  await ideasRepo(supabase).update(ctx.tenant.id, ideaId, {
+    impact_score: impact,
+    effort_score: effort,
+  });
 }

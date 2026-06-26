@@ -12,6 +12,7 @@ interface Props {
   thinkTankId: string;
   members: Array<{ id: string; name: string | null; email: string }>;
   tenantTemplates?: TenantIdeaTemplate[];
+  okrs?: Array<{ id: string; title: string; quarter: string | null }>;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -19,7 +20,7 @@ const STATUS_LABELS: Record<string, string> = {
   ready: "Ready", converted: "Converted",
 };
 
-export default function IdeaCreateForm({ slug, thinkTankId, members, tenantTemplates = [] }: Props) {
+export default function IdeaCreateForm({ slug, thinkTankId, members, tenantTemplates = [], okrs = [] }: Props) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -270,17 +271,48 @@ export default function IdeaCreateForm({ slug, thinkTankId, members, tenantTempl
         </div>
       )}
 
-      {/* Private toggle */}
-      <label className="flex cursor-pointer items-center gap-3">
-        <input
-          type="checkbox"
-          name="is_private"
-          className="h-4 w-4 rounded border-neutral-300"
-        />
-        <span className="text-sm text-neutral-700">
-          🔒 Private — only visible to me and admins
-        </span>
-      </label>
+      {okrs.length > 0 && (
+        <div>
+          <label className="mb-1 block text-sm font-medium text-neutral-700">
+            Link to OKR <span className="text-neutral-400 font-normal">(optional)</span>
+          </label>
+          <select
+            name="linked_okr_id"
+            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+          >
+            <option value="">No OKR alignment</option>
+            {okrs.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.quarter ? `[${o.quarter}] ` : ""}{o.title}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Private + anonymous toggles */}
+      <div className="flex flex-wrap gap-4">
+        <label className="flex cursor-pointer items-center gap-3">
+          <input
+            type="checkbox"
+            name="is_private"
+            className="h-4 w-4 rounded border-neutral-300"
+          />
+          <span className="text-sm text-neutral-700">
+            🔒 Private — only visible to me and admins
+          </span>
+        </label>
+        <label className="flex cursor-pointer items-center gap-3">
+          <input
+            type="checkbox"
+            name="is_anonymous"
+            className="h-4 w-4 rounded border-neutral-300"
+          />
+          <span className="text-sm text-neutral-700">
+            👤 Anonymous — hide my name from other members
+          </span>
+        </label>
+      </div>
 
       {error && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>

@@ -66,6 +66,7 @@ export function supportTicketsRepo(supabase: SupabaseClient) {
     },
 
     async updateTriage(
+      tenantId: string,
       id: string,
       patch: { ai_triage_summary: string; ai_guidance: string }
     ): Promise<void> {
@@ -75,6 +76,7 @@ export function supportTicketsRepo(supabase: SupabaseClient) {
           ai_triage_summary: patch.ai_triage_summary,
           ai_guidance: patch.ai_guidance,
         })
+        .eq("tenant_id", tenantId)
         .eq("id", id);
       if (error) throw error;
     },
@@ -101,6 +103,7 @@ export function supportTicketsRepo(supabase: SupabaseClient) {
     },
 
     async updateStatus(
+      tenantId: string,
       id: string,
       status: SupportTicket["status"],
       platformNotes?: string
@@ -111,14 +114,16 @@ export function supportTicketsRepo(supabase: SupabaseClient) {
       const { error } = await supabase
         .from("support_tickets")
         .update(patch)
+        .eq("tenant_id", tenantId)
         .eq("id", id);
       if (error) throw error;
     },
 
-    async markEscalated(id: string): Promise<void> {
+    async markEscalated(tenantId: string, id: string): Promise<void> {
       const { error } = await supabase
         .from("support_tickets")
         .update({ escalation_email_sent_at: new Date().toISOString() })
+        .eq("tenant_id", tenantId)
         .eq("id", id);
       if (error) throw error;
     },
