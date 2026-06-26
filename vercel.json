@@ -1,16 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/sla-check",
-      "schedule": "0 0 * * *"
-    },
-    {
-      "path": "/api/cron/board-monitor",
-      "schedule": "0 8 * * *"
-    },
-    {
-      "path": "/api/cron/standup-digest",
-      "schedule": "0 9 * * 1-5"
-    }
-  ]
-}
+{}
