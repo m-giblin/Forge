@@ -68,7 +68,9 @@ export default async function TenantLayout({
       <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-neutral-200 bg-white overflow-hidden">
         {/* Logo + workspace */}
         <div className="flex items-center gap-2.5 border-b border-neutral-100 px-4 py-4 shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 text-xs font-bold text-white">F</div>
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 overflow-hidden">
+            <img src="/logo-28.png" alt="Forge" className="h-7 w-7 object-cover" />
+          </div>
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-neutral-900">{ctx.tenant.name}</p>
             <p className="text-[11px] text-neutral-400 capitalize">{ctx.role}</p>
