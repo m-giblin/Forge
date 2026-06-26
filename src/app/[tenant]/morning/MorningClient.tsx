@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { MorningBriefing, BriefingIssue, SprintHealth, WorkloadEntry, BlockerIssue, ProjectSprintSummary, MemberActivityEntry } from "@/lib/services/morningBriefing";
+import type { RiskGateWithIssue } from "@/lib/repositories/issueRiskGates";
 
 // ── Shared primitives ─────────────────────────────────────────────────────
 
@@ -69,6 +70,69 @@ function ProgressBar({ pct, color = "bg-indigo-500" }: { pct: number; color?: st
     <div className="h-2 w-full overflow-hidden rounded-full bg-neutral-100">
       <div className={`h-full rounded-full transition-all ${color}`} style={{ width: `${Math.min(100, pct)}%` }} />
     </div>
+  );
+}
+
+// ── Risk Gates Widget ────────────────────────────────────────────────────
+
+function RiskGatesWidget({ gates, staleGateIds, slug }: { gates: RiskGateWithIssue[]; staleGateIds: Set<string>; slug: string }) {
+  const ageLabel = (iso: string) => {
+    const h = Math.round((Date.now() - new Date(iso).getTime()) / 3_600_000);
+    return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d ${h % 24}h`;
+  };
+
+  return (
+    <Card>
+      <CardHeader
+        title="🚨 Risk Gates"
+        right={
+          gates.length > 0 ? (
+            <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600 border border-red-200">
+              {gates.length} open
+            </span>
+          ) : null
+        }
+      />
+      {gates.length === 0 ? (
+        <div className="flex items-center gap-3 px-5 py-6">
+          <span className="text-lg">✅</span>
+          <p className="text-sm text-neutral-500">No open risk gates — all clear.</p>
+        </div>
+      ) : (
+        <div className="divide-y divide-neutral-50">
+          {gates.map((g) => {
+            const isStale = staleGateIds.has(g.id);
+            const isCritical = g.riskLevel === "critical";
+            return (
+              <Link
+                key={g.id}
+                href={`/${slug}/issues/${g.issueId}`}
+                className="flex items-start gap-3 px-5 py-3.5 hover:bg-neutral-50 transition-colors"
+              >
+                <span className="text-lg mt-0.5">{isCritical ? "🔴" : "🟠"}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                    <span className="text-xs font-mono text-neutral-400">{g.issueKey}</span>
+                    <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold uppercase ${
+                      isCritical ? "bg-red-50 border-red-200 text-red-700" : "bg-orange-50 border-orange-200 text-orange-700"
+                    }`}>
+                      {g.riskLevel}
+                    </span>
+                    {isStale && (
+                      <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                        ⏰ &gt;24h
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-neutral-800 truncate">{g.issueTitle}</p>
+                  <p className="text-xs text-neutral-400 mt-0.5">Waiting {ageLabel(g.createdAt)} · needs approval</p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -358,7 +422,7 @@ function DeveloperView({ briefing, slug }: { briefing: MorningBriefing; slug: st
 
 // ── PM VIEW ───────────────────────────────────────────────────────────────
 
-function PMView({ briefing, slug }: { briefing: MorningBriefing; slug: string }) {
+function PMView({ briefing, slug, openGates, staleGateIds }: { briefing: MorningBriefing; slug: string; openGates: RiskGateWithIssue[]; staleGateIds: Set<string> }) {
   const totalOpen    = briefing.projectSprints.reduce((s, p) => s + p.openCount, 0);
   const totalBlocked = briefing.projectSprints.reduce((s, p) => s + p.blockedCount, 0);
   const totalOverdue = briefing.projectSprints.reduce((s, p) => s + p.overdueCount, 0);
@@ -373,7 +437,7 @@ function PMView({ briefing, slug }: { briefing: MorningBriefing; slug: string })
           { label: "Projects",     value: briefing.projectSprints.length, color: "text-neutral-800", bg: "bg-white" },
           { label: "Open Issues",  value: totalOpen,                      color: "text-indigo-600",  bg: "bg-indigo-50" },
           { label: "Blocked",      value: totalBlocked,                   color: totalBlocked > 0 ? "text-red-600" : "text-neutral-400", bg: totalBlocked > 0 ? "bg-red-50" : "bg-white" },
-          { label: "Overdue",      value: totalOverdue,                   color: totalOverdue > 0 ? "text-amber-600" : "text-neutral-400", bg: totalOverdue > 0 ? "bg-amber-50" : "bg-white" },
+          { label: "Risk Gates",   value: openGates.length,               color: openGates.length > 0 ? "text-orange-600" : "text-neutral-400", bg: openGates.length > 0 ? "bg-orange-50" : "bg-white" },
         ].map((s) => (
           <div key={s.label} className={`rounded-xl border border-neutral-200 ${s.bg} px-5 py-4`}>
             <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
@@ -412,8 +476,9 @@ function PMView({ briefing, slug }: { briefing: MorningBriefing; slug: string })
           </Card>
         </div>
 
-        {/* Right rail — blockers + overdue */}
+        {/* Right rail — risk gates + blockers + overdue */}
         <div className="space-y-5">
+          <RiskGatesWidget gates={openGates} staleGateIds={staleGateIds} slug={slug} />
           <Card>
             <CardHeader
               title="Blockers"
@@ -679,11 +744,15 @@ export default function MorningClient({
   role,
   firstName,
   briefing,
+  openGates,
+  staleGateIds,
 }: {
   slug: string;
   role: string;
   firstName: string;
   briefing: MorningBriefing;
+  openGates: RiskGateWithIssue[];
+  staleGateIds: Set<string>;
 }) {
   const [activeTab, setActiveTab] = useState<RoleTab>(defaultTab(role));
 
@@ -733,7 +802,7 @@ export default function MorningClient({
 
       {/* Views */}
       {activeTab === "developer" && <DeveloperView briefing={briefing} slug={slug} />}
-      {activeTab === "pm"        && <PMView        briefing={briefing} slug={slug} />}
+      {activeTab === "pm"        && <PMView        briefing={briefing} slug={slug} openGates={openGates} staleGateIds={staleGateIds} />}
       {activeTab === "admin"     && <AdminView     briefing={briefing} slug={slug} />}
     </div>
   );

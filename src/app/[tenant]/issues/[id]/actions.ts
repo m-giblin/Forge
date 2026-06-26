@@ -10,6 +10,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issueAttachmentsRepo } from "@/lib/repositories/issueAttachments";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import { issueLinksRepo } from "@/lib/repositories/issueLinks";
+import { issueRiskGatesRepo } from "@/lib/repositories/issueRiskGates";
 
 const BUCKET = "issue-attachments";
 const QUOTA_BYTES = 100 * 1024 * 1024; // 100 MB / month per tenant
@@ -30,6 +31,16 @@ export async function updateIssueAction(slug: string, id: string, patch: IssuePa
   // Owners and admins can override by confirming; members get a hard stop here.
   if (patch.status === "done") {
     const svc = createSupabaseServiceClient();
+
+    // Block if there is an open risk gate (High/Critical PR Impact)
+    const activeGate = await issueRiskGatesRepo(svc).getActiveGate(ctx.tenant.id, id);
+    if (activeGate) {
+      throw new Error(
+        `This issue has an open ${activeGate.riskLevel.toUpperCase()} risk gate. A project manager or admin must approve it before closing.`
+      );
+    }
+
+    // Block if there are open blocker issues
     const links = await issueLinksRepo(svc).listForIssue(ctx.tenant.id, id, "");
     const openBlockers = links.filter(
       (l) => l.linkType === "blocks" && l.direction === "inbound" && l.targetStatus !== "done"

@@ -3,16 +3,32 @@
 import { useState, useTransition, useRef, useEffect } from "react";
 import { markDuplicateAction } from "./actions";
 
+function InfoTip({ text }: { text: string }) {
+  return (
+    <span className="relative inline-flex group/tip ml-1">
+      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-neutral-200 text-neutral-500 text-[9px] font-bold cursor-default select-none leading-none group-hover/tip:bg-neutral-300">
+        i
+      </span>
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-52 rounded-lg bg-neutral-900 px-3 py-2 text-[11px] text-white leading-relaxed shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+        {text}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900" />
+      </span>
+    </span>
+  );
+}
+
 export default function MarkDuplicateButton({
   slug,
   issueId,
   currentStatus,
   readOnly,
+  tooltip,
 }: {
   slug: string;
   issueId: string;
   currentStatus: string;
   readOnly: boolean;
+  tooltip?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -57,7 +73,10 @@ export default function MarkDuplicateButton({
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-4">
       <div className="flex items-center justify-between mb-1">
-        <p className="text-xs font-semibold text-neutral-600">Duplicate</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 flex items-center gap-1.5">
+          Duplicate
+          {tooltip && <InfoTip text={tooltip} />}
+        </p>
       </div>
       <p className="text-xs text-neutral-400 mb-3">
         Mark this issue as a duplicate of another and close it.

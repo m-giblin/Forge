@@ -83,6 +83,24 @@ function Icon({ name, size = 16, className, strokeWidth = 2 }: { name: string; s
   );
 }
 
+function InfoTooltip({ text }: { text: string }) {
+  return (
+    <span className="relative inline-flex group/tip ml-1 align-middle">
+      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-neutral-200 text-neutral-500 text-[9px] font-bold cursor-default select-none leading-none group-hover/tip:bg-neutral-300">
+        i
+      </span>
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-52 rounded-lg bg-neutral-900 px-3 py-2 text-[11px] text-white leading-relaxed shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+        {text}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900" />
+      </span>
+    </span>
+  );
+}
+
+function SideGroupLabel({ color, children }: { color: string; children: React.ReactNode }) {
+  return <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${color}`}>{children}</p>;
+}
+
 function statusIconName(key: string): string {
   const k = key.toLowerCase();
   if (k.includes("backlog")) return "inbox";
@@ -764,198 +782,235 @@ export default function IssueDetail({
                 slug={slug}
                 issueId={issue.id}
                 readOnly={readOnly}
+                userRole={userRole}
               />
             </div>
           )}
 
-          <div className={sideSection}>
-            <p className={sideLabel}>Assignee</p>
-            <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); saveField({ assigneeId: e.target.value || null }); }} className={sidebarSelect}>
-              <option value="">Unassigned</option>
-              {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
-            </select>
-          </div>
-
-          <div className={sideSection}>
-            <div className="flex items-center justify-between mb-2">
-              <p className={sideLabel} style={{ marginBottom: 0 }}>Watchers ({watchers.length})</p>
-              <button
-                onClick={toggleWatch}
-                disabled={watchPending}
-                className={`text-xs font-medium px-2 py-0.5 rounded-full border transition-colors ${
-                  isWatching
-                    ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                    : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
-                }`}
-              >
-                {isWatching ? "Watching" : "Watch"}
-              </button>
-            </div>
-            {watchers.length === 0 ? (
-              <p className="text-xs text-neutral-400">No watchers yet</p>
-            ) : (
-              <div className="flex flex-wrap gap-1">
-                {watchers.map((uid) => {
-                  const m = members.find((x) => x.userId === uid);
-                  const label = m?.label ?? "Unknown";
-                  return (
-                    <span key={uid} title={label} className="inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-semibold text-white bg-neutral-400" style={{ background: avatarColor(label) }}>
-                      {avatarInitials(label)}
-                    </span>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          <div className={sideSection}>
-            <p className={sideLabel}>Priority</p>
-            <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); saveField({ priority: e.target.value }); }} className={sidebarSelect}>
-              {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-            </select>
-          </div>
-
-          <div className={sideSection}>
-            <p className={sideLabel}>Type</p>
-            <select value={type} disabled={readOnly} onChange={(e) => { setType(e.target.value); saveField({ type: e.target.value }); }} className={sidebarSelect}>
-              {types.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-            </select>
-          </div>
-
-          <div className={sideSection}>
-            <p className={sideLabel}>Start date</p>
-            <input type="date" value={startDate} disabled={readOnly} onChange={(e) => { setStartDate(e.target.value); saveField({ startDate: e.target.value || null }); }} className={sidebarSelect} />
-          </div>
-
-          <div className={sideSection}>
-            <p className={sideLabel}>Due date</p>
-            <input type="date" value={dueDate} disabled={readOnly} onChange={(e) => { setDueDate(e.target.value); saveField({ dueDate: e.target.value || null }); }} className={sidebarSelect} />
-          </div>
-
-          <div className={sideSection}>
-            <p className={sideLabel} title="Phase = development stage (where in the build lifecycle). Distinct from Status, which tracks queue state (backlog → in progress → done).">Phase <span className="text-neutral-400 font-normal text-[10px]">(stage)</span></p>
-            <select value={phase} disabled={readOnly} onChange={(e) => { setPhase(e.target.value); saveField({ phase: e.target.value || null }); }} className={sidebarSelect}>
-              <option value="">— None —</option>
-              <option value="discovery">Discovery</option>
-              <option value="design">Design</option>
-              <option value="development">Development</option>
-              <option value="testing">Testing</option>
-              <option value="deployment">Deployment</option>
-            </select>
-          </div>
-
-          <div className={sideSection}>
-            <p className={sideLabel}>Story Points</p>
-            <div className="flex items-center gap-2">
-              {[1, 2, 3, 5, 8, 13, 21].map((pt) => (
-                <button
-                  key={pt}
-                  disabled={readOnly}
-                  onClick={() => { const v = storyPoints === String(pt) ? "" : String(pt); setStoryPoints(v); saveField({ storyPoints: v ? Number(v) : null }); }}
-                  className={`h-7 w-7 rounded-md text-xs font-semibold border transition-colors ${
-                    storyPoints === String(pt)
-                      ? "bg-indigo-600 border-indigo-600 text-white"
-                      : "border-neutral-200 text-neutral-600 hover:border-indigo-300 hover:text-indigo-700"
-                  } disabled:opacity-40 disabled:cursor-not-allowed`}
-                >
-                  {pt}
-                </button>
-              ))}
-              <input
-                type="number"
-                min="1"
-                value={storyPoints}
-                disabled={readOnly}
-                onBlur={(e) => saveField({ storyPoints: e.target.value ? Number(e.target.value) : null })}
-              onChange={(e) => setStoryPoints(e.target.value)}
-                placeholder="?"
-                className="w-10 rounded-md border border-neutral-200 px-1.5 py-1 text-xs text-center outline-none focus:border-indigo-400 disabled:opacity-40"
-              />
-            </div>
-          </div>
-
-          {catOptions.length > 0 && (
-            <div className={sideSection}>
-              <p className={sideLabel}>Category</p>
-              <select value={categoryId} disabled={readOnly} onChange={(e) => { setCategoryId(e.target.value); saveField({ categoryId: e.target.value || null }); }} className={sidebarSelect}>
-                <option value="">None</option>
-                {catOptions.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          {/* ── 👥 People ── */}
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
+            <SideGroupLabel color="text-blue-500">👥 People</SideGroupLabel>
+            <div>
+              <p className={sideLabel}>Assignee</p>
+              <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); saveField({ assigneeId: e.target.value || null }); }} className={sidebarSelect}>
+                <option value="">Unassigned</option>
+                {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
               </select>
             </div>
-          )}
-
-          {customFields.map((f) => (
-            <div key={f.key} className={sideSection}>
-              <p className={sideLabel}>{f.label}{f.required && <span className="text-red-500"> *</span>}</p>
-              {f.type === "select" ? (
-                <select
-                  value={customValues[f.key] ?? ""}
-                  disabled={readOnly}
-                  onChange={(e) => { const v = e.target.value; setCustomValues((cv) => ({ ...cv, [f.key]: v })); saveField({ customValues: { ...customValues, [f.key]: v } }); }}
-                  className={sidebarSelect}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <p className={sideLabel} style={{ marginBottom: 0 }}>
+                  Watchers ({watchers.length})
+                  <InfoTooltip text="Team members who receive notifications whenever this issue is updated, commented on, or changes status." />
+                </p>
+                <button
+                  onClick={toggleWatch}
+                  disabled={watchPending}
+                  className={`text-xs font-medium px-2 py-0.5 rounded-full border transition-colors ${
+                    isWatching
+                      ? "border-blue-300 bg-blue-100 text-blue-700 hover:bg-blue-200"
+                      : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
+                  }`}
                 >
-                  <option value="">—</option>
-                  {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
+                  {isWatching ? "Watching" : "Watch"}
+                </button>
+              </div>
+              {watchers.length === 0 ? (
+                <p className="text-xs text-neutral-400">No watchers yet</p>
               ) : (
-                <input
-                  type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                  value={customValues[f.key] ?? ""}
-                  disabled={readOnly}
-                  onChange={(e) => setCustomValues((cv) => ({ ...cv, [f.key]: e.target.value }))}
-                  onBlur={(e) => saveField({ customValues: { ...customValues, [f.key]: e.target.value } })}
-                  className={sidebarSelect}
-                />
+                <div className="flex flex-wrap gap-1">
+                  {watchers.map((uid) => {
+                    const m = members.find((x) => x.userId === uid);
+                    const label = m?.label ?? "Unknown";
+                    return (
+                      <span key={uid} title={label} className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-semibold text-white ${avatarColor(label)}`}>
+                        {avatarInitials(label)}
+                      </span>
+                    );
+                  })}
+                </div>
               )}
             </div>
-          ))}
+          </div>
 
-          {slaTimer && <SlaChip timer={slaTimer} />}
+          {/* ── 🏷 Classification ── */}
+          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
+            <SideGroupLabel color="text-amber-600">🏷 Classification</SideGroupLabel>
+            <div>
+              <p className={sideLabel}>
+                Priority
+                <InfoTooltip text="How urgently this issue needs to be resolved. Urgent = blocking production now. High = must ship this sprint. Medium = important but not blocking. Low = nice to have." />
+              </p>
+              <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); saveField({ priority: e.target.value }); }} className={sidebarSelect}>
+                {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <p className={sideLabel}>
+                Type
+                <InfoTooltip text="What kind of work this is. Bug = something broken. Feature = new functionality. Task = operational work. Chore = maintenance with no user impact." />
+              </p>
+              <select value={type} disabled={readOnly} onChange={(e) => { setType(e.target.value); saveField({ type: e.target.value }); }} className={sidebarSelect}>
+                {types.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
+              </select>
+            </div>
+            {catOptions.length > 0 && (
+              <div>
+                <p className={sideLabel}>
+                  Category
+                  <InfoTooltip text="A custom label your team uses to group related issues — e.g. Auth, Billing, Performance. Set by your project admin." />
+                </p>
+                <select value={categoryId} disabled={readOnly} onChange={(e) => { setCategoryId(e.target.value); saveField({ categoryId: e.target.value || null }); }} className={sidebarSelect}>
+                  <option value="">None</option>
+                  {catOptions.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                </select>
+              </div>
+            )}
+            {customFields.map((f) => (
+              <div key={f.key}>
+                <p className={sideLabel}>
+                  {f.label}
+                  {f.key === "severity" && (
+                    <InfoTooltip text="How severely this impacts end users. Critical = data loss or outage. High = major feature broken. Medium = degraded experience. Low = cosmetic or minor." />
+                  )}
+                  {f.required && <span className="text-red-500"> *</span>}
+                </p>
+                {f.type === "select" ? (
+                  <select
+                    value={customValues[f.key] ?? ""}
+                    disabled={readOnly}
+                    onChange={(e) => { const v = e.target.value; setCustomValues((cv) => ({ ...cv, [f.key]: v })); saveField({ customValues: { ...customValues, [f.key]: v } }); }}
+                    className={sidebarSelect}
+                  >
+                    <option value="">—</option>
+                    {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                ) : (
+                  <input
+                    type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+                    value={customValues[f.key] ?? ""}
+                    disabled={readOnly}
+                    onChange={(e) => setCustomValues((cv) => ({ ...cv, [f.key]: e.target.value }))}
+                    onBlur={(e) => saveField({ customValues: { ...customValues, [f.key]: e.target.value } })}
+                    className={sidebarSelect}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
 
-          <SubIssuesCard
-            slug={slug}
-            parentIssueId={issue.id}
-            projectId={issue.project_id}
-            projectKey={projectKey}
-            subIssues={subIssues}
-            readOnly={readOnly}
-          />
+          {/* ── 📅 Planning ── */}
+          <div className="rounded-xl border border-green-200 bg-green-50 p-4 space-y-3">
+            <SideGroupLabel color="text-green-600">📅 Planning</SideGroupLabel>
+            <div>
+              <p className={sideLabel}>Start date</p>
+              <input type="date" value={startDate} disabled={readOnly} onChange={(e) => { setStartDate(e.target.value); saveField({ startDate: e.target.value || null }); }} className={sidebarSelect} />
+            </div>
+            <div>
+              <p className={sideLabel}>Due date</p>
+              <input type="date" value={dueDate} disabled={readOnly} onChange={(e) => { setDueDate(e.target.value); saveField({ dueDate: e.target.value || null }); }} className={sidebarSelect} />
+            </div>
+            <div>
+              <p className={sideLabel}>Phase</p>
+              <select value={phase} disabled={readOnly} onChange={(e) => { setPhase(e.target.value); saveField({ phase: e.target.value || null }); }} className={sidebarSelect}>
+                <option value="">— None —</option>
+                <option value="discovery">Discovery</option>
+                <option value="design">Design</option>
+                <option value="development">Development</option>
+                <option value="testing">Testing</option>
+                <option value="deployment">Deployment</option>
+              </select>
+            </div>
+            <div>
+              <p className={sideLabel}>
+                Story Points
+                <InfoTooltip text="An estimate of effort using the Fibonacci scale. 1 = trivial (under an hour). 3 = small (a day). 5 = medium (2–3 days). 8 = large (a week). 13+ = break it down first." />
+              </p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {[1, 2, 3, 5, 8, 13, 21].map((pt) => (
+                  <button
+                    key={pt}
+                    disabled={readOnly}
+                    onClick={() => { const v = storyPoints === String(pt) ? "" : String(pt); setStoryPoints(v); saveField({ storyPoints: v ? Number(v) : null }); }}
+                    className={`h-7 w-7 rounded-md text-xs font-semibold border transition-colors ${
+                      storyPoints === String(pt)
+                        ? "bg-green-600 border-green-600 text-white"
+                        : "border-neutral-200 bg-white text-neutral-600 hover:border-green-400 hover:text-green-700"
+                    } disabled:opacity-40 disabled:cursor-not-allowed`}
+                  >
+                    {pt}
+                  </button>
+                ))}
+                <input
+                  type="number"
+                  min="1"
+                  value={storyPoints}
+                  disabled={readOnly}
+                  onBlur={(e) => saveField({ storyPoints: e.target.value ? Number(e.target.value) : null })}
+                  onChange={(e) => setStoryPoints(e.target.value)}
+                  placeholder="?"
+                  className="w-10 rounded-md border border-neutral-200 bg-white px-1.5 py-1 text-xs text-center outline-none focus:border-green-400 disabled:opacity-40"
+                />
+              </div>
+            </div>
+            {slaTimer && <SlaChip timer={slaTimer} />}
+          </div>
 
-          <LinkedIssuesCard
-            slug={slug}
-            issueId={issue.id}
-            links={links}
-            readOnly={readOnly}
-          />
+          {/* ── 🔗 Relationships ── */}
+          <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 space-y-3">
+            <SideGroupLabel color="text-purple-600">🔗 Relationships</SideGroupLabel>
+            <SubIssuesCard
+              slug={slug}
+              parentIssueId={issue.id}
+              projectId={issue.project_id}
+              projectKey={projectKey}
+              subIssues={subIssues}
+              readOnly={readOnly}
+              tooltip="Child tasks that must all be completed as part of resolving this issue. Useful for breaking a large issue into trackable steps."
+            />
+            <LinkedIssuesCard
+              slug={slug}
+              issueId={issue.id}
+              links={links}
+              readOnly={readOnly}
+              tooltip="Issues related to this one — blocks, is blocked by, duplicates, or references. Helps the team see knock-on effects."
+            />
+            <MarkDuplicateButton
+              slug={slug}
+              issueId={issue.id}
+              currentStatus={issue.status}
+              readOnly={readOnly}
+              tooltip="Flag this issue as a duplicate of an existing one. The duplicate is closed and a reference is kept so nothing gets lost."
+            />
+          </div>
 
-          <MarkDuplicateButton
-            slug={slug}
-            issueId={issue.id}
-            currentStatus={issue.status}
-            readOnly={readOnly}
-          />
-
-          <TimeTracker
-            slug={slug}
-            issueId={issue.id}
-            initialLogs={initialTimeLogs}
-            readOnly={readOnly}
-          />
+          {/* ── ⏱ Time Tracking ── */}
+          <div className="rounded-xl border border-teal-200 bg-teal-50 p-4">
+            <SideGroupLabel color="text-teal-600">⏱ Time Tracking</SideGroupLabel>
+            <TimeTracker
+              slug={slug}
+              issueId={issue.id}
+              initialLogs={initialTimeLogs}
+              readOnly={readOnly}
+            />
+          </div>
 
           <GitLinksCard links={gitLinks} />
 
-          <div className={`${sideSection} space-y-3`}>
-            <div>
-              <p className={sideLabel}>Created</p>
-              <p className="text-sm text-neutral-700 font-medium" title={new Date(issue.created_at).toLocaleString()}>{relTime(issue.created_at)}</p>
+          {/* ── 📋 Details ── */}
+          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3">
+            <SideGroupLabel color="text-rose-500">📋 Details</SideGroupLabel>
+            <div className="flex justify-between items-center">
+              <p className="text-xs font-semibold text-neutral-500">Created</p>
+              <p className="text-xs text-neutral-800 font-semibold bg-white border border-rose-100 rounded-md px-2 py-0.5" title={new Date(issue.created_at).toLocaleString()}>{relTime(issue.created_at)}</p>
             </div>
-            <div className="border-t border-neutral-200 pt-3">
-              <p className={sideLabel}>Last update</p>
-              <p className="text-sm text-neutral-700 font-medium" title={new Date(issue.updated_at).toLocaleString()}>{relTime(issue.updated_at)}</p>
+            <div className="flex justify-between items-center border-t border-rose-100 pt-3">
+              <p className="text-xs font-semibold text-neutral-500">Last update</p>
+              <p className="text-xs text-neutral-800 font-semibold bg-white border border-rose-100 rounded-md px-2 py-0.5" title={new Date(issue.updated_at).toLocaleString()}>{relTime(issue.updated_at)}</p>
             </div>
-            <div className="border-t border-neutral-200 pt-3">
-              <p className={sideLabel}>Age</p>
-              <p className="text-sm text-neutral-700 font-medium">{ageSince(issue.created_at)}</p>
+            <div className="flex justify-between items-center border-t border-rose-100 pt-3">
+              <p className="text-xs font-semibold text-neutral-500">Age</p>
+              <p className="text-xs text-neutral-800 font-semibold bg-white border border-rose-100 rounded-md px-2 py-0.5">{ageSince(issue.created_at)}</p>
             </div>
             {issue.environment && (() => {
               let meta: Record<string, string | number | boolean> | null = null;

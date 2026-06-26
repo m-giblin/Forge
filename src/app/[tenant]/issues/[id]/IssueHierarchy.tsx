@@ -10,6 +10,20 @@ import {
   setParentIssueAction,
 } from "./issueHierarchyActions";
 
+function InfoTip({ text }: { text: string }) {
+  return (
+    <span className="relative inline-flex group/tip">
+      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-neutral-200 text-neutral-500 text-[9px] font-bold cursor-default select-none leading-none group-hover/tip:bg-neutral-300">
+        i
+      </span>
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-52 rounded-lg bg-neutral-900 px-3 py-2 text-[11px] text-white leading-relaxed shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+        {text}
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900" />
+      </span>
+    </span>
+  );
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type SearchResult = { id: string; key: string; title: string; status: string; priority: string };
@@ -150,11 +164,13 @@ export function LinkedIssuesCard({
   issueId,
   links,
   readOnly,
+  tooltip,
 }: {
   slug: string;
   issueId: string;
   links: IssueLinkWithKey[];
   readOnly: boolean;
+  tooltip?: string;
 }) {
   const [adding, setAdding]         = useState(false);
   const [linkType, setLinkType]     = useState<LinkType>("duplicates");
@@ -190,6 +206,7 @@ export function LinkedIssuesCard({
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 flex items-center gap-2">
           Linked issues {links.length > 0 && `(${links.length})`}
+          {tooltip && <InfoTip text={tooltip} />}
           {openBlockers.length > 0 && (
             <span className="inline-flex items-center rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700 border border-red-200">
               🚫 Blocked
@@ -282,6 +299,7 @@ export function SubIssuesCard({
   projectKey,
   subIssues,
   readOnly,
+  tooltip,
 }: {
   slug: string;
   parentIssueId: string;
@@ -289,6 +307,7 @@ export function SubIssuesCard({
   projectKey: string;
   subIssues: { id: string; number: number; title: string; status: string; priority: string }[];
   readOnly: boolean;
+  tooltip?: string;
 }) {
   const [mode, setMode]             = useState<null | "new" | "existing">(null);
   const [title, setTitle]           = useState("");
@@ -327,8 +346,9 @@ export function SubIssuesCard({
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-4">
       <div className="flex items-center justify-between mb-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-          Sub-issues{subIssues.length > 0 && <span className="font-normal ml-1">({done}/{subIssues.length} done)</span>}
+        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 flex items-center gap-1.5">
+          Sub-issues{subIssues.length > 0 && <span className="font-normal">({done}/{subIssues.length} done)</span>}
+          {tooltip && <InfoTip text={tooltip} />}
         </p>
         {!readOnly && !mode && (
           <div className="flex items-center gap-2">

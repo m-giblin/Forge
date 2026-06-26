@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { loadMorningBriefing } from "@/lib/services/morningBriefing";
 import { listMembers } from "@/lib/services/members";
+// eslint-disable-next-line no-restricted-imports -- service-role required for risk gates read
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { issueRiskGatesRepo, type RiskGateWithIssue } from "@/lib/repositories/issueRiskGates";
 import MorningClient from "./MorningClient";
 
 export default async function MorningPage({
@@ -13,16 +16,17 @@ export default async function MorningPage({
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
 
-  const [briefing, members] = await Promise.all([
-    loadMorningBriefing({
-      tenantId: ctx.tenant.id,
-      appUserId: ctx.appUserId,
-    }),
+  const svc = createSupabaseServiceClient();
+  const [briefing, members, openGates, staleGates] = await Promise.all([
+    loadMorningBriefing({ tenantId: ctx.tenant.id, appUserId: ctx.appUserId }),
     listMembers(ctx.tenant.id, ctx.impersonating),
+    issueRiskGatesRepo(svc).listOpenGates(ctx.tenant.id),
+    issueRiskGatesRepo(svc).listStaleOpenGates(ctx.tenant.id, 24),
   ]);
 
   const userName = members.find((m) => m.userId === ctx.appUserId)?.name ?? ctx.email ?? "there";
   const firstName = userName.split(" ")[0];
+  const staleGateIds = new Set(staleGates.map((g) => g.id));
 
   return (
     <MorningClient
@@ -30,6 +34,8 @@ export default async function MorningPage({
       role={ctx.role}
       firstName={firstName}
       briefing={briefing}
+      openGates={openGates}
+      staleGateIds={staleGateIds}
     />
   );
 }
