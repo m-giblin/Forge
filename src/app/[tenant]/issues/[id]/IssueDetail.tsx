@@ -399,7 +399,7 @@ export default function IssueDetail({
       </div>
 
       {/* ── Two-column grid ── */}
-      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_270px] gap-0 md:items-start">
+      <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_340px] gap-0 md:items-start">
         {/* ── LEFT: main content ── */}
         <div className="bg-white p-6 space-y-6 md:border-r md:border-neutral-200">
           {overdue && (
