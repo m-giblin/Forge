@@ -10,6 +10,7 @@ const NAV_LINKS = [
   { href: "/admin/flags", label: "Feature Flags" },
   { href: "/admin/compliance", label: "Compliance" },
   { href: "/admin/audit", label: "Audit" },
+  { href: "/admin/admins", label: "Admins" },
 ];
 
 export default function AdminNav() {
