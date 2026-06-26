@@ -364,7 +364,7 @@ function DigestBanner({ digest, fresh }: { digest: MorningBriefing["digest"]; fr
 
 // ── DEVELOPER VIEW ────────────────────────────────────────────────────────
 
-function DeveloperView({ briefing, slug }: { briefing: MorningBriefing; slug: string }) {
+function DeveloperView({ briefing, slug, openGates, staleGateIds, mediumRiskIssues }: { briefing: MorningBriefing; slug: string; openGates: RiskGateWithIssue[]; staleGateIds: Set<string>; mediumRiskIssues: MediumIssue[] }) {
   const sprint = briefing.primarySprint;
   const myInProgress = briefing.myIssues.filter((i) => i.status === "in_progress").length;
   const myInReview   = briefing.myIssues.filter((i) => i.status === "in_review").length;
@@ -416,6 +416,10 @@ function DeveloperView({ briefing, slug }: { briefing: MorningBriefing; slug: st
 
         {/* Right rail */}
         <div className="space-y-5">
+          {(openGates.length > 0 || mediumRiskIssues.length > 0) && (
+            <RiskGatesWidget gates={openGates} staleGateIds={staleGateIds} mediumIssues={mediumRiskIssues} slug={slug} />
+          )}
+
           {sprint ? (
             <SprintCard sprint={sprint} slug={slug} />
           ) : (
@@ -834,7 +838,7 @@ export default function MorningClient({
       </div>
 
       {/* Views */}
-      {activeTab === "developer" && <DeveloperView briefing={briefing} slug={slug} />}
+      {activeTab === "developer" && <DeveloperView briefing={briefing} slug={slug} openGates={openGates} staleGateIds={staleGateIds} mediumRiskIssues={mediumRiskIssues} />}
       {activeTab === "pm"        && <PMView        briefing={briefing} slug={slug} openGates={openGates} staleGateIds={staleGateIds} mediumRiskIssues={mediumRiskIssues} />}
       {activeTab === "admin"     && <AdminView     briefing={briefing} slug={slug} />}
     </div>
