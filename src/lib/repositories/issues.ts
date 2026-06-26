@@ -40,8 +40,19 @@ export type Issue = {
   parent_id?: string | null;
   triage_suggestion?: TriageSuggestion | null;
   spec_md?: string | null;
+  latest_pr_impact?: LatestPrImpact | null;
   created_at: string;
   updated_at: string;
+};
+
+export type LatestPrImpact = {
+  risk: "low" | "medium" | "high" | "critical";
+  scope: string;
+  summary: string;
+  concerns: string[];
+  suggestions: string[];
+  gateState?: "open" | "approved" | "denied" | null;
+  ranAt: string;
 };
 
 export type DuplicateCandidate = { id: string; number: number; title: string };
@@ -76,7 +87,7 @@ export type CreateIssueInput = {
 };
 
 const COLS =
-  "id, tenant_id, project_id, number, title, description, status, priority, type, assignee_id, reporter_id, labels, environment, app_version, stack_trace, source, external_id, category_id, custom_values, position, start_date, due_date, phase, story_points, sprint_id, parent_id, triage_suggestion, spec_md, created_at, updated_at";
+  "id, tenant_id, project_id, number, title, description, status, priority, type, assignee_id, reporter_id, labels, environment, app_version, stack_trace, source, external_id, category_id, custom_values, position, start_date, due_date, phase, story_points, sprint_id, parent_id, triage_suggestion, spec_md, latest_pr_impact, created_at, updated_at";
 
 /**
  * Issue data access. Always tenant-scoped: every query filters on tenant_id

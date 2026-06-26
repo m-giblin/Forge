@@ -97,6 +97,19 @@ Return ONLY the JSON object, no prose.`;
 
   const activity = issueActivityRepo(svc);
 
+  // Persist latest prediction on the issue for dashboard + badge
+  await svc
+    .from("issues")
+    .update({
+      latest_pr_impact: {
+        ...prediction,
+        gateState: (prediction.risk === "high" || prediction.risk === "critical") ? "open" : null,
+        ranAt: new Date().toISOString(),
+      },
+    })
+    .eq("id", issueId)
+    .eq("tenant_id", ctx.tenant.id);
+
   // Always log the prediction run as a system comment
   const riskEmoji = { low: "🟢", medium: "🟡", high: "🟠", critical: "🔴" }[prediction.risk] ?? "⚪";
   const runComment = [
@@ -170,6 +183,21 @@ export async function reviewRiskGateAction(
     reviewedBy: ctx.appUserId!,
     reviewReason: reason.trim(),
   });
+
+  // Sync gate decision back to the issue's latest_pr_impact badge
+  const { data: issueRow } = await svc
+    .from("issues")
+    .select("latest_pr_impact")
+    .eq("id", issueId)
+    .eq("tenant_id", ctx.tenant.id)
+    .single();
+  if (issueRow?.latest_pr_impact) {
+    await svc
+      .from("issues")
+      .update({ latest_pr_impact: { ...issueRow.latest_pr_impact as object, gateState: decision } })
+      .eq("id", issueId)
+      .eq("tenant_id", ctx.tenant.id);
+  }
 
   const verb = decision === "approved" ? "approved" : "denied";
   const emoji = decision === "approved" ? "✅" : "❌";

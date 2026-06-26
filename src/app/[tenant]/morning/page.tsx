@@ -17,11 +17,20 @@ export default async function MorningPage({
   if (!ctx) redirect("/");
 
   const svc = createSupabaseServiceClient();
-  const [briefing, members, openGates, staleGates] = await Promise.all([
+  const [briefing, members, openGates, staleGates, mediumRiskIssues] = await Promise.all([
     loadMorningBriefing({ tenantId: ctx.tenant.id, appUserId: ctx.appUserId }),
     listMembers(ctx.tenant.id, ctx.impersonating),
     issueRiskGatesRepo(svc).listOpenGates(ctx.tenant.id),
     issueRiskGatesRepo(svc).listStaleOpenGates(ctx.tenant.id, 24),
+    svc
+      .from("issues")
+      .select("id, number, title, projects!inner(key)")
+      .eq("tenant_id", ctx.tenant.id)
+      .neq("status", "done")
+      .filter("latest_pr_impact->>risk", "eq", "medium")
+      .order("updated_at", { ascending: false })
+      .limit(10)
+      .then((r) => (r.data ?? []) as unknown as { id: string; number: number; title: string; projects: { key: string } }[]),
   ]);
 
   const userName = members.find((m) => m.userId === ctx.appUserId)?.name ?? ctx.email ?? "there";
@@ -36,6 +45,7 @@ export default async function MorningPage({
       briefing={briefing}
       openGates={openGates}
       staleGateIds={staleGateIds}
+      mediumRiskIssues={mediumRiskIssues}
     />
   );
 }

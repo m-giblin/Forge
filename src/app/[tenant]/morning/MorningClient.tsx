@@ -75,61 +75,92 @@ function ProgressBar({ pct, color = "bg-indigo-500" }: { pct: number; color?: st
 
 // ── Risk Gates Widget ────────────────────────────────────────────────────
 
-function RiskGatesWidget({ gates, staleGateIds, slug }: { gates: RiskGateWithIssue[]; staleGateIds: Set<string>; slug: string }) {
+type MediumIssue = { id: string; number: number; title: string; projects: { key: string } };
+
+function RiskGatesWidget({ gates, staleGateIds, mediumIssues, slug }: { gates: RiskGateWithIssue[]; staleGateIds: Set<string>; mediumIssues: MediumIssue[]; slug: string }) {
   const ageLabel = (iso: string) => {
     const h = Math.round((Date.now() - new Date(iso).getTime()) / 3_600_000);
     return h < 24 ? `${h}h` : `${Math.floor(h / 24)}d ${h % 24}h`;
   };
 
+  const totalCount = gates.length + mediumIssues.length;
+
   return (
     <Card>
       <CardHeader
-        title="🚨 Risk Gates"
+        title="⚠ PR Risk Overview"
         right={
-          gates.length > 0 ? (
-            <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600 border border-red-200">
-              {gates.length} open
-            </span>
+          totalCount > 0 ? (
+            <div className="flex items-center gap-1.5">
+              {gates.length > 0 && (
+                <span className="rounded-full bg-red-50 px-2.5 py-0.5 text-xs font-semibold text-red-600 border border-red-200">
+                  {gates.length} gated
+                </span>
+              )}
+              {mediumIssues.length > 0 && (
+                <span className="rounded-full bg-yellow-50 px-2.5 py-0.5 text-xs font-semibold text-yellow-700 border border-yellow-200">
+                  {mediumIssues.length} medium
+                </span>
+              )}
+            </div>
           ) : null
         }
       />
-      {gates.length === 0 ? (
-        <div className="flex items-center gap-3 px-5 py-6">
-          <span className="text-lg">✅</span>
-          <p className="text-sm text-neutral-500">No open risk gates — all clear.</p>
-        </div>
-      ) : (
-        <div className="divide-y divide-neutral-50">
-          {gates.map((g) => {
-            const isStale = staleGateIds.has(g.id);
-            const isCritical = g.riskLevel === "critical";
-            return (
-              <Link
-                key={g.id}
-                href={`/${slug}/issues/${g.issueId}`}
-                className="flex items-start gap-3 px-5 py-3.5 hover:bg-neutral-50 transition-colors"
-              >
-                <span className="text-lg mt-0.5">{isCritical ? "🔴" : "🟠"}</span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap mb-0.5">
-                    <span className="text-xs font-mono text-neutral-400">{g.issueKey}</span>
-                    <span className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold uppercase ${
-                      isCritical ? "bg-red-50 border-red-200 text-red-700" : "bg-orange-50 border-orange-200 text-orange-700"
-                    }`}>
-                      {g.riskLevel}
-                    </span>
-                    {isStale && (
-                      <span className="rounded-md border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
-                        ⏰ &gt;24h
+
+      {/* Gated — High / Critical */}
+      {gates.length > 0 && (
+        <div>
+          <p className="px-5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-red-500">🚨 Risk Gates — Needs Your Approval</p>
+          <div className="divide-y divide-neutral-50">
+            {gates.map((g) => {
+              const isStale = staleGateIds.has(g.id);
+              const isCritical = g.riskLevel === "critical";
+              return (
+                <Link key={g.id} href={`/${slug}/issues/${g.issueId}`}
+                  className="flex items-start gap-3 px-5 py-3 hover:bg-red-50 transition-colors">
+                  <span className="text-base mt-0.5">{isCritical ? "🔴" : "🟠"}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                      <span className="text-xs font-mono text-neutral-400">{g.issueKey}</span>
+                      <span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold uppercase ${isCritical ? "bg-red-50 border-red-200 text-red-700" : "bg-orange-50 border-orange-200 text-orange-700"}`}>
+                        {g.riskLevel}
                       </span>
-                    )}
+                      {isStale && <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">⏰ &gt;24h</span>}
+                    </div>
+                    <p className="text-sm text-neutral-800 truncate">{g.issueTitle}</p>
+                    <p className="text-xs text-neutral-400 mt-0.5">Blocked from closing · waiting {ageLabel(g.createdAt)}</p>
                   </div>
-                  <p className="text-sm text-neutral-800 truncate">{g.issueTitle}</p>
-                  <p className="text-xs text-neutral-400 mt-0.5">Waiting {ageLabel(g.createdAt)} · needs approval</p>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Medium warnings */}
+      {mediumIssues.length > 0 && (
+        <div className={gates.length > 0 ? "border-t border-neutral-100" : ""}>
+          <p className="px-5 pt-3 pb-1 text-[10px] font-bold uppercase tracking-wider text-yellow-600">🟡 Medium Risk — Monitor</p>
+          <div className="divide-y divide-neutral-50">
+            {mediumIssues.map((i) => (
+              <Link key={i.id} href={`/${slug}/issues/${i.id}`}
+                className="flex items-start gap-3 px-5 py-3 hover:bg-yellow-50 transition-colors">
+                <span className="text-base mt-0.5">🟡</span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-mono text-neutral-400 mb-0.5">{i.projects.key}-{i.number}</p>
+                  <p className="text-sm text-neutral-800 truncate">{i.title}</p>
+                  <p className="text-xs text-neutral-400 mt-0.5">Not blocking — review before merge</p>
                 </div>
               </Link>
-            );
-          })}
+            ))}
+          </div>
+        </div>
+      )}
+
+      {totalCount === 0 && (
+        <div className="flex items-center gap-3 px-5 py-6">
+          <span className="text-lg">✅</span>
+          <p className="text-sm text-neutral-500">No PR risk flags — all clear.</p>
         </div>
       )}
     </Card>
@@ -422,7 +453,7 @@ function DeveloperView({ briefing, slug }: { briefing: MorningBriefing; slug: st
 
 // ── PM VIEW ───────────────────────────────────────────────────────────────
 
-function PMView({ briefing, slug, openGates, staleGateIds }: { briefing: MorningBriefing; slug: string; openGates: RiskGateWithIssue[]; staleGateIds: Set<string> }) {
+function PMView({ briefing, slug, openGates, staleGateIds, mediumRiskIssues }: { briefing: MorningBriefing; slug: string; openGates: RiskGateWithIssue[]; staleGateIds: Set<string>; mediumRiskIssues: MediumIssue[] }) {
   const totalOpen    = briefing.projectSprints.reduce((s, p) => s + p.openCount, 0);
   const totalBlocked = briefing.projectSprints.reduce((s, p) => s + p.blockedCount, 0);
   const totalOverdue = briefing.projectSprints.reduce((s, p) => s + p.overdueCount, 0);
@@ -437,7 +468,7 @@ function PMView({ briefing, slug, openGates, staleGateIds }: { briefing: Morning
           { label: "Projects",     value: briefing.projectSprints.length, color: "text-neutral-800", bg: "bg-white" },
           { label: "Open Issues",  value: totalOpen,                      color: "text-indigo-600",  bg: "bg-indigo-50" },
           { label: "Blocked",      value: totalBlocked,                   color: totalBlocked > 0 ? "text-red-600" : "text-neutral-400", bg: totalBlocked > 0 ? "bg-red-50" : "bg-white" },
-          { label: "Risk Gates",   value: openGates.length,               color: openGates.length > 0 ? "text-orange-600" : "text-neutral-400", bg: openGates.length > 0 ? "bg-orange-50" : "bg-white" },
+          { label: "Risk Gates",   value: openGates.length,               color: openGates.length > 0 ? "text-red-600" : "text-neutral-400",    bg: openGates.length > 0 ? "bg-red-50" : "bg-white" },
         ].map((s) => (
           <div key={s.label} className={`rounded-xl border border-neutral-200 ${s.bg} px-5 py-4`}>
             <p className={`text-3xl font-bold ${s.color}`}>{s.value}</p>
@@ -478,7 +509,7 @@ function PMView({ briefing, slug, openGates, staleGateIds }: { briefing: Morning
 
         {/* Right rail — risk gates + blockers + overdue */}
         <div className="space-y-5">
-          <RiskGatesWidget gates={openGates} staleGateIds={staleGateIds} slug={slug} />
+          <RiskGatesWidget gates={openGates} staleGateIds={staleGateIds} mediumIssues={mediumRiskIssues} slug={slug} />
           <Card>
             <CardHeader
               title="Blockers"
@@ -746,6 +777,7 @@ export default function MorningClient({
   briefing,
   openGates,
   staleGateIds,
+  mediumRiskIssues,
 }: {
   slug: string;
   role: string;
@@ -753,6 +785,7 @@ export default function MorningClient({
   briefing: MorningBriefing;
   openGates: RiskGateWithIssue[];
   staleGateIds: Set<string>;
+  mediumRiskIssues: MediumIssue[];
 }) {
   const [activeTab, setActiveTab] = useState<RoleTab>(defaultTab(role));
 
@@ -802,7 +835,7 @@ export default function MorningClient({
 
       {/* Views */}
       {activeTab === "developer" && <DeveloperView briefing={briefing} slug={slug} />}
-      {activeTab === "pm"        && <PMView        briefing={briefing} slug={slug} openGates={openGates} staleGateIds={staleGateIds} />}
+      {activeTab === "pm"        && <PMView        briefing={briefing} slug={slug} openGates={openGates} staleGateIds={staleGateIds} mediumRiskIssues={mediumRiskIssues} />}
       {activeTab === "admin"     && <AdminView     briefing={briefing} slug={slug} />}
     </div>
   );

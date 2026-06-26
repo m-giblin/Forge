@@ -784,6 +784,28 @@ export default function IssueDetail({
                 readOnly={readOnly}
                 userRole={userRole}
               />
+              {/* Persistent PR Impact badge */}
+              {issue.latest_pr_impact && (() => {
+                const imp = issue.latest_pr_impact;
+                const risk = imp.risk;
+                const gate = imp.gateState;
+                const cfg = {
+                  critical: { bar: "bg-red-500",    text: "text-red-700",    bg: "bg-red-50 border-red-200",    label: "🔴 Critical risk" },
+                  high:     { bar: "bg-orange-500", text: "text-orange-700", bg: "bg-orange-50 border-orange-200", label: "🟠 High risk" },
+                  medium:   { bar: "bg-yellow-400", text: "text-yellow-700", bg: "bg-yellow-50 border-yellow-200", label: "🟡 Medium risk" },
+                  low:      { bar: "bg-green-500",  text: "text-green-700",  bg: "bg-green-50 border-green-200",  label: "🟢 Low risk" },
+                }[risk] ?? { bar: "bg-neutral-300", text: "text-neutral-600", bg: "bg-neutral-50 border-neutral-200", label: risk };
+                const gateLabel = gate === "open" ? " · 🚨 Gate open" : gate === "approved" ? " · ✅ Approved" : gate === "denied" ? " · ❌ Denied" : "";
+                return (
+                  <div className={`rounded-lg border px-3 py-2 ${cfg.bg}`}>
+                    <div className="flex items-center justify-between">
+                      <p className={`text-xs font-semibold ${cfg.text}`}>{cfg.label}{gateLabel}</p>
+                      <span className="text-[10px] text-neutral-400">{new Date(imp.ranAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-[11px] text-neutral-600 mt-0.5 line-clamp-2">{imp.summary}</p>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
