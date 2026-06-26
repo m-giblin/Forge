@@ -445,7 +445,7 @@ export default function IssueDetail({
               )}
               <span className="text-xs text-neutral-500 font-mono">{issueKey}</span>
             </div>
-            <div className="group flex items-start gap-2">
+            <div className="group flex items-start gap-3">
               <input
                 value={title}
                 disabled={readOnly}
@@ -454,9 +454,17 @@ export default function IssueDetail({
                 className="w-full text-2xl font-semibold text-neutral-900 outline-none border-0 p-0 disabled:bg-white focus:bg-neutral-50 rounded"
               />
               {!readOnly && (
-                <svg className="mt-1.5 h-4 w-4 shrink-0 text-neutral-300 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2.414a2 2 0 01.586-1.414z" />
-                </svg>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={(e) => (e.currentTarget.previousElementSibling as HTMLInputElement)?.focus()}
+                  className="mt-1 flex-shrink-0 rounded-md p-1.5 text-neutral-400 opacity-0 group-hover:opacity-100 hover:bg-neutral-100 hover:text-neutral-700 transition-all"
+                  title="Edit title"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536M9 13l6.586-6.586a2 2 0 112.828 2.828L11.828 15.828a2 2 0 01-1.414.586H9v-2.414a2 2 0 01.586-1.414z" />
+                  </svg>
+                </button>
               )}
             </div>
           </div>
