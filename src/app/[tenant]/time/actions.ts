@@ -191,3 +191,94 @@ export async function deleteTimeLogFromSheetAction(
   revalidatePath(`/${slug}/time`);
   return { ok: true };
 }
+
+// ── Premium: Timesheet submission ──────────────────────────────────────────
+
+export async function submitTimesheetAction(
+  slug: string,
+  weekStart: string,
+  totalMinutes: number,
+): Promise<{ ok: boolean; error?: string }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) return { ok: false, error: "Not authorized" };
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc.from("timesheet_submissions").upsert({
+    tenant_id: ctx.tenant.id,
+    user_id: ctx.appUserId,
+    week_start: weekStart,
+    status: "submitted",
+    submitted_at: new Date().toISOString(),
+    total_minutes: totalMinutes,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "tenant_id,user_id,week_start" });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/${slug}/time`);
+  return { ok: true };
+}
+
+export async function getTimesheetStatusAction(
+  slug: string,
+  weekStart: string,
+): Promise<{ status: string | null; reviewerNotes: string | null }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) return { status: null, reviewerNotes: null };
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc
+    .from("timesheet_submissions")
+    .select("status, reviewer_notes")
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("user_id", ctx.appUserId)
+    .eq("week_start", weekStart)
+    .maybeSingle();
+  return { status: (data?.status as string | null) ?? null, reviewerNotes: (data?.reviewer_notes as string | null) ?? null };
+}
+
+// ── Premium: Time off requests ─────────────────────────────────────────────
+
+export async function requestTimeOffAction(
+  slug: string,
+  type: string,
+  startDate: string,
+  endDate: string,
+  daysCount: number,
+  notes?: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) return { ok: false, error: "Not authorized" };
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc.from("time_off_requests").insert({
+    tenant_id: ctx.tenant.id,
+    user_id: ctx.appUserId,
+    type,
+    start_date: startDate,
+    end_date: endDate,
+    days_count: daysCount,
+    notes: notes?.trim() || null,
+    status: "pending",
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/${slug}/time`);
+  return { ok: true };
+}
+
+export async function getMyTimeOffRequestsAction(slug: string): Promise<Array<{
+  id: string; type: string; startDate: string; endDate: string; daysCount: number;
+  status: string; notes: string | null; createdAt: string;
+}>> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) return [];
+  const svc = createSupabaseServiceClient();
+  const { data } = await svc
+    .from("time_off_requests")
+    .select("id, type, start_date, end_date, days_count, status, notes, created_at")
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("user_id", ctx.appUserId)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  return (data ?? []).map((r) => ({
+    id: r.id as string, type: r.type as string,
+    startDate: r.start_date as string, endDate: r.end_date as string,
+    daysCount: r.days_count as number, status: r.status as string,
+    notes: r.notes as string | null, createdAt: r.created_at as string,
+  }));
+}

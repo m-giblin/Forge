@@ -30,6 +30,9 @@ const NAV = [
       { seg: "projects", label: "Projects", icon: "📁" },
       { seg: "fields", label: "Fields & Labels", icon: "🏷" },
       { seg: "workload", label: "Workload", icon: "📊" },
+      { seg: "timesheets", label: "Timesheets ⭐", icon: "📋" },
+      { seg: "time-off", label: "Time Off ⭐", icon: "🏖" },
+      { seg: "rates", label: "Rates ⭐", icon: "💰" },
     ],
   },
   {

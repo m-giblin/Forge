@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useTransition } from "react";
 import Link from "next/link";
 import {
   getWeeklyTimesheetAction,
@@ -8,6 +8,9 @@ import {
   stopTimerAction,
   logTimeFromSheetAction,
   deleteTimeLogFromSheetAction,
+  submitTimesheetAction,
+  requestTimeOffAction,
+  getMyTimeOffRequestsAction,
 } from "./actions";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -445,6 +448,18 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
   const [loadingWeek, setLoadingWeek] = useState(false);
   const [stoppingTimer, setStoppingTimer] = useState(false);
   const [elapsed, setElapsed] = useState("");
+  const [submitStatus, setSubmitStatus] = useState<"idle" | "submitted" | "error">("idle");
+  const [submitPending, startSubmit] = useTransition();
+
+  // Time off state
+  const [showTimeOff, setShowTimeOff] = useState(false);
+  const [ptoType, setPtoType] = useState("pto");
+  const [ptoStart, setPtoStart] = useState("");
+  const [ptoEnd, setPtoEnd] = useState("");
+  const [ptoNotes, setPtoNotes] = useState("");
+  const [ptoRequests, setPtoRequests] = useState<Awaited<ReturnType<typeof getMyTimeOffRequestsAction>>>([]);
+  const [ptoPending, startPto] = useTransition();
+  const [ptoError, setPtoError] = useState<string | null>(null);
 
   // Modal state
   const [logModal, setLogModal] = useState<{
@@ -654,8 +669,37 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
 
           {/* Premium: Submit Week */}
           {isPremium && weekData.totalMinutes > 0 && (
-            <button className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors">
-              Submit week
+            submitStatus === "submitted" ? (
+              <span className="rounded-lg bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-700">✓ Submitted</span>
+            ) : (
+              <button
+                onClick={() => {
+                  setSubmitStatus("idle");
+                  startSubmit(async () => {
+                    const res = await submitTimesheetAction(slug, weekStart, weekData.totalMinutes);
+                    setSubmitStatus(res.ok ? "submitted" : "error");
+                  });
+                }}
+                disabled={submitPending}
+                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              >
+                {submitPending ? "Submitting…" : "Submit week"}
+              </button>
+            )
+          )}
+          {/* Premium: Time Off */}
+          {isPremium && (
+            <button
+              onClick={() => {
+                setShowTimeOff(true);
+                startPto(async () => {
+                  const reqs = await getMyTimeOffRequestsAction(slug);
+                  setPtoRequests(reqs);
+                });
+              }}
+              className="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
+            >
+              🏖 Time Off
             </button>
           )}
         </div>
@@ -857,6 +901,92 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
           onClose={() => setQuickAddOpen(false)}
           onSuccess={handleQuickAddSuccess}
         />
+      )}
+
+      {/* Time Off Modal */}
+      {showTimeOff && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-5 overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-neutral-900">🏖 Time Off</h3>
+              <button onClick={() => setShowTimeOff(false)} className="text-neutral-400 hover:text-neutral-600 text-xl">×</button>
+            </div>
+
+            {/* Request form */}
+            <div className="rounded-xl border border-neutral-200 p-4 space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">New Request</p>
+              <div className="flex gap-2">
+                {[["pto","PTO"],["sick","Sick"],["holiday","Holiday"],["other","Other"]].map(([v,l]) => (
+                  <button
+                    key={v}
+                    onClick={() => setPtoType(v)}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
+                      ptoType === v ? "bg-indigo-600 text-white border-indigo-600" : "border-neutral-200 text-neutral-600 hover:border-neutral-300"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-neutral-500 block mb-1">Start date</label>
+                  <input type="date" value={ptoStart} onChange={(e) => setPtoStart(e.target.value)}
+                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-neutral-500 block mb-1">End date</label>
+                  <input type="date" value={ptoEnd} onChange={(e) => setPtoEnd(e.target.value)} min={ptoStart}
+                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-neutral-500 block mb-1">Notes (optional)</label>
+                <input value={ptoNotes} onChange={(e) => setPtoNotes(e.target.value)} placeholder="Optional context…"
+                  className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+              </div>
+              {ptoError && <p className="text-xs text-red-600">{ptoError}</p>}
+              <button
+                disabled={!ptoStart || !ptoEnd || ptoPending}
+                onClick={() => {
+                  if (!ptoStart || !ptoEnd) return;
+                  const days = Math.max(1, Math.round((new Date(ptoEnd).getTime() - new Date(ptoStart).getTime()) / 86400000) + 1);
+                  setPtoError(null);
+                  startPto(async () => {
+                    const res = await requestTimeOffAction(slug, ptoType, ptoStart, ptoEnd, days, ptoNotes);
+                    if (res.ok) {
+                      setPtoStart(""); setPtoEnd(""); setPtoNotes("");
+                      const reqs = await getMyTimeOffRequestsAction(slug);
+                      setPtoRequests(reqs);
+                    } else setPtoError(res.error ?? "Failed");
+                  });
+                }}
+                className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {ptoPending ? "Submitting…" : "Submit Request"}
+              </button>
+            </div>
+
+            {/* Past requests */}
+            {ptoRequests.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">My Requests</p>
+                {ptoRequests.map((r) => (
+                  <div key={r.id} className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-neutral-900 capitalize">{r.type}</p>
+                      <p className="text-xs text-neutral-500">{r.startDate} → {r.endDate} · {r.daysCount} days</p>
+                    </div>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      r.status === "approved" ? "bg-emerald-100 text-emerald-700" :
+                      r.status === "rejected" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"
+                    }`}>{r.status}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
