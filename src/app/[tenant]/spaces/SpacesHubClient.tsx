@@ -58,7 +58,6 @@ export default function SpacesHubClient({
         setCreating(null);
         setNewName("");
         router.push(`/${slug}/spaces/${json.data.id}`);
-        router.refresh();
       }
     });
   }
