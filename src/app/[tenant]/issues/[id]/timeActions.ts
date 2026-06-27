@@ -93,25 +93,31 @@ export async function startIssueTimerAction(
 export async function stopIssueTimerAction(
   slug: string,
   issueId: string,
-): Promise<{ ok: boolean; minutesLogged?: number; error?: string }> {
+): Promise<{ ok: boolean; minutesLogged?: number; note?: string; error?: string }> {
   const ctx = await getTenantContext(slug);
   if (!ctx) return { ok: false, error: "Not authorized" };
   try {
     const svc = createSupabaseServiceClient();
     const timer = await activeTimersRepo(svc).stop(ctx.tenant.id, ctx.appUserId);
     if (!timer) return { ok: true, minutesLogged: 0 };
-    const minutes = Math.max(1, Math.round((Date.now() - new Date(timer.started_at).getTime()) / 60000));
+    const elapsedMs = Date.now() - new Date(timer.started_at).getTime();
+    const elapsedSecs = Math.round(elapsedMs / 1000);
+    const minutes = Math.max(1, Math.round(elapsedMs / 60000));
+    const autoNote = elapsedSecs < 60
+      ? `Timer · ${elapsedSecs}s`
+      : `Timer · ${Math.floor(elapsedSecs / 60)}m ${elapsedSecs % 60}s`;
     if (timer.issue_id === issueId) {
       await svc.from("issue_time_logs").insert({
         tenant_id: ctx.tenant.id,
         issue_id: timer.issue_id,
         user_id: ctx.appUserId,
         minutes,
+        note: autoNote,
         logged_at: new Date().toISOString().slice(0, 10),
       });
     }
     revalidatePath(`/${slug}/issues/${issueId}`);
-    return { ok: true, minutesLogged: timer.issue_id === issueId ? minutes : 0 };
+    return { ok: true, minutesLogged: timer.issue_id === issueId ? minutes : 0, note: autoNote };
   } catch (e) {
     return { ok: false, error: (e as Error).message };
   }

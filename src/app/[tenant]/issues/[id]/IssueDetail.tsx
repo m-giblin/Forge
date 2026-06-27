@@ -192,7 +192,7 @@ export default function IssueDetail({
   const [sharedTimerAt, setSharedTimerAt] = useState<string | null>(initialTimerStartedAt ?? null);
   const [timerPending, startTimerTransition] = useTransition();
   // Used to push an optimistic log entry into IssueTimePanel after Activity-header stop
-  const [activityStopMinutes, setActivityStopMinutes] = useState<number | null>(null);
+  const [activityStopLog, setActivityStopLog] = useState<{ minutes: number; note: string } | null>(null);
 
   function handleInlineStart() {
     startTimerTransition(async () => {
@@ -207,7 +207,7 @@ export default function IssueDetail({
       if (res.ok) {
         setSharedTimerAt(null);
         if (res.minutesLogged && res.minutesLogged > 0) {
-          setActivityStopMinutes(res.minutesLogged);
+          setActivityStopLog({ minutes: res.minutesLogged, note: res.note ?? "" });
         }
       }
     });
@@ -1146,8 +1146,8 @@ export default function IssueDetail({
             initialTimerStartedAt={initialTimerStartedAt ?? null}
             controlledTimerAt={sharedTimerAt}
             onTimerChange={setSharedTimerAt}
-            activityStopMinutes={activityStopMinutes}
-            onActivityStopConsumed={() => setActivityStopMinutes(null)}
+            activityStopLog={activityStopLog}
+            onActivityStopConsumed={() => setActivityStopLog(null)}
             readOnly={readOnly}
           />
 

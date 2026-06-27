@@ -52,7 +52,7 @@ interface IssueTimePanelProps {
   initialTimerStartedAt: string | null;
   controlledTimerAt?: string | null;
   onTimerChange?: (at: string | null) => void;
-  activityStopMinutes?: number | null;
+  activityStopLog?: { minutes: number; note: string } | null;
   onActivityStopConsumed?: () => void;
   readOnly: boolean;
 }
@@ -67,21 +67,21 @@ export default function IssueTimePanel({
   initialTimerStartedAt,
   controlledTimerAt,
   onTimerChange,
-  activityStopMinutes,
+  activityStopLog,
   onActivityStopConsumed,
   readOnly,
 }: IssueTimePanelProps) {
   const [logs, setLogs] = useState<TimeLog[]>(initialLogs);
 
-  // When Activity-header Stop Timer fires, IssueDetail passes the logged minutes here
-  // so we can optimistically add the entry without waiting for a full RSC refresh.
+  // When Activity-header Stop Timer fires, IssueDetail passes the logged entry here
+  // so we can optimistically update without waiting for a full RSC refresh.
   useEffect(() => {
-    if (!activityStopMinutes) return;
+    if (!activityStopLog) return;
     setLogs((prev) => [
       {
         id: crypto.randomUUID(),
-        minutes: activityStopMinutes,
-        note: null,
+        minutes: activityStopLog.minutes,
+        note: activityStopLog.note || null,
         logged_at: new Date().toISOString(),
         user_name: "You",
       },
@@ -89,7 +89,7 @@ export default function IssueTimePanel({
     ]);
     onActivityStopConsumed?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityStopMinutes]);
+  }, [activityStopLog]);
   const [localTimerAt, setLocalTimerAt] = useState<string | null>(initialTimerStartedAt);
   // Use controlled value when provided (shared with Activity header button)
   const timerStartedAt = controlledTimerAt !== undefined ? controlledTimerAt : localTimerAt;
@@ -174,7 +174,7 @@ export default function IssueTimePanel({
             {
               id: crypto.randomUUID(),
               minutes: res.minutesLogged!,
-              note: null,
+              note: res.note ?? null,
               logged_at: new Date().toISOString(),
               user_name: "You",
             },
