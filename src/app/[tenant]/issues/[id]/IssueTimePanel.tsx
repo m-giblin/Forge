@@ -68,6 +68,12 @@ export default function IssueTimePanel({
   readOnly,
 }: IssueTimePanelProps) {
   const [logs, setLogs] = useState<TimeLog[]>(initialLogs);
+
+  // Sync when RSC pushes fresh logs (e.g. after Activity-header stop triggers router.refresh())
+  useEffect(() => {
+    setLogs(initialLogs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialLogs]);
   const [localTimerAt, setLocalTimerAt] = useState<string | null>(initialTimerStartedAt);
   // Use controlled value when provided (shared with Activity header button)
   const timerStartedAt = controlledTimerAt !== undefined ? controlledTimerAt : localTimerAt;

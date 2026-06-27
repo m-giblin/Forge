@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
@@ -185,6 +186,7 @@ export default function IssueDetail({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
 
   // Shared timer state — synced between the inline Activity button and the sidebar panel
   const [sharedTimerAt, setSharedTimerAt] = useState<string | null>(initialTimerStartedAt ?? null);
@@ -200,7 +202,11 @@ export default function IssueDetail({
   function handleInlineStop() {
     startTimerTransition(async () => {
       const res = await stopIssueTimerAction(slug, issue.id);
-      if (res.ok) setSharedTimerAt(null);
+      if (res.ok) {
+        setSharedTimerAt(null);
+        // Refresh RSC to push fresh logs into IssueTimePanel
+        router.refresh();
+      }
     });
   }
 

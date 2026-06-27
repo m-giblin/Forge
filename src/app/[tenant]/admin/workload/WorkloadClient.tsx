@@ -138,7 +138,7 @@ export default function WorkloadClient({ members, activeSprint, slug, weekStartI
         </div>
         <div className="flex items-center gap-2">
           <a
-            href={`/${slug}/admin/workload/report`}
+            href={`/print/${slug}/workload-report`}
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition shadow-sm"

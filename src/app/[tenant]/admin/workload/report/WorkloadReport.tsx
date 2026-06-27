@@ -9,6 +9,7 @@ interface Props {
   workspaceName: string;
   weekStartIso: string;
   generatedAt: string;
+  autoPrint?: boolean;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -94,14 +95,16 @@ function UtilRing({ pct: p, color }: { pct: number; color: string }) {
 
 // ── Main component ────────────────────────────────────────────────────────
 
-export default function WorkloadReport({ members, activeSprint, workspaceName, weekStartIso, generatedAt }: Props) {
-  // Auto-prompt print dialog when opened in a new tab
+export default function WorkloadReport({ members, activeSprint, workspaceName, weekStartIso, generatedAt, autoPrint }: Props) {
+  // When autoPrint=true: print immediately on load, then close the tab
   useEffect(() => {
-    const timeout = setTimeout(() => {
-      // Don't auto-print — user may want to review first
-    }, 500);
-    return () => clearTimeout(timeout);
-  }, []);
+    if (!autoPrint) return;
+    const id = setTimeout(() => {
+      window.print();
+      window.addEventListener("afterprint", () => window.close(), { once: true });
+    }, 400);
+    return () => clearTimeout(id);
+  }, [autoPrint]);
 
   // Summary stats
   const totalCapMins = members.reduce((s, m) => s + m.availableMinutesWeek, 0);
@@ -147,21 +150,23 @@ export default function WorkloadReport({ members, activeSprint, workspaceName, w
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif; }
       `}</style>
 
-      {/* Print button — hidden when printing */}
-      <div className="no-print" style={{ position: "fixed", top: 16, right: 16, zIndex: 50, display: "flex", gap: 8 }}>
-        <button
-          onClick={() => window.history.back()}
-          style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
-        >
-          ← Back
-        </button>
-        <button
-          onClick={() => window.print()}
-          style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#1e293b", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
-        >
-          🖨 Print / Save PDF
-        </button>
-      </div>
+      {/* Print / Back buttons — hidden when printing and in auto-print mode */}
+      {!autoPrint && (
+        <div className="no-print" style={{ position: "fixed", top: 16, right: 16, zIndex: 50, display: "flex", gap: 8 }}>
+          <button
+            onClick={() => window.history.back()}
+            style={{ padding: "8px 16px", borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 600, cursor: "pointer" }}
+          >
+            ← Back
+          </button>
+          <button
+            onClick={() => window.print()}
+            style={{ padding: "8px 20px", borderRadius: 8, border: "none", background: "#1e293b", color: "#fff", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}
+          >
+            🖨 Print / Save PDF
+          </button>
+        </div>
+      )}
 
       {/* ── Report body ── */}
       <div style={{ maxWidth: 860, margin: "0 auto", padding: "48px 40px 80px", color: "#1e293b", lineHeight: 1.5 }}>
