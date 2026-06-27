@@ -52,6 +52,8 @@ interface IssueTimePanelProps {
   initialTimerStartedAt: string | null;
   controlledTimerAt?: string | null;
   onTimerChange?: (at: string | null) => void;
+  activityStopMinutes?: number | null;
+  onActivityStopConsumed?: () => void;
   readOnly: boolean;
 }
 
@@ -65,15 +67,29 @@ export default function IssueTimePanel({
   initialTimerStartedAt,
   controlledTimerAt,
   onTimerChange,
+  activityStopMinutes,
+  onActivityStopConsumed,
   readOnly,
 }: IssueTimePanelProps) {
   const [logs, setLogs] = useState<TimeLog[]>(initialLogs);
 
-  // Sync when RSC pushes fresh logs (e.g. after Activity-header stop triggers router.refresh())
+  // When Activity-header Stop Timer fires, IssueDetail passes the logged minutes here
+  // so we can optimistically add the entry without waiting for a full RSC refresh.
   useEffect(() => {
-    setLogs(initialLogs);
+    if (!activityStopMinutes) return;
+    setLogs((prev) => [
+      {
+        id: crypto.randomUUID(),
+        minutes: activityStopMinutes,
+        note: null,
+        logged_at: new Date().toISOString(),
+        user_name: "You",
+      },
+      ...prev,
+    ]);
+    onActivityStopConsumed?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialLogs]);
+  }, [activityStopMinutes]);
   const [localTimerAt, setLocalTimerAt] = useState<string | null>(initialTimerStartedAt);
   // Use controlled value when provided (shared with Activity header button)
   const timerStartedAt = controlledTimerAt !== undefined ? controlledTimerAt : localTimerAt;

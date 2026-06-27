@@ -191,6 +191,8 @@ export default function IssueDetail({
   // Shared timer state — synced between the inline Activity button and the sidebar panel
   const [sharedTimerAt, setSharedTimerAt] = useState<string | null>(initialTimerStartedAt ?? null);
   const [timerPending, startTimerTransition] = useTransition();
+  // Used to push an optimistic log entry into IssueTimePanel after Activity-header stop
+  const [activityStopMinutes, setActivityStopMinutes] = useState<number | null>(null);
 
   function handleInlineStart() {
     startTimerTransition(async () => {
@@ -204,8 +206,9 @@ export default function IssueDetail({
       const res = await stopIssueTimerAction(slug, issue.id);
       if (res.ok) {
         setSharedTimerAt(null);
-        // Refresh RSC to push fresh logs into IssueTimePanel
-        router.refresh();
+        if (res.minutesLogged && res.minutesLogged > 0) {
+          setActivityStopMinutes(res.minutesLogged);
+        }
       }
     });
   }
@@ -1143,6 +1146,8 @@ export default function IssueDetail({
             initialTimerStartedAt={initialTimerStartedAt ?? null}
             controlledTimerAt={sharedTimerAt}
             onTimerChange={setSharedTimerAt}
+            activityStopMinutes={activityStopMinutes}
+            onActivityStopConsumed={() => setActivityStopMinutes(null)}
             readOnly={readOnly}
           />
 
