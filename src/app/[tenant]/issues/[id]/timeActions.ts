@@ -2,8 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-// eslint-disable-next-line no-restricted-imports -- service-role: time log writes bypass RLS (sec09)
+// eslint-disable-next-line no-restricted-imports -- service-role: all time log reads/writes use service-role with explicit tenant_id filter (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { activeTimersRepo } from "@/lib/repositories/activeTimers";
 
@@ -18,13 +17,15 @@ export type TimeLog = {
 export async function listTimeLogsAction(slug: string, issueId: string): Promise<TimeLog[]> {
   const ctx = await getTenantContext(slug);
   if (!ctx) return [];
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase
+  // eslint-disable-next-line no-restricted-imports -- service-role: issue_time_logs SELECT RLS uses auth.uid() vs app user_id mismatch; explicit tenant filter enforced below (sec09)
+  const supabase = createSupabaseServiceClient();
+  const { data, error } = await supabase
     .from("issue_time_logs")
     .select("id, minutes, note, logged_at, users(name)")
     .eq("tenant_id", ctx.tenant.id)
     .eq("issue_id", issueId)
     .order("logged_at", { ascending: false });
+  if (error) console.error("[listTimeLogsAction]", error.message);
   return (data ?? []).map((r) => ({
     id: r.id as string,
     minutes: r.minutes as number,
@@ -107,14 +108,15 @@ export async function stopIssueTimerAction(
       ? `Timer · ${elapsedSecs}s`
       : `Timer · ${Math.floor(elapsedSecs / 60)}m ${elapsedSecs % 60}s`;
     if (timer.issue_id === issueId) {
-      await svc.from("issue_time_logs").insert({
+      const { error: insertError } = await svc.from("issue_time_logs").insert({
         tenant_id: ctx.tenant.id,
         issue_id: timer.issue_id,
         user_id: ctx.appUserId,
         minutes,
         note: autoNote,
-        logged_at: new Date().toISOString().slice(0, 10),
+        logged_at: new Date().toISOString(),
       });
+      if (insertError) throw new Error(`Time log insert failed: ${insertError.message} (code: ${insertError.code})`);
     }
     revalidatePath(`/${slug}/issues/${issueId}`);
     return { ok: true, minutesLogged: timer.issue_id === issueId ? minutes : 0, note: autoNote };

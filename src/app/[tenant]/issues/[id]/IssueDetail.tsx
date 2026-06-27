@@ -191,6 +191,7 @@ export default function IssueDetail({
   // Shared timer state — synced between the inline Activity button and the sidebar panel
   const [sharedTimerAt, setSharedTimerAt] = useState<string | null>(initialTimerStartedAt ?? null);
   const [timerPending, startTimerTransition] = useTransition();
+  const [inlineTimerError, setInlineTimerError] = useState<string | null>(null);
   // Used to push an optimistic log entry into IssueTimePanel after Activity-header stop
   const [activityStopLog, setActivityStopLog] = useState<{ minutes: number; note: string } | null>(null);
 
@@ -202,6 +203,7 @@ export default function IssueDetail({
   }
 
   function handleInlineStop() {
+    setInlineTimerError(null);
     startTimerTransition(async () => {
       const res = await stopIssueTimerAction(slug, issue.id);
       if (res.ok) {
@@ -209,6 +211,8 @@ export default function IssueDetail({
         if (res.minutesLogged && res.minutesLogged > 0) {
           setActivityStopLog({ minutes: res.minutesLogged, note: res.note ?? "" });
         }
+      } else {
+        setInlineTimerError(res.error ?? "Failed to stop timer");
       }
     });
   }
@@ -743,6 +747,9 @@ export default function IssueDetail({
                 </button>
               )}
             </div>
+            {inlineTimerError && (
+              <p className="mb-2 text-xs text-red-600 bg-red-50 rounded px-2 py-1">{inlineTimerError}</p>
+            )}
 
             <div className="space-y-3">
               {timeline.length === 0 && (
