@@ -44,6 +44,19 @@ export type TLDependency = {
   type: "blocks" | "relates_to";
 };
 
+export type TLBaselineItem = {
+  issueId: string;
+  startDate: string | null;
+  dueDate: string | null;
+};
+
+export type TLBaseline = {
+  id: string;
+  name: string;
+  createdAt: string;
+  items: TLBaselineItem[];
+};
+
 // ─── Internal types ───────────────────────────────────────────────────────────
 
 type DragState = {
@@ -72,12 +85,14 @@ type DepSearch = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const COL_W = 192;   // member name column px
-const ROW_H = 88;    // px per member row
-const BAR_H = 38;    // issue bar height
-const BAR_TOP = (ROW_H - BAR_H) / 2;
-const HEADER_H = 64; // sprint row (22px) + week labels (42px)
-const HANDLE_W = 8;  // resize handle width
+const COL_W = 192;
+const ROW_H = 88;
+const BAR_H = 34;
+const BAR_TOP = 14;
+const BASELINE_TOP = BAR_TOP + BAR_H + 4;
+const BASELINE_H = 8;
+const HEADER_H = 64;
+const HANDLE_W = 8;
 
 const PROJECT_COLORS = [
   { bg: "#eef2ff", border: "#818cf8", text: "#3730a3", hex: "#6366f1" },
@@ -131,12 +146,6 @@ function mondayOf(d: Date): Date {
   return copy;
 }
 
-function fmtShort(iso: string): string {
-  return toUTCDate(iso).toLocaleDateString("en-US", {
-    month: "short", day: "numeric", timeZone: "UTC",
-  });
-}
-
 // ─── Project color map ────────────────────────────────────────────────────────
 
 function buildColorMap(issues: TLIssue[]) {
@@ -146,18 +155,75 @@ function buildColorMap(issues: TLIssue[]) {
   return m;
 }
 
+// ─── Critical path (CPM) ─────────────────────────────────────────────────────
+
+function computeCriticalPath(issues: TLIssue[], deps: TLDependency[]): Set<string> {
+  const blocksDeps = deps.filter((d) => d.type === "blocks");
+  if (blocksDeps.length === 0) return new Set();
+
+  const issueMap = new Map(
+    issues.filter((i) => i.startDate && i.dueDate).map((i) => [i.id, i])
+  );
+  if (issueMap.size === 0) return new Set();
+
+  const successors = new Map<string, string[]>();
+  const predecessors = new Map<string, string[]>();
+  for (const dep of blocksDeps) {
+    if (!issueMap.has(dep.fromIssueId) || !issueMap.has(dep.toIssueId)) continue;
+    if (!successors.has(dep.fromIssueId)) successors.set(dep.fromIssueId, []);
+    successors.get(dep.fromIssueId)!.push(dep.toIssueId);
+    if (!predecessors.has(dep.toIssueId)) predecessors.set(dep.toIssueId, []);
+    predecessors.get(dep.toIssueId)!.push(dep.fromIssueId);
+  }
+
+  const getDur = (id: string) => {
+    const i = issueMap.get(id);
+    if (!i?.startDate || !i?.dueDate) return 1;
+    return diffDays(toUTCDate(i.startDate), toUTCDate(i.dueDate)) + 1;
+  };
+
+  // Forward pass: earliest finish time (days from epoch)
+  const eft = new Map<string, number>();
+  const computeEFT = (id: string, visited = new Set<string>()): number => {
+    if (eft.has(id)) return eft.get(id)!;
+    if (visited.has(id)) return 0;
+    visited.add(id);
+    const issue = issueMap.get(id);
+    if (!issue?.dueDate) return 0;
+    const myDue = Math.floor(toUTCDate(issue.dueDate).getTime() / 86400000);
+    const preds = predecessors.get(id) ?? [];
+    let latestPredEFT = 0;
+    for (const predId of preds) latestPredEFT = Math.max(latestPredEFT, computeEFT(predId, visited));
+    const result = Math.max(myDue, latestPredEFT + getDur(id));
+    eft.set(id, result);
+    return result;
+  };
+  for (const id of issueMap.keys()) computeEFT(id);
+
+  const projectEnd = Math.max(...eft.values(), 0);
+
+  // Critical: any issue whose EFT chain reaches project end
+  const isCritical = (id: string, visited = new Set<string>()): boolean => {
+    if (visited.has(id)) return false;
+    visited.add(id);
+    if (eft.get(id) === projectEnd) return true;
+    return (successors.get(id) ?? []).some((s) => isCritical(s, visited));
+  };
+
+  const critical = new Set<string>();
+  for (const id of issueMap.keys()) {
+    if (isCritical(id)) critical.add(id);
+  }
+  return critical;
+}
+
 // ─── Capacity helpers ─────────────────────────────────────────────────────────
 
-function weeklyLoadMinutes(
-  memberId: string,
-  issues: TLIssue[],
-  windowStart: Date
-): number {
+function weeklyLoadMinutes(memberId: string, issues: TLIssue[], windowStart: Date): number {
   const weekEnd = addDays(windowStart, 6);
   return issues
     .filter((i) => {
-      if (i.assigneeId !== memberId) return false;
-      if (!i.startDate || !i.dueDate) return false;
+      if (i.assigneeId !== memberId || !i.startDate || !i.dueDate) return false;
       const s = toUTCDate(i.startDate);
       const e = toUTCDate(i.dueDate);
       return s <= weekEnd && e >= windowStart;
@@ -176,87 +242,76 @@ function capacityRingColor(loadMin: number, capacityMin: number) {
 // ─── Dependency arrows SVG ────────────────────────────────────────────────────
 
 function DependencyArrows({
-  deps,
-  issues,
-  windowStart,
-  dayWidth,
-  members,
+  deps, issues, windowStart, dayWidth, members, criticalSet,
 }: {
   deps: TLDependency[];
   issues: TLIssue[];
   windowStart: Date;
   dayWidth: number;
   members: TLMember[];
+  criticalSet: Set<string>;
 }) {
   const issueMap = new Map(issues.map((i) => [i.id, i]));
   const memberIdx = new Map(members.map((m, i) => [m.userId, i]));
-
-  const arrows: { path: string; color: string; key: string }[] = [];
+  const arrows: { path: string; color: string; key: string; isCritical: boolean }[] = [];
 
   for (const dep of deps) {
     const from = issueMap.get(dep.fromIssueId);
     const to = issueMap.get(dep.toIssueId);
-    if (!from || !to) continue;
-    if (!from.startDate || !from.dueDate || !to.startDate || !to.dueDate) continue;
-
-    const fromAssignee = from.assigneeId;
-    const toAssignee = to.assigneeId;
-    if (!fromAssignee || !toAssignee) continue;
-
-    const fromRow = memberIdx.get(fromAssignee);
-    const toRow = memberIdx.get(toAssignee);
+    if (!from?.startDate || !from?.dueDate || !to?.startDate || !to?.dueDate) continue;
+    if (!from.assigneeId || !to.assigneeId) continue;
+    const fromRow = memberIdx.get(from.assigneeId);
+    const toRow = memberIdx.get(to.assigneeId);
     if (fromRow === undefined || toRow === undefined) continue;
 
     const fromLeft = diffDays(windowStart, toUTCDate(from.startDate)) * dayWidth;
     const fromW = (diffDays(toUTCDate(from.startDate), toUTCDate(from.dueDate)) + 1) * dayWidth;
     const toLeft = diffDays(windowStart, toUTCDate(to.startDate)) * dayWidth;
 
-    const ax = fromLeft + fromW; // right edge of "from" bar
+    const ax = fromLeft + fromW;
     const ay = fromRow * ROW_H + BAR_TOP + BAR_H / 2 + HEADER_H;
-    const bx = toLeft; // left edge of "to" bar
+    const bx = toLeft;
     const by = toRow * ROW_H + BAR_TOP + BAR_H / 2 + HEADER_H;
 
     const cpOffset = Math.max(40, Math.abs(bx - ax) * 0.4);
     const path = `M ${ax} ${ay} C ${ax + cpOffset} ${ay} ${bx - cpOffset} ${by} ${bx} ${by}`;
 
-    // Red if from.dueDate > to.startDate (conflict)
+    const onCritical = criticalSet.has(dep.fromIssueId) && criticalSet.has(dep.toIssueId);
     const conflict = toUTCDate(from.dueDate) > toUTCDate(to.startDate);
-    const color = dep.type === "relates_to" ? "#94a3b8" : conflict ? "#ef4444" : "#10b981";
+    const color = dep.type === "relates_to"
+      ? "#94a3b8"
+      : onCritical
+        ? "#f97316"
+        : conflict
+          ? "#ef4444"
+          : "#10b981";
 
-    arrows.push({ path, color, key: dep.id });
+    arrows.push({ path, color, key: dep.id, isCritical: onCritical });
   }
 
   if (arrows.length === 0) return null;
 
   return (
-    <svg
-      className="absolute inset-0 pointer-events-none"
-      style={{ width: "100%", height: "100%", overflow: "visible" }}
-    >
+    <svg className="absolute inset-0 pointer-events-none" style={{ width: "100%", height: "100%", overflow: "visible" }}>
       <defs>
-        <marker id="arrow-green" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L6,3 z" fill="#10b981" />
-        </marker>
-        <marker id="arrow-red" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L6,3 z" fill="#ef4444" />
-        </marker>
-        <marker id="arrow-gray" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L6,3 z" fill="#94a3b8" />
-        </marker>
+        {["green", "red", "orange", "gray"].map((c) => (
+          <marker key={c} id={`arrow-${c}`} markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L6,3 z" fill={c === "green" ? "#10b981" : c === "red" ? "#ef4444" : c === "orange" ? "#f97316" : "#94a3b8"} />
+          </marker>
+        ))}
       </defs>
-      {arrows.map(({ path, color, key }) => {
-        const markerId =
-          color === "#ef4444" ? "arrow-red" : color === "#94a3b8" ? "arrow-gray" : "arrow-green";
+      {arrows.map(({ path, color, key, isCritical }) => {
+        const markerId = color === "#ef4444" ? "arrow-red" : color === "#f97316" ? "arrow-orange" : color === "#94a3b8" ? "arrow-gray" : "arrow-green";
         return (
           <path
             key={key}
             d={path}
             fill="none"
             stroke={color}
-            strokeWidth={1.5}
+            strokeWidth={isCritical ? 2 : 1.5}
             strokeDasharray={color === "#94a3b8" ? "4 3" : undefined}
             markerEnd={`url(#${markerId})`}
-            opacity={0.75}
+            opacity={0.85}
           />
         );
       })}
@@ -267,16 +322,7 @@ function DependencyArrows({
 // ─── Edit popover ─────────────────────────────────────────────────────────────
 
 function EditPopover({
-  issue,
-  allIssues,
-  members,
-  deps,
-  slug,
-  onClose,
-  onUpdate,
-  onDepAdded,
-  onDepRemoved,
-  style,
+  issue, allIssues, members, deps, slug, onClose, onUpdate, onDepAdded, onDepRemoved, style,
 }: {
   issue: TLIssue;
   allIssues: TLIssue[];
@@ -289,206 +335,128 @@ function EditPopover({
   onDepRemoved: (depId: string) => void;
   style: React.CSSProperties;
 }) {
-  const myDeps = deps.filter(
-    (d) => d.fromIssueId === issue.id || d.toIssueId === issue.id
-  );
-
+  const myDeps = deps.filter((d) => d.fromIssueId === issue.id || d.toIssueId === issue.id);
   const [depSearch, setDepSearch] = useState<DepSearch | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const patch = useCallback(
-    async (fields: Partial<TLIssue>) => {
-      onUpdate(issue.id, fields);
-      const body: Record<string, unknown> = { slug };
-      if (fields.status) body.status = fields.status;
-      if (fields.priority) body.priority = fields.priority;
+  const patch = useCallback(async (fields: Partial<TLIssue>) => {
+    onUpdate(issue.id, fields);
+    const body: Record<string, unknown> = { slug };
+    if (fields.status !== undefined || fields.priority !== undefined) {
+      const v1Body: Record<string, unknown> = {};
+      if (fields.status !== undefined) v1Body.status = fields.status;
+      if (fields.priority !== undefined) v1Body.priority = fields.priority;
+      await fetch(`/api/v1/issues/${issue.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(v1Body),
+      }).catch(console.error);
+    }
+    if (fields.assigneeId !== undefined || fields.startDate !== undefined || fields.dueDate !== undefined) {
       if (fields.assigneeId !== undefined) body.assignee_id = fields.assigneeId;
       if (fields.startDate !== undefined) body.start_date = fields.startDate;
       if (fields.dueDate !== undefined) body.due_date = fields.dueDate;
-
-      if (fields.status !== undefined || fields.priority !== undefined) {
-        // Use the existing v1 API for status/priority changes
-        const v1Body: Record<string, unknown> = {};
-        if (fields.status !== undefined) v1Body.status = fields.status;
-        if (fields.priority !== undefined) v1Body.priority = fields.priority;
-        await fetch(`/api/v1/issues/${issue.id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(v1Body),
-        }).catch(console.error);
-      }
-      if (fields.assigneeId !== undefined || fields.startDate !== undefined || fields.dueDate !== undefined) {
-        await fetch(`/api/issues/${issue.id}/schedule`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        }).catch(console.error);
-      }
-    },
-    [issue.id, slug, onUpdate]
-  );
-
-  const addDep = useCallback(
-    async (toIssueId: string, type: "blocks" | "relates_to") => {
-      setSaving(true);
-      const res = await fetch(`/api/issues/${issue.id}/dependencies`, {
-        method: "POST",
+      await fetch(`/api/issues/${issue.id}/schedule`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, to_issue_id: toIssueId, type }),
-      });
-      if (res.ok) {
-        const { dependency } = await res.json();
-        onDepAdded({
-          id: dependency.id,
-          fromIssueId: dependency.from_issue_id,
-          toIssueId: dependency.to_issue_id,
-          type: dependency.type,
-        });
-        setDepSearch(null);
-      }
-      setSaving(false);
-    },
-    [issue.id, slug, onDepAdded]
-  );
-
-  const removeDep = useCallback(
-    async (dep: TLDependency) => {
-      const fromId = dep.fromIssueId;
-      const toId = dep.toIssueId;
-      await fetch(`/api/issues/${fromId}/dependencies`, {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ slug, to_issue_id: toId, type: dep.type }),
+        body: JSON.stringify(body),
       }).catch(console.error);
-      onDepRemoved(dep.id);
-    },
-    [slug, onDepRemoved]
-  );
+    }
+  }, [issue.id, slug, onUpdate]);
+
+  const addDep = useCallback(async (toIssueId: string, type: "blocks" | "relates_to") => {
+    setSaving(true);
+    const res = await fetch(`/api/issues/${issue.id}/dependencies`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, to_issue_id: toIssueId, type }),
+    });
+    if (res.ok) {
+      const { dependency } = await res.json();
+      onDepAdded({ id: dependency.id, fromIssueId: dependency.from_issue_id, toIssueId: dependency.to_issue_id, type: dependency.type });
+      setDepSearch(null);
+    }
+    setSaving(false);
+  }, [issue.id, slug, onDepAdded]);
+
+  const removeDep = useCallback(async (dep: TLDependency) => {
+    await fetch(`/api/issues/${dep.fromIssueId}/dependencies`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, to_issue_id: dep.toIssueId, type: dep.type }),
+    }).catch(console.error);
+    onDepRemoved(dep.id);
+  }, [slug, onDepRemoved]);
 
   const searchResults = depSearch
     ? allIssues
-        .filter(
-          (i) =>
-            i.id !== issue.id &&
-            !myDeps.some((d) => d.toIssueId === i.id || d.fromIssueId === i.id) &&
-            (i.key.toLowerCase().includes(depSearch.query.toLowerCase()) ||
-              i.title.toLowerCase().includes(depSearch.query.toLowerCase()))
+        .filter((i) =>
+          i.id !== issue.id &&
+          !myDeps.some((d) => d.toIssueId === i.id || d.fromIssueId === i.id) &&
+          (i.key.toLowerCase().includes(depSearch.query.toLowerCase()) ||
+            i.title.toLowerCase().includes(depSearch.query.toLowerCase()))
         )
         .slice(0, 6)
     : [];
 
   return (
-    <div
-      className="absolute z-[200] w-80 rounded-xl border border-neutral-200 bg-white shadow-2xl"
-      style={style}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      {/* Header */}
+    <div className="absolute z-[200] w-80 rounded-xl border border-neutral-200 bg-white shadow-2xl" style={style} onMouseDown={(e) => e.stopPropagation()}>
       <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-3 border-b border-neutral-100">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
             <span className="text-xs font-mono font-semibold text-neutral-400">{issue.key}</span>
-            <span
-              className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
-              style={{ background: "#f1f5f9", color: STATUS_DOT[issue.status] }}
-            >
-              <span
-                className="w-1.5 h-1.5 rounded-full inline-block"
-                style={{ background: STATUS_DOT[issue.status] }}
-              />
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: "#f1f5f9", color: STATUS_DOT[issue.status] }}>
+              <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: STATUS_DOT[issue.status] }} />
               {STATUS_LABELS[issue.status]}
             </span>
           </div>
           <p className="text-sm font-semibold text-neutral-900 leading-snug truncate">{issue.title}</p>
         </div>
         <button onClick={onClose} className="shrink-0 text-neutral-400 hover:text-neutral-700 mt-0.5">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
         </button>
       </div>
 
-      {/* Fields */}
       <div className="px-4 py-3 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[11px] font-medium text-neutral-500 mb-1">Status</label>
-            <select
-              value={issue.status}
-              onChange={(e) => patch({ status: e.target.value as TLIssue["status"] })}
-              className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              {Object.entries(STATUS_LABELS).map(([v, l]) => (
-                <option key={v} value={v}>{l}</option>
-              ))}
+            <select value={issue.status} onChange={(e) => patch({ status: e.target.value as TLIssue["status"] })} className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400">
+              {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-[11px] font-medium text-neutral-500 mb-1">Priority</label>
-            <select
-              value={issue.priority}
-              onChange={(e) => patch({ priority: e.target.value as TLIssue["priority"] })}
-              className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              {["urgent", "high", "medium", "low"].map((p) => (
-                <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
-              ))}
+            <select value={issue.priority} onChange={(e) => patch({ priority: e.target.value as TLIssue["priority"] })} className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400">
+              {["urgent", "high", "medium", "low"].map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
             </select>
           </div>
         </div>
-
         <div>
           <label className="block text-[11px] font-medium text-neutral-500 mb-1">Assignee</label>
-          <select
-            value={issue.assigneeId ?? ""}
-            onChange={(e) => patch({ assigneeId: e.target.value || null })}
-            className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          >
+          <select value={issue.assigneeId ?? ""} onChange={(e) => patch({ assigneeId: e.target.value || null })} className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400">
             <option value="">Unassigned</option>
-            {members.map((m) => (
-              <option key={m.userId} value={m.userId}>{m.name}</option>
-            ))}
+            {members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
           </select>
         </div>
-
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-[11px] font-medium text-neutral-500 mb-1">Start date</label>
-            <input
-              type="date"
-              value={issue.startDate ?? ""}
-              onChange={(e) => patch({ startDate: e.target.value || null })}
-              className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
+            <input type="date" value={issue.startDate ?? ""} onChange={(e) => patch({ startDate: e.target.value || null })} className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
           <div>
             <label className="block text-[11px] font-medium text-neutral-500 mb-1">Due date</label>
-            <input
-              type="date"
-              value={issue.dueDate ?? ""}
-              onChange={(e) => patch({ dueDate: e.target.value || null })}
-              className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
+            <input type="date" value={issue.dueDate ?? ""} onChange={(e) => patch({ dueDate: e.target.value || null })} className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
         </div>
       </div>
 
-      {/* Dependencies */}
       <div className="border-t border-neutral-100 px-4 py-3">
         <div className="flex items-center justify-between mb-2">
           <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide">Dependencies</span>
-          <button
-            onClick={() => setDepSearch({ issueId: issue.id, depType: "blocks", query: "" })}
-            className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-          >
-            + Link
-          </button>
+          <button onClick={() => setDepSearch({ issueId: issue.id, depType: "blocks", query: "" })} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">+ Link</button>
         </div>
-
-        {myDeps.length === 0 && !depSearch && (
-          <p className="text-xs text-neutral-400">None — link issues to show arrows on the timeline.</p>
-        )}
-
+        {myDeps.length === 0 && !depSearch && <p className="text-xs text-neutral-400">None — link issues to show arrows on the timeline.</p>}
         {myDeps.map((dep) => {
           const other = dep.fromIssueId === issue.id
             ? allIssues.find((i) => i.id === dep.toIssueId)
@@ -503,47 +471,24 @@ function EditPopover({
                 <span className="text-xs font-mono text-indigo-700 shrink-0">{other?.key}</span>
                 <span className="text-xs text-neutral-600 truncate">{other?.title}</span>
               </div>
-              <button
-                onClick={() => removeDep(dep)}
-                className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-red-500 ml-2 shrink-0 transition"
-              >
-                ✕
-              </button>
+              <button onClick={() => removeDep(dep)} className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-red-500 ml-2 shrink-0 transition">✕</button>
             </div>
           );
         })}
-
-        {/* Dependency search */}
         {depSearch && (
           <div className="mt-2">
             <div className="flex items-center gap-2 mb-1.5">
-              <select
-                value={depSearch.depType}
-                onChange={(e) => setDepSearch((s) => s && { ...s, depType: e.target.value as "blocks" | "relates_to" })}
-                className="rounded border border-neutral-200 px-1.5 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-400"
-              >
+              <select value={depSearch.depType} onChange={(e) => setDepSearch((s) => s && { ...s, depType: e.target.value as "blocks" | "relates_to" })} className="rounded border border-neutral-200 px-1.5 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-400">
                 <option value="blocks">Blocks</option>
                 <option value="relates_to">Relates to</option>
               </select>
-              <input
-                autoFocus
-                type="text"
-                placeholder="Search issues…"
-                value={depSearch.query}
-                onChange={(e) => setDepSearch((s) => s && { ...s, query: e.target.value })}
-                className="flex-1 rounded border border-neutral-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
-              />
+              <input autoFocus type="text" placeholder="Search issues…" value={depSearch.query} onChange={(e) => setDepSearch((s) => s && { ...s, query: e.target.value })} className="flex-1 rounded border border-neutral-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400" />
               <button onClick={() => setDepSearch(null)} className="text-neutral-300 hover:text-neutral-600">✕</button>
             </div>
             {searchResults.length > 0 && (
               <div className="rounded-lg border border-neutral-200 divide-y divide-neutral-100 overflow-hidden">
                 {searchResults.map((r) => (
-                  <button
-                    key={r.id}
-                    disabled={saving}
-                    onClick={() => addDep(r.id, depSearch.depType)}
-                    className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-indigo-50 text-left transition"
-                  >
+                  <button key={r.id} disabled={saving} onClick={() => addDep(r.id, depSearch.depType)} className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-indigo-50 text-left transition">
                     <span className="text-[11px] font-mono text-indigo-600 shrink-0">{r.key}</span>
                     <span className="text-xs text-neutral-700 truncate">{r.title}</span>
                   </button>
@@ -554,15 +499,8 @@ function EditPopover({
         )}
       </div>
 
-      {/* Footer */}
       <div className="border-t border-neutral-100 px-4 py-2.5">
-        <Link
-          href={`/${slug}/issues/${issue.id}`}
-          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
-          onClick={onClose}
-        >
-          Open full issue →
-        </Link>
+        <Link href={`/${slug}/issues/${issue.id}`} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium" onClick={onClose}>Open full issue →</Link>
       </div>
     </div>
   );
@@ -570,43 +508,24 @@ function EditPopover({
 
 // ─── Unscheduled tray ─────────────────────────────────────────────────────────
 
-function UnscheduledTray({
-  issues,
-  colorMap,
-  onSchedule,
-}: {
+function UnscheduledTray({ issues, colorMap, onSchedule }: {
   issues: TLIssue[];
   colorMap: Map<string, typeof PROJECT_COLORS[0]>;
   onSchedule: (id: string) => void;
 }) {
   if (issues.length === 0) return null;
-
   return (
     <div className="border-t border-neutral-200 bg-neutral-50">
       <div className="flex items-center gap-2 px-4 py-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-          Unscheduled ({issues.length})
-        </span>
-        <span className="text-[11px] text-neutral-400">— drag onto timeline or click to assign dates</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Unscheduled ({issues.length})</span>
+        <span className="text-[11px] text-neutral-400">— click to assign dates</span>
       </div>
       <div className="flex flex-wrap gap-2 px-4 pb-3">
         {issues.map((issue) => {
           const color = colorMap.get(issue.projectId) ?? PROJECT_COLORS[0];
           return (
-            <button
-              key={issue.id}
-              onClick={() => onSchedule(issue.id)}
-              className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition hover:shadow-sm"
-              style={{
-                background: color.bg,
-                borderColor: color.border,
-                color: color.text,
-              }}
-            >
-              <span
-                className="w-1.5 h-1.5 rounded-full shrink-0"
-                style={{ background: STATUS_DOT[issue.status] }}
-              />
+            <button key={issue.id} onClick={() => onSchedule(issue.id)} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition hover:shadow-sm" style={{ background: color.bg, borderColor: color.border, color: color.text }}>
+              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_DOT[issue.status] }} />
               <span className="font-mono">{issue.key}</span>
               <span className="max-w-[160px] truncate text-neutral-600">{issue.title}</span>
             </button>
@@ -625,34 +544,37 @@ export default function TimelineClient({
   issues: initialIssues,
   sprints,
   dependencies: initialDeps,
+  initialBaselines = [],
 }: {
   slug: string;
   members: TLMember[];
   issues: TLIssue[];
   sprints: TLSprint[];
   dependencies: TLDependency[];
+  initialBaselines?: TLBaseline[];
 }) {
-  // ── State ──────────────────────────────────────────────────────────────────
-
   const [issues, setIssues] = useState<TLIssue[]>(initialIssues);
   const [deps, setDeps] = useState<TLDependency[]>(initialDeps);
+  const [baselines, setBaselines] = useState<TLBaseline[]>(initialBaselines);
   const [zoom, setZoom] = useState<"week" | "month">("week");
-  const [windowOffset, setWindowOffset] = useState(0); // offset in weeks from default
+  const [windowOffset, setWindowOffset] = useState(0);
   const [selection, setSelection] = useState<Set<string>>(new Set());
   const [popover, setPopover] = useState<PopoverState | null>(null);
   const [highlightRow, setHighlightRow] = useState<number | null>(null);
+  const [showCriticalPath, setShowCriticalPath] = useState(false);
+  const [activeBaselineId, setActiveBaselineId] = useState<string | null>(null);
+  const [savingBaseline, setSavingBaseline] = useState(false);
+  const [baselineNameInput, setBaselineNameInput] = useState("");
+  const [showBaselineSave, setShowBaselineSave] = useState(false);
 
   const dragRef = useRef<DragState | null>(null);
   const barRefs = useRef<Map<string, HTMLElement>>(new Map());
   const gridRef = useRef<HTMLDivElement>(null);
   const colorMap = useMemo(() => buildColorMap(issues), [issues]);
 
-  // ── Derived values ─────────────────────────────────────────────────────────
-
   const dayWidth = zoom === "week" ? 38 : 14;
-  const WINDOW_DAYS = 84; // 12 weeks
+  const WINDOW_DAYS = 84;
 
-  // Default window: 2 weeks back from today's Monday
   const windowStartIso = useMemo(() => {
     const base = mondayOf(addDays(new Date(), -14));
     base.setUTCHours(0, 0, 0, 0);
@@ -666,7 +588,18 @@ export default function TimelineClient({
   const scheduled = issues.filter((i) => i.startDate && i.dueDate);
   const unscheduled = issues.filter((i) => !i.startDate || !i.dueDate);
 
-  // ── Bar position math ──────────────────────────────────────────────────────
+  // Critical path
+  const criticalPathSet = useMemo(() => {
+    if (!showCriticalPath) return new Set<string>();
+    return computeCriticalPath(issues, deps);
+  }, [issues, deps, showCriticalPath]);
+
+  // Active baseline item map
+  const activeBaselineMap = useMemo(() => {
+    const bl = baselines.find((b) => b.id === activeBaselineId);
+    if (!bl) return new Map<string, TLBaselineItem>();
+    return new Map(bl.items.map((item) => [item.issueId, item]));
+  }, [baselines, activeBaselineId]);
 
   function barLeft(issue: TLIssue): number {
     if (!issue.startDate) return 0;
@@ -675,13 +608,8 @@ export default function TimelineClient({
 
   function barWidth(issue: TLIssue): number {
     if (!issue.startDate || !issue.dueDate) return 0;
-    return Math.max(
-      dayWidth,
-      (diffDays(toUTCDate(issue.startDate), toUTCDate(issue.dueDate)) + 1) * dayWidth
-    );
+    return Math.max(dayWidth, (diffDays(toUTCDate(issue.startDate), toUTCDate(issue.dueDate)) + 1) * dayWidth);
   }
-
-  // ── Week headers ───────────────────────────────────────────────────────────
 
   const weekHeaders: { date: Date; label: string; isToday: boolean }[] = [];
   const today = new Date();
@@ -689,28 +617,17 @@ export default function TimelineClient({
   for (let w = 0; w < WINDOW_DAYS / 7; w++) {
     const d = addDays(windowStart, w * 7);
     const isToday = d <= today && today < addDays(d, 7);
-    weekHeaders.push({
-      date: d,
-      label: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }),
-      isToday,
-    });
+    weekHeaders.push({ date: d, label: d.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" }), isToday });
   }
-
-  // ── Sprint bands ───────────────────────────────────────────────────────────
 
   const sprintBands = sprints
     .filter((s) => s.startDate && s.endDate)
     .map((s) => {
       const left = Math.max(0, diffDays(windowStart, toUTCDate(s.startDate!)) * dayWidth);
-      const right = Math.min(
-        totalWidth,
-        (diffDays(windowStart, toUTCDate(s.endDate!)) + 1) * dayWidth
-      );
+      const right = Math.min(totalWidth, (diffDays(windowStart, toUTCDate(s.endDate!)) + 1) * dayWidth);
       return { ...s, left, width: Math.max(0, right - left) };
     })
     .filter((s) => s.width > 0);
-
-  // ── Member load for current week ───────────────────────────────────────────
 
   const memberLoad = members.map((m) => ({
     userId: m.userId,
@@ -718,123 +635,69 @@ export default function TimelineClient({
     capacityMin: m.hoursPerWeek * 60,
   }));
 
-  // ── Drag: row from Y ───────────────────────────────────────────────────────
+  const memberRowFromY = useCallback((clientY: number): number => {
+    if (!gridRef.current) return 0;
+    const rect = gridRef.current.getBoundingClientRect();
+    const relY = clientY - rect.top - HEADER_H;
+    if (relY < 0) return 0;
+    return Math.min(members.length - 1, Math.floor(relY / ROW_H));
+  }, [members.length]);
 
-  const memberRowFromY = useCallback(
-    (clientY: number): number => {
-      if (!gridRef.current) return 0;
-      const rect = gridRef.current.getBoundingClientRect();
-      const relY = clientY - rect.top - HEADER_H;
-      if (relY < 0) return 0;
-      return Math.min(members.length - 1, Math.floor(relY / ROW_H));
-    },
-    [members.length]
-  );
-
-  // ── Drag: mouse down on bar ────────────────────────────────────────────────
-
-  const onBarMouseDown = useCallback(
-    (
-      e: React.MouseEvent,
-      issueId: string,
-      dragType: "move" | "resize-r" | "resize-l"
-    ) => {
-      if (e.button !== 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-
-      // Close popover
-      setPopover(null);
-
-      // Build selection
-      let ids: string[];
-      if (e.shiftKey) {
-        // Toggle selection
-        setSelection((prev) => {
-          const next = new Set(prev);
-          if (next.has(issueId)) next.delete(issueId);
-          else next.add(issueId);
-          ids = [...next];
-          return next;
-        });
-        return; // don't start drag on shift-click, just select
-      } else {
-        if (selection.has(issueId)) {
-          ids = [...selection];
-        } else {
-          ids = [issueId];
-          setSelection(new Set([issueId]));
-        }
+  const onBarMouseDown = useCallback((e: React.MouseEvent, issueId: string, dragType: "move" | "resize-r" | "resize-l") => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setPopover(null);
+    let ids: string[];
+    if (e.shiftKey) {
+      setSelection((prev) => {
+        const next = new Set(prev);
+        if (next.has(issueId)) next.delete(issueId); else next.add(issueId);
+        ids = [...next];
+        return next;
+      });
+      return;
+    } else {
+      ids = selection.has(issueId) ? [...selection] : [issueId];
+      if (!selection.has(issueId)) setSelection(new Set([issueId]));
+    }
+    const origDates = new Map<string, { start: string | null; due: string | null }>();
+    const origAssignees = new Map<string, string | null>();
+    for (const id of ids) {
+      const issue = issues.find((i) => i.id === id);
+      if (issue) {
+        origDates.set(id, { start: issue.startDate, due: issue.dueDate });
+        origAssignees.set(id, issue.assigneeId);
       }
-
-      // Snapshot original dates
-      const origDates = new Map<string, { start: string | null; due: string | null }>();
-      const origAssignees = new Map<string, string | null>();
-      for (const id of ids) {
-        const issue = issues.find((i) => i.id === id);
-        if (issue) {
-          origDates.set(id, { start: issue.startDate, due: issue.dueDate });
-          origAssignees.set(id, issue.assigneeId);
-        }
-      }
-
-      const startMemberIdx = memberRowFromY(e.clientY);
-
-      dragRef.current = {
-        type: dragType,
-        issueIds: ids,
-        startPageX: e.pageX,
-        startMemberIdx,
-        currentMemberIdx: startMemberIdx,
-        deltaDays: 0,
-        origDates,
-        origAssignees,
-      };
-    },
-    [issues, selection, memberRowFromY]
-  );
-
-  // ── Drag: global mouse move + up ───────────────────────────────────────────
+    }
+    dragRef.current = { type: dragType, issueIds: ids, startPageX: e.pageX, startMemberIdx: memberRowFromY(e.clientY), currentMemberIdx: memberRowFromY(e.clientY), deltaDays: 0, origDates, origAssignees };
+  }, [issues, selection, memberRowFromY]);
 
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       const drag = dragRef.current;
       if (!drag) return;
-
       const deltaPx = e.pageX - drag.startPageX;
-      const deltaDays = Math.round(deltaPx / dayWidth);
-      drag.deltaDays = deltaDays;
-
+      drag.deltaDays = Math.round(deltaPx / dayWidth);
       const rowIdx = memberRowFromY(e.clientY);
       drag.currentMemberIdx = rowIdx;
       setHighlightRow(rowIdx);
 
-      // Update bar DOM transforms directly for smooth drag
       for (const id of drag.issueIds) {
         const el = barRefs.current.get(id);
         if (!el) continue;
         const orig = drag.origDates.get(id);
         if (!orig) continue;
-
         if (drag.type === "move") {
-          const translateX = deltaDays * dayWidth;
-          el.style.transform = `translateX(${translateX}px)`;
+          el.style.transform = `translateX(${drag.deltaDays * dayWidth}px)`;
         } else if (drag.type === "resize-r") {
-          const origW = orig.start && orig.due
-            ? (diffDays(toUTCDate(orig.start), toUTCDate(orig.due)) + 1) * dayWidth
-            : dayWidth;
-          el.style.width = `${Math.max(dayWidth, origW + deltaDays * dayWidth)}px`;
+          const origW = orig.start && orig.due ? (diffDays(toUTCDate(orig.start), toUTCDate(orig.due)) + 1) * dayWidth : dayWidth;
+          el.style.width = `${Math.max(dayWidth, origW + drag.deltaDays * dayWidth)}px`;
         } else if (drag.type === "resize-l") {
-          const origLeft = orig.start
-            ? diffDays(windowStart, toUTCDate(orig.start)) * dayWidth
-            : 0;
-          const origW = orig.start && orig.due
-            ? (diffDays(toUTCDate(orig.start), toUTCDate(orig.due)) + 1) * dayWidth
-            : dayWidth;
-          const newLeft = origLeft + deltaDays * dayWidth;
-          const newW = origW - deltaDays * dayWidth;
-          el.style.left = `${newLeft}px`;
-          el.style.width = `${Math.max(dayWidth, newW)}px`;
+          const origLeft = orig.start ? diffDays(windowStart, toUTCDate(orig.start)) * dayWidth : 0;
+          const origW = orig.start && orig.due ? (diffDays(toUTCDate(orig.start), toUTCDate(orig.due)) + 1) * dayWidth : dayWidth;
+          el.style.left = `${origLeft + drag.deltaDays * dayWidth}px`;
+          el.style.width = `${Math.max(dayWidth, origW - drag.deltaDays * dayWidth)}px`;
         }
         el.style.opacity = "0.85";
         el.style.zIndex = "40";
@@ -845,58 +708,36 @@ export default function TimelineClient({
     const onUp = () => {
       const drag = dragRef.current;
       if (!drag) return;
-
       const { type, issueIds, deltaDays, currentMemberIdx, origDates, origAssignees } = drag;
       const newMember = members[currentMemberIdx];
-
-      // Clear DOM styles
       for (const id of issueIds) {
         const el = barRefs.current.get(id);
-        if (el) {
-          el.style.transform = "";
-          el.style.width = "";
-          el.style.left = "";
-          el.style.opacity = "";
-          el.style.zIndex = "";
-          el.style.boxShadow = "";
-        }
+        if (el) { el.style.transform = ""; el.style.width = ""; el.style.left = ""; el.style.opacity = ""; el.style.zIndex = ""; el.style.boxShadow = ""; }
       }
-
-      // Commit state update
       if (deltaDays !== 0 || (type === "move" && newMember)) {
-        setIssues((prev) =>
-          prev.map((issue) => {
-            if (!issueIds.includes(issue.id)) return issue;
-            const orig = origDates.get(issue.id);
-            const origAssignee = origAssignees.get(issue.id);
-            if (!orig) return issue;
-
-            let newStart = issue.startDate;
-            let newDue = issue.dueDate;
-            let newAssignee = issue.assigneeId;
-
-            if (type === "move") {
-              newStart = orig.start ? toIso(addDays(toUTCDate(orig.start), deltaDays)) : null;
-              newDue = orig.due ? toIso(addDays(toUTCDate(orig.due), deltaDays)) : null;
-              newAssignee = newMember?.userId ?? origAssignee ?? null;
-            } else if (type === "resize-r") {
-              newDue = orig.due ? toIso(addDays(toUTCDate(orig.due), deltaDays)) : null;
-              if (newDue && newStart && newDue < newStart) newDue = newStart;
-            } else if (type === "resize-l") {
-              newStart = orig.start ? toIso(addDays(toUTCDate(orig.start), deltaDays)) : null;
-              if (newStart && newDue && newStart > newDue) newStart = newDue;
-            }
-
-            return { ...issue, startDate: newStart, dueDate: newDue, assigneeId: newAssignee };
-          })
-        );
-
-        // Fire API calls
+        setIssues((prev) => prev.map((issue) => {
+          if (!issueIds.includes(issue.id)) return issue;
+          const orig = origDates.get(issue.id);
+          const origAssignee = origAssignees.get(issue.id);
+          if (!orig) return issue;
+          let newStart = issue.startDate, newDue = issue.dueDate, newAssignee = issue.assigneeId;
+          if (type === "move") {
+            newStart = orig.start ? toIso(addDays(toUTCDate(orig.start), deltaDays)) : null;
+            newDue = orig.due ? toIso(addDays(toUTCDate(orig.due), deltaDays)) : null;
+            newAssignee = newMember?.userId ?? origAssignee ?? null;
+          } else if (type === "resize-r") {
+            newDue = orig.due ? toIso(addDays(toUTCDate(orig.due), deltaDays)) : null;
+            if (newDue && newStart && newDue < newStart) newDue = newStart;
+          } else if (type === "resize-l") {
+            newStart = orig.start ? toIso(addDays(toUTCDate(orig.start), deltaDays)) : null;
+            if (newStart && newDue && newStart > newDue) newStart = newDue;
+          }
+          return { ...issue, startDate: newStart, dueDate: newDue, assigneeId: newAssignee };
+        }));
         for (const id of issueIds) {
           const orig = origDates.get(id);
           const origAssignee = origAssignees.get(id);
           if (!orig) continue;
-
           const body: Record<string, unknown> = { slug };
           if (type === "move") {
             body.start_date = orig.start ? toIso(addDays(toUTCDate(orig.start), deltaDays)) : null;
@@ -907,100 +748,88 @@ export default function TimelineClient({
           } else if (type === "resize-l") {
             body.start_date = orig.start ? toIso(addDays(toUTCDate(orig.start), deltaDays)) : null;
           }
-
-          fetch(`/api/issues/${id}/schedule`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-          }).catch(console.error);
+          fetch(`/api/issues/${id}/schedule`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(console.error);
         }
       }
-
       dragRef.current = null;
       setHighlightRow(null);
     };
 
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-    };
+    return () => { window.removeEventListener("mousemove", onMove); window.removeEventListener("mouseup", onUp); };
   }, [dayWidth, members, memberRowFromY, slug, windowStart]);
 
-  // ── Click bar to open popover ──────────────────────────────────────────────
-
-  const onBarClick = useCallback(
-    (e: React.MouseEvent, issue: TLIssue) => {
-      if (dragRef.current) return;
-      e.stopPropagation();
-      const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-      const containerRect = gridRef.current?.getBoundingClientRect();
-      if (!containerRect) return;
-      const x = rect.left - containerRect.left;
-      const y = rect.top - containerRect.top;
-      const above = y > totalHeight / 2;
-      setPopover({ issueId: issue.id, x, y, above });
-    },
-    [totalHeight]
-  );
-
-  // ── Schedule unscheduled issues (open popover at top of timeline) ──────────
+  const onBarClick = useCallback((e: React.MouseEvent, issue: TLIssue) => {
+    if (dragRef.current) return;
+    e.stopPropagation();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const containerRect = gridRef.current?.getBoundingClientRect();
+    if (!containerRect) return;
+    const x = rect.left - containerRect.left;
+    const y = rect.top - containerRect.top;
+    setPopover({ issueId: issue.id, x, y, above: y > totalHeight / 2 });
+  }, [totalHeight]);
 
   const onScheduleUnscheduled = useCallback((id: string) => {
-    if (!gridRef.current) return;
     const startDate = windowStartIso;
     const dueDate = toIso(addDays(toUTCDate(windowStartIso), 4));
     setPopover({ issueId: id, x: 200, y: HEADER_H, above: false });
-    setIssues((prev) =>
-      prev.map((i) => i.id === id ? { ...i, startDate, dueDate } : i)
-    );
-    fetch(`/api/issues/${id}/schedule`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, start_date: startDate, due_date: dueDate }),
-    }).catch(console.error);
+    setIssues((prev) => prev.map((i) => i.id === id ? { ...i, startDate, dueDate } : i));
+    fetch(`/api/issues/${id}/schedule`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, start_date: startDate, due_date: dueDate }) }).catch(console.error);
   }, [slug, windowStartIso]);
-
-  // ── Escape to close popover / deselect ────────────────────────────────────
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setPopover(null);
-        setSelection(new Set());
-      }
+      if (e.key === "Escape") { setPopover(null); setSelection(new Set()); setShowBaselineSave(false); }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // ── Update handlers ────────────────────────────────────────────────────────
-
   const handleUpdate = useCallback((id: string, patch: Partial<TLIssue>) => {
     setIssues((prev) => prev.map((i) => (i.id === id ? { ...i, ...patch } : i)));
   }, []);
+  const handleDepAdded = useCallback((dep: TLDependency) => { setDeps((prev) => [...prev, dep]); }, []);
+  const handleDepRemoved = useCallback((depId: string) => { setDeps((prev) => prev.filter((d) => d.id !== depId)); }, []);
 
-  const handleDepAdded = useCallback((dep: TLDependency) => {
-    setDeps((prev) => [...prev, dep]);
-  }, []);
-
-  const handleDepRemoved = useCallback((depId: string) => {
-    setDeps((prev) => prev.filter((d) => d.id !== depId));
-  }, []);
-
-  // ── Render ─────────────────────────────────────────────────────────────────
+  const handleSaveBaseline = useCallback(async () => {
+    const name = baselineNameInput.trim() || `Baseline ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+    setSavingBaseline(true);
+    const res = await fetch("/api/issues/baselines", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, name }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const newBaseline: TLBaseline = {
+        id: data.baseline.id,
+        name,
+        createdAt: new Date().toISOString(),
+        items: data.baseline.items.map((item: { issue_id: string; start_date: string; due_date: string }) => ({
+          issueId: item.issue_id,
+          startDate: item.start_date,
+          dueDate: item.due_date,
+        })),
+      };
+      setBaselines((prev) => [newBaseline, ...prev]);
+      setActiveBaselineId(newBaseline.id);
+    }
+    setSavingBaseline(false);
+    setShowBaselineSave(false);
+    setBaselineNameInput("");
+  }, [slug, baselineNameInput]);
 
   const popoverIssue = popover ? issues.find((i) => i.id === popover.issueId) : null;
-
   const today2 = new Date();
   today2.setUTCHours(0, 0, 0, 0);
   const todayLeft = diffDays(windowStart, today2) * dayWidth;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white" onClick={() => { setPopover(null); setSelection(new Set()); }}>
+    <div className="flex flex-col h-full min-h-0 bg-white" onClick={() => { setPopover(null); setSelection(new Set()); setShowBaselineSave(false); }}>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 shrink-0">
+      <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 shrink-0 flex-wrap gap-2">
         <div className="flex items-center gap-3">
           <h1 className="text-base font-semibold text-neutral-900">Allocation Timeline</h1>
           {selection.size > 1 && (
@@ -1010,15 +839,39 @@ export default function TimelineClient({
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Critical Path toggle */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setShowCriticalPath((v) => !v); }}
+            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${showCriticalPath ? "bg-orange-500 border-orange-500 text-white" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+          >
+            <span>🔴</span> Critical Path
+          </button>
+
+          {/* Baseline controls */}
+          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+            <select
+              value={activeBaselineId ?? ""}
+              onChange={(e) => setActiveBaselineId(e.target.value || null)}
+              className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-600 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            >
+              <option value="">No baseline</option>
+              {baselines.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowBaselineSave(true)}
+              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition"
+            >
+              📌 Save baseline
+            </button>
+          </div>
+
           {/* Zoom */}
           <div className="flex rounded-lg border border-neutral-200 overflow-hidden text-xs">
             {(["week", "month"] as const).map((z) => (
-              <button
-                key={z}
-                onClick={(e) => { e.stopPropagation(); setZoom(z); }}
-                className={`px-3 py-1.5 font-medium transition ${zoom === z ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`}
-              >
+              <button key={z} onClick={(e) => { e.stopPropagation(); setZoom(z); }} className={`px-3 py-1.5 font-medium transition ${zoom === z ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`}>
                 {z === "week" ? "Week" : "Month"}
               </button>
             ))}
@@ -1026,90 +879,62 @@ export default function TimelineClient({
 
           {/* Window navigation */}
           <div className="flex items-center gap-1">
-            <button
-              onClick={(e) => { e.stopPropagation(); setWindowOffset((o) => o - 4); }}
-              className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition"
-            >
-              ←
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setWindowOffset(0); }}
-              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition"
-            >
-              Today
-            </button>
-            <button
-              onClick={(e) => { e.stopPropagation(); setWindowOffset((o) => o + 4); }}
-              className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition"
-            >
-              →
-            </button>
+            <button onClick={(e) => { e.stopPropagation(); setWindowOffset((o) => o - 4); }} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition">←</button>
+            <button onClick={(e) => { e.stopPropagation(); setWindowOffset(0); }} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition">Today</button>
+            <button onClick={(e) => { e.stopPropagation(); setWindowOffset((o) => o + 4); }} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition">→</button>
           </div>
 
           {/* Legend */}
           <div className="flex items-center gap-3 text-[11px] text-neutral-500">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-200 border border-indigo-400 inline-block" /> Scheduled</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-green-500 inline-block" /> On track</span>
-            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Conflict</span>
+            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-200 border border-indigo-400 inline-block" /> Current</span>
+            {activeBaselineId && <span className="flex items-center gap-1"><span className="w-6 h-1.5 rounded-sm border border-dashed border-neutral-400 inline-block bg-transparent" /> Baseline</span>}
+            {showCriticalPath && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500 inline-block" /> Critical</span>}
           </div>
         </div>
       </div>
+
+      {/* Baseline save dialog */}
+      {showBaselineSave && (
+        <div className="px-6 py-3 border-b border-amber-200 bg-amber-50 flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+          <span className="text-sm font-medium text-amber-800">Name this baseline:</span>
+          <input
+            autoFocus
+            type="text"
+            value={baselineNameInput}
+            onChange={(e) => setBaselineNameInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSaveBaseline(); if (e.key === "Escape") { setShowBaselineSave(false); setBaselineNameInput(""); } }}
+            placeholder={`Baseline ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
+            className="rounded-lg border border-amber-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white w-64"
+          />
+          <button onClick={handleSaveBaseline} disabled={savingBaseline} className="rounded-lg bg-amber-600 text-white px-4 py-1.5 text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition">
+            {savingBaseline ? "Saving…" : "Save"}
+          </button>
+          <button onClick={() => { setShowBaselineSave(false); setBaselineNameInput(""); }} className="text-amber-600 hover:text-amber-800 text-sm">Cancel</button>
+        </div>
+      )}
 
       {/* Timeline grid */}
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         <div className="flex-1 overflow-x-auto overflow-y-auto relative" ref={gridRef}>
           <div style={{ minWidth: COL_W + totalWidth, position: "relative" }}>
 
-            {/* Header row */}
+            {/* Header */}
             <div className="flex" style={{ height: HEADER_H }}>
-              {/* Member column header */}
-              <div
-                className="shrink-0 border-r border-b border-neutral-200 bg-neutral-50 flex items-end px-4 pb-2"
-                style={{ width: COL_W, position: "sticky", left: 0, zIndex: 20 }}
-              >
+              <div className="shrink-0 border-r border-b border-neutral-200 bg-neutral-50 flex items-end px-4 pb-2" style={{ width: COL_W, position: "sticky", left: 0, zIndex: 20 }}>
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Team</span>
               </div>
-
-              {/* Sprint bands + week labels */}
               <div className="relative border-b border-neutral-200 flex-1" style={{ width: totalWidth }}>
-                {/* Sprint bands in header */}
                 {sprintBands.map((s) => (
-                  <div
-                    key={s.id}
-                    className="absolute top-0 flex items-center px-2 overflow-hidden"
-                    style={{
-                      left: s.left,
-                      width: s.width,
-                      height: 22,
-                      background: s.status === "active" ? "#eef2ff" : "#f8fafc",
-                      borderRight: "1px solid #e2e8f0",
-                    }}
-                  >
-                    <span
-                      className="text-[10px] font-semibold truncate"
-                      style={{ color: s.status === "active" ? "#4f46e5" : "#94a3b8" }}
-                    >
+                  <div key={s.id} className="absolute top-0 flex items-center px-2 overflow-hidden" style={{ left: s.left, width: s.width, height: 22, background: s.status === "active" ? "#eef2ff" : "#f8fafc", borderRight: "1px solid #e2e8f0" }}>
+                    <span className="text-[10px] font-semibold truncate" style={{ color: s.status === "active" ? "#4f46e5" : "#94a3b8" }}>
                       {s.status === "active" ? "● " : ""}{s.name}
                     </span>
                   </div>
                 ))}
-
-                {/* Week column labels */}
                 <div className="absolute bottom-0 left-0 right-0 flex" style={{ height: 42 }}>
                   {weekHeaders.map((wh, i) => (
-                    <div
-                      key={i}
-                      className="border-r border-neutral-100 flex items-center px-2 shrink-0"
-                      style={{
-                        width: dayWidth * 7,
-                        background: wh.isToday ? "#fefce8" : "transparent",
-                      }}
-                    >
-                      <span
-                        className={`text-[11px] font-medium ${wh.isToday ? "text-amber-700 font-semibold" : "text-neutral-500"}`}
-                      >
-                        {wh.label}
-                      </span>
+                    <div key={i} className="border-r border-neutral-100 flex items-center px-2 shrink-0" style={{ width: dayWidth * 7, background: wh.isToday ? "#fefce8" : "transparent" }}>
+                      <span className={`text-[11px] font-medium ${wh.isToday ? "text-amber-700 font-semibold" : "text-neutral-500"}`}>{wh.label}</span>
                     </div>
                   ))}
                 </div>
@@ -1121,162 +946,120 @@ export default function TimelineClient({
               const memberIssues = scheduled.filter((i) => i.assigneeId === member.userId);
               const load = memberLoad.find((l) => l.userId === member.userId);
               const ringColor = capacityRingColor(load?.loadMin ?? 0, load?.capacityMin ?? 2400);
-              const loadPct = load && load.capacityMin > 0
-                ? Math.round((load.loadMin / load.capacityMin) * 100)
-                : 0;
+              const loadPct = load && load.capacityMin > 0 ? Math.round((load.loadMin / load.capacityMin) * 100) : 0;
               const isHighlit = highlightRow === rowIdx;
 
               return (
-                <div
-                  key={member.userId}
-                  className="flex"
-                  style={{ height: ROW_H, borderBottom: "1px solid #f1f5f9" }}
-                >
-                  {/* Member name cell */}
-                  <div
-                    className="shrink-0 border-r border-neutral-200 flex items-center gap-2.5 px-4"
-                    style={{
-                      width: COL_W,
-                      position: "sticky",
-                      left: 0,
-                      zIndex: 10,
-                      background: isHighlit ? "#eef2ff" : "white",
-                      transition: "background 0.15s",
-                    }}
-                  >
-                    <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0"
-                      style={{ background: ringColor, boxShadow: `0 0 0 2px white, 0 0 0 3px ${ringColor}` }}
-                    >
+                <div key={member.userId} className="flex" style={{ height: ROW_H, borderBottom: "1px solid #f1f5f9" }}>
+                  <div className="shrink-0 border-r border-neutral-200 flex items-center gap-2.5 px-4" style={{ width: COL_W, position: "sticky", left: 0, zIndex: 10, background: isHighlit ? "#eef2ff" : "white", transition: "background 0.15s" }}>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style={{ background: ringColor, boxShadow: `0 0 0 2px white, 0 0 0 3px ${ringColor}` }}>
                       {member.initials}
                     </div>
                     <div className="min-w-0">
                       <div className="text-sm font-semibold text-neutral-900 truncate">{member.name}</div>
-                      <div
-                        className="text-[10px] font-medium"
-                        style={{ color: ringColor }}
-                      >
-                        {loadPct}% · {member.hoursPerWeek}h/wk
-                      </div>
+                      <div className="text-[10px] font-medium" style={{ color: ringColor }}>{loadPct}% · {member.hoursPerWeek}h/wk</div>
                     </div>
                   </div>
 
-                  {/* Timeline row content */}
-                  <div
-                    className="relative flex-1"
-                    style={{
-                      width: totalWidth,
-                      background: isHighlit
-                        ? "rgba(238,242,255,0.6)"
-                        : rowIdx % 2 === 0 ? "white" : "#fafafa",
-                      transition: "background 0.15s",
-                    }}
-                  >
-                    {/* Week grid lines */}
+                  <div className="relative flex-1" style={{ width: totalWidth, background: isHighlit ? "rgba(238,242,255,0.6)" : rowIdx % 2 === 0 ? "white" : "#fafafa", transition: "background 0.15s" }}>
                     {weekHeaders.map((wh, i) => (
-                      <div
-                        key={i}
-                        className="absolute top-0 bottom-0"
-                        style={{
-                          left: i * dayWidth * 7,
-                          width: dayWidth * 7,
-                          borderRight: "1px solid #f1f5f9",
-                          background: wh.isToday ? "rgba(254,252,232,0.4)" : "transparent",
-                        }}
-                      />
+                      <div key={i} className="absolute top-0 bottom-0" style={{ left: i * dayWidth * 7, width: dayWidth * 7, borderRight: "1px solid #f1f5f9", background: wh.isToday ? "rgba(254,252,232,0.4)" : "transparent" }} />
                     ))}
 
-                    {/* Issue bars */}
                     {memberIssues.map((issue) => {
                       const left = barLeft(issue);
                       const w = barWidth(issue);
-                      // Skip bars entirely off-screen
                       if (left > totalWidth || left + w < 0) return null;
 
                       const color = colorMap.get(issue.projectId) ?? PROJECT_COLORS[0];
                       const isSelected = selection.has(issue.id);
+                      const isCritical = showCriticalPath && criticalPathSet.has(issue.id);
+                      const isDimmed = showCriticalPath && criticalPathSet.size > 0 && !isCritical;
                       const narrow = w < 80;
 
+                      // Baseline ghost bar
+                      const bItem = activeBaselineMap.get(issue.id);
+                      const bLeft = bItem?.startDate ? diffDays(windowStart, toUTCDate(bItem.startDate)) * dayWidth : null;
+                      const bWidth = bItem?.startDate && bItem?.dueDate
+                        ? Math.max(dayWidth, (diffDays(toUTCDate(bItem.startDate), toUTCDate(bItem.dueDate)) + 1) * dayWidth)
+                        : null;
+                      const driftDays = bItem?.dueDate && issue.dueDate
+                        ? diffDays(toUTCDate(bItem.dueDate), toUTCDate(issue.dueDate))
+                        : 0;
+                      const driftColor = driftDays > 0 ? "#ef4444" : driftDays < 0 ? "#10b981" : "#94a3b8";
+
                       return (
-                        <div
-                          key={issue.id}
-                          ref={(el) => {
-                            if (el) barRefs.current.set(issue.id, el);
-                            else barRefs.current.delete(issue.id);
-                          }}
-                          className="absolute select-none cursor-grab active:cursor-grabbing"
-                          style={{
-                            left,
-                            width: w,
-                            top: BAR_TOP,
-                            height: BAR_H,
-                            borderRadius: 6,
-                            background: color.bg,
-                            border: `1.5px solid ${isSelected ? "#6366f1" : color.border}`,
-                            borderLeft: `4px solid ${PRIORITY_COLORS[issue.priority]}`,
-                            boxShadow: isSelected
-                              ? "0 0 0 2px #6366f1, 0 2px 6px rgba(99,102,241,0.2)"
-                              : "0 1px 3px rgba(0,0,0,0.06)",
-                            transition: "box-shadow 0.1s",
-                            overflow: "hidden",
-                            zIndex: isSelected ? 10 : 5,
-                          }}
-                          onMouseDown={(e) => onBarMouseDown(e, issue.id, "move")}
-                          onClick={(e) => onBarClick(e, issue)}
-                        >
-                          {/* Bar content */}
-                          <div
-                            className="flex items-center gap-1.5 h-full px-2 pointer-events-none"
-                            style={{ paddingLeft: narrow ? 6 : 10 }}
-                          >
-                            <span
-                              className="w-1.5 h-1.5 rounded-full shrink-0"
-                              style={{ background: STATUS_DOT[issue.status] }}
+                        <div key={issue.id}>
+                          {/* Baseline ghost bar */}
+                          {bLeft !== null && bWidth !== null && activeBaselineId && (
+                            <div
+                              className="absolute pointer-events-none"
+                              title={`Baseline: ${bItem?.startDate} → ${bItem?.dueDate}${driftDays !== 0 ? ` (${driftDays > 0 ? "+" : ""}${driftDays}d drift)` : ""}`}
+                              style={{
+                                left: bLeft,
+                                width: bWidth,
+                                top: BASELINE_TOP,
+                                height: BASELINE_H,
+                                borderRadius: 3,
+                                border: `1.5px dashed ${driftColor}`,
+                                background: `${driftColor}18`,
+                              }}
                             />
-                            {!narrow && (
-                              <>
-                                <span
-                                  className="text-[11px] font-mono font-semibold shrink-0"
-                                  style={{ color: color.text }}
-                                >
-                                  {issue.key}
-                                </span>
-                                <span
-                                  className="text-[11px] truncate"
-                                  style={{ color: "#475569" }}
-                                >
-                                  {issue.title}
-                                </span>
-                                {issue.storyPoints && (
-                                  <span
-                                    className="ml-auto shrink-0 text-[10px] font-semibold rounded px-1"
-                                    style={{ background: color.border + "33", color: color.text }}
-                                  >
-                                    {issue.storyPoints}pt
-                                  </span>
-                                )}
-                              </>
-                            )}
+                          )}
+
+                          {/* Main bar */}
+                          <div
+                            ref={(el) => { if (el) barRefs.current.set(issue.id, el); else barRefs.current.delete(issue.id); }}
+                            className="absolute select-none cursor-grab active:cursor-grabbing"
+                            style={{
+                              left,
+                              width: w,
+                              top: BAR_TOP,
+                              height: BAR_H,
+                              borderRadius: 6,
+                              background: color.bg,
+                              border: isCritical
+                                ? `2px solid #f97316`
+                                : `1.5px solid ${isSelected ? "#6366f1" : color.border}`,
+                              borderLeft: `4px solid ${isCritical ? "#f97316" : PRIORITY_COLORS[issue.priority]}`,
+                              boxShadow: isCritical
+                                ? "0 0 0 2px #fed7aa, 0 2px 8px rgba(249,115,22,0.25)"
+                                : isSelected
+                                  ? "0 0 0 2px #6366f1, 0 2px 6px rgba(99,102,241,0.2)"
+                                  : "0 1px 3px rgba(0,0,0,0.06)",
+                              opacity: isDimmed ? 0.3 : 1,
+                              transition: "opacity 0.2s, box-shadow 0.1s",
+                              overflow: "hidden",
+                              zIndex: isSelected || isCritical ? 10 : 5,
+                            }}
+                            onMouseDown={(e) => onBarMouseDown(e, issue.id, "move")}
+                            onClick={(e) => onBarClick(e, issue)}
+                          >
+                            <div className="flex items-center gap-1.5 h-full px-2 pointer-events-none" style={{ paddingLeft: narrow ? 6 : 10 }}>
+                              <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_DOT[issue.status] }} />
+                              {!narrow && (
+                                <>
+                                  <span className="text-[11px] font-mono font-semibold shrink-0" style={{ color: color.text }}>{issue.key}</span>
+                                  <span className="text-[11px] truncate" style={{ color: "#475569" }}>{issue.title}</span>
+                                  {issue.storyPoints && (
+                                    <span className="ml-auto shrink-0 text-[10px] font-semibold rounded px-1" style={{ background: color.border + "33", color: color.text }}>{issue.storyPoints}pt</span>
+                                  )}
+                                </>
+                              )}
+                            </div>
+                            <div className="absolute inset-y-0 left-0 cursor-col-resize" style={{ width: HANDLE_W, zIndex: 20 }} onMouseDown={(e) => { e.stopPropagation(); onBarMouseDown(e, issue.id, "resize-l"); }} />
+                            <div className="absolute inset-y-0 right-0 cursor-col-resize" style={{ width: HANDLE_W, zIndex: 20 }} onMouseDown={(e) => { e.stopPropagation(); onBarMouseDown(e, issue.id, "resize-r"); }} />
                           </div>
 
-                          {/* Resize handle left */}
-                          <div
-                            className="absolute inset-y-0 left-0 cursor-col-resize"
-                            style={{ width: HANDLE_W, zIndex: 20 }}
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              onBarMouseDown(e, issue.id, "resize-l");
-                            }}
-                          />
-                          {/* Resize handle right */}
-                          <div
-                            className="absolute inset-y-0 right-0 cursor-col-resize"
-                            style={{ width: HANDLE_W, zIndex: 20 }}
-                            onMouseDown={(e) => {
-                              e.stopPropagation();
-                              onBarMouseDown(e, issue.id, "resize-r");
-                            }}
-                          />
+                          {/* Drift label */}
+                          {bLeft !== null && driftDays !== 0 && activeBaselineId && (
+                            <div
+                              className="absolute pointer-events-none text-[9px] font-semibold"
+                              style={{ left: left + w + 2, top: BASELINE_TOP - 1, color: driftColor, zIndex: 6, whiteSpace: "nowrap" }}
+                            >
+                              {driftDays > 0 ? `+${driftDays}d` : `${driftDays}d`}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -1285,77 +1068,28 @@ export default function TimelineClient({
               );
             })}
 
-            {/* Today line (overlay on full grid, positioned from left of grid area) */}
+            {/* Today line */}
             {todayLeft >= 0 && todayLeft <= totalWidth && (
-              <div
-                className="absolute pointer-events-none"
-                style={{
-                  left: COL_W + todayLeft,
-                  top: 0,
-                  bottom: 0,
-                  width: 2,
-                  background: "#f43f5e",
-                  zIndex: 30,
-                  opacity: 0.6,
-                }}
-              >
-                <div
-                  className="absolute -top-0 -left-1 w-4 h-4 rounded-full"
-                  style={{ background: "#f43f5e", top: HEADER_H - 6, left: -3 }}
-                />
+              <div className="absolute pointer-events-none" style={{ left: COL_W + todayLeft, top: 0, bottom: 0, width: 2, background: "#f43f5e", zIndex: 30, opacity: 0.6 }}>
+                <div className="absolute -top-0 -left-1 w-4 h-4 rounded-full" style={{ background: "#f43f5e", top: HEADER_H - 6, left: -3 }} />
               </div>
             )}
 
-            {/* Dependency arrows SVG — positioned relative to the grid (offset by COL_W) */}
-            <div
-              className="absolute pointer-events-none"
-              style={{ left: COL_W, top: 0, width: totalWidth, height: totalHeight }}
-            >
-              <DependencyArrows
-                deps={deps}
-                issues={issues}
-                windowStart={windowStart}
-                dayWidth={dayWidth}
-                members={members}
-              />
+            {/* Dependency arrows */}
+            <div className="absolute pointer-events-none" style={{ left: COL_W, top: 0, width: totalWidth, height: totalHeight }}>
+              <DependencyArrows deps={deps} issues={issues} windowStart={windowStart} dayWidth={dayWidth} members={members} criticalSet={criticalPathSet} />
             </div>
 
             {/* Edit popover */}
             {popover && popoverIssue && (
-              <div
-                className="absolute"
-                style={{
-                  left: Math.min(popover.x + COL_W, COL_W + totalWidth - 340),
-                  top: popover.above
-                    ? popover.y - 420
-                    : popover.y + BAR_H + 8,
-                  zIndex: 200,
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <EditPopover
-                  issue={popoverIssue}
-                  allIssues={issues}
-                  members={members}
-                  deps={deps}
-                  slug={slug}
-                  onClose={() => setPopover(null)}
-                  onUpdate={handleUpdate}
-                  onDepAdded={handleDepAdded}
-                  onDepRemoved={handleDepRemoved}
-                  style={{}}
-                />
+              <div className="absolute" style={{ left: Math.min(popover.x + COL_W, COL_W + totalWidth - 340), top: popover.above ? popover.y - 420 : popover.y + BAR_H + 8, zIndex: 200 }} onClick={(e) => e.stopPropagation()}>
+                <EditPopover issue={popoverIssue} allIssues={issues} members={members} deps={deps} slug={slug} onClose={() => setPopover(null)} onUpdate={handleUpdate} onDepAdded={handleDepAdded} onDepRemoved={handleDepRemoved} style={{}} />
               </div>
             )}
           </div>
         </div>
 
-        {/* Unscheduled tray */}
-        <UnscheduledTray
-          issues={unscheduled}
-          colorMap={colorMap}
-          onSchedule={onScheduleUnscheduled}
-        />
+        <UnscheduledTray issues={unscheduled} colorMap={colorMap} onSchedule={onScheduleUnscheduled} />
       </div>
     </div>
   );

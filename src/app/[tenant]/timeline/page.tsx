@@ -9,6 +9,7 @@ import TimelineClient, {
   type TLMember,
   type TLSprint,
   type TLDependency,
+  type TLBaseline,
 } from "../admin/workload/timeline/TimelineClient";
 
 export default async function TimelinePage({
@@ -111,6 +112,24 @@ export default async function TimelinePage({
     status: s.status as TLSprint["status"],
   }));
 
+  // Baselines
+  const { data: baselineRows } = await svc
+    .from("timeline_baselines")
+    .select("id, name, created_at, timeline_baseline_items(issue_id, start_date, due_date)")
+    .eq("tenant_id", ctx.tenant.id)
+    .order("created_at", { ascending: false });
+
+  const tlBaselines: TLBaseline[] = (baselineRows ?? []).map((b) => ({
+    id: b.id as string,
+    name: b.name as string,
+    createdAt: b.created_at as string,
+    items: ((b.timeline_baseline_items as { issue_id: string; start_date: string | null; due_date: string | null }[]) ?? []).map((item) => ({
+      issueId: item.issue_id,
+      startDate: item.start_date,
+      dueDate: item.due_date,
+    })),
+  }));
+
   // Dependencies
   const { data: depRows } = await svc
     .from("issue_dependencies")
@@ -138,6 +157,7 @@ export default async function TimelinePage({
       issues={tlIssues}
       sprints={tlSprints}
       dependencies={tlDeps}
+      initialBaselines={tlBaselines}
     />
   );
 }
