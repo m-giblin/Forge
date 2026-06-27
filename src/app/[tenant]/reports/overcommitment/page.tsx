@@ -36,7 +36,7 @@ export default async function OvercommitmentPage({
     const members: OvercommitmentMember[] = [];
     return (
       <main className="w-full px-6 py-8">
-        <OvercommitmentClient members={members} />
+        <OvercommitmentClient slug={slug} members={members} />
       </main>
     );
   }
@@ -138,7 +138,7 @@ export default async function OvercommitmentPage({
 
   return (
     <main className="w-full px-6 py-8">
-      <OvercommitmentClient members={members} />
+      <OvercommitmentClient slug={slug} members={members} />
     </main>
   );
 }

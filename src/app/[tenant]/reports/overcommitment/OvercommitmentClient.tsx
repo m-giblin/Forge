@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 export type OvercommitmentMember = {
   userId: string;
@@ -49,8 +50,10 @@ function CapacityBar({ load, bg }: { load: number; bg: string }) {
 }
 
 export default function OvercommitmentClient({
+  slug,
   members,
 }: {
+  slug: string;
   members: OvercommitmentMember[];
 }) {
   const [filter, setFilter] = useState<"all" | "over">("all");
@@ -63,6 +66,9 @@ export default function OvercommitmentClient({
 
   return (
     <div className="space-y-6">
+      <Link href={`/${slug}/reports`} className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors group">
+        <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Reports
+      </Link>
       <div>
         <h1 className="text-xl font-semibold text-neutral-900">Cross-Project Overcommitment</h1>
         <p className="mt-1 text-sm text-neutral-500">

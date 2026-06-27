@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 interface MemberLoad {
   userId: string;
@@ -70,7 +71,7 @@ function GaugeArc({ pct }: { pct: number }) {
 }
 
 export default function CapacityClient({
-  slug: _slug,
+  slug,
   sprints,
 }: {
   slug: string;
@@ -78,9 +79,16 @@ export default function CapacityClient({
 }) {
   const [selectedIdx, setSelectedIdx] = useState(0);
 
+  const breadcrumb = (
+    <Link href={`/${slug}/reports`} className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors mb-4 group">
+      <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Reports
+    </Link>
+  );
+
   if (sprints.length === 0) {
     return (
       <main className="w-full px-6 py-10">
+        {breadcrumb}
         <h1 className="text-xl font-semibold text-neutral-900 mb-4">Capacity vs Committed</h1>
         <p className="text-neutral-500">No active sprints found.</p>
       </main>
@@ -95,6 +103,7 @@ export default function CapacityClient({
 
   return (
     <main className="w-full px-6 py-8 space-y-6">
+      {breadcrumb}
       <h1 className="text-xl font-semibold text-neutral-900">Capacity vs Committed</h1>
 
       {sprints.length > 1 && (

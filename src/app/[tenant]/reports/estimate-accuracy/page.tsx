@@ -37,7 +37,7 @@ export default async function EstimateAccuracyPage({ params }: { params: Promise
     .gte("updated_at", cutoffIso);
 
   if (!issueRows || issueRows.length === 0) {
-    return <EstimateAccuracyClient issues={[]} projects={[]} />;
+    return <EstimateAccuracyClient slug={slug} issues={[]} projects={[]} />;
   }
 
   const issueIds = issueRows.map((r) => r.id as string);
@@ -56,7 +56,7 @@ export default async function EstimateAccuracyPage({ params }: { params: Promise
 
   const withLogs = issueRows.filter((r) => (logMap.get(r.id as string) ?? 0) > 0);
   if (withLogs.length === 0) {
-    return <EstimateAccuracyClient issues={[]} projects={[]} />;
+    return <EstimateAccuracyClient slug={slug} issues={[]} projects={[]} />;
   }
 
   const projectIds = [...new Set(withLogs.map((r) => r.project_id as string).filter(Boolean))];
@@ -87,5 +87,5 @@ export default async function EstimateAccuracyPage({ params }: { params: Promise
 
   const projects = (projRows ?? []).map((p) => ({ id: p.id as string, name: p.name as string, key: p.key as string }));
 
-  return <EstimateAccuracyClient issues={issues} projects={projects} />;
+  return <EstimateAccuracyClient slug={slug} issues={issues} projects={projects} />;
 }

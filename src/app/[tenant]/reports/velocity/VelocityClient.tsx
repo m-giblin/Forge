@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 interface SprintData {
   id: string;
@@ -23,7 +24,7 @@ function fmtMinutes(min: number): string {
 }
 
 export default function VelocityClient({
-  slug: _slug,
+  slug,
   sprints,
 }: {
   slug: string;
@@ -39,9 +40,16 @@ export default function VelocityClient({
     ? sprints.filter((s) => s.projectId === selectedProjectId)
     : sprints;
 
+  const breadcrumb = (
+    <Link href={`/${slug}/reports`} className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors mb-4 group">
+      <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Reports
+    </Link>
+  );
+
   if (sprints.length === 0) {
     return (
       <main className="w-full px-6 py-10">
+        {breadcrumb}
         <h1 className="text-xl font-semibold text-neutral-900 mb-4">Sprint Velocity</h1>
         <p className="text-neutral-500">No completed sprints found.</p>
       </main>
@@ -81,6 +89,7 @@ export default function VelocityClient({
 
   return (
     <main className="w-full px-6 py-8 space-y-6">
+      {breadcrumb}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-semibold text-neutral-900">Sprint Velocity</h1>
         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium">

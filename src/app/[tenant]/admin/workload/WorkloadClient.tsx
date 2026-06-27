@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 export type WorkloadMember = {
   userId: string;
@@ -137,6 +138,13 @@ export default function WorkloadClient({ members, activeSprint, slug, weekStartI
           <p className="mt-0.5 text-sm text-neutral-500">{weekLabel}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href={`/${slug}/admin/workload/timeline`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition shadow-sm"
+          >
+            <span>⎗</span>
+            Timeline View
+          </Link>
           <a
             href={`/print/${slug}/workload-report`}
             target="_blank"
