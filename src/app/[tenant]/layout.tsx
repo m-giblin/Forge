@@ -104,6 +104,7 @@ export default async function TenantLayout({
               <SideLink href={`/${slug}/issues`} icon="🐛" label="Issues" />
               <SideLink href={`/${slug}/projects`} icon="📋" label="Projects" />
               <SideLink href={`/${slug}/roadmap`} icon="🗺️" label="Roadmap" />
+              {flags.ops_layer && <SideLink href={`/${slug}/time`} icon="⏱️" label="My Time" />}
             </div>
           </div>
 

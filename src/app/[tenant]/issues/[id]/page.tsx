@@ -15,7 +15,7 @@ import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
 import { slaPoliciesRepo } from "@/lib/repositories/slaPolicies";
 import { computeSlaTimer } from "@/lib/services/sla";
 import IssueDetail from "./IssueDetail";
-import { listTimeLogsAction } from "./timeActions";
+import { listTimeLogsAction, getIssueTimerAction } from "./timeActions";
 
 export default async function IssuePage({ params }: { params: Promise<{ tenant: string; id: string }> }) {
   const { tenant: slug, id } = await params;
@@ -51,7 +51,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
       ).then((q) => q).then((r) => r.data as { id: string; number: number; title: string; projects: { key: string } } | null).catch(() => null)
     : Promise.resolve(null as { id: string; number: number; title: string; projects: { key: string } } | null);
 
-  const [subIssues, links, gitLinks, slaPolicies, signoffsRaw, timeLogs, parentIssue] = await Promise.all([
+  const [subIssues, links, gitLinks, slaPolicies, signoffsRaw, timeLogs, activeTimer, parentIssue] = await Promise.all([
     linksRepo.listChildren(ctx.tenant.id, issue.id).catch(() => []),
     linksRepo.listForIssue(ctx.tenant.id, issue.id, projectKey).catch(() => []),
     gitIntegrationRepo(svcClient).listCodeLinks(ctx.tenant.id, issue.id).catch(() => []),
@@ -64,6 +64,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         .order("created_at")
     ).then((r) => r.data ?? []).catch(() => []),
     listTimeLogsAction(slug, issue.id).catch(() => []),
+    getIssueTimerAction(slug, issue.id).catch(() => null),
     parentIssuePromise,
   ]);
   // Flatten signer label (use email since PII not decrypted here — good enough for display)
@@ -107,6 +108,8 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         slaTimer={slaTimer}
         signoffs={signoffs}
         initialTimeLogs={timeLogs}
+        initialTimerStartedAt={activeTimer?.active ? activeTimer.startedAt ?? null : null}
+        timeEstimateMinutes={(issue as Record<string, unknown>).time_estimate_minutes as number | null ?? null}
       />
     </main>
   );

@@ -5,6 +5,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 // eslint-disable-next-line no-restricted-imports -- service-role: time log writes bypass RLS (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { activeTimersRepo } from "@/lib/repositories/activeTimers";
 
 export type TimeLog = {
   id: string;
@@ -38,6 +39,8 @@ export async function logTimeAction(
   issueId: string,
   minutes: number,
   note: string,
+  billable?: boolean,
+  tag?: string | null,
 ): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
@@ -49,6 +52,8 @@ export async function logTimeAction(
     user_id: ctx.appUserId,
     minutes,
     note: note.trim() || null,
+    billable: billable ?? false,
+    tag: tag ?? null,
   });
   if (error) throw new Error(error.message);
   revalidatePath(`/${slug}/issues/${issueId}`);
@@ -66,4 +71,79 @@ export async function deleteTimeLogAction(slug: string, logId: string, issueId: 
     .eq("user_id", ctx.appUserId);
   if (error) throw new Error(error.message);
   revalidatePath(`/${slug}/issues/${issueId}`);
+}
+
+export async function startIssueTimerAction(
+  slug: string,
+  issueId: string,
+): Promise<{ ok: boolean; startedAt?: string; error?: string }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) return { ok: false, error: "Not authorized" };
+  if (ctx.role === "viewer") return { ok: false, error: "Viewers cannot log time." };
+  try {
+    const svc = createSupabaseServiceClient();
+    const timer = await activeTimersRepo(svc).start(ctx.tenant.id, ctx.appUserId, issueId);
+    revalidatePath(`/${slug}/issues/${issueId}`);
+    return { ok: true, startedAt: timer.started_at };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function stopIssueTimerAction(
+  slug: string,
+  issueId: string,
+): Promise<{ ok: boolean; minutesLogged?: number; error?: string }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) return { ok: false, error: "Not authorized" };
+  try {
+    const svc = createSupabaseServiceClient();
+    const timer = await activeTimersRepo(svc).stop(ctx.tenant.id, ctx.appUserId);
+    if (!timer) return { ok: true, minutesLogged: 0 };
+    const minutes = Math.max(1, Math.round((Date.now() - new Date(timer.started_at).getTime()) / 60000));
+    if (timer.issue_id === issueId) {
+      await svc.from("issue_time_logs").insert({
+        tenant_id: ctx.tenant.id,
+        issue_id: timer.issue_id,
+        user_id: ctx.appUserId,
+        minutes,
+        logged_at: new Date().toISOString().slice(0, 10),
+      });
+    }
+    revalidatePath(`/${slug}/issues/${issueId}`);
+    return { ok: true, minutesLogged: timer.issue_id === issueId ? minutes : 0 };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
+
+export async function getIssueTimerAction(
+  slug: string,
+  issueId: string,
+): Promise<{ active: boolean; startedAt?: string } | null> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) return null;
+  const svc = createSupabaseServiceClient();
+  const timer = await activeTimersRepo(svc).getForUser(ctx.tenant.id, ctx.appUserId);
+  if (!timer || timer.issue_id !== issueId) return { active: false };
+  return { active: true, startedAt: timer.started_at };
+}
+
+export async function updateTimeEstimateAction(
+  slug: string,
+  issueId: string,
+  minutes: number | null,
+): Promise<{ ok: boolean }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) return { ok: false };
+  if (ctx.role === "viewer") return { ok: false };
+  const svc = createSupabaseServiceClient();
+  const { error } = await svc
+    .from("issues")
+    .update({ time_estimate_minutes: minutes })
+    .eq("id", issueId)
+    .eq("tenant_id", ctx.tenant.id);
+  if (error) return { ok: false };
+  revalidatePath(`/${slug}/issues/${issueId}`);
+  return { ok: true };
 }

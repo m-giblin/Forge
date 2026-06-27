@@ -16,17 +16,17 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  open: "bg-blue-500/15 text-blue-400",
-  in_progress: "bg-amber-500/15 text-amber-400",
-  resolved: "bg-green-500/15 text-green-400",
-  closed: "bg-neutral-700 text-neutral-400",
+  open: "bg-blue-100 text-blue-700",
+  in_progress: "bg-amber-100 text-amber-700",
+  resolved: "bg-green-100 text-green-700",
+  closed: "bg-neutral-100 text-neutral-500",
 };
 
 const PRIORITY_STYLES: Record<string, string> = {
-  high: "bg-red-500/15 text-red-400",
-  urgent: "bg-red-500/25 text-red-300 font-semibold",
-  medium: "bg-amber-500/15 text-amber-400",
-  low: "bg-neutral-700 text-neutral-400",
+  high: "bg-red-100 text-red-700",
+  urgent: "bg-red-200 text-red-800 font-semibold",
+  medium: "bg-amber-100 text-amber-700",
+  low: "bg-neutral-100 text-neutral-500",
 };
 
 function timeAgo(iso: string): string {
@@ -39,13 +39,9 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function daysAgo(iso: string): number {
-  return (Date.now() - new Date(iso).getTime()) / 86400000;
-}
-
 function isStalled(ticket: SupportTicket, stalledDays: number): boolean {
   if (ticket.status === "resolved" || ticket.status === "closed") return false;
-  return daysAgo(ticket.updated_at) >= stalledDays;
+  return (Date.now() - new Date(ticket.updated_at).getTime()) / 86400000 >= stalledDays;
 }
 
 function avgResolutionDays(tickets: SupportTicket[]): string {
@@ -55,6 +51,48 @@ function avgResolutionDays(tickets: SupportTicket[]): string {
     return sum + (new Date(t.resolved_at!).getTime() - new Date(t.created_at).getTime()) / 86400000;
   }, 0) / resolved.length;
   return avg < 1 ? `${Math.round(avg * 24)}h` : `${avg.toFixed(1)}d`;
+}
+
+// ── Stat tile ─────────────────────────────────────────────────────────────────
+function StatTile({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white px-4 py-4 shadow-sm">
+      <p className="text-xs text-neutral-500 mb-1">{label}</p>
+      <p className={`text-2xl font-bold ${accent ?? "text-neutral-900"}`}>{value}</p>
+    </div>
+  );
+}
+
+// ── Stalled threshold setting ─────────────────────────────────────────────────
+function StalledSetting({ slug, current }: { slug: string; current: number }) {
+  const [val, setVal] = useState(String(current));
+  const [saving, start] = useTransition();
+  const [saved, setSaved] = useState(false);
+
+  return (
+    <div className="flex items-center gap-2 text-xs text-neutral-500">
+      <span>Stalled after</span>
+      <input
+        type="number" min="1" max="30" value={val}
+        onChange={(e) => setVal(e.target.value)}
+        className="w-14 rounded border border-neutral-300 bg-white px-2 py-1 text-center text-neutral-800 text-xs outline-none focus:border-neutral-500"
+      />
+      <span>days</span>
+      <button
+        disabled={saving || !val || Number(val) < 1}
+        onClick={() => {
+          start(async () => {
+            await saveTenantStalledThresholdAction(slug, Number(val));
+            setSaved(true);
+            setTimeout(() => setSaved(false), 2000);
+          });
+        }}
+        className="rounded-md bg-neutral-100 px-2 py-1 text-xs text-neutral-700 hover:bg-neutral-200 border border-neutral-300 transition disabled:opacity-40"
+      >
+        {saving ? "…" : saved ? "✓" : "Save"}
+      </button>
+    </div>
+  );
 }
 
 // ── Ticket detail modal ───────────────────────────────────────────────────────
@@ -116,41 +154,41 @@ function TicketModal({
   const NEXT_STATUSES = ["open", "in_progress", "resolved", "closed"].filter((s) => s !== ticket.status);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
       <div
-        className="w-full max-w-2xl bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl flex flex-col max-h-[90vh]"
+        className="w-full max-w-2xl bg-white border border-neutral-200 rounded-2xl shadow-xl flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-neutral-800">
+        <div className="flex items-start justify-between gap-4 px-6 py-5 border-b border-neutral-200">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap mb-1">
               <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[ticket.status]}`}>
                 {STATUS_LABELS[ticket.status]}
               </span>
               {stalled && (
-                <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-xs font-semibold text-orange-300">
+                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
                   ⚠ Stalled
                 </span>
               )}
-              <span className={`rounded-full px-2 py-0.5 text-xs ${PRIORITY_STYLES[ticket.priority] ?? "bg-neutral-700 text-neutral-400"}`}>
+              <span className={`rounded-full px-2 py-0.5 text-xs ${PRIORITY_STYLES[ticket.priority] ?? "bg-neutral-100 text-neutral-500"}`}>
                 {ticket.priority}
               </span>
             </div>
-            <h2 className="text-base font-semibold text-white leading-snug">{ticket.title}</h2>
-            <p className="text-xs text-neutral-400 mt-1">
+            <h2 className="text-base font-semibold text-neutral-900 leading-snug">{ticket.title}</h2>
+            <p className="text-xs text-neutral-500 mt-1">
               {ticket.actor_label ?? "Unknown"} · {timeAgo(ticket.created_at)}
             </p>
           </div>
-          <button onClick={onClose} className="text-neutral-400 hover:text-white transition text-xl leading-none">✕</button>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-700 transition text-xl leading-none">✕</button>
         </div>
 
         {/* Body */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-5">
           {/* Original request */}
-          <div className="rounded-xl bg-neutral-800 border border-neutral-700 p-4">
-            <p className="text-xs font-medium text-neutral-400 mb-2">Request</p>
-            <p className="text-sm text-neutral-200 whitespace-pre-wrap leading-relaxed">{ticket.body}</p>
+          <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-4">
+            <p className="text-xs font-medium text-neutral-500 mb-2">Request</p>
+            <p className="text-sm text-neutral-800 whitespace-pre-wrap leading-relaxed">{ticket.body}</p>
           </div>
 
           {/* Status actions */}
@@ -161,7 +199,7 @@ function TicketModal({
                 key={s}
                 onClick={() => changeStatus(s)}
                 disabled={statusPending}
-                className="rounded-lg border border-neutral-700 px-3 py-1 text-xs font-medium text-neutral-300 hover:border-neutral-500 hover:text-white transition disabled:opacity-40"
+                className="rounded-lg border border-neutral-300 bg-white px-3 py-1 text-xs font-medium text-neutral-700 hover:border-neutral-500 hover:bg-neutral-50 transition disabled:opacity-40"
               >
                 {STATUS_LABELS[s]}
               </button>
@@ -170,29 +208,29 @@ function TicketModal({
 
           {/* Thread */}
           <div>
-            <p className="text-xs font-medium text-neutral-400 mb-3">Thread</p>
+            <p className="text-xs font-medium text-neutral-500 mb-3">Thread</p>
             {loading ? (
-              <p className="text-sm text-neutral-500 text-center py-4">Loading…</p>
+              <p className="text-sm text-neutral-400 text-center py-4">Loading…</p>
             ) : comments?.length === 0 ? (
-              <p className="text-sm text-neutral-500 text-center py-4">No replies yet.</p>
+              <p className="text-sm text-neutral-400 text-center py-4">No replies yet.</p>
             ) : (
               <div className="space-y-3">
                 {comments?.map((c) => (
                   <div key={c.id} className={`rounded-xl px-4 py-3 text-sm border ${
                     c.is_internal
-                      ? "bg-amber-950/30 border-amber-800/40"
-                      : "bg-neutral-800 border-neutral-700"
+                      ? "bg-amber-50 border-amber-200"
+                      : "bg-white border-neutral-200"
                   }`}>
                     <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-xs font-medium text-neutral-400">{c.author_label ?? "Unknown"}</span>
+                      <span className="text-xs font-medium text-neutral-600">{c.author_label ?? "Unknown"}</span>
                       <div className="flex items-center gap-2">
                         {c.is_internal && (
-                          <span className="rounded-full bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-medium text-amber-400">internal</span>
+                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">internal note</span>
                         )}
-                        <span className="text-xs text-neutral-600">{timeAgo(c.created_at)}</span>
+                        <span className="text-xs text-neutral-400">{timeAgo(c.created_at)}</span>
                       </div>
                     </div>
-                    <p className="text-neutral-200 whitespace-pre-wrap">{c.body}</p>
+                    <p className="text-neutral-800 whitespace-pre-wrap">{c.body}</p>
                   </div>
                 ))}
               </div>
@@ -201,18 +239,16 @@ function TicketModal({
         </div>
 
         {/* Reply */}
-        <div className="px-6 py-4 border-t border-neutral-800 space-y-3">
-          <div className="flex items-center gap-3">
-            <label className="flex items-center gap-1.5 text-xs text-neutral-400 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={isInternalNote}
-                onChange={(e) => setIsInternalNote(e.target.checked)}
-                className="rounded border-neutral-600"
-              />
-              Internal note (not visible to submitter)
-            </label>
-          </div>
+        <div className="px-6 py-4 border-t border-neutral-200 space-y-3">
+          <label className="flex items-center gap-1.5 text-xs text-neutral-500 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isInternalNote}
+              onChange={(e) => setIsInternalNote(e.target.checked)}
+              className="rounded border-neutral-300"
+            />
+            Internal note (not visible to submitter)
+          </label>
           <textarea
             value={reply}
             onChange={(e) => setReply(e.target.value)}
@@ -220,16 +256,16 @@ function TicketModal({
             rows={3}
             className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none resize-none ${
               isInternalNote
-                ? "border-amber-700/50 bg-amber-950/20 text-amber-100 placeholder-amber-800 focus:border-amber-600"
-                : "border-neutral-700 bg-neutral-800 text-neutral-100 placeholder-neutral-600 focus:border-neutral-500"
+                ? "border-amber-300 bg-amber-50 text-neutral-800 placeholder-amber-400 focus:border-amber-400"
+                : "border-neutral-300 bg-white text-neutral-800 placeholder-neutral-400 focus:border-neutral-500"
             }`}
           />
-          {replyError && <p className="text-xs text-red-400">{replyError}</p>}
+          {replyError && <p className="text-xs text-red-600">{replyError}</p>}
           <div className="flex justify-end">
             <button
               onClick={sendReply}
               disabled={submitting || !reply.trim()}
-              className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition disabled:opacity-40"
+              className="rounded-lg bg-neutral-900 hover:bg-neutral-700 px-4 py-2 text-sm font-medium text-white transition disabled:opacity-40"
             >
               {submitting ? "Sending…" : isInternalNote ? "Save Note" : "Send Reply"}
             </button>
@@ -251,54 +287,54 @@ function PlatformTicketModal({ slug, onClose }: { slug: string; onClose: () => v
 
   if (done) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={onClose}>
-        <div className="w-full max-w-md bg-neutral-900 border border-neutral-700 rounded-2xl p-8 text-center" onClick={(e) => e.stopPropagation()}>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+        <div className="w-full max-w-md bg-white border border-neutral-200 rounded-2xl p-8 text-center shadow-xl" onClick={(e) => e.stopPropagation()}>
           <p className="text-3xl mb-3">✓</p>
-          <h3 className="text-base font-semibold text-white mb-1">Ticket submitted to Forge team</h3>
-          <p className="text-sm text-neutral-400 mb-4">AI triage is running. You&apos;ll be notified when the team responds.</p>
-          <button onClick={onClose} className="rounded-lg bg-neutral-800 px-4 py-2 text-sm text-neutral-200 hover:bg-neutral-700 transition">Close</button>
+          <h3 className="text-base font-semibold text-neutral-900 mb-1">Ticket submitted to Forge team</h3>
+          <p className="text-sm text-neutral-500 mb-4">AI triage is running. You&apos;ll be notified when the team responds.</p>
+          <button onClick={onClose} className="rounded-lg bg-neutral-100 border border-neutral-300 px-4 py-2 text-sm text-neutral-700 hover:bg-neutral-200 transition">Close</button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60" onClick={onClose}>
-      <div className="w-full max-w-lg bg-neutral-900 border border-neutral-700 rounded-2xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40" onClick={onClose}>
+      <div className="w-full max-w-lg bg-white border border-neutral-200 rounded-2xl shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-200">
           <div>
-            <h2 className="text-base font-semibold text-white">Submit Platform Ticket</h2>
-            <p className="text-xs text-neutral-400 mt-0.5">Contact the Forge platform team</p>
+            <h2 className="text-base font-semibold text-neutral-900">Submit Platform Ticket</h2>
+            <p className="text-xs text-neutral-500 mt-0.5">Contact the Forge platform team</p>
           </div>
-          <button onClick={onClose} className="text-neutral-400 hover:text-white text-xl">✕</button>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-700 text-xl">✕</button>
         </div>
         <div className="px-6 py-6 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1.5">Title <span className="text-red-400">*</span></label>
+            <label className="block text-xs font-medium text-neutral-700 mb-1.5">Title <span className="text-red-500">*</span></label>
             <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
               placeholder="Brief summary of the platform issue"
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-600 outline-none focus:border-indigo-500" />
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 outline-none focus:border-neutral-500" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1.5">Description <span className="text-red-400">*</span></label>
+            <label className="block text-xs font-medium text-neutral-700 mb-1.5">Description <span className="text-red-500">*</span></label>
             <textarea value={body} onChange={(e) => setBody(e.target.value)} rows={5}
               placeholder="Describe the platform issue in detail…"
-              className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-600 outline-none focus:border-indigo-500 resize-none" />
+              className="w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 outline-none focus:border-neutral-500 resize-none" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-neutral-400 mb-1.5">Priority</label>
+            <label className="block text-xs font-medium text-neutral-700 mb-1.5">Priority</label>
             <select value={priority} onChange={(e) => setPriority(e.target.value)}
-              className="rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-indigo-500">
+              className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-500">
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
               <option value="urgent">Urgent</option>
             </select>
           </div>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
-        <div className="px-6 py-4 border-t border-neutral-800 flex justify-end gap-3">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-neutral-400 hover:text-white transition">Cancel</button>
+        <div className="px-6 py-4 border-t border-neutral-200 flex justify-end gap-3">
+          <button onClick={onClose} className="px-4 py-2 text-sm text-neutral-500 hover:text-neutral-700 transition">Cancel</button>
           <button
             disabled={pending || !title.trim() || body.trim().length < 10}
             onClick={() => {
@@ -312,54 +348,12 @@ function PlatformTicketModal({ slug, onClose }: { slug: string; onClose: () => v
                 else setError(res.error ?? "Submission failed.");
               });
             }}
-            className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-sm font-medium text-white transition disabled:opacity-40"
+            className="rounded-lg bg-neutral-900 hover:bg-neutral-700 px-4 py-2 text-sm font-medium text-white transition disabled:opacity-40"
           >
             {pending ? "Submitting…" : "Submit to Forge"}
           </button>
         </div>
       </div>
-    </div>
-  );
-}
-
-// ── Stalled threshold settings ────────────────────────────────────────────────
-function StalledSetting({ slug, current }: { slug: string; current: number }) {
-  const [val, setVal] = useState(String(current));
-  const [saving, start] = useTransition();
-  const [saved, setSaved] = useState(false);
-
-  return (
-    <div className="flex items-center gap-2 text-xs text-neutral-400">
-      <span>Stalled after</span>
-      <input
-        type="number" min="1" max="30" value={val}
-        onChange={(e) => setVal(e.target.value)}
-        className="w-14 rounded border border-neutral-700 bg-neutral-800 px-2 py-1 text-center text-neutral-100 text-xs outline-none focus:border-neutral-500"
-      />
-      <span>days</span>
-      <button
-        disabled={saving || !val || Number(val) < 1}
-        onClick={() => {
-          start(async () => {
-            await saveTenantStalledThresholdAction(slug, Number(val));
-            setSaved(true);
-            setTimeout(() => setSaved(false), 2000);
-          });
-        }}
-        className="rounded-md bg-neutral-700 px-2 py-1 text-xs text-neutral-200 hover:bg-neutral-600 transition disabled:opacity-40"
-      >
-        {saving ? "…" : saved ? "✓" : "Save"}
-      </button>
-    </div>
-  );
-}
-
-// ── Stat tile ─────────────────────────────────────────────────────────────────
-function StatTile({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
-  return (
-    <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-4">
-      <p className="text-xs text-neutral-500 mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${accent ?? "text-white"}`}>{value}</p>
     </div>
   );
 }
@@ -394,65 +388,63 @@ export default function SupportPage({
   const resolved = tickets.filter((t) => t.status === "resolved").length;
 
   return (
-    <div className="px-6 py-6 max-w-5xl">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 mb-6">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-neutral-900">Team Support Queue</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Internal support requests from your team members.
-          </p>
+          <h2 className="text-base font-semibold text-neutral-900">Team Support Queue</h2>
+          <p className="mt-0.5 text-sm text-neutral-500">Internal support requests from your team members.</p>
         </div>
         <button
           onClick={() => setShowPlatformModal(true)}
-          className="shrink-0 rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
+          className="shrink-0 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
         >
           Contact Forge Team ↗
         </button>
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <StatTile label="Open" value={open} accent={open > 0 ? "text-blue-600" : "text-white"} />
-        <StatTile label="In Progress" value={inProgress} accent={inProgress > 0 ? "text-amber-500" : "text-white"} />
-        <StatTile label="Stalled" value={stalled.length} accent={stalled.length > 0 ? "text-orange-500" : "text-white"} />
-        <StatTile label="Resolved" value={resolved} accent="text-green-600" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatTile label="Open" value={open} accent={open > 0 ? "text-blue-600" : "text-neutral-900"} />
+        <StatTile label="In Progress" value={inProgress} accent={inProgress > 0 ? "text-amber-600" : "text-neutral-900"} />
+        <StatTile label="Stalled" value={stalled.length} accent={stalled.length > 0 ? "text-orange-600" : "text-neutral-900"} />
+        <StatTile label="Resolved" value={resolved} accent="text-green-700" />
       </div>
 
-      {/* Avg resolution + stalled setting */}
-      <div className="flex items-center justify-between gap-4 mb-5">
+      {/* Avg resolution + stalled threshold */}
+      <div className="flex items-center justify-between gap-4">
         <p className="text-xs text-neutral-500">
-          Avg resolution: <span className="font-medium text-neutral-300">{avgResolutionDays(tickets)}</span>
+          Avg resolution: <span className="font-medium text-neutral-700">{avgResolutionDays(tickets)}</span>
         </p>
         <StalledSetting slug={slug} current={stalledDays} />
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-xl border border-neutral-800 bg-neutral-900 p-1 w-fit mb-4">
+      <div className="flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 w-fit shadow-sm">
         {(["all", "open", "in_progress", "resolved"] as const).map((t) => {
           const count = t === "all" ? tickets.length : tickets.filter((x) => x.status === t).length;
           return (
             <button key={t} onClick={() => setTab(t)}
               className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                tab === t ? "bg-neutral-800 text-white" : "text-neutral-400 hover:text-neutral-200"
+                tab === t ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-800"
               }`}>
               {t === "all" ? "All" : STATUS_LABELS[t]}{" "}
-              <span className="ml-1 text-xs text-neutral-500">{count}</span>
+              <span className={`ml-1 text-xs ${tab === t ? "text-neutral-300" : "text-neutral-400"}`}>{count}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Ticket list */}
+      {/* Ticket table */}
       {filtered.length === 0 ? (
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-6 py-12 text-center">
-          <p className="text-sm text-neutral-500">No tickets in this category.</p>
+        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-12 text-center shadow-sm">
+          <p className="text-sm text-neutral-400">No tickets in this category.</p>
         </div>
       ) : (
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900 overflow-hidden">
+        <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-neutral-800 text-left text-xs uppercase tracking-wide text-neutral-500">
+              <tr className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 bg-neutral-50">
                 <th className="px-4 py-2.5 font-medium">Title</th>
                 <th className="px-4 py-2.5 font-medium">Submitted by</th>
                 <th className="px-4 py-2.5 font-medium">Priority</th>
@@ -467,30 +459,30 @@ export default function SupportPage({
                   <tr
                     key={ticket.id}
                     onClick={() => setSelectedTicket(ticket)}
-                    className="border-b border-neutral-800/60 last:border-0 cursor-pointer hover:bg-neutral-800/40 transition"
+                    className="border-b border-neutral-100 last:border-0 cursor-pointer hover:bg-neutral-50 transition"
                   >
                     <td className="px-4 py-3 max-w-[240px]">
                       <div className="flex items-center gap-2">
                         {stall && (
-                          <span className="shrink-0 rounded-full bg-orange-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-orange-300">Stalled</span>
+                          <span className="shrink-0 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700">Stalled</span>
                         )}
-                        <span className="text-neutral-100 truncate">{ticket.title}</span>
+                        <span className="text-neutral-900 truncate font-medium">{ticket.title}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-xs text-neutral-400 max-w-[160px] truncate">
+                    <td className="px-4 py-3 text-xs text-neutral-500 max-w-[160px] truncate">
                       {ticket.actor_label ?? "—"}
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${PRIORITY_STYLES[ticket.priority] ?? "bg-neutral-700 text-neutral-400"}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs ${PRIORITY_STYLES[ticket.priority] ?? "bg-neutral-100 text-neutral-500"}`}>
                         {ticket.priority}
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLES[ticket.status]}`}>
+                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[ticket.status]}`}>
                         {STATUS_LABELS[ticket.status]}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs text-neutral-500 whitespace-nowrap">
+                    <td className="px-4 py-3 text-xs text-neutral-400 whitespace-nowrap">
                       {timeAgo(ticket.updated_at)}
                     </td>
                   </tr>
@@ -511,7 +503,9 @@ export default function SupportPage({
           onStatusChange={handleStatusChange}
         />
       )}
-      {showPlatformModal && <PlatformTicketModal slug={slug} onClose={() => setShowPlatformModal(false)} />}
+      {showPlatformModal && (
+        <PlatformTicketModal slug={slug} onClose={() => setShowPlatformModal(false)} />
+      )}
     </div>
   );
 }

@@ -16,7 +16,7 @@ import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 import TriageCard from "./TriageCard";
 import GitLinksCard from "./GitLinksCard";
 import MarkDuplicateButton from "./MarkDuplicateButton";
-import TimeTracker from "./TimeTracker";
+import IssueTimePanel from "./IssueTimePanel";
 import type { TimeLog } from "./timeActions";
 import type { IssueCodeLink } from "@/lib/repositories/gitIntegration";
 import DecomposeButton from "./DecomposeButton";
@@ -136,6 +136,8 @@ export default function IssueDetail({
   slaTimer,
   signoffs = [],
   initialTimeLogs = [],
+  initialTimerStartedAt = null,
+  timeEstimateMinutes = null,
 }: {
   slug: string;
   issue: Issue;
@@ -162,6 +164,8 @@ export default function IssueDetail({
   slaTimer?: SlaTimer;
   signoffs?: IssueSignoff[];
   initialTimeLogs?: TimeLog[];
+  initialTimerStartedAt?: string | null;
+  timeEstimateMinutes?: number | null;
 }) {
   const [title, setTitle] = useState(issue.title);
   const [description, setDescription] = useState(issue.description ?? "");
@@ -1086,15 +1090,14 @@ export default function IssueDetail({
           </div>
 
           {/* ── ⏱ Time Tracking ── */}
-          <div className="rounded-xl border border-teal-200 bg-teal-50 p-4">
-            <SideGroupLabel color="text-teal-600">⏱ Time Tracking</SideGroupLabel>
-            <TimeTracker
-              slug={slug}
-              issueId={issue.id}
-              initialLogs={initialTimeLogs}
-              readOnly={readOnly}
-            />
-          </div>
+          <IssueTimePanel
+            slug={slug}
+            issueId={issue.id}
+            initialLogs={initialTimeLogs}
+            timeEstimateMinutes={timeEstimateMinutes ?? null}
+            initialTimerStartedAt={initialTimerStartedAt ?? null}
+            readOnly={readOnly}
+          />
 
           <GitLinksCard links={gitLinks} />
 
