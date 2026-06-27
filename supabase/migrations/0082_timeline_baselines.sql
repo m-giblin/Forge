@@ -22,19 +22,19 @@ alter table public.timeline_baseline_items enable row level security;
 
 create policy "members_read_baselines" on public.timeline_baselines
   for select using (
-    tenant_id in (select tenant_id from public.tenant_members where user_id = auth.uid())
+    tenant_id in (select tenant_id from public.memberships where user_id = auth.uid())
   );
 
 create policy "members_insert_baselines" on public.timeline_baselines
   for insert with check (
-    tenant_id in (select tenant_id from public.tenant_members where user_id = auth.uid())
+    tenant_id in (select tenant_id from public.memberships where user_id = auth.uid())
   );
 
 create policy "members_read_baseline_items" on public.timeline_baseline_items
   for select using (
     baseline_id in (
       select id from public.timeline_baselines
-      where tenant_id in (select tenant_id from public.tenant_members where user_id = auth.uid())
+      where tenant_id in (select tenant_id from public.memberships where user_id = auth.uid())
     )
   );
 
@@ -42,7 +42,7 @@ create policy "members_insert_baseline_items" on public.timeline_baseline_items
   for insert with check (
     baseline_id in (
       select id from public.timeline_baselines
-      where tenant_id in (select tenant_id from public.tenant_members where user_id = auth.uid())
+      where tenant_id in (select tenant_id from public.memberships where user_id = auth.uid())
     )
   );
 
