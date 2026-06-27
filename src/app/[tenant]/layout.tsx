@@ -133,7 +133,8 @@ export default async function TenantLayout({
             <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">You</p>
             <div className="space-y-0.5">
               <SideLink href={`/${slug}/settings`} icon="🔔" label="Preferences" />
-              <SideLink href={`/${slug}/docs`} icon="📖" label="Docs" />
+              <SideLink href={`/${slug}/spaces`} icon="📚" label="Spaces" />
+              <SideLink href={`/${slug}/docs`} icon="📖" label="Help Docs" />
               <SideLink href={`/${slug}/support`} icon="🎫" label="Get Support" />
             </div>
           </div>

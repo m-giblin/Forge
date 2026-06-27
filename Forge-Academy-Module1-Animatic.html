@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Forge Academy — Module 1 Animatic</title>
+<style>
+  :root{
+    --ink:#171717; --ink2:#3f3f46; --mut:#71717a; --line:#e4e4e7;
+    --bg:#0a0a0a; --paper:#ffffff; --amber:#f59e0b; --amber-d:#d97706;
+    --green:#16a34a; --soft:#fafafa;
+    --font:'Segoe UI',-apple-system,BlinkMacSystemFont,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:var(--font);background:radial-gradient(1200px 600px at 50% -10%,#1c1c1f,#0a0a0a);color:#e7e7ea;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 16px 48px}
+  .head{text-align:center;margin-bottom:18px}
+  .logo{display:inline-flex;align-items:center;gap:10px;font-weight:800;font-size:20px;letter-spacing:-.02em;color:#fff}
+  .spark{width:26px;height:26px}
+  .sub{color:#a1a1aa;font-size:13px;margin-top:6px}
+  .stage{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap;justify-content:center}
+
+  /* phone */
+  .phone{width:300px;height:533px;border-radius:34px;background:#000;padding:10px;box-shadow:0 30px 70px rgba(0,0,0,.55),0 0 0 2px #2a2a2e;position:relative;flex:0 0 auto}
+  .notch{position:absolute;top:14px;left:50%;transform:translateX(-50%);width:96px;height:20px;background:#000;border-radius:0 0 14px 14px;z-index:30}
+  .screen{position:relative;width:100%;height:100%;border-radius:26px;overflow:hidden;background:var(--paper)}
+  .scene{position:absolute;inset:0;opacity:0;transition:opacity .45s ease;display:flex;flex-direction:column}
+  .scene.active{opacity:1}
+
+  /* generic UI chrome */
+  .bar{display:flex;align-items:center;gap:8px;padding:14px 14px 10px;color:var(--ink)}
+  .bar .dot{width:9px;height:9px;border-radius:50%}
+  .wm{display:flex;align-items:center;gap:7px;font-weight:800;color:var(--ink);font-size:14px}
+  .pill{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--amber-d);background:#fff7ed;border:1px solid #fde7c4;padding:2px 7px;border-radius:999px}
+
+  /* Scene 1 */
+  .s1{background:linear-gradient(160deg,#fdf6ec,#fbe6cf)}
+  .notes{flex:1;position:relative}
+  .sticky{position:absolute;width:84px;height:74px;border-radius:6px;padding:8px;font-size:9px;color:#6b5a3b;box-shadow:0 8px 16px rgba(0,0,0,.12);transform:rotate(var(--r));font-family:'Comic Sans MS',var(--font)}
+  .crash{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--ink);opacity:0;color:#fff;gap:10px}
+  .scene.active .crash{animation:crashIn .5s 1.7s forwards}
+  @keyframes crashIn{from{opacity:0;transform:scale(1.15)}to{opacity:1;transform:scale(1)}}
+
+  /* Scene 2 — Think Tank */
+  .panel{flex:1;padding:6px 14px 14px}
+  .lbl{font-size:10px;color:var(--mut);font-weight:600;margin:10px 2px 6px}
+  .input{border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;font-size:12px;color:var(--ink);background:#fff;min-height:42px;display:flex;align-items:center}
+  .caret{display:inline-block;width:1.5px;height:14px;background:var(--ink);margin-left:1px;animation:blink 1s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .idea-card{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:14px;background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.04)}
+  .idea-card h4{font-size:13px;color:var(--ink)}
+  .idea-card p{font-size:10px;color:var(--mut);margin-top:4px;line-height:1.4}
+
+  /* Scene 3 — convert button */
+  .s3{justify-content:flex-start}
+  .convbtn{margin:16px;padding:13px;border-radius:12px;background:var(--ink);color:#fff;font-weight:700;font-size:13px;text-align:center;position:relative;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+  .scene.active .convbtn{animation:pulse 1.1s ease-in-out infinite}
+  @keyframes pulse{0%,100%{transform:scale(1);box-shadow:0 10px 24px rgba(245,158,11,.0)}50%{transform:scale(1.04);box-shadow:0 12px 30px rgba(245,158,11,.5)}}
+  .cursor{position:absolute;right:18px;bottom:18px;font-size:22px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3));animation:tap 1.1s ease-in-out infinite}
+  @keyframes tap{0%,100%{transform:translate(0,0)}50%{transform:translate(-3px,-4px)}}
+  .ring{position:absolute;left:50%;top:50%;width:30px;height:30px;border:2px solid var(--amber);border-radius:50%;transform:translate(-50%,-50%);animation:ring 1.1s ease-out infinite;opacity:0}
+  @keyframes ring{0%{opacity:.7;width:20px;height:20px}100%{opacity:0;width:120px;height:120px}}
+
+  /* Scene 4 — project created */
+  .proj-h{padding:14px 14px 8px}
+  .proj-h .t{font-size:14px;font-weight:800;color:var(--ink)}
+  .proj-h .m{font-size:10px;color:var(--mut);margin-top:3px;display:flex;gap:8px}
+  .issues{padding:4px 12px}
+  .issue{display:flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin-bottom:7px;background:#fff;opacity:0;transform:translateY(8px)}
+  .scene.active .issue{animation:rise .4s forwards}
+  .issue:nth-child(1){animation-delay:.2s}.issue:nth-child(2){animation-delay:.5s}
+  .issue:nth-child(3){animation-delay:.8s}.issue:nth-child(4){animation-delay:1.1s}
+  @keyframes rise{to{opacity:1;transform:translateY(0)}}
+  .issue .k{font-size:9px;font-weight:700;color:var(--amber-d);background:#fff7ed;border-radius:5px;padding:2px 5px}
+  .issue .x{font-size:11px;color:var(--ink2);flex:1}
+  .issue .av{width:18px;height:18px;border-radius:50%;background:#e4e4e7;font-size:8px;display:flex;align-items:center;justify-content:center;color:#52525b;font-weight:700}
+
+  /* Scene 5 — roadmap */
+  .road{padding:14px}
+  .road h4{font-size:12px;color:var(--ink);font-weight:800;margin-bottom:10px}
+  .rrow{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .rname{font-size:9px;color:var(--mut);width:54px}
+  .track{flex:1;height:14px;background:#f4f4f5;border-radius:7px;position:relative;overflow:hidden}
+  .barf{position:absolute;top:0;left:8%;height:100%;border-radius:7px;background:#d4d4d8}
+  .barf.hi{background:linear-gradient(90deg,var(--amber),var(--amber-d));box-shadow:0 0 0 2px #fde7c4}
+  .okr{margin-top:6px;display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;color:var(--green);background:#f0fdf4;border:1px solid #bbf7d0;padding:5px 9px;border-radius:999px;opacity:0}
+  .scene.active .okr{animation:rise .4s 1.6s forwards}
+
+  /* Scene 6 — montage */
+  .mont{flex:1;position:relative;background:var(--soft)}
+  .tile{position:absolute;inset:14px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:12px;opacity:0;box-shadow:0 8px 20px rgba(0,0,0,.06)}
+  .tile h5{font-size:11px;color:var(--ink);font-weight:800;margin-bottom:8px}
+  .tcol{display:flex;gap:6px}.tcol>div{flex:1}
+  .chip{height:8px;border-radius:4px;background:#ececef;margin-bottom:5px}
+  .chip.a{background:#fde7c4}.chip.b{background:#dcfce7}
+  .scene.active .tile.t1{animation:flash 3s 0s forwards}
+  .scene.active .tile.t2{animation:flash 3s 1s forwards}
+  .scene.active .tile.t3{animation:flash 3s 2s forwards}
+  @keyframes flash{0%{opacity:0;transform:scale(.97)}8%{opacity:1;transform:scale(1)}33%{opacity:1}40%{opacity:0}100%{opacity:0}}
+
+  /* Scene 7 — end card */
+  .s7{background:var(--ink);color:#fff;align-items:center;justify-content:center;text-align:center;gap:10px;padding:24px}
+  .s7 .big{font-size:20px;font-weight:800;letter-spacing:-.02em}
+  .s7 .cta{margin-top:6px;background:var(--amber);color:#1a1205;font-weight:800;font-size:12px;padding:10px 18px;border-radius:999px}
+  .s7 .url{font-size:11px;color:#a1a1aa;margin-top:8px}
+
+  /* caption overlay */
+  .cap{position:absolute;left:0;right:0;top:46%;transform:translateY(-50%);text-align:center;padding:0 18px;z-index:20;pointer-events:none}
+  .cap span{display:inline;background:rgba(10,10,10,.0);font-weight:800;font-size:19px;line-height:1.25;color:var(--ink);text-shadow:0 1px 0 rgba(255,255,255,.6)}
+  .scene.s1 .cap span,.scene.s7 .cap span{color:#fff;text-shadow:0 2px 10px rgba(0,0,0,.5)}
+  .vo{position:absolute;left:10px;right:10px;bottom:14px;z-index:20;text-align:center}
+  .vo span{background:rgba(0,0,0,.78);color:#fff;font-size:11px;line-height:1.4;padding:5px 9px;border-radius:8px;display:inline-block}
+  .scnum{position:absolute;top:30px;left:14px;z-index:25;font-size:9px;font-weight:700;color:#fff;background:rgba(0,0,0,.45);padding:3px 7px;border-radius:6px}
+  .sfx{position:absolute;top:30px;right:14px;z-index:25;font-size:9px;font-weight:700;color:#fff;background:rgba(245,158,11,.92);padding:3px 7px;border-radius:6px;display:flex;align-items:center;gap:4px}
+
+  /* side controls */
+  .side{flex:0 0 auto;width:300px;color:#e7e7ea}
+  .ctrls{display:flex;gap:8px;margin-bottom:14px}
+  button.b{flex:1;border:none;border-radius:10px;padding:11px;font-weight:700;font-size:13px;cursor:pointer;background:#27272a;color:#fff;transition:.15s}
+  button.b:hover{background:#3f3f46}
+  button.b.play{background:var(--amber);color:#1a1205}
+  .timeline{height:6px;background:#27272a;border-radius:999px;overflow:hidden;margin-bottom:6px;cursor:pointer}
+  .prog{height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--amber-d))}
+  .time{font-size:11px;color:#a1a1aa;text-align:right;margin-bottom:16px}
+  .dots{display:flex;flex-direction:column;gap:6px}
+  .sc{display:flex;gap:10px;align-items:flex-start;padding:9px 10px;border-radius:10px;border:1px solid #27272a;cursor:pointer;transition:.15s;background:#161618}
+  .sc:hover{border-color:#3f3f46}
+  .sc.on{border-color:var(--amber);background:#1f1a10}
+  .sc .n{font-size:10px;font-weight:800;color:var(--amber);width:16px}
+  .sc .body{flex:1}
+  .sc .ct{font-size:11px;font-weight:700;color:#fff;line-height:1.25}
+  .sc .vt{font-size:10px;color:#a1a1aa;margin-top:2px;line-height:1.3}
+  .sc .tt{font-size:9px;color:#71717a;margin-top:3px}
+  .foot{color:#71717a;font-size:11px;text-align:center;margin-top:26px;max-width:640px;line-height:1.5}
+  @media(max-width:680px){.side{width:300px}}
+</style>
+</head>
+<body>
+  <div class="head">
+    <div class="logo"><svg class="spark" viewBox="0 0 24 24" fill="none"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="#f59e0b"/></svg> Forge <span style="color:#f59e0b">Academy</span></div>
+    <div class="sub">Module 1 · Planning — “Idea → Project Plan in One Click” · 58-second animatic preview</div>
+  </div>
+
+  <div class="stage">
+    <div class="phone">
+      <div class="notch"></div>
+      <div class="screen" id="screen">
+
+        <!-- Scene 1 -->
+        <div class="scene s1" data-i="0">
+          <div class="scnum">1 · 0:00–0:03</div><div class="sfx">♪ whoosh</div>
+          <div class="notes">
+            <div class="sticky" style="--r:-6deg;left:22px;top:70px;background:#fff3a8">Referral program??</div>
+            <div class="sticky" style="--r:5deg;left:120px;top:96px;background:#bfe7ff">ping Sarah</div>
+            <div class="sticky" style="--r:-3deg;left:60px;top:170px;background:#ffd1dc">launch Q3?</div>
+            <div class="sticky" style="--r:8deg;left:150px;top:210px;background:#c8f7d0">$$ rewards</div>
+            <div class="crash"><svg class="spark" style="width:40px;height:40px" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="#f59e0b"/></svg><div style="font-weight:800;font-size:22px">Forge</div></div>
+          </div>
+          <div class="cap"><span>Your best ideas are dying in a notes app.</span></div>
+          <div class="vo"><span>“Got a great idea… stuck in a notes app?”</span></div>
+        </div>
+
+        <!-- Scene 2 -->
+        <div class="scene s2" data-i="1">
+          <div class="scnum">2 · 0:03–0:09</div><div class="sfx">♪ keys</div>
+          <div class="bar"><div class="wm"><svg class="spark" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="#f59e0b"/></svg>Forge</div><span class="pill">Think Tank</span></div>
+          <div class="panel">
+            <div class="lbl">New idea</div>
+            <div class="input"><span id="typed"></span><span class="caret"></span></div>
+            <div class="idea-card">
+              <h4>💡 Capture anything</h4>
+              <p>Half-formed thoughts, customer asks, “what if we…” — Think Tank holds them all until they’re ready.</p>
+            </div>
+          </div>
+          <div class="cap" style="top:62%"><span>Step 1 — Capture it in Think Tank</span></div>
+          <div class="vo"><span>“In Forge, drop it in Think Tank.”</span></div>
+        </div>
+
+        <!-- Scene 3 -->
+        <div class="scene s3" data-i="2">
+          <div class="scnum">3 · 0:09–0:18</div><div class="sfx">♪ build</div>
+          <div class="bar"><div class="wm"><svg class="spark" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="#f59e0b"/></svg>Forge</div><span class="pill">Think Tank</span></div>
+          <div class="panel" style="padding-top:2px">
+            <div class="idea-card"><h4>Customer referral program</h4><p>Reward existing customers for referrals. Owner: you · Priority: High</p></div>
+          </div>
+          <div class="convbtn">Convert to project? <span class="ring"></span></div>
+          <div style="position:relative"><div class="cursor">👆</div></div>
+          <div class="cap" style="top:70%"><span>Step 2 — Click “Convert to project”</span></div>
+          <div class="vo"><span>“Now watch this — one button…”</span></div>
+        </div>
+
+        <!-- Scene 4 -->
+        <div class="scene s4" data-i="3">
+          <div class="scnum">4 · 0:18–0:30</div><div class="sfx">♪ pop ✓</div>
+          <div class="proj-h"><div class="t">Customer Referral Program</div><div class="m"><span>● Active</span><span>Owner: You</span><span>Due: Aug 14</span></div></div>
+          <div class="issues">
+            <div class="issue"><span class="k">REF-1</span><span class="x">Design reward tiers</span><span class="av">SR</span></div>
+            <div class="issue"><span class="k">REF-2</span><span class="x">Build referral link flow</span><span class="av">MG</span></div>
+            <div class="issue"><span class="k">REF-3</span><span class="x">Email + landing page</span><span class="av">JD</span></div>
+            <div class="issue"><span class="k">REF-4</span><span class="x">Track payouts</span><span class="av">SR</span></div>
+          </div>
+          <div class="cap" style="top:70%"><span>Idea → full project plan ✓</span></div>
+          <div class="vo"><span>“…and your idea becomes a real project. Tasks, owners, timeline — done.”</span></div>
+        </div>
+
+        <!-- Scene 5 -->
+        <div class="scene s5" data-i="4">
+          <div class="scnum">5 · 0:30–0:42</div><div class="sfx">♪ ding</div>
+          <div class="bar"><div class="wm"><svg class="spark" style="width:15px;height:15px" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="#f59e0b"/></svg>Forge</div><span class="pill">Roadmap</span></div>
+          <div class="road">
+            <div class="rrow"><span class="rname">Onboarding</span><div class="track"><div class="barf" style="left:6%;width:40%"></div></div></div>
+            <div class="rrow"><span class="rname">Referral</span><div class="track"><div class="barf hi" style="left:30%;width:46%"></div></div></div>
+            <div class="rrow"><span class="rname">Mobile app</span><div class="track"><div class="barf" style="left:52%;width:38%"></div></div></div>
+            <div class="rrow"><span class="rname">Billing v2</span><div class="track"><div class="barf" style="left:14%;width:30%"></div></div></div>
+            <div class="okr">🎯 Linked to OKR: Grow activated accounts +20%</div>
+          </div>
+          <div class="cap" style="top:68%"><span>On your roadmap. Linked to your goals.</span></div>
+          <div class="vo"><span>“Forge even puts it on your roadmap and ties it to your goals.”</span></div>
+        </div>
+
+        <!-- Scene 6 -->
+        <div class="scene s6" data-i="5">
+          <div class="scnum">6 · 0:42–0:52</div><div class="sfx">♪ cuts</div>
+          <div class="mont">
+            <div class="tile t1"><h5>Board</h5><div class="tcol"><div><div class="chip"></div><div class="chip a"></div><div class="chip"></div></div><div><div class="chip a"></div><div class="chip"></div></div><div><div class="chip b"></div></div></div></div>
+            <div class="tile t2"><h5>Morning digest</h5><div class="chip" style="width:80%"></div><div class="chip a" style="width:60%"></div><div class="chip" style="width:70%"></div><div class="chip b" style="width:50%"></div></div>
+            <div class="tile t3"><h5>Export → PPTX</h5><div class="chip" style="width:90%"></div><div class="tcol" style="margin-top:6px"><div><div class="chip" style="height:30px"></div></div><div><div class="chip a" style="height:30px"></div></div></div></div>
+          </div>
+          <div class="cap" style="top:72%"><span>Plan · Track · Report — one platform</span></div>
+          <div class="vo"><span>“Planning, tracking, reporting — all in one place.”</span></div>
+        </div>
+
+        <!-- Scene 7 -->
+        <div class="scene s7" data-i="6">
+          <div class="scnum">7 · 0:52–0:58</div><div class="sfx">♪ resolve</div>
+          <svg class="spark" style="width:40px;height:40px" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6l1-8z" fill="#f59e0b"/></svg>
+          <div class="big">Forge <span style="color:#f59e0b">Academy</span></div>
+          <div style="font-size:12px;color:#d4d4d8">Become a Forge Project Manager</div>
+          <div class="cta">Start free →</div>
+          <div class="url">forge.academy</div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- controls -->
+    <div class="side">
+      <div class="ctrls">
+        <button class="b play" id="play">▶ Play</button>
+        <button class="b" id="restart">↺ Restart</button>
+        <button class="b" id="speed">1×</button>
+      </div>
+      <div class="timeline" id="timeline"><div class="prog" id="prog"></div></div>
+      <div class="time"><span id="cur">0:00</span> / 0:58</div>
+      <div class="dots" id="dots"></div>
+    </div>
+  </div>
+
+  <div class="foot">Animatic preview — a timing &amp; story mock of the 58-second short. Real version uses Forge screen recordings + voiceover (see the Module 1 script doc). Click any scene to jump. Captions are burned-in; the dark bar is the spoken voiceover.</div>
+
+<script>
+const scenes=[
+ {n:1,s:0,e:3,cap:"Your best ideas are dying in a notes app.",vo:"Got a great idea… stuck in a notes app?"},
+ {n:2,s:3,e:9,cap:"Step 1 — Capture it in Think Tank",vo:"In Forge, drop it in Think Tank."},
+ {n:3,s:9,e:18,cap:"Step 2 — Click ‘Convert to project’",vo:"Now watch this — one button…"},
+ {n:4,s:18,e:30,cap:"Idea → full project plan ✓",vo:"…and your idea becomes a real project. Tasks, owners, timeline — done."},
+ {n:5,s:30,e:42,cap:"On your roadmap. Linked to your goals.",vo:"Forge even puts it on your roadmap and ties it to your goals."},
+ {n:6,s:42,e:52,cap:"Plan · Track · Report — one platform",vo:"Planning, tracking, reporting — all in one place."},
+ {n:7,s:52,e:58,cap:"Free training → forge.academy",vo:"Learn it free at Forge Academy."}
+];
+const TOTAL=58;
+const sceneEls=[...document.querySelectorAll('.scene')];
+const prog=document.getElementById('prog'), cur=document.getElementById('cur');
+const playBtn=document.getElementById('play'), dotsWrap=document.getElementById('dots');
+const speedBtn=document.getElementById('speed');
+let t=0,playing=false,last=null,speed=1,typedTimer=null;
+
+// build scene list
+scenes.forEach((sc,i)=>{
+  const d=document.createElement('div');d.className='sc';d.dataset.i=i;
+  d.innerHTML=`<div class="n">${sc.n}</div><div class="body"><div class="ct">${sc.cap}</div><div class="vt">“${sc.vo}”</div><div class="tt">${fmt(sc.s)}–${fmt(sc.e)} · ${sc.e-sc.s}s</div></div>`;
+  d.onclick=()=>{seek(sc.s+0.01)};
+  dotsWrap.appendChild(d);
+});
+function fmt(x){const m=Math.floor(x/60),s=Math.floor(x%60);return m+':'+String(s).padStart(2,'0')}
+function activeIndex(time){for(let i=scenes.length-1;i>=0;i--){if(time>=scenes[i].s)return i}return 0}
+
+function render(){
+  const i=activeIndex(t);
+  sceneEls.forEach(el=>el.classList.toggle('active',+el.dataset.i===i));
+  [...dotsWrap.children].forEach(el=>el.classList.toggle('on',+el.dataset.i===i));
+  prog.style.width=(t/TOTAL*100)+'%';
+  cur.textContent=fmt(t);
+  handleType(i);
+}
+const typeTarget="Customer referral program";
+function handleType(i){
+  const node=document.getElementById('typed');if(!node)return;
+  if(i===1){
+    const local=Math.max(0,t-scenes[1].s);const frac=Math.min(1,local/3.2);
+    node.textContent=typeTarget.slice(0,Math.floor(frac*typeTarget.length));
+  } else if(i<1){node.textContent="";} else {node.textContent=typeTarget;}
+}
+function loop(ts){
+  if(!playing){last=ts;return}
+  if(last==null)last=ts;
+  t+=((ts-last)/1000)*speed;last=ts;
+  if(t>=TOTAL){t=TOTAL;playing=false;playBtn.textContent='▶ Replay';render();return}
+  render();requestAnimationFrame(loop);
+}
+function play(){if(t>=TOTAL)t=0;playing=true;last=null;playBtn.textContent='❚❚ Pause';requestAnimationFrame(loop)}
+function pause(){playing=false;playBtn.textContent='▶ Play'}
+playBtn.onclick=()=>{playing?pause():play()};
+document.getElementById('restart').onclick=()=>{t=0;render();play()};
+speedBtn.onclick=()=>{speed=speed===1?2:(speed===2?0.5:1);speedBtn.textContent=speed+'×'};
+document.getElementById('timeline').onclick=(e)=>{const r=e.currentTarget.getBoundingClientRect();seek((e.clientX-r.left)/r.width*TOTAL)};
+function seek(time){t=Math.max(0,Math.min(TOTAL,time));render()}
+render();
+// gentle auto-start
+setTimeout(play,600);
+</script>
+</body>
+</html>
