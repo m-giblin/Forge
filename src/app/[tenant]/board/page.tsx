@@ -46,6 +46,19 @@ export default async function BoardPage({
   const backlogIssues = issues.filter((i) => !i.sprint_id);
   const canEdit = ctx.role !== "viewer" && !ctx.impersonating;
 
+  // Sprint capacity: estimated minutes vs logged minutes
+  const estimatedMinutes = sprintIssues.reduce((s, i) => s + (i.time_estimate_minutes ?? 0), 0);
+  const sprintIssueIds = sprintIssues.map((i) => i.id);
+  let loggedMinutes = 0;
+  if (sprintIssueIds.length > 0) {
+    const { data: logRows } = await svc
+      .from("issue_time_logs")
+      .select("minutes")
+      .eq("tenant_id", ctx.tenant.id)
+      .in("issue_id", sprintIssueIds);
+    loggedMinutes = (logRows ?? []).reduce((s, r) => s + ((r.minutes as number) ?? 0), 0);
+  }
+
   // Sprint filter for the kanban board view
   const selectedSprint = sprintParam ? allSprints.find((s) => s.id === sprintParam) ?? null : null;
   const boardIssues = selectedSprint ? issues.filter((i) => i.sprint_id === selectedSprint.id) : issues;
@@ -60,6 +73,8 @@ export default async function BoardPage({
         sprintIssues={sprintIssues}
         backlogIssues={backlogIssues}
         canEdit={canEdit}
+        estimatedMinutes={estimatedMinutes}
+        loggedMinutes={loggedMinutes}
       />
       <Suspense fallback={null}>
       <Board

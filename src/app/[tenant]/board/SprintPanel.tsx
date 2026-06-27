@@ -83,6 +83,8 @@ export default function SprintPanel({
   sprintIssues,
   backlogIssues,
   canEdit,
+  estimatedMinutes = 0,
+  loggedMinutes = 0,
 }: {
   slug: string;
   projectId: string;
@@ -91,6 +93,8 @@ export default function SprintPanel({
   sprintIssues: Issue[];
   backlogIssues: Issue[];
   canEdit: boolean;
+  estimatedMinutes?: number;
+  loggedMinutes?: number;
 }) {
   const [pending, startTransition] = useTransition();
   const [showCreate, setShowCreate] = useState(false);
@@ -167,15 +171,36 @@ export default function SprintPanel({
             </div>
 
             <div className="flex items-center gap-3 shrink-0">
-              {/* Progress */}
+              {/* Issue progress */}
               {total > 0 && (
-                <div className="flex items-center gap-2">
-                  <div className="w-24 h-2 rounded-full bg-neutral-100 overflow-hidden">
-                    <div className="h-2 rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
+                <div className="flex items-center gap-2" title={`${done} of ${total} issues done`}>
+                  <div className="w-20 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
+                    <div className="h-1.5 rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
                   </div>
-                  <span className="text-xs text-neutral-500">{done}/{total}</span>
+                  <span className="text-xs text-neutral-500">{done}/{total} issues</span>
                 </div>
               )}
+
+              {/* Hours: estimated vs logged */}
+              {estimatedMinutes > 0 && (() => {
+                const estH = (estimatedMinutes / 60).toFixed(1);
+                const logH = (loggedMinutes / 60).toFixed(1);
+                const burnPct = Math.min(100, Math.round((loggedMinutes / estimatedMinutes) * 100));
+                const over = loggedMinutes > estimatedMinutes;
+                return (
+                  <div className="flex items-center gap-2" title={`${logH}h logged of ${estH}h estimated`}>
+                    <div className="w-20 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
+                      <div
+                        className={`h-1.5 rounded-full transition-all ${over ? "bg-red-400" : "bg-indigo-400"}`}
+                        style={{ width: `${burnPct}%` }}
+                      />
+                    </div>
+                    <span className={`text-xs ${over ? "text-red-600 font-medium" : "text-neutral-500"}`}>
+                      {logH}h / {estH}h
+                    </span>
+                  </div>
+                );
+              })()}
 
               {canEdit && sprint.status === "planned" && (
                 <button
