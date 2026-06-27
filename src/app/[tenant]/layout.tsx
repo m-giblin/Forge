@@ -13,6 +13,8 @@ import ReportBugButton from "@/components/ReportBugButton";
 import NotificationBell from "@/components/NotificationBell";
 import CommandPalette from "@/components/CommandPalette";
 import SidebarSearchButton from "@/components/SidebarSearchButton";
+import SessionTimeoutGuard from "@/components/SessionTimeoutGuard";
+import { getTenantSetting } from "@/lib/tenantSettings";
 
 export default async function TenantLayout({
   children,
@@ -44,6 +46,9 @@ export default async function TenantLayout({
     ctx.impersonating ? Promise.resolve(createSupabaseServiceClient()) : createSupabaseServerClient(),
     Promise.resolve(createSupabaseServiceClient()),
   ]);
+
+  const sessionTimeoutRaw = await getTenantSetting(ctx.tenant.id, "session_timeout_minutes");
+  const sessionTimeoutMinutes = sessionTimeoutRaw ? parseInt(sessionTimeoutRaw, 10) : 30;
 
   const [initialNotifications, unreadCount, unassignedCount, flags, userRow, visibleProjects, superAdminRow] = await Promise.all([
     notificationsRepo(supabase).list(ctx.tenant.id, ctx.appUserId, { limit: 20, includeRead: false }),
@@ -186,6 +191,7 @@ export default async function TenantLayout({
 
       {process.env.FORGE_SELF_API_KEY && <ReportBugButton />}
       <CommandPalette slug={slug} />
+      <SessionTimeoutGuard timeoutMinutes={isNaN(sessionTimeoutMinutes) ? 30 : sessionTimeoutMinutes} />
     </div>
   );
 }

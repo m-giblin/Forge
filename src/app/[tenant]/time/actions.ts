@@ -103,15 +103,15 @@ export async function getWeeklyTimesheetAction(
   const issueIds = [...new Set(logs.map((l) => l.issue_id as string))];
   const { data: issues } = await svc
     .from("issues")
-    .select("id, key, title, project_id")
+    .select("id, number, title, project_id")
     .in("id", issueIds)
     .eq("tenant_id", ctx.tenant.id);
 
   const projectIds = [...new Set((issues ?? []).map((i) => i.project_id as string).filter(Boolean))];
-  let projectMap = new Map<string, string>();
+  let projectMap = new Map<string, { name: string; key: string }>();
   if (projectIds.length > 0) {
-    const { data: projects } = await svc.from("projects").select("id, name").in("id", projectIds);
-    projectMap = new Map((projects ?? []).map((p) => [p.id as string, p.name as string]));
+    const { data: projects } = await svc.from("projects").select("id, name, key").in("id", projectIds);
+    projectMap = new Map((projects ?? []).map((p) => [p.id as string, { name: p.name as string, key: p.key as string }]));
   }
 
   const issueMap = new Map((issues ?? []).map((i) => [i.id as string, i]));
@@ -126,7 +126,9 @@ export async function getWeeklyTimesheetAction(
   let totalMinutes = 0;
   const entries = [...byIssue.entries()].map(([issueId, issueLogs]) => {
     const issue = issueMap.get(issueId);
-    const projectName = issue?.project_id ? (projectMap.get(issue.project_id as string) ?? null) : null;
+    const proj = issue?.project_id ? (projectMap.get(issue.project_id as string) ?? null) : null;
+    const projectName = proj?.name ?? null;
+    const projectKey = proj?.key ?? null;
     const mappedLogs = issueLogs.map((l) => {
       totalMinutes += l.minutes as number;
       return {
@@ -137,10 +139,12 @@ export async function getWeeklyTimesheetAction(
         billable: (l.billable as boolean) ?? false,
       };
     });
+    const issueNumber = issue?.number as number | undefined;
+    const issueKey = projectKey && issueNumber != null ? `${projectKey}-${issueNumber}` : null;
     return {
       issueId,
-      issueKey: (issue?.key as string | null) ?? null,
-      issueTitle: (issue?.title as string) ?? issueId,
+      issueKey,
+      issueTitle: (issue?.title as string) ?? issueKey ?? issueId,
       projectName,
       logs: mappedLogs,
     };
