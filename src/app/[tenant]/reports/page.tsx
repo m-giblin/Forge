@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { ctxCanDo } from "@/lib/rbac";
 import { loadReports } from "@/lib/services/reports";
 import ReportsClient from "./ReportsClient";
+// eslint-disable-next-line no-restricted-imports -- service-role required for sprint list at report page level (sec09)
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import type { TimeReportSprint } from "./timeReports";
 
 const STATUS_ORDER = ["backlog", "todo", "in_progress", "in_review", "done"];
 
@@ -27,7 +30,24 @@ export default async function ReportsPage({
   const to = sp.to ? new Date(sp.to) : now;
   const projectId = sp.project ?? null;
 
-  const data = await loadReports(ctx.tenant.id, from, to, projectId, ctx.impersonating).catch(() => null);
+  const svc = createSupabaseServiceClient();
+  const [data, sprintRows] = await Promise.all([
+    loadReports(ctx.tenant.id, from, to, projectId, ctx.impersonating).catch(() => null),
+    svc.from("sprints").select("id, name, status, start_date, end_date, project_id, projects!inner(key)")
+      .eq("tenant_id", ctx.tenant.id).in("status", ["active", "completed"])
+      .order("start_date", { ascending: false }).limit(20),
+  ]);
+
+  const sprints: TimeReportSprint[] = (sprintRows.data ?? []).map((s) => ({
+    id: s.id as string,
+    name: s.name as string,
+    status: s.status as string,
+    startDate: s.start_date as string | null,
+    endDate: s.end_date as string | null,
+    projectId: s.project_id as string,
+    projectKey: (s.projects as unknown as { key: string }).key,
+  }));
+  const activeSprint = sprints.find((s) => s.status === "active") ?? null;
 
   if (!data) {
     return (
@@ -50,6 +70,8 @@ export default async function ReportsPage({
         from={from.toISOString().slice(0, 10)}
         to={to.toISOString().slice(0, 10)}
         projectId={projectId ?? ""}
+        initialSprints={sprints}
+        activeSprint={activeSprint}
       />
     </main>
   );
