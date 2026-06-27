@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import NotificationPrefsClient from "./NotificationPrefsClient";
@@ -37,6 +38,16 @@ export default async function SettingsPage({
       <div>
         <h2 className="mb-3 text-sm font-semibold text-neutral-700">Sessions &amp; security</h2>
         <SessionManagement lastSignIn={lastSignIn} />
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-neutral-700">Availability</h2>
+        <Link
+          href={`/${slug}/settings/availability`}
+          className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:border-indigo-300 hover:text-indigo-700 transition-colors"
+        >
+          Set your working hours &amp; days →
+        </Link>
       </div>
     </div>
   );

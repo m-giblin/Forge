@@ -15,11 +15,12 @@ export type Project = {
   target_go_live: string | null;
   linked_idea_id: string | null;
   budget_cents: number | null;
+  budget_alert_threshold_pct: number | null;
   archived_at?: string | null;
   created_at?: string;
 };
 
-const COLS = "id, key, name, description, status, lead_user_id, start_date, target_go_live, linked_idea_id, budget_cents, archived_at, created_at";
+const COLS = "id, key, name, description, status, lead_user_id, start_date, target_go_live, linked_idea_id, budget_cents, budget_alert_threshold_pct, archived_at, created_at";
 
 export type CreateProjectInput = {
   tenant_id: string;

@@ -146,6 +146,15 @@ export default function WorkloadClient({ members, activeSprint, slug, weekStartI
             <span>📄</span>
             Export Report
           </a>
+          <a
+            href={`/print/${slug}/team-report`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition shadow-sm"
+          >
+            <span>📄</span>
+            Export Team Report
+          </a>
           {activeSprint ? (
             <>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-xs font-medium text-blue-700">

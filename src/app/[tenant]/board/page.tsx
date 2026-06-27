@@ -65,6 +65,19 @@ export default async function BoardPage({
 
   return (
     <main className="px-2 py-4">
+      {activeSprint && (
+        <div className="flex justify-end mb-2">
+          <a
+            href={`/print/${slug}/sprint-report/${activeSprint.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition shadow-sm"
+          >
+            <span>📄</span>
+            Export Sprint Report
+          </a>
+        </div>
+      )}
       <SprintPanel
         slug={slug}
         projectId={current.id}

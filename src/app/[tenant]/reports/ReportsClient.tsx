@@ -197,6 +197,36 @@ export default function ReportsClient({
                 {tab === "issues" ? "Issues" : "⏱ Time"}
               </button>
             ))}
+            <Link
+              href={`/${slug}/reports/velocity`}
+              className="px-4 py-2 text-sm font-medium transition border-b-2 border-transparent text-neutral-500 hover:text-neutral-700"
+            >
+              📈 Velocity
+            </Link>
+            <Link
+              href={`/${slug}/reports/capacity`}
+              className="px-4 py-2 text-sm font-medium transition border-b-2 border-transparent text-neutral-500 hover:text-neutral-700"
+            >
+              ⚡ Capacity
+            </Link>
+            <Link
+              href={`/${slug}/reports/sprint-retro`}
+              className="px-4 py-2 text-sm font-medium transition border-b-2 border-transparent text-neutral-500 hover:text-neutral-700"
+            >
+              🔍 Sprint Retro
+            </Link>
+            <Link
+              href={`/${slug}/reports/overcommitment`}
+              className="px-4 py-2 text-sm font-medium transition border-b-2 border-transparent text-neutral-500 hover:text-neutral-700"
+            >
+              👥 Overcommitment
+            </Link>
+            <Link
+              href={`/${slug}/reports/estimate-accuracy`}
+              className="px-4 py-2 text-sm font-medium transition border-b-2 border-transparent text-neutral-500 hover:text-neutral-700"
+            >
+              📊 Estimate Accuracy
+            </Link>
           </div>
         </div>
         <div className={`ml-auto flex flex-wrap items-center gap-2 ${activeTab === "time" ? "hidden" : ""}`}>

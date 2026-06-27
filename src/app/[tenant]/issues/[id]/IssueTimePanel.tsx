@@ -119,6 +119,26 @@ export default function IssueTimePanel({
 
   const [isPending, startTransition] = useTransition();
   const [timerError, setTimerError] = useState<string | null>(null);
+  const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = localStorage.getItem(`forge-time-alerts-${issueId}`);
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch {
+      return new Set();
+    }
+  });
+
+  function dismissAlert(key: string) {
+    setDismissedAlerts((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      try {
+        localStorage.setItem(`forge-time-alerts-${issueId}`, JSON.stringify([...next]));
+      } catch {}
+      return next;
+    });
+  }
 
   // Live timer tick — only update inside the interval to satisfy no-direct-setState-in-effect
   useEffect(() => {
@@ -312,6 +332,20 @@ export default function IssueTimePanel({
         )}
       </div>
 
+      {/* ── Budget Alert Banners ── */}
+      {estimate != null && estimate > 0 && pct != null && pct >= 90 && pct < 100 && !dismissedAlerts.has(`warn-${issueId}`) && (
+        <div className="mx-4 mb-0 mt-0 flex items-start justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <p className="text-xs text-amber-800">⚠ Approaching estimate — {pct}% used</p>
+          <button onClick={() => dismissAlert(`warn-${issueId}`)} className="text-amber-400 hover:text-amber-700 text-xs shrink-0">✕</button>
+        </div>
+      )}
+      {estimate != null && estimate > 0 && pct != null && pct >= 100 && !dismissedAlerts.has(`over-${issueId}`) && (
+        <div className="mx-4 mb-0 mt-0 flex items-start justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+          <p className="text-xs text-red-800">⚠ Over estimate by {fmtMinutes(totalMinutes - estimate)} — consider updating the estimate or flagging scope creep</p>
+          <button onClick={() => dismissAlert(`over-${issueId}`)} className="text-red-400 hover:text-red-700 text-xs shrink-0">✕</button>
+        </div>
+      )}
+
       {/* ── Section 2: Live Timer ── */}
       {!readOnly && (
         <div className="p-4">
@@ -398,25 +432,44 @@ export default function IssueTimePanel({
                 className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs outline-none focus:border-indigo-400"
               />
 
-              {/* Billable + Tag row */}
-              <div className="flex items-center gap-3">
-                <label className="flex items-center gap-1.5 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={billable}
-                    onChange={(e) => setBillable(e.target.checked)}
-                    className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-400"
-                  />
-                  <span className="text-xs text-neutral-600">Billable</span>
-                </label>
+              {/* Tag chips */}
+              <div className="space-y-1.5">
+                <p className="text-xs text-neutral-500">Tag</p>
+                <div className="flex flex-wrap gap-1">
+                  {["Development","Review","Meetings","Testing","Design","Planning","Support"].map((t) => (
+                    <button
+                      key={t}
+                      type="button"
+                      onClick={() => setTagInput(tagInput === t ? "" : t)}
+                      className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium border transition-colors ${
+                        tagInput === t
+                          ? "bg-indigo-600 text-white border-indigo-600"
+                          : "bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-400"
+                      }`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
                 <input
                   type="text"
-                  placeholder="tag"
+                  placeholder="or type custom tag…"
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
-                  className="w-24 rounded-lg border border-neutral-300 px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                  className="w-full rounded-lg border border-neutral-200 px-2 py-1 text-xs outline-none focus:border-indigo-400"
                 />
               </div>
+
+              {/* Billable */}
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={billable}
+                  onChange={(e) => setBillable(e.target.checked)}
+                  className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-400"
+                />
+                <span className="text-xs text-neutral-600">Billable</span>
+              </label>
 
               {formError && <p className="text-xs text-red-600">{formError}</p>}
 

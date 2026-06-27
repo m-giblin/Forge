@@ -234,3 +234,86 @@ export async function loadTimeReportData(
 
   return { members, projects, dailyTrend, logs, totalMinutes, billableMinutes, sprints };
 }
+
+export type SprintRollupRow = {
+  sprintId: string;
+  sprintName: string;
+  projectKey: string;
+  startDate: string | null;
+  endDate: string | null;
+  totalMinutes: number;
+  topContributor: string | null;
+};
+
+export async function loadSprintRollupAction(slug: string): Promise<SprintRollupRow[]> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) redirect("/");
+  const svc = createSupabaseServiceClient();
+
+  const { data: sprintRows } = await svc
+    .from("sprints")
+    .select("id, name, status, start_date, end_date, project_id, projects!inner(key)")
+    .eq("tenant_id", ctx.tenant.id)
+    .in("status", ["active", "completed"])
+    .order("start_date", { ascending: false })
+    .limit(30);
+
+  if (!sprintRows || sprintRows.length === 0) return [];
+
+  const results: SprintRollupRow[] = [];
+
+  for (const sprint of sprintRows) {
+    const { data: issueRows } = await svc
+      .from("issues")
+      .select("id")
+      .eq("tenant_id", ctx.tenant.id)
+      .eq("sprint_id", sprint.id as string);
+
+    const issueIds = (issueRows ?? []).map((r) => r.id as string);
+    if (issueIds.length === 0) {
+      results.push({
+        sprintId: sprint.id as string,
+        sprintName: sprint.name as string,
+        projectKey: (sprint.projects as unknown as { key: string }).key,
+        startDate: sprint.start_date as string | null,
+        endDate: sprint.end_date as string | null,
+        totalMinutes: 0,
+        topContributor: null,
+      });
+      continue;
+    }
+
+    const { data: logRows } = await svc
+      .from("issue_time_logs")
+      .select("user_id, minutes, users!inner(name, email)")
+      .eq("tenant_id", ctx.tenant.id)
+      .in("issue_id", issueIds);
+
+    const total = (logRows ?? []).reduce((s, r) => s + (r.minutes as number), 0);
+
+    const byUser = new Map<string, { name: string; minutes: number }>();
+    for (const r of logRows ?? []) {
+      const uid = r.user_id as string;
+      const userRow = r.users as unknown as { name: string | null; email: string | null };
+      const name = userRow.name ?? userRow.email?.split("@")[0] ?? "Unknown";
+      const existing = byUser.get(uid);
+      if (existing) { existing.minutes += r.minutes as number; }
+      else { byUser.set(uid, { name, minutes: r.minutes as number }); }
+    }
+    const top = byUser.size > 0
+      ? [...byUser.values()].sort((a, b) => b.minutes - a.minutes)[0].name
+      : null;
+
+    results.push({
+      sprintId: sprint.id as string,
+      sprintName: sprint.name as string,
+      projectKey: (sprint.projects as unknown as { key: string }).key,
+      startDate: sprint.start_date as string | null,
+      endDate: sprint.end_date as string | null,
+      totalMinutes: total,
+      topContributor: top,
+    });
+  }
+
+  return results;
+}

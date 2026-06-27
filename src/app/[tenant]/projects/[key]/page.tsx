@@ -12,6 +12,7 @@ import CostsTab from "./CostsTab";
 import TimelineTab from "./TimelineTab";
 import { ProjectStatusBadge, ProjectDangerZone } from "./ProjectStatusControl";
 import ProjectEditPanel from "./ProjectEditPanel";
+import BudgetAlertBanner from "@/components/BudgetAlertBanner";
 
 const HEALTH_META: Record<Health, { label: string; cls: string; dot: string }> = {
   on_track: { label: "On track", cls: "bg-emerald-100 text-emerald-700", dot: "●" },
@@ -101,6 +102,15 @@ export default async function ProjectDetailPage({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <a
+            href={`/print/${slug}/project-report/${data.project.id}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
+            title="Export project status report"
+          >
+            📄 Export Status Report
+          </a>
+          <a
             href={`/${slug}/projects/${data.project.key}/export/pptx`}
             className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-orange-50 hover:border-orange-300 hover:text-orange-700 transition-colors"
             title="Export project status presentation"
@@ -112,6 +122,8 @@ export default async function ProjectDetailPage({
           </Link>
         </div>
       </div>
+
+      <BudgetAlertBanner projectId={data.project.id} slug={slug} projectName={data.project.name} projectKey={data.project.key} />
 
       {/* Archived banner */}
       {data.project.status === "archived" && (

@@ -160,6 +160,7 @@ export async function logTimeFromSheetAction(
   minutes: number,
   note?: string,
   billable?: boolean,
+  tag?: string | null,
 ): Promise<{ ok: boolean; error?: string }> {
   const ctx = await getTenantContext(slug);
   if (!ctx) return { ok: false, error: "Not authorized" };
@@ -173,6 +174,7 @@ export async function logTimeFromSheetAction(
     note: note?.trim() || null,
     logged_at: date,
     billable: billable ?? false,
+    tag: tag ?? null,
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath(`/${slug}/time`);
