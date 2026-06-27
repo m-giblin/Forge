@@ -14,6 +14,8 @@ import NotificationBell from "@/components/NotificationBell";
 import CommandPalette from "@/components/CommandPalette";
 import SidebarSearchButton from "@/components/SidebarSearchButton";
 import SessionTimeoutGuard from "@/components/SessionTimeoutGuard";
+import GlobalKeys from "@/components/GlobalKeys";
+import AiDisclosureBanner from "@/components/AiDisclosureBanner";
 import { getTenantSetting } from "@/lib/tenantSettings";
 
 export default async function TenantLayout({
@@ -195,6 +197,8 @@ export default async function TenantLayout({
 
       {process.env.FORGE_SELF_API_KEY && <ReportBugButton />}
       <CommandPalette slug={slug} />
+      <GlobalKeys slug={slug} />
+      <AiDisclosureBanner />
       <SessionTimeoutGuard timeoutMinutes={isNaN(sessionTimeoutMinutes) ? 30 : sessionTimeoutMinutes} />
     </div>
   );
