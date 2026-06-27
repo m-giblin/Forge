@@ -137,6 +137,15 @@ export default function WorkloadClient({ members, activeSprint, slug, weekStartI
           <p className="mt-0.5 text-sm text-neutral-500">{weekLabel}</p>
         </div>
         <div className="flex items-center gap-2">
+          <a
+            href={`/${slug}/admin/workload/report`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition shadow-sm"
+          >
+            <span>📄</span>
+            Export Report
+          </a>
           {activeSprint ? (
             <>
               <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-xs font-medium text-blue-700">
