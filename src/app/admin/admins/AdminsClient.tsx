@@ -315,6 +315,7 @@ export default function AdminsClient({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && email && invite()}
+            suppressHydrationWarning
             className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 outline-none focus:border-indigo-500"
           />
           <input
