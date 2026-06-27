@@ -16,6 +16,7 @@ export type SupportTicket = {
   body: string;
   status: "open" | "in_progress" | "resolved" | "closed";
   priority: "low" | "medium" | "high" | "urgent";
+  ticket_type: "platform" | "internal";
   ai_triage_summary: string | null;
   ai_guidance: string | null;
   platform_notes: string | null;
@@ -28,7 +29,7 @@ export type SupportTicket = {
 
 // attachments column added in migration 0056 — selected separately so queries don't fail pre-migration
 const COLS =
-  "id, tenant_id, submitted_by, actor_label, title, body, status, priority, ai_triage_summary, ai_guidance, platform_notes, escalation_email_sent_at, resolved_at, created_at, updated_at";
+  "id, tenant_id, submitted_by, actor_label, title, body, status, priority, ticket_type, ai_triage_summary, ai_guidance, platform_notes, escalation_email_sent_at, resolved_at, created_at, updated_at";
 
 /**
  * Support ticket data access. Tenant-scoped queries always filter on tenant_id
@@ -44,6 +45,7 @@ export function supportTicketsRepo(supabase: SupabaseClient) {
       title: string;
       body: string;
       priority?: SupportTicket["priority"];
+      ticket_type?: SupportTicket["ticket_type"];
       attachments?: TicketAttachment[];
     }): Promise<SupportTicket> {
       const row: Record<string, unknown> = {
@@ -53,6 +55,7 @@ export function supportTicketsRepo(supabase: SupabaseClient) {
         title: input.title,
         body: input.body,
         priority: input.priority ?? "medium",
+        ticket_type: input.ticket_type ?? "platform",
       };
       // attachments column exists after migration 0056 — only include when non-empty to avoid pre-migration errors
       if (input.attachments?.length) row.attachments = input.attachments;
@@ -81,23 +84,40 @@ export function supportTicketsRepo(supabase: SupabaseClient) {
       if (error) throw error;
     },
 
-    async listByTenant(tenantId: string): Promise<SupportTicket[]> {
-      const { data, error } = await supabase
+    async listByTenant(tenantId: string, ticketType?: SupportTicket["ticket_type"]): Promise<SupportTicket[]> {
+      let q = supabase
         .from("support_tickets")
         .select(COLS)
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: false });
+      if (ticketType) q = q.eq("ticket_type", ticketType);
+      const { data, error } = await q;
+      if (error) throw error;
+      return (data ?? []) as SupportTicket[];
+    },
+
+    async listBySubmitter(tenantId: string, userId: string, ticketType?: SupportTicket["ticket_type"]): Promise<SupportTicket[]> {
+      let q = supabase
+        .from("support_tickets")
+        .select(COLS)
+        .eq("tenant_id", tenantId)
+        .eq("submitted_by", userId)
+        .order("created_at", { ascending: false });
+      if (ticketType) q = q.eq("ticket_type", ticketType);
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as SupportTicket[];
     },
 
     /** All tickets across tenants — for super-admin use only. */
-    async listAll(): Promise<SupportTicket[]> {
-      const { data, error } = await supabase
+    async listAll(ticketType?: SupportTicket["ticket_type"]): Promise<SupportTicket[]> {
+      let q = supabase
         .from("support_tickets")
         .select(COLS)
         .order("created_at", { ascending: false })
-        .limit(200);
+        .limit(500);
+      if (ticketType) q = q.eq("ticket_type", ticketType);
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as SupportTicket[];
     },
@@ -108,7 +128,7 @@ export function supportTicketsRepo(supabase: SupabaseClient) {
       status: SupportTicket["status"],
       platformNotes?: string
     ): Promise<void> {
-      const patch: Record<string, unknown> = { status };
+      const patch: Record<string, unknown> = { status, updated_at: new Date().toISOString() };
       if (platformNotes !== undefined) patch.platform_notes = platformNotes;
       if (status === "resolved") patch.resolved_at = new Date().toISOString();
       const { error } = await supabase
