@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
-// eslint-disable-next-line no-restricted-imports -- admin: service-role required, tenant context verified by getTenantContext (sec09)
+// eslint-disable-next-line no-restricted-imports -- service-role: member page, tenant context verified (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { supportTicketsRepo } from "@/lib/repositories/supportTickets";
 import SupportPage from "./SupportPage";
@@ -13,10 +13,15 @@ export default async function TenantSupportPage({
   const { tenant: slug } = await params;
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
-  if (ctx.role !== "owner" && ctx.role !== "admin") redirect(`/${slug}/board`);
+  // All members can access — no role gate
 
   const svc = createSupabaseServiceClient();
-  const tickets = await supportTicketsRepo(svc).listByTenant(ctx.tenant.id);
+  // Show only this member's own internal tickets
+  const tickets = await supportTicketsRepo(svc).listBySubmitter(
+    ctx.tenant.id,
+    ctx.appUserId,
+    "internal"
+  );
 
   return <SupportPage tickets={tickets} slug={slug} />;
 }
