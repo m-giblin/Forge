@@ -1002,13 +1002,6 @@ export default function TimelineClient({
       {/* Top bar */}
       <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 shrink-0">
         <div className="flex items-center gap-3">
-          <Link
-            href={`/${slug}/admin/workload`}
-            className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors group"
-          >
-            <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Workload
-          </Link>
-          <span className="text-neutral-300">|</span>
           <h1 className="text-base font-semibold text-neutral-900">Allocation Timeline</h1>
           {selection.size > 1 && (
             <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
