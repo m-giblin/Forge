@@ -18,6 +18,7 @@ import GitLinksCard from "./GitLinksCard";
 import MarkDuplicateButton from "./MarkDuplicateButton";
 import IssueTimePanel from "./IssueTimePanel";
 import type { TimeLog } from "./timeActions";
+import { startIssueTimerAction, stopIssueTimerAction } from "./timeActions";
 import type { IssueCodeLink } from "@/lib/repositories/gitIntegration";
 import DecomposeButton from "./DecomposeButton";
 import PrImpactButton from "./PrImpactButton";
@@ -184,6 +185,24 @@ export default function IssueDetail({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // Shared timer state — synced between the inline Activity button and the sidebar panel
+  const [sharedTimerAt, setSharedTimerAt] = useState<string | null>(initialTimerStartedAt ?? null);
+  const [timerPending, startTimerTransition] = useTransition();
+
+  function handleInlineStart() {
+    startTimerTransition(async () => {
+      const res = await startIssueTimerAction(slug, issue.id);
+      if (res.ok && res.startedAt) setSharedTimerAt(res.startedAt);
+    });
+  }
+
+  function handleInlineStop() {
+    startTimerTransition(async () => {
+      const res = await stopIssueTimerAction(slug, issue.id);
+      if (res.ok) setSharedTimerAt(null);
+    });
+  }
 
   // Auto-save a single sidebar field immediately on change
   function saveField(patch: Parameters<typeof updateIssueAction>[2]) {
@@ -689,12 +708,32 @@ export default function IssueDetail({
 
           {/* ─ Activity section ─ */}
           <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-600">
-              Activity
-              {comments.length > 0 && (
-                <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-neutral-600">{comments.length}</span>
+            <div className="mb-4 flex items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600 flex-1">
+                Activity
+                {comments.length > 0 && (
+                  <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-neutral-600">{comments.length}</span>
+                )}
+              </p>
+              {!readOnly && (
+                <button
+                  type="button"
+                  disabled={timerPending}
+                  onClick={sharedTimerAt ? handleInlineStop : handleInlineStart}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${
+                    sharedTimerAt
+                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200"
+                      : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200"
+                  }`}
+                >
+                  {sharedTimerAt ? (
+                    <><span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />⏹ Stop Timer</>
+                  ) : (
+                    <>▶ Start Timer</>
+                  )}
+                </button>
               )}
-            </p>
+            </div>
 
             <div className="space-y-3">
               {timeline.length === 0 && (
@@ -1096,6 +1135,8 @@ export default function IssueDetail({
             initialLogs={initialTimeLogs}
             timeEstimateMinutes={timeEstimateMinutes ?? null}
             initialTimerStartedAt={initialTimerStartedAt ?? null}
+            controlledTimerAt={sharedTimerAt}
+            onTimerChange={setSharedTimerAt}
             readOnly={readOnly}
           />
 

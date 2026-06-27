@@ -50,6 +50,8 @@ interface IssueTimePanelProps {
   initialLogs: TimeLog[];
   timeEstimateMinutes: number | null;
   initialTimerStartedAt: string | null;
+  controlledTimerAt?: string | null;
+  onTimerChange?: (at: string | null) => void;
   readOnly: boolean;
 }
 
@@ -61,10 +63,18 @@ export default function IssueTimePanel({
   initialLogs,
   timeEstimateMinutes,
   initialTimerStartedAt,
+  controlledTimerAt,
+  onTimerChange,
   readOnly,
 }: IssueTimePanelProps) {
   const [logs, setLogs] = useState<TimeLog[]>(initialLogs);
-  const [timerStartedAt, setTimerStartedAt] = useState<string | null>(initialTimerStartedAt);
+  const [localTimerAt, setLocalTimerAt] = useState<string | null>(initialTimerStartedAt);
+  // Use controlled value when provided (shared with Activity header button)
+  const timerStartedAt = controlledTimerAt !== undefined ? controlledTimerAt : localTimerAt;
+  function setTimerStartedAt(v: string | null) {
+    setLocalTimerAt(v);
+    onTimerChange?.(v);
+  }
   const [elapsed, setElapsed] = useState<string>(() =>
     initialTimerStartedAt ? fmtElapsed(initialTimerStartedAt) : "0s"
   );
