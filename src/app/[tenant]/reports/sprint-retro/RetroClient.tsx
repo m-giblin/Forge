@@ -142,9 +142,6 @@ export default function RetroClient({
 
   return (
     <main className="w-full px-6 py-8 space-y-6">
-      <Link href={`/${slug}/reports`} className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors group">
-        <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Reports
-      </Link>
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-semibold text-neutral-900">Sprint Retrospective</h1>
         <button

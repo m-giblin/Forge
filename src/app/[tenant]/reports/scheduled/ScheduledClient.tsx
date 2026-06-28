@@ -80,14 +80,6 @@ export default function ScheduledClient({ slug, isAdmin }: { slug: string; isAdm
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-1.5 text-sm text-neutral-500">
-        <Link href={`/${slug}/reports`} className="hover:text-indigo-600 transition-colors flex items-center gap-1">
-          <span className="text-neutral-400">←</span> Reports
-        </Link>
-        <span className="text-neutral-300">/</span>
-        <span className="font-medium text-neutral-800">Scheduled Reports</span>
-        <span className="ml-2 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">PRO</span>
-      </div>
 
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>

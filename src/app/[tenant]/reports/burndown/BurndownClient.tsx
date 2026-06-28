@@ -63,15 +63,6 @@ export default function BurndownClient({
 
   return (
     <div>
-      {/* Breadcrumb */}
-      <div className="mb-6 flex items-center gap-1.5 text-sm text-neutral-500">
-        <Link href={`/${slug}/reports`} className="hover:text-indigo-600 transition-colors flex items-center gap-1">
-          <span className="text-neutral-400">←</span> Reports
-        </Link>
-        <span className="text-neutral-300">/</span>
-        <span className="font-medium text-neutral-800">Burndown</span>
-      </div>
-
       {/* Header + sprint picker */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>

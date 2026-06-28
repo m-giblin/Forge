@@ -63,9 +63,6 @@ export default function EstimateAccuracyClient({ slug, issues, projects }: Props
 
   return (
     <div className="space-y-6 p-6">
-      <Link href={`/${slug}/reports`} className="inline-flex items-center gap-1.5 text-sm text-neutral-500 hover:text-neutral-900 transition-colors group">
-        <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Reports
-      </Link>
       {/* Header */}
       <div>
         <h1 className="text-xl font-semibold text-neutral-900">Estimate Accuracy</h1>

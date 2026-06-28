@@ -15,11 +15,6 @@ export default async function ScheduledPage({ params }: { params: Promise<{ tena
   if (!flags.advanced_reports) {
     return (
       <main className="w-full px-6 py-8">
-        <div className="mb-6 flex items-center gap-2 text-sm text-neutral-500">
-          <Link href={`/${slug}/reports`} className="hover:text-indigo-600 transition-colors">Reports</Link>
-          <span>/</span>
-          <span className="font-medium text-neutral-800">Scheduled Reports</span>
-        </div>
         <div className="max-w-lg mx-auto mt-24 text-center">
           <div className="text-4xl mb-4">📬</div>
           <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 mb-4">PRO</div>

@@ -689,37 +689,6 @@ export default function ReportsClient({
       )}
 
       </>)} {/* end issues tab */}
-
-      {/* ── Report Library ── */}
-      <div>
-        <h2 className="text-sm font-semibold text-neutral-700 mb-3">Report Library</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {[
-            { href: `/${slug}/reports/burndown`, icon: "🔻", title: "Burndown", desc: "Sprint ideal vs actual remaining points", pro: false },
-            { href: `/${slug}/reports/velocity`, icon: "📈", title: "Velocity", desc: "Story points completed per sprint", pro: false },
-            { href: `/${slug}/reports/capacity`, icon: "⚡", title: "Capacity", desc: "Team availability vs assigned work", pro: false },
-            { href: `/${slug}/reports/sprint-retro`, icon: "🔍", title: "Sprint Retro", desc: "What went well, what didn't", pro: false },
-            { href: `/${slug}/reports/custom`, icon: "🛠", title: "Custom Builder", desc: "Build your own report with any dimension", pro: false },
-            { href: `/${slug}/reports/cycle-time`, icon: "⏱", title: "Cycle Time", desc: "Avg/P50/P90 from creation to done", pro: true },
-            { href: `/${slug}/reports/aging`, icon: "⏳", title: "Issue Aging", desc: "Open issues grouped by how long they've sat", pro: true },
-            { href: `/${slug}/reports/scheduled`, icon: "📬", title: "Scheduled", desc: "Automatically email reports to stakeholders", pro: true },
-          ].map((r) => (
-            <Link key={r.href} href={r.href}
-              className="group flex flex-col gap-2 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm hover:border-indigo-300 hover:shadow-md transition-all">
-              <div className="flex items-start justify-between">
-                <span className="text-2xl">{r.icon}</span>
-                {r.pro && (
-                  <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[9px] font-bold text-indigo-600">PRO</span>
-                )}
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-neutral-900 group-hover:text-indigo-700 transition-colors">{r.title}</p>
-                <p className="text-[11px] text-neutral-500 mt-0.5 leading-snug">{r.desc}</p>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
     </div>
   );
 }
