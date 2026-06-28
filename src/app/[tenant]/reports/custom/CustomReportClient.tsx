@@ -464,29 +464,24 @@ export default function CustomReportClient({
               {!trend && (
                 <div>
                   <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Group By</p>
-                  <div className="grid grid-cols-2 gap-1">
+                  <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}
+                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
                     {GROUP_BY_OPTIONS.map((opt) => (
-                      <button key={opt.value} onClick={() => setGroupBy(opt.value)}
-                        className={`rounded-lg px-2 py-1.5 text-left text-[11px] font-medium transition-colors flex items-center gap-1.5 ${groupBy === opt.value ? "bg-indigo-50 text-indigo-700 ring-1 ring-indigo-200" : "bg-neutral-50 text-neutral-600 hover:bg-neutral-100"}`}>
-                        <span className="text-base leading-none">{opt.icon}</span>
-                        {opt.label}
-                      </button>
+                      <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
                     ))}
-                  </div>
+                  </select>
                 </div>
               )}
 
               {/* Metric */}
               <div>
                 <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Metric</p>
-                <div className="space-y-1">
+                <select value={metric} onChange={(e) => setMetric(e.target.value as Metric)}
+                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
                   {METRIC_OPTIONS.map((opt) => (
-                    <button key={opt.value} onClick={() => setMetric(opt.value)}
-                      className={`w-full rounded-lg px-3 py-2 text-left text-xs font-medium transition-colors ${metric === opt.value ? "bg-indigo-600 text-white" : "bg-neutral-50 text-neutral-600 hover:bg-neutral-100"}`}>
-                      {opt.label}
-                    </button>
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
-                </div>
+                </select>
               </div>
 
               {/* Date range */}
