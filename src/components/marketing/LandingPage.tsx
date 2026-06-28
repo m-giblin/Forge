@@ -109,14 +109,14 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-2">
-            <img src="/forge-logo.svg" alt="Forge-Worx" className="h-20 w-20 object-contain drop-shadow-md" />
+            <img src="/forge-logo.svg" alt="Forge-Worx" className="h-24 w-24 object-contain drop-shadow-md" />
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-sm text-slate-300">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#how-it-works" className="hover:text-white transition-colors">How It Works</a>
-            <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
-            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+          <nav className="hidden md:flex items-center gap-6 text-base text-slate-300">
+            <a href="#features" className="hover:text-white transition-colors font-medium">Features</a>
+            <a href="#how-it-works" className="hover:text-white transition-colors font-medium">How It Works</a>
+            <a href="#pricing" className="hover:text-white transition-colors font-medium">Pricing</a>
+            <a href="#faq" className="hover:text-white transition-colors font-medium">FAQ</a>
           </nav>
 
           <div className="flex items-center gap-3">
