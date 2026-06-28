@@ -204,7 +204,7 @@ export default async function TenantLayout({
       </aside>
 
       {/* ── Main content ── */}
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
         {children}
       </div>
 

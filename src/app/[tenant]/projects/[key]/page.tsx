@@ -102,9 +102,7 @@ export default async function ProjectDetailPage({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <a
-            href={`/print/${slug}/project-report/${data.project.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={`/${slug}/projects/${data.project.key}/export/pdf`}
             className="rounded-lg border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors"
             title="Export project status report"
           >

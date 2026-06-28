@@ -68,9 +68,7 @@ export default async function BoardPage({
       {activeSprint && (
         <div className="flex justify-end mb-2">
           <a
-            href={`/print/${slug}/sprint-report/${activeSprint.id}`}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={`/${slug}/board/export/sprint-pdf/${activeSprint.id}`}
             className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition shadow-sm"
           >
             <span>📄</span>
