@@ -33,22 +33,35 @@ export async function POST(req: Request) {
       .isDomainSsoRequired(domain)
       .catch(() => false);
     if (required) {
+      // Return 401 (not 403) to avoid acting as an SSO oracle — an attacker could
+      // enumerate corporate domains by watching for 403 vs 401 responses.
       return NextResponse.json(
-        { error: "This workspace requires SSO. Please use the Google or Microsoft sign-in button." },
-        { status: 403 }
+        { error: "Invalid email or password." },
+        { status: 401 }
       );
     }
   }
 
   const ip = clientIp(req);
+  const rl = getRateLimiter();
+
+  // Pre-auth gate: block immediately if this IP has exhausted the failure window.
+  // Uses a separate "attempt" key so the check itself doesn't burn a failure slot.
+  const attemptResult = await rl.check(`authattempt:login:${ip}`, FAIL_LIMIT * 2, FAIL_WINDOW_MS);
+  if (!attemptResult.allowed) {
+    return NextResponse.json(
+      { error: "Too many login attempts. Try again in 15 minutes." },
+      { status: 429 }
+    );
+  }
+
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    // Count failure against the IP; block once the window fills.
-    const rl = getRateLimiter();
-    const result = await rl.check(`authfail:login:${ip}`, FAIL_LIMIT, FAIL_WINDOW_MS);
-    if (!result.allowed) {
+    // Count this failure; block once the failure window fills.
+    const failResult = await rl.check(`authfail:login:${ip}`, FAIL_LIMIT, FAIL_WINDOW_MS);
+    if (!failResult.allowed) {
       return NextResponse.json(
         { error: "Too many failed login attempts. Try again in 15 minutes." },
         { status: 429 }

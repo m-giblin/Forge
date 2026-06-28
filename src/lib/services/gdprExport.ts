@@ -71,7 +71,9 @@ export async function exportSubjectData(email: string): Promise<GdprExportResult
       .order("created_at", { ascending: false }),
     svc
       .from("issue_events")
-      .select("id, issue_id, event_type, metadata, created_at")
+      // metadata is excluded: it contains internal system state that may reference
+      // other users. Only subject-attributed fields are included in the export.
+      .select("id, issue_id, event_type, created_at")
       .eq("user_id", userId)
       .order("created_at", { ascending: false }),
     svc

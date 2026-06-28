@@ -7,16 +7,16 @@ import { encryptSecret, decryptSecret } from "@/lib/encryption";
 // Values are stored as `enc:<base64json>` when encrypted so we can detect and
 // decrypt them transparently. Plain values (e.g. from before encryption was
 // added, or non-secret keys like workspace_id) pass through unchanged.
-function encodeSecret(plaintext: string): string {
-  const { enc, nonce, tag } = encryptSecret(plaintext);
+function encodeSecret(plaintext: string, tenantId: string): string {
+  const { enc, nonce, tag } = encryptSecret(plaintext, tenantId);
   return `enc:${JSON.stringify({ enc, nonce, tag })}`;
 }
 
-function decodeValue(raw: string): string {
+function decodeValue(raw: string, tenantId: string): string {
   if (!raw.startsWith("enc:")) return raw; // plaintext (workspace_id or legacy row)
   try {
     const { enc, nonce, tag } = JSON.parse(raw.slice(4)) as { enc: string; nonce: string; tag: string };
-    return decryptSecret(enc, nonce, tag);
+    return decryptSecret(enc, nonce, tag, tenantId);
   } catch {
     return raw; // corrupt/legacy — surface as-is rather than crashing
   }
@@ -37,7 +37,7 @@ export async function getSlackConfig(tenantId: string): Promise<{
     .in("key", ["slack_bot_token", "slack_signing_secret", "slack_workspace_id"]);
 
   const map = Object.fromEntries(
-    (data ?? []).map((r) => [r.key as string, decodeValue(r.value as string)])
+    (data ?? []).map((r) => [r.key as string, decodeValue(r.value as string, tenantId)])
   );
   if (!map.slack_bot_token || !map.slack_signing_secret || !map.slack_workspace_id) return null;
   return {
@@ -54,10 +54,10 @@ export async function saveSlackConfig(
   const svc = createSupabaseServiceClient();
   const rows = [
     config.botToken !== undefined
-      ? { tenant_id: tenantId, key: "slack_bot_token", value: encodeSecret(config.botToken) }
+      ? { tenant_id: tenantId, key: "slack_bot_token", value: encodeSecret(config.botToken, tenantId) }
       : null,
     config.signingSecret !== undefined
-      ? { tenant_id: tenantId, key: "slack_signing_secret", value: encodeSecret(config.signingSecret) }
+      ? { tenant_id: tenantId, key: "slack_signing_secret", value: encodeSecret(config.signingSecret, tenantId) }
       : null,
     config.workspaceId !== undefined
       ? { tenant_id: tenantId, key: "slack_workspace_id", value: config.workspaceId }

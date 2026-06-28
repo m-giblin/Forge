@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { ProjectCostsData } from "@/lib/services/projectPortal";
 import { setBudgetAction, addSpendAction, removeSpendAction } from "./actions";
+import ProjectBudgetSettings from "@/components/ProjectBudgetSettings";
 
 const fmt = (cents: number) => `$${(cents / 100).toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 
@@ -103,6 +104,15 @@ export default function CostsTab({
             <div className={`h-full ${barColor}`} style={{ width: `${Math.min(100, data.pct)}%` }} />
           </div>
         </div>
+      )}
+
+      {canEdit && (
+        <ProjectBudgetSettings
+          projectId={data.projectId}
+          slug={slug}
+          initialBudgetCents={data.budgetCents}
+          initialThresholdPct={data.budgetAlertThresholdPct}
+        />
       )}
 
       {/* Spend table */}

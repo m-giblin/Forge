@@ -22,8 +22,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return new NextResponse("Bad request", { status: 400 });
   }
 
-  // Slack URL verification challenge (sent once when you configure the endpoint)
+  // url_verification: Slack sends this once when configuring the endpoint.
+  // Signature must be verified first — Slack signs these the same as all events.
   if (body.type === "url_verification") {
+    const teamId = body.team_id as string | undefined;
+    const tenantId = teamId ? await getTenantByWorkspaceId(teamId) : null;
+    const config = tenantId ? await getSlackConfig(tenantId) : null;
+    // If we can't find a config yet (first-time setup), accept based on timestamp freshness only.
+    if (config) {
+      const valid = await verifySlackSignature(config.signingSecret, rawBody, timestamp, signature);
+      if (!valid) return new NextResponse("Invalid signature", { status: 401 });
+    } else if (!timestamp || Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) {
+      return new NextResponse("Stale or missing timestamp", { status: 401 });
+    }
     return NextResponse.json({ challenge: body.challenge });
   }
 
@@ -38,7 +49,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const config = await getSlackConfig(tenantId);
   if (!config) return new NextResponse("OK", { status: 200 });
 
-  // Verify signature
+  // Verify signature (moved above all business logic)
   const valid = await verifySlackSignature(config.signingSecret, rawBody, timestamp, signature);
   if (!valid) return new NextResponse("Invalid signature", { status: 401 });
 

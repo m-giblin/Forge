@@ -5,8 +5,10 @@ export { AI_PROVIDERS } from "@/lib/ai/providers";
 import type { AIProvider, SavedKeyInfo } from "@/lib/ai/providers";
 import { encryptSecret, decryptSecret } from "@/lib/encryption";
 
-const encrypt = encryptSecret;
-const decrypt = decryptSecret;
+// Wrappers that bind tenantId to the per-tenant key derivation
+const encrypt = (plaintext: string, tenantId: string) => encryptSecret(plaintext, tenantId);
+const decrypt = (enc: string, nonce: string, tag: string, tenantId: string) =>
+  decryptSecret(enc, nonce, tag, tenantId);
 
 // ---------------------------------------------------------------------------
 // Repository — always use service-role client (bypasses RLS by design)
@@ -60,7 +62,8 @@ export function tenantAiKeysRepo(svc: SupabaseClient) {
       const apiKey = decrypt(
         data.key_enc as string,
         data.key_nonce as string,
-        data.key_tag as string
+        data.key_tag as string,
+        tenantId
       );
       return { provider: data.provider as AIProvider, apiKey };
     },
@@ -75,7 +78,7 @@ export function tenantAiKeysRepo(svc: SupabaseClient) {
       apiKey: string,
       createdBy: string
     ): Promise<void> {
-      const { enc, nonce, tag } = encrypt(apiKey);
+      const { enc, nonce, tag } = encrypt(apiKey, tenantId);
       const keyHint = apiKey.length >= 4 ? `****${apiKey.slice(-4)}` : "****";
 
       // Deselect all existing keys for this tenant.

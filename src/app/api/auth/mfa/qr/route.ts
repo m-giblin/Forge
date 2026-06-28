@@ -11,6 +11,7 @@ export async function POST(req: Request) {
   const { uri } = await req.json();
   if (!uri) return NextResponse.json({ error: "uri required" }, { status: 400 });
 
-  const svg = await QRCode.toString(uri, { type: "svg", width: 200, margin: 2 });
-  return NextResponse.json({ svg });
+  // Return a PNG data URL — safer than inline SVG (SVG supports <script> tags).
+  const dataUrl = await QRCode.toDataURL(uri, { width: 200, margin: 2 });
+  return NextResponse.json({ dataUrl });
 }

@@ -153,11 +153,11 @@ function LoginForm() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
+    <main className="flex min-h-screen items-center justify-center px-4" style={{ backgroundColor: "#EAE7D4" }}>
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <img src="/logo-384.png" alt="Forge" className="mx-auto mb-4 h-48 w-48 object-contain" />
-          <p className="mt-1 text-sm text-neutral-500">Sign in to your workspace</p>
+          <img src="/forge-logo.svg" alt="Forge-Worx" className="mx-auto mb-2 h-64 w-64 object-contain drop-shadow-md" />
+          <p className="text-sm text-neutral-500">Sign in to your workspace</p>
         </div>
         <form
           onSubmit={onSubmit}

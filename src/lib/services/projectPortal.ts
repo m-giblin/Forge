@@ -274,6 +274,7 @@ function relTime(iso: string): string {
 export type ProjectCostsData = {
   projectId: string;
   budgetCents: number | null;
+  budgetAlertThresholdPct: number | null;
   spentCents: number;
   remainingCents: number;
   pct: number;
@@ -295,10 +296,11 @@ export async function loadProjectCosts(input: {
   const entries = await projectSpendRepo(supabase).list(input.tenantId, project.id);
   const spentCents = entries.reduce((s, e) => s + e.amountCents, 0);
   const budgetCents = project.budget_cents;
+  const budgetAlertThresholdPct = project.budget_alert_threshold_pct ?? null;
   const remainingCents = budgetCents != null ? budgetCents - spentCents : 0;
   const pct = budgetCents && budgetCents > 0 ? Math.round((spentCents / budgetCents) * 100) : 0;
 
-  return { projectId: project.id, budgetCents, spentCents, remainingCents, pct, entries };
+  return { projectId: project.id, budgetCents, budgetAlertThresholdPct, spentCents, remainingCents, pct, entries };
 }
 
 // ---------------------------------------------------------------------------

@@ -28,7 +28,12 @@ function mapRow(r: Record<string, unknown>): WebhookEndpoint {
     id: r.id as string,
     tenantId: r.tenant_id as string,
     url: r.url as string,
-    secret: decryptSecret(r.secret_enc as string, r.secret_nonce as string, r.secret_tag as string),
+    secret: decryptSecret(
+      r.secret_enc as string,
+      r.secret_nonce as string,
+      r.secret_tag as string,
+      r.tenant_id as string // per-tenant key derivation
+    ),
     events: (r.events as string[]) ?? [],
     enabled: r.enabled as boolean,
     createdAt: r.created_at as string,
@@ -59,7 +64,7 @@ export function webhooksRepo(supabase: SupabaseClient) {
     },
 
     async create(tenantId: string, input: { url: string; secret: string; events: string[] }): Promise<WebhookEndpoint> {
-      const { enc, nonce, tag } = encryptSecret(input.secret);
+      const { enc, nonce, tag } = encryptSecret(input.secret, tenantId);
       const { data, error } = await supabase
         .from("webhook_endpoints")
         .insert({

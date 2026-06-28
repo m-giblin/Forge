@@ -4,9 +4,9 @@ import { getRateLimiter } from "@/lib/providers/rate-limiter";
 import type { Scope } from "@/lib/api/scopes";
 import type { NextResponse } from "next/server";
 
-// Per-key and per-tenant fixed-window limits (dev values; tune for prod).
-const KEY_LIMIT = 100;
-const TENANT_LIMIT = 300;
+// Per-key: 60 req/min. Per-tenant: 500 req/min across all keys for the workspace.
+const KEY_LIMIT = 60;
+const TENANT_LIMIT = 500;
 const WINDOW_MS = 60_000;
 // Throttle FAILED auth attempts per IP to blunt API-key brute-forcing (review #2).
 const AUTH_FAIL_LIMIT = 10;

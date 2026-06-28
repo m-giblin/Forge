@@ -36,6 +36,7 @@ export type Issue = {
   due_date: string | null;
   phase: string | null;
   story_points: number | null;
+  time_estimate_minutes?: number | null;
   sprint_id?: string | null;
   parent_id?: string | null;
   triage_suggestion?: TriageSuggestion | null;
@@ -87,7 +88,7 @@ export type CreateIssueInput = {
 };
 
 const COLS =
-  "id, tenant_id, project_id, number, title, description, status, priority, type, assignee_id, reporter_id, labels, environment, app_version, stack_trace, source, external_id, category_id, custom_values, position, start_date, due_date, phase, story_points, sprint_id, parent_id, triage_suggestion, spec_md, latest_pr_impact, created_at, updated_at";
+  "id, tenant_id, project_id, number, title, description, status, priority, type, assignee_id, reporter_id, labels, environment, app_version, stack_trace, source, external_id, category_id, custom_values, position, start_date, due_date, phase, story_points, time_estimate_minutes, sprint_id, parent_id, triage_suggestion, spec_md, latest_pr_impact, created_at, updated_at";
 
 /**
  * Issue data access. Always tenant-scoped: every query filters on tenant_id

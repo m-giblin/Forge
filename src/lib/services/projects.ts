@@ -144,6 +144,17 @@ export async function createProject(input: {
   if (input.ownerUserId) {
     await projectMembersRepo(supabase).add(input.tenantId, project.id, input.ownerUserId, "owner");
   }
+
+  // Auto-create a project space (best-effort — don't fail project creation if this errors).
+  await supabase.from("spaces").insert({
+    tenant_id: input.tenantId,
+    type: "project",
+    project_id: project.id,
+    owner_id: input.ownerUserId ?? null,
+    name: project.name,
+    icon: "📁",
+  }).then(() => {}, () => {});
+
   return project;
 }
 

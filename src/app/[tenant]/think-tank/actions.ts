@@ -8,6 +8,7 @@ import { projectsRepo, projectWikiPagesRepo } from "@/lib/repositories/projects"
 import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, ideaVotesRepo, thinkTankPillsRepo, ideaDecisionsRepo, ideaSignoffsRepo, SIGNOFF_ROLES, type SignoffRole } from "@/lib/repositories/ideas";
 // eslint-disable-next-line no-restricted-imports -- complex attachment/storage/vote ops need service-role; all queries go through repos (sec09: accepted, pending full refactor)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { canDo } from "@/lib/permissions";
 import { callSoundingBoard, AIRateLimitError, type IdeaContext, type ConversationTurn } from "@/lib/ai/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { recordAudit } from "@/lib/audit";
@@ -113,7 +114,7 @@ export async function addIdeaCommentAction(
 ): Promise<{ commentId: string }> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (ctx.role === "viewer") throw new Error("Viewers cannot comment.");
+  if (!canDo(ctx.role, "viewer.comment", ctx.permissionOverrides)) throw new Error("You don't have permission to comment.");
 
   const trimmed = body.trim();
   if (!trimmed) throw new Error("Comment cannot be empty.");

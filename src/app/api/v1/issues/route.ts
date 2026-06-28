@@ -126,12 +126,23 @@ export async function GET(req: Request) {
       projectId = project.id;
     }
 
+    // Validate and clamp pagination params (M-9: prevents NaN/negative/unbounded queries)
+    const MAX_LIMIT = 200;
+    const parsedLimit = limitParam ? parseInt(limitParam, 10) : undefined;
+    const parsedOffset = offsetParam ? parseInt(offsetParam, 10) : undefined;
+    if (parsedLimit !== undefined && (isNaN(parsedLimit) || parsedLimit < 1)) {
+      return apiError("invalid_request", "limit must be a positive integer.");
+    }
+    if (parsedOffset !== undefined && (isNaN(parsedOffset) || parsedOffset < 0)) {
+      return apiError("invalid_request", "offset must be a non-negative integer.");
+    }
+
     const { issues, total, limit, offset } = await issuesRepo(supabase).list(tenantId, {
       status: statusParam ?? undefined,
       projectId,
       q: qParam ?? undefined,
-      limit: limitParam ? Number(limitParam) : undefined,
-      offset: offsetParam ? Number(offsetParam) : undefined,
+      limit: parsedLimit ? Math.min(parsedLimit, MAX_LIMIT) : undefined,
+      offset: parsedOffset,
     });
 
     const data = issues.map((i) => ({

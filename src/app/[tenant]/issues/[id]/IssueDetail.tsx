@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
@@ -16,8 +17,9 @@ import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 import TriageCard from "./TriageCard";
 import GitLinksCard from "./GitLinksCard";
 import MarkDuplicateButton from "./MarkDuplicateButton";
-import TimeTracker from "./TimeTracker";
+import IssueTimePanel from "./IssueTimePanel";
 import type { TimeLog } from "./timeActions";
+import { startIssueTimerAction, stopIssueTimerAction } from "./timeActions";
 import type { IssueCodeLink } from "@/lib/repositories/gitIntegration";
 import DecomposeButton from "./DecomposeButton";
 import PrImpactButton from "./PrImpactButton";
@@ -136,6 +138,8 @@ export default function IssueDetail({
   slaTimer,
   signoffs = [],
   initialTimeLogs = [],
+  initialTimerStartedAt = null,
+  timeEstimateMinutes = null,
 }: {
   slug: string;
   issue: Issue;
@@ -162,6 +166,8 @@ export default function IssueDetail({
   slaTimer?: SlaTimer;
   signoffs?: IssueSignoff[];
   initialTimeLogs?: TimeLog[];
+  initialTimerStartedAt?: string | null;
+  timeEstimateMinutes?: number | null;
 }) {
   const [title, setTitle] = useState(issue.title);
   const [description, setDescription] = useState(issue.description ?? "");
@@ -180,6 +186,36 @@ export default function IssueDetail({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  // Shared timer state — synced between the inline Activity button and the sidebar panel
+  const [sharedTimerAt, setSharedTimerAt] = useState<string | null>(initialTimerStartedAt ?? null);
+  const [timerPending, startTimerTransition] = useTransition();
+  const [inlineTimerError, setInlineTimerError] = useState<string | null>(null);
+  // Used to push an optimistic log entry into IssueTimePanel after Activity-header stop
+  const [activityStopLog, setActivityStopLog] = useState<{ minutes: number; note: string } | null>(null);
+
+  function handleInlineStart() {
+    startTimerTransition(async () => {
+      const res = await startIssueTimerAction(slug, issue.id);
+      if (res.ok && res.startedAt) setSharedTimerAt(res.startedAt);
+    });
+  }
+
+  function handleInlineStop() {
+    setInlineTimerError(null);
+    startTimerTransition(async () => {
+      const res = await stopIssueTimerAction(slug, issue.id);
+      if (res.ok) {
+        setSharedTimerAt(null);
+        if (res.minutesLogged && res.minutesLogged > 0) {
+          setActivityStopLog({ minutes: res.minutesLogged, note: res.note ?? "" });
+        }
+      } else {
+        setInlineTimerError(res.error ?? "Failed to stop timer");
+      }
+    });
+  }
 
   // Auto-save a single sidebar field immediately on change
   function saveField(patch: Parameters<typeof updateIssueAction>[2]) {
@@ -685,12 +721,35 @@ export default function IssueDetail({
 
           {/* ─ Activity section ─ */}
           <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
-            <p className="mb-4 text-xs font-semibold uppercase tracking-wider text-neutral-600">
-              Activity
-              {comments.length > 0 && (
-                <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-neutral-600">{comments.length}</span>
+            <div className="mb-4 flex items-center gap-2">
+              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600 flex-1">
+                Activity
+                {comments.length > 0 && (
+                  <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-neutral-600">{comments.length}</span>
+                )}
+              </p>
+              {!readOnly && (
+                <button
+                  type="button"
+                  disabled={timerPending}
+                  onClick={sharedTimerAt ? handleInlineStop : handleInlineStart}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${
+                    sharedTimerAt
+                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200"
+                      : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200"
+                  }`}
+                >
+                  {sharedTimerAt ? (
+                    <><span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />⏹ Stop Timer</>
+                  ) : (
+                    <>▶ Start Timer</>
+                  )}
+                </button>
               )}
-            </p>
+            </div>
+            {inlineTimerError && (
+              <p className="mb-2 text-xs text-red-600 bg-red-50 rounded px-2 py-1">{inlineTimerError}</p>
+            )}
 
             <div className="space-y-3">
               {timeline.length === 0 && (
@@ -1086,15 +1145,18 @@ export default function IssueDetail({
           </div>
 
           {/* ── ⏱ Time Tracking ── */}
-          <div className="rounded-xl border border-teal-200 bg-teal-50 p-4">
-            <SideGroupLabel color="text-teal-600">⏱ Time Tracking</SideGroupLabel>
-            <TimeTracker
-              slug={slug}
-              issueId={issue.id}
-              initialLogs={initialTimeLogs}
-              readOnly={readOnly}
-            />
-          </div>
+          <IssueTimePanel
+            slug={slug}
+            issueId={issue.id}
+            initialLogs={initialTimeLogs}
+            timeEstimateMinutes={timeEstimateMinutes ?? null}
+            initialTimerStartedAt={initialTimerStartedAt ?? null}
+            controlledTimerAt={sharedTimerAt}
+            onTimerChange={setSharedTimerAt}
+            activityStopLog={activityStopLog}
+            onActivityStopConsumed={() => setActivityStopLog(null)}
+            readOnly={readOnly}
+          />
 
           <GitLinksCard links={gitLinks} />
 

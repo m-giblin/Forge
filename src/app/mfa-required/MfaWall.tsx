@@ -23,7 +23,7 @@ export default function MfaWall({
 
   const [mode, setMode] = useState<Mode>(hasFactor ? "challenge" : "enroll");
   const [factorId, setFactorId] = useState<string | null>(initialFactorId);
-  const [qrSvg, setQrSvg] = useState("");
+  const [qrDataUrl, setQrDataUrl] = useState("");
   const [secret, setSecret] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -41,11 +41,11 @@ export default function MfaWall({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ uri: data.totp.uri }),
     });
-    const { svg } = await res.json();
+    const { dataUrl } = await res.json();
     setBusy(false);
     setFactorId(data.id);
     setSecret(data.totp.secret);
-    setQrSvg(svg);
+    setQrDataUrl(dataUrl);
     setMode("enroll-verify");
   }
 
@@ -141,10 +141,10 @@ export default function MfaWall({
                 <p className="text-sm font-medium text-neutral-700 mb-3">
                   Scan this QR code with your authenticator app
                 </p>
-                <div
-                  className="flex justify-center"
-                  dangerouslySetInnerHTML={{ __html: qrSvg }}
-                />
+                <div className="flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={qrDataUrl} alt="QR code for authenticator app" width={200} height={200} />
+                </div>
                 <details className="mt-3 text-xs text-neutral-500">
                   <summary className="cursor-pointer select-none hover:text-neutral-700">
                     Can&apos;t scan? Enter manually

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { updateIssue, deleteIssue, addIssueComment, type IssuePatch } from "@/lib/services/issues";
 import { ctxCanDo } from "@/lib/rbac";
+import { canDo } from "@/lib/permissions";
 // eslint-disable-next-line no-restricted-imports -- SEC-09: service-role required for watcher writes (no user RLS policy)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issueAttachmentsRepo } from "@/lib/repositories/issueAttachments";
@@ -76,7 +77,7 @@ export async function addCommentAction(
 ) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (ctx.role === "viewer") throw new Error("Viewers cannot comment in this workspace.");
+  if (!canDo(ctx.role, "viewer.comment", ctx.permissionOverrides)) throw new Error("You don't have permission to comment in this workspace.");
   // Only owners and admins may mark a comment as a Decision
   const resolvedType =
     commentType === "decision" && (ctx.role === "owner" || ctx.role === "admin")
@@ -218,18 +219,67 @@ export async function markDuplicateAction(
     link_type: "duplicates",
   });
 
-  // 2. Close the duplicate with a won't-fix-style status
+  // 2. Transfer comments from duplicate → canonical (with attribution header)
+  const { data: dupComments } = await svc
+    .from("issue_comments")
+    .select("id, body, author_id, author_label, created_at")
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("issue_id", duplicateIssueId)
+    .is("parent_id", null)
+    .order("created_at", { ascending: true });
+
+  if (dupComments && dupComments.length > 0) {
+    const mergedRows = dupComments.map((c) => ({
+      tenant_id: ctx.tenant.id,
+      issue_id: canonicalIssueId,
+      author_id: c.author_id,
+      author_label: c.author_label,
+      body: `*[Merged from duplicate — original comment]*\n\n${c.body}`,
+      parent_id: null,
+    }));
+    await svc.from("issue_comments").insert(mergedRows);
+  }
+
+  // 3. Transfer watchers from duplicate → canonical (ignore conflicts)
+  const { data: dupWatchers } = await svc
+    .from("issue_watchers")
+    .select("user_id")
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("issue_id", duplicateIssueId);
+
+  if (dupWatchers && dupWatchers.length > 0) {
+    const watcherRows = dupWatchers.map((w) => ({
+      tenant_id: ctx.tenant.id,
+      issue_id: canonicalIssueId,
+      user_id: w.user_id,
+    }));
+    await svc
+      .from("issue_watchers")
+      .upsert(watcherRows, { onConflict: "tenant_id,issue_id,user_id", ignoreDuplicates: true });
+  }
+
+  // 4. Close the duplicate with a won't-fix-style status
   await svc.from("issues").update({ status: "done" })
     .eq("tenant_id", ctx.tenant.id)
     .eq("id", duplicateIssueId);
 
-  // 3. Post timeline comment
+  // 5. Post timeline comment on duplicate
   await svc.from("issue_comments").insert({
     tenant_id: ctx.tenant.id,
     issue_id: duplicateIssueId,
     author_id: ctx.appUserId,
     author_label: null,
-    body: `Marked as duplicate of **${canonicalKey}** and closed.`,
+    body: `Marked as duplicate of **[${canonicalKey}](/${slug}/issues/${canonicalIssueId})** and closed. ${dupComments?.length ? `${dupComments.length} comment(s) merged into the canonical issue.` : ""}`,
+    parent_id: null,
+  });
+
+  // 6. Post notice on canonical issue
+  await svc.from("issue_comments").insert({
+    tenant_id: ctx.tenant.id,
+    issue_id: canonicalIssueId,
+    author_id: ctx.appUserId,
+    author_label: null,
+    body: `A duplicate issue was merged into this one. ${dupComments?.length ? `${dupComments.length} comment(s) transferred.` : ""}`,
     parent_id: null,
   });
 

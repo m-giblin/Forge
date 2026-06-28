@@ -4,8 +4,17 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getTenantContext } from "@/lib/auth";
 import { customRolesRepo } from "@/lib/repositories/customRoles";
-import type { RbacPermissionSet } from "@/lib/rbac";
+import { type RbacPermissionSet, RBAC_PERMISSIONS } from "@/lib/rbac";
 import { revalidatePath } from "next/cache";
+
+function validatePermissions(permissions: RbacPermissionSet): RbacPermissionSet {
+  const allowed = new Set<string>(RBAC_PERMISSIONS);
+  const clean: RbacPermissionSet = {};
+  for (const [k, v] of Object.entries(permissions)) {
+    if (allowed.has(k)) clean[k as keyof RbacPermissionSet] = Boolean(v);
+  }
+  return clean;
+}
 
 async function requireAdmin(slug: string) {
   const ctx = await getTenantContext(slug);
@@ -20,7 +29,10 @@ export async function createRoleAction(
 ) {
   const ctx = await requireAdmin(slug);
   const svc = createSupabaseServiceClient();
-  await customRolesRepo(svc).create(ctx.tenant.id, input);
+  await customRolesRepo(svc).create(ctx.tenant.id, {
+    ...input,
+    permissions: validatePermissions(input.permissions),
+  });
   revalidatePath(`/${slug}/admin/roles`);
   revalidatePath(`/${slug}/admin/members`);
 }
@@ -32,7 +44,10 @@ export async function updateRoleAction(
 ) {
   const ctx = await requireAdmin(slug);
   const svc = createSupabaseServiceClient();
-  await customRolesRepo(svc).update(roleId, ctx.tenant.id, patch);
+  await customRolesRepo(svc).update(roleId, ctx.tenant.id, {
+    ...patch,
+    permissions: patch.permissions ? validatePermissions(patch.permissions) : undefined,
+  });
   revalidatePath(`/${slug}/admin/roles`);
   revalidatePath(`/${slug}/admin/members`);
 }

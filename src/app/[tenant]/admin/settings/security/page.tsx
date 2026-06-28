@@ -1,7 +1,18 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
+
+const SESSION_MIN = 15;
+const SESSION_MAX = 480;
+const SESSION_DEFAULT = 30;
+
+function minutesToDisplay(m: number): string {
+  if (m < 60) return `${m} minutes`;
+  const h = Math.floor(m / 60);
+  const rem = m % 60;
+  return rem === 0 ? `${h} hour${h !== 1 ? "s" : ""}` : `${h}h ${rem}m`;
+}
 
 export default function SecuritySettingsPage() {
   const { tenant: slug } = useParams<{ tenant: string }>();
@@ -12,6 +23,14 @@ export default function SecuritySettingsPage() {
   const [mfaSaving, setMfaSaving] = useState(false);
   const [mfaSaved, setMfaSaved] = useState(false);
   const [mfaError, setMfaError] = useState<string | null>(null);
+
+  // --- Session timeout state ---
+  const [sessionMinutes, setSessionMinutes] = useState(SESSION_DEFAULT);
+  const [sessionLoaded, setSessionLoaded] = useState(false);
+  const [sessionSaving, setSessionSaving] = useState(false);
+  const [sessionSaved, setSessionSaved] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const sessionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // --- IP allowlist state ---
   const [ipEntries, setIpEntries] = useState<string[]>([]);
@@ -34,6 +53,29 @@ export default function SecuritySettingsPage() {
         setIpRaw(entries.join("\n"));
         setIpLoaded(true);
       });
+    fetch(`/api/admin/session-timeout?tenant=${slug}`)
+      .then((r) => r.json())
+      .then((d) => { setSessionMinutes(d.minutes ?? SESSION_DEFAULT); setSessionLoaded(true); });
+  }, [slug]);
+
+  const saveSessionTimeout = useCallback(async (minutes: number) => {
+    setSessionSaving(true);
+    setSessionSaved(false);
+    setSessionError(null);
+    const res = await fetch("/api/admin/session-timeout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, minutes }),
+    });
+    setSessionSaving(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setSessionError(body.error ?? "Save failed.");
+      return;
+    }
+    setSessionSaved(true);
+    if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
+    sessionTimerRef.current = setTimeout(() => setSessionSaved(false), 3000);
   }, [slug]);
 
   async function saveMfa(next: boolean) {
@@ -94,7 +136,7 @@ export default function SecuritySettingsPage() {
     ipTimerRef.current = setTimeout(() => setIpSaved(false), 3000);
   }
 
-  if (!mfaLoaded || !ipLoaded) return <div className="text-sm text-neutral-400">Loading…</div>;
+  if (!mfaLoaded || !ipLoaded || !sessionLoaded) return <div className="text-sm text-neutral-400">Loading…</div>;
 
   const ipEnabled = ipEntries.length > 0;
 
@@ -216,19 +258,69 @@ export default function SecuritySettingsPage() {
         )}
       </div>
 
-      {/* Session timeout placeholder */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5 opacity-50">
-        <div className="flex items-center justify-between">
-          <div>
+      {/* Session timeout card */}
+      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+        <div className="p-5">
+          <div className="flex items-center gap-2 mb-1">
             <p className="font-semibold text-neutral-900">Session timeout</p>
-            <p className="mt-1 text-sm text-neutral-500">
-              Automatically sign out inactive members after a set period.
-            </p>
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+              {minutesToDisplay(sessionMinutes)}
+            </span>
           </div>
-          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-semibold text-amber-700">
-            Coming soon
-          </span>
+          <p className="text-sm text-neutral-500 mb-4">
+            Automatically sign out all members — including admins — after this period of inactivity.
+            A warning appears 5 minutes before sign-out with an option to stay logged in.
+          </p>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <label className="text-sm text-neutral-600 w-20 shrink-0">Timeout</label>
+              <input
+                type="range"
+                min={SESSION_MIN}
+                max={SESSION_MAX}
+                step={15}
+                value={sessionMinutes}
+                onChange={(e) => setSessionMinutes(Number(e.target.value))}
+                className="flex-1 accent-neutral-900"
+              />
+              <span className="text-sm font-medium text-neutral-900 w-20 text-right tabular-nums">
+                {minutesToDisplay(sessionMinutes)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-neutral-400">
+              <span>15 min</span>
+              <span>1 hr</span>
+              <span>4 hrs</span>
+              <span>8 hrs</span>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg bg-neutral-50 border border-neutral-200 px-4 py-3 text-sm text-neutral-600">
+            Warning shown at <span className="font-medium">{minutesToDisplay(Math.max(SESSION_MIN, sessionMinutes - 5))}</span>,
+            sign-out at <span className="font-medium">{minutesToDisplay(sessionMinutes)}</span> of inactivity.
+          </div>
+
+          <div className="mt-4">
+            <button
+              onClick={() => saveSessionTimeout(sessionMinutes)}
+              disabled={sessionSaving}
+              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 transition"
+            >
+              {sessionSaving ? "Saving…" : "Save"}
+            </button>
+          </div>
         </div>
+        {sessionSaved && (
+          <div className="border-t border-emerald-100 bg-emerald-50 px-5 py-2.5 text-sm text-emerald-700">
+            ✓ Saved — new timeout applies on the next page load for each member.
+          </div>
+        )}
+        {sessionError && (
+          <div className="border-t border-red-100 bg-red-50 px-5 py-2.5 text-sm text-red-700">
+            {sessionError}
+          </div>
+        )}
       </div>
     </div>
   );

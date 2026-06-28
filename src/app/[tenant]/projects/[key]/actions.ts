@@ -7,9 +7,12 @@ import { projectsRepo, projectWikiPagesRepo, projectSpendRepo, type ProjectStatu
 import { changeProjectStatus, deleteProject, updateProject } from "@/lib/services/projects";
 import { recordAudit } from "@/lib/audit";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { canDo } from "@/lib/permissions";
 
-function assertAdmin(role: string) {
-  if (role !== "owner" && role !== "admin") throw new Error("Only owners and admins can manage projects.");
+function assertCanManageProjects(role: string, overrides: Record<string, boolean>) {
+  const memberGranted = role === "member" && canDo(role, "member.manage_projects", overrides);
+  if (!memberGranted && role !== "owner" && role !== "admin")
+    throw new Error("Only owners and admins can manage projects.");
 }
 
 export async function updateProjectAction(
@@ -19,7 +22,7 @@ export async function updateProjectAction(
 ): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertAdmin(ctx.role);
+  assertCanManageProjects(ctx.role, ctx.permissionOverrides);
   await updateProject(ctx.tenant.id, projectKey, patch, ctx.role, ctx.impersonating);
   await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "project.update", target: projectKey });
   revalidatePath(`/${slug}/projects/${projectKey}`);
@@ -29,7 +32,7 @@ export async function updateProjectAction(
 export async function changeStatusAction(slug: string, projectKey: string, status: ProjectStatus): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertAdmin(ctx.role);
+  assertCanManageProjects(ctx.role, ctx.permissionOverrides);
   await changeProjectStatus(ctx.tenant.id, projectKey, status, ctx.role, ctx.impersonating);
   await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "project.status", target: `${projectKey} → ${status}` });
   revalidatePath(`/${slug}/projects/${projectKey}`);
@@ -39,7 +42,7 @@ export async function changeStatusAction(slug: string, projectKey: string, statu
 export async function deleteProjectAction(slug: string, projectKey: string): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertAdmin(ctx.role);
+  assertCanManageProjects(ctx.role, ctx.permissionOverrides);
   await deleteProject(ctx.tenant.id, projectKey, ctx.role);
   await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "project.delete", target: projectKey });
   revalidatePath(`/${slug}/projects`);
