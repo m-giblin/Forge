@@ -56,7 +56,20 @@ export async function updateSession(
 
   const path = request.nextUrl.pathname;
   // /join must be reachable signed-out so a new invitee can create an account.
-  const isPublic = path.startsWith("/login") || path.startsWith("/join") || path.startsWith("/api/v1") || path.startsWith("/api/auth/") || path.startsWith("/auth/") || path.startsWith("/api/cron/") || path.startsWith("/design");
+  const isPublic =
+    path === "/" ||
+    path.startsWith("/login") ||
+    path.startsWith("/signup") ||
+    path.startsWith("/preview-landing") ||
+    path.startsWith("/join") ||
+    path.startsWith("/api/v1") ||
+    path.startsWith("/api/auth/") ||
+    path.startsWith("/api/signup") ||
+    path.startsWith("/api/cron/") ||
+    path.startsWith("/auth/") ||
+    path.startsWith("/shared") ||
+    path.startsWith("/legal") ||
+    path.startsWith("/design");
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
