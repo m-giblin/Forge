@@ -43,7 +43,9 @@ export async function updateSession(request: NextRequest) {
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", path);
+    // M-3: only allow same-origin relative paths as redirect target (no open redirect)
+    const safePath = path.startsWith("/") && !path.startsWith("//") ? path : "/";
+    url.searchParams.set("next", safePath);
     return NextResponse.redirect(url);
   }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createHash, randomBytes } from "crypto";
+import { getRateLimiter } from "@/lib/providers/rate-limiter";
 
 const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000; // 1 hour
 const RATE_LIMIT_MAX = 5; // max 5 requests per email per share per hour
@@ -9,16 +10,29 @@ function sha256(val: string) {
   return createHash("sha256").update(val.toLowerCase()).digest("hex");
 }
 
+function clientIp(req: Request): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+}
+
 // POST /api/spaces/guest/request  — guest requests a magic link to view a shared page
 // Body: { shareId, email }
 // Security layers:
-//   1. Validates shareId is active
-//   2. Validates email matches allowed_domain
-//   3. Blocks generic email providers
-//   4. Rate-limits requests per (shareId, email) within 1hr window
-//   5. Stores only sha256(token) — raw token sent by email only, never stored
-//   6. Tokens expire in 1 hour; sessions last 48 hours after first use
+//   1. IP-level rate limit (10/hr) before any DB work
+//   2. Validates shareId is active
+//   3. Validates email matches allowed_domain
+//   4. Blocks generic email providers
+//   5. Rate-limits requests per (shareId, email) within 1hr window
+//   6. Stores only sha256(token) — raw token sent by email only, never stored
+//   7. Tokens expire in 1 hour; sessions last 48 hours after first use
 export async function POST(req: Request) {
+  // IP-level rate limit: 10 magic-link requests per IP per hour
+  const rl = getRateLimiter();
+  const ip = clientIp(req);
+  const ipResult = await rl.check(`guestreq:ip:${ip}`, 10, 60 * 60_000);
+  if (!ipResult.allowed) {
+    return NextResponse.json({ error: "Too many requests from this IP. Please wait before trying again." }, { status: 429 });
+  }
+
   const body = await req.json();
   const { shareId, email } = body as { shareId: string; email: string };
 
@@ -93,7 +107,6 @@ export async function POST(req: Request) {
 
     const { error } = await svc.from("guest_tokens").insert({
       share_id: shareId,
-      email: cleanEmail, // stored for resend reference only — hashed for lookups
       email_hash: emailHash,
       token_hash: tokenHash,
       expires_at: expiresAt,

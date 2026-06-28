@@ -17,6 +17,8 @@ export type ErasureResult = {
  * Actions taken:
  * - users: name→null, email→anonymized placeholder
  * - issue_comments: body→"[deleted]" for this user
+ * - issue_events: user_id nullified (preserves history, removes attribution)
+ * - idea_ai_turns: deleted (AI-generated content tied to the user's ideas)
  * - api_keys: revoked
  * - memberships: deleted
  * - notification_prefs: deleted
@@ -55,7 +57,20 @@ export async function eraseSubjectData(email: string): Promise<ErasureResult> {
     .eq("user_id", userId);
   actions.push(`Cleared ${commentCount ?? 0} comment(s) body text.`);
 
-  // 3. Revoke API keys
+  // 3. Nullify user attribution on issue events (preserves audit history, removes PII)
+  await svc.from("issue_events").update({ user_id: null }).eq("user_id", userId);
+  actions.push("Removed user attribution from issue events.");
+
+  // 4. Delete AI turn data (explicitly promised in AI policy)
+  try {
+    await svc.from("idea_ai_turns").delete().eq("user_id", userId);
+    actions.push("Deleted AI turn history.");
+  } catch {
+    // Table may not exist in all environments; non-fatal.
+    actions.push("AI turn deletion skipped (table not found).");
+  }
+
+  // 5. Revoke API keys
   await svc
     .from("api_keys")
     .update({ revoked_at: new Date().toISOString() })
@@ -63,11 +78,11 @@ export async function eraseSubjectData(email: string): Promise<ErasureResult> {
     .is("revoked_at", null);
   actions.push("Revoked all API keys.");
 
-  // 4. Remove memberships
+  // 6. Remove memberships
   await svc.from("memberships").delete().eq("user_id", userId);
   actions.push("Removed all workspace memberships.");
 
-  // 5. Remove notification prefs (if table exists — fail open)
+  // 7. Remove notification prefs (if table exists — fail open)
   try {
     await svc.from("notification_prefs").delete().eq("user_id", userId);
     actions.push("Removed notification preferences.");
@@ -75,7 +90,7 @@ export async function eraseSubjectData(email: string): Promise<ErasureResult> {
     // table may not exist in all environments
   }
 
-  // 6. Delete auth account (prevents re-login)
+  // 8. Delete auth account (prevents re-login)
   if (authId) {
     try {
       await svc.auth.admin.deleteUser(authId);

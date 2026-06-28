@@ -11,22 +11,23 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "geolocation=(), camera=(), microphone=()" },
   // Enforce HTTPS for 1 year and include subdomains.
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
-  // Basic CSP: same-origin scripts, styles, images; allow Supabase and our own API.
-  // Intentionally permissive on img-src (data: URIs used in exports).
+  // CSP: same-origin scripts/styles/images; allow Supabase and AI API.
+  // unsafe-eval removed — Next.js production builds don't require it.
+  // unsafe-inline on script-src remains until nonce support is wired (TODO: nonces).
   {
     key: "Content-Security-Policy",
     value: [
       "default-src 'self'",
-      // Next.js inline scripts (nonces not yet wired; tighten after adding nonce support)
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "script-src 'self' 'unsafe-inline'",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https:",
       "font-src 'self'",
-      // Supabase realtime + auth + storage
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.x.ai",
       "frame-ancestors 'none'",
     ].join("; "),
   },
+  // Prevent browsers from pre-resolving hostnames embedded in page content.
+  { key: "X-DNS-Prefetch-Control", value: "off" },
 ];
 
 const nextConfig: NextConfig = {
@@ -44,6 +45,26 @@ const nextConfig: NextConfig = {
       {
         source: "/(.*)",
         headers: securityHeaders,
+      },
+      {
+        // Session-authenticated internal API routes: same-origin only.
+        // CORS is not needed here (browser JS on the same origin doesn't need it),
+        // but an explicit deny-cross-origin header prevents confused-deputy attacks
+        // from other origins trying to make credentialed requests.
+        source: "/api/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "" },
+          { key: "Vary", value: "Origin" },
+        ],
+      },
+      {
+        // Public REST API — allow any origin to call, credentials=omit.
+        source: "/api/v1/:path*",
+        headers: [
+          { key: "Access-Control-Allow-Origin", value: "*" },
+          { key: "Access-Control-Allow-Methods", value: "GET, POST, PATCH, DELETE, OPTIONS" },
+          { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
+        ],
       },
     ];
   },

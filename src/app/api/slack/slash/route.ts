@@ -6,6 +6,15 @@ import {
   createIssueFromSlack,
   postEphemeral,
 } from "@/lib/services/slack";
+import { getRateLimiter } from "@/lib/providers/rate-limiter";
+
+function sanitizeTitle(raw: string): string {
+  return raw
+    .replace(/<[^>]*>/g, "") // strip any HTML/Slack mrkdwn tags
+    .replace(/[^\x20-\x7E -￿]/g, "") // strip control chars
+    .trim()
+    .slice(0, 255); // hard cap
+}
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const rawBody = await req.text();
@@ -16,10 +25,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const teamId = params.get("team_id") ?? "";
   const userId = params.get("user_id") ?? "";
   const channelId = params.get("channel_id") ?? "";
-  const text = (params.get("text") ?? "").trim();
+  const rawText = (params.get("text") ?? "").trim();
 
-  if (!text) {
+  if (!rawText) {
     return NextResponse.json({ response_type: "ephemeral", text: "Usage: `/forge [title of issue]`" });
+  }
+
+  const text = sanitizeTitle(rawText);
+  if (!text) {
+    return NextResponse.json({ response_type: "ephemeral", text: "Issue title cannot be empty after sanitization." });
+  }
+
+  // IP-level rate limit: 30 slash commands per workspace per 10 minutes.
+  const rl = getRateLimiter();
+  const rlResult = await rl.check(`slack:slash:${teamId}`, 30, 10 * 60_000);
+  if (!rlResult.allowed) {
+    return NextResponse.json({ response_type: "ephemeral", text: "Rate limit reached — slow down a bit and try again." });
   }
 
   // Look up tenant by workspace ID
