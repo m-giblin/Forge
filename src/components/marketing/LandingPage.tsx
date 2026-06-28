@@ -93,7 +93,7 @@ const FAQS = [
   },
   {
     q: "Can I import from Jira?",
-    a: "Yes. Forge-Worx can import your issues, epics, sprints, and history via CSV or our Jira migration tool. Most teams are up and running in under an hour.",
+    a: "Jira CSV export is on our roadmap. In the meantime, our team can help you migrate your issues and history manually — reach out at hello@forge-worx.com and we'll get you set up.",
   },
   {
     q: "How is this different from Linear or Jira?",
@@ -109,7 +109,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-2">
-            <img src="/forge-logo.svg" alt="Forge-Worx" className="h-10 w-10 object-contain drop-shadow-md" />
+            <img src="/forge-logo.svg" alt="Forge-Worx" className="h-14 w-14 object-contain drop-shadow-md" />
           </div>
 
           <nav className="hidden md:flex items-center gap-6 text-sm text-slate-300">
@@ -591,7 +591,7 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
             <div>
               <div className="mb-3">
-                <img src="/forge-logo.svg" alt="Forge-Worx" className="h-12 w-12 object-contain drop-shadow-md" />
+                <img src="/forge-logo.svg" alt="Forge-Worx" className="h-16 w-16 object-contain drop-shadow-md" />
               </div>
               <p className="text-sm text-slate-500 max-w-xs">
                 Sprint intelligence for engineering-led product teams. Ship. Report. Win.
