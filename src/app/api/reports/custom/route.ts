@@ -7,7 +7,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 export const dynamic = "force-dynamic";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-export const VALID_GROUP_BY = ["status", "priority", "type", "assignee", "label", "sprint", "phase", "environment"] as const;
+export const VALID_GROUP_BY = ["status", "priority", "type", "assignee", "label", "sprint", "project", "phase", "environment"] as const;
 export const VALID_METRICS = ["count", "story_points", "time_logged"] as const;
 export const VALID_DATE_GROUP = ["week", "month"] as const;
 export type GroupBy = (typeof VALID_GROUP_BY)[number];
@@ -63,6 +63,7 @@ interface IssueRow {
   assignee_email: string | null;
   labels: string[] | null;
   sprint_id: string | null;
+  project_id: string | null;
   phase: string | null;
   environment: string | null;
   story_points: number | null;
@@ -133,11 +134,18 @@ export async function GET(req: NextRequest) {
     sprintMap = new Map((data ?? []).map((s) => [s.id as string, s.name as string]));
   }
 
+  // Project name lookup
+  let projectMap = new Map<string, string>();
+  if (groupBy === "project") {
+    const { data } = await svc.from("projects").select("id, name").eq("tenant_id", ctx.tenant.id);
+    projectMap = new Map((data ?? []).map((p) => [p.id as string, p.name as string]));
+  }
+
   // ── Data fetching ─────────────────────────────────────────────────────────
   async function fetchIssues(from: string, to: string): Promise<IssueRow[]> {
     let q = svc
       .from("issues")
-      .select("id, status, priority, type, assignee_id, labels, sprint_id, phase, environment, story_points, created_at, updated_at, users!issues_assignee_id_fkey(email)")
+      .select("id, status, priority, type, assignee_id, labels, sprint_id, project_id, phase, environment, story_points, created_at, updated_at, users!issues_assignee_id_fkey(email)")
       .eq("tenant_id", ctx.tenant.id)
       .gte("created_at", `${from}T00:00:00Z`)
       .lte("created_at", `${to}T23:59:59Z`);
@@ -157,6 +165,7 @@ export async function GET(req: NextRequest) {
         assignee_email: email as string | null,
         labels: r.labels as string[] | null,
         sprint_id: r.sprint_id as string | null,
+        project_id: r.project_id as string | null,
         phase: r.phase as string | null,
         environment: r.environment as string | null,
         story_points: r.story_points as number | null,
@@ -193,6 +202,7 @@ export async function GET(req: NextRequest) {
         return ls && ls.length > 0 ? ls : ["Unlabeled"];
       }
       case "sprint": return [issue.sprint_id ? (sprintMap.get(issue.sprint_id) ?? "Unknown Sprint") : "Backlog"];
+      case "project": return [issue.project_id ? (projectMap.get(issue.project_id) ?? "Unknown Project") : "No Project"];
       case "phase": return [issue.phase || "No Phase"];
       case "environment": return [issue.environment || "Not Set"];
     }

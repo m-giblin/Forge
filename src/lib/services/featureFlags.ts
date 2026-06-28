@@ -12,12 +12,12 @@ import { featureFlagsRepo } from "@/lib/repositories/featureFlags";
  * errors, features are treated as enabled so the app never breaks.
  */
 
-export const FEATURE_KEYS = ["think_tank", "dashboards", "project_portal", "roadmap", "job_titles", "rbac", "ops_layer", "ops_layer_premium"] as const;
+export const FEATURE_KEYS = ["think_tank", "dashboards", "project_portal", "roadmap", "job_titles", "rbac", "ops_layer", "ops_layer_premium", "advanced_reports"] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 
 export type TenantFlags = Record<FeatureKey, boolean>;
 
-const ALL_ON: TenantFlags = { think_tank: true, dashboards: true, project_portal: true, roadmap: true, job_titles: false, rbac: false, ops_layer: true, ops_layer_premium: false };
+const ALL_ON: TenantFlags = { think_tank: true, dashboards: true, project_portal: true, roadmap: true, job_titles: false, rbac: false, ops_layer: true, ops_layer_premium: false, advanced_reports: false };
 
 /** Resolve every flag for a tenant in one read. Fails open. */
 export async function loadTenantFlags(tenantId: string): Promise<TenantFlags> {
@@ -46,6 +46,7 @@ export async function loadTenantFlags(tenantId: string): Promise<TenantFlags> {
       rbac: resolve("rbac"),
       ops_layer: resolve("ops_layer"),
       ops_layer_premium: resolve("ops_layer_premium"),
+      advanced_reports: resolve("advanced_reports"),
     };
   } catch {
     // Table missing (migration not yet run) or any read error → everything on.

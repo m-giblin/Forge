@@ -11,8 +11,9 @@ const GROUP_BY_OPTIONS: { value: GroupBy; label: string; icon: string }[] = [
   { value: "assignee", label: "Assignee", icon: "👤" },
   { value: "label", label: "Label", icon: "🏷" },
   { value: "sprint", label: "Sprint", icon: "🏃" },
+  { value: "project", label: "Project", icon: "📋" },
   { value: "phase", label: "Phase", icon: "📍" },
-  { value: "environment", label: "Environment", icon: "🌐" },
+  { value: "environment", label: "Env", icon: "🌐" },
 ];
 const METRIC_OPTIONS: { value: Metric; label: string; unit: string }[] = [
   { value: "count", label: "Issue Count", unit: "" },
@@ -425,7 +426,9 @@ export default function CustomReportClient({
     { label: "Total Issues", value: String(s.total), sub: prev ? `vs ${prev.total} prev` : undefined, accent: "#0f172a", prevVal: prev?.total },
     { label: "Open", value: String(s.open), sub: `${100 - s.pctDone}% of total`, accent: "#4f46e5", prevVal: prev?.open },
     { label: "Done", value: String(s.closed), sub: `${s.pctDone}% completion`, accent: "#15803d", prevVal: prev?.closed },
-    { label: metric === "time_logged" ? "Time Logged" : metric === "story_points" ? "Story Points" : "Avg Cycle", value: metric === "time_logged" ? `${s.totalTimeLoggedHours}h` : metric === "story_points" ? `${s.totalStoryPoints}pts` : s.avgCycleDays != null ? `${s.avgCycleDays}d` : "—", sub: metric === "count" ? "avg days open→done" : undefined, accent: "#b45309", prevVal: undefined },
+    { label: "Story Points", value: `${s.totalStoryPoints}pts`, sub: undefined, accent: "#7c3aed", prevVal: undefined },
+    { label: "Time Logged", value: `${s.totalTimeLoggedHours}h`, sub: undefined, accent: "#0369a1", prevVal: undefined },
+    { label: "Avg Cycle", value: s.avgCycleDays != null ? `${s.avgCycleDays}d` : "—", sub: "open → done", accent: "#b45309", prevVal: undefined },
   ];
 
   return (
@@ -502,6 +505,30 @@ export default function CustomReportClient({
                       {label}
                     </button>
                   ))}
+                  {/* Smart presets */}
+                  {(() => {
+                    const now = new Date();
+                    const qStart = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1);
+                    const qEnd = new Date(qStart.getFullYear(), qStart.getMonth() + 3, 0);
+                    const lqStart = new Date(qStart); lqStart.setMonth(lqStart.getMonth() - 3);
+                    const lqEnd = new Date(qStart); lqEnd.setDate(lqEnd.getDate() - 1);
+                    return (
+                      <>
+                        <button onClick={() => { setFrom(qStart.toISOString().slice(0, 10)); setTo(qEnd.toISOString().slice(0, 10)); }}
+                          className="rounded px-2 py-0.5 text-[10px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors">
+                          This Q
+                        </button>
+                        <button onClick={() => { setFrom(lqStart.toISOString().slice(0, 10)); setTo(lqEnd.toISOString().slice(0, 10)); }}
+                          className="rounded px-2 py-0.5 text-[10px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors">
+                          Last Q
+                        </button>
+                        <button onClick={() => { const y = now.getFullYear(); setFrom(`${y}-01-01`); setTo(`${y}-12-31`); }}
+                          className="rounded px-2 py-0.5 text-[10px] text-neutral-500 bg-neutral-100 hover:bg-neutral-200 transition-colors">
+                          YTD
+                        </button>
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -619,11 +646,14 @@ export default function CustomReportClient({
         {/* KPI summary */}
         {result && (
           <div className="flex gap-3 flex-wrap">
-            {summaryCards(result.summary, result.previousSummary).map((card) => (
-              <KpiCard key={card.label} label={card.label} value={card.value} sub={card.sub} accent={card.accent}>
-                {card.prevVal !== undefined && <Delta curr={result.summary.total} prev={card.prevVal} />}
-              </KpiCard>
-            ))}
+            {summaryCards(result.summary, result.previousSummary).map((card, i) => {
+              const currVal = i === 0 ? result.summary.total : i === 1 ? result.summary.open : result.summary.closed;
+              return (
+                <KpiCard key={card.label} label={card.label} value={card.value} sub={card.sub} accent={card.accent}>
+                  {card.prevVal !== undefined && <Delta curr={currVal} prev={card.prevVal} />}
+                </KpiCard>
+              );
+            })}
           </div>
         )}
 

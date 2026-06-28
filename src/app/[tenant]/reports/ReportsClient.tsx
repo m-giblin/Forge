@@ -233,6 +233,30 @@ export default function ReportsClient({
             >
               🛠 Custom Builder
             </Link>
+            <Link
+              href={`/${slug}/reports/burndown`}
+              className="px-4 py-2 text-sm font-medium transition border-b-2 border-transparent text-neutral-500 hover:text-neutral-700"
+            >
+              🔻 Burndown
+            </Link>
+            <Link
+              href={`/${slug}/reports/cycle-time`}
+              className="px-4 py-2 text-sm font-medium transition border-b-2 border-transparent text-neutral-500 hover:text-neutral-700"
+            >
+              ⏱ Cycle Time <span className="ml-1 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold text-indigo-600">PRO</span>
+            </Link>
+            <Link
+              href={`/${slug}/reports/aging`}
+              className="px-4 py-2 text-sm font-medium transition border-b-2 border-transparent text-neutral-500 hover:text-neutral-700"
+            >
+              ⏳ Aging <span className="ml-1 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold text-indigo-600">PRO</span>
+            </Link>
+            <Link
+              href={`/${slug}/reports/scheduled`}
+              className="px-4 py-2 text-sm font-medium transition border-b-2 border-transparent text-neutral-500 hover:text-neutral-700"
+            >
+              📬 Scheduled <span className="ml-1 rounded-full bg-indigo-100 px-1.5 py-0.5 text-[9px] font-bold text-indigo-600">PRO</span>
+            </Link>
           </div>
         </div>
         <div className={`ml-auto flex flex-wrap items-center gap-2 ${activeTab === "time" ? "hidden" : ""}`}>
