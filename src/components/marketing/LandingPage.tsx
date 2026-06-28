@@ -109,10 +109,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500">
-              <span className="text-sm font-black text-white">F</span>
-            </div>
-            <span className="text-base font-bold tracking-tight text-white">Forge<span className="text-indigo-400">-Worx</span></span>
+            <img src="/forge-logo.svg" alt="Forge-Worx" className="h-10 w-10 object-contain drop-shadow-md" />
           </div>
 
           <nav className="hidden md:flex items-center gap-6 text-sm text-slate-300">
@@ -593,11 +590,8 @@ export default function LandingPage() {
         <div className="mx-auto max-w-6xl px-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500">
-                  <span className="text-xs font-black text-white">F</span>
-                </div>
-                <span className="text-base font-bold text-white">Forge<span className="text-indigo-400">-Worx</span></span>
+              <div className="mb-3">
+                <img src="/forge-logo.svg" alt="Forge-Worx" className="h-12 w-12 object-contain drop-shadow-md" />
               </div>
               <p className="text-sm text-slate-500 max-w-xs">
                 Sprint intelligence for engineering-led product teams. Ship. Report. Win.
