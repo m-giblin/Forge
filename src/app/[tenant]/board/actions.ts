@@ -5,6 +5,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createIssue, moveIssue, COLUMN_PAGE_SIZE } from "@/lib/services/issues";
 import type { Issue, IssuePriority, IssueStatus, IssueType } from "@/lib/repositories/issues";
 import { ctxCanDo } from "@/lib/rbac";
+import { canDo } from "@/lib/permissions";
 // eslint-disable-next-line no-restricted-imports -- service-role required for child-count and load-more reads
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -25,7 +26,11 @@ export async function createIssueAction(
 ) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (!ctxCanDo(ctx, "create_issues"))
+  // ctxCanDo: owners/admins always pass; members pass unless a custom role restricts them;
+  // viewers are blocked by default. canDo then re-allows viewers when the tenant has
+  // explicitly granted viewer.create_issue in their permission overrides.
+  const viewerGranted = ctx.role === "viewer" && canDo(ctx.role, "viewer.create_issue", ctx.permissionOverrides);
+  if (!viewerGranted && !ctxCanDo(ctx, "create_issues"))
     throw new Error("You don't have permission to create issues in this workspace");
 
   const issue = await createIssue({

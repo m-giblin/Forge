@@ -16,6 +16,7 @@ import SidebarSearchButton from "@/components/SidebarSearchButton";
 import SessionTimeoutGuard from "@/components/SessionTimeoutGuard";
 import GlobalKeys from "@/components/GlobalKeys";
 import AiDisclosureBanner from "@/components/AiDisclosureBanner";
+import MobileSidebar from "@/components/MobileSidebar";
 import { getTenantSetting } from "@/lib/tenantSettings";
 
 export default async function TenantLayout({
@@ -71,8 +72,20 @@ export default async function TenantLayout({
     <div className="flex min-h-screen bg-neutral-50">
       {ctx.impersonating && <ImpersonationBanner tenantName={ctx.tenant.name} />}
 
-      {/* ── Sidebar ── */}
-      <aside className="sticky top-0 flex h-screen w-56 shrink-0 flex-col border-r border-neutral-200 bg-white overflow-hidden">
+      {/* ── Mobile nav (hamburger + drawer) — hidden on md+ ── */}
+      <MobileSidebar
+        slug={slug}
+        tenantName={ctx.tenant.name}
+        role={ctx.role}
+        flags={flags}
+        unreadCount={unreadCount}
+        visibleProjects={visibleProjects as number}
+        initials={initials}
+        email={ctx.email ?? ""}
+      />
+
+      {/* ── Desktop Sidebar — hidden on mobile ── */}
+      <aside className="sticky top-0 hidden md:flex h-screen w-56 shrink-0 flex-col border-r border-neutral-200 bg-white overflow-hidden">
         {/* Logo + workspace */}
         <div className="flex items-center gap-2.5 border-b border-neutral-100 px-4 py-4 shrink-0">
           <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 overflow-hidden">

@@ -227,6 +227,12 @@ export default function ReportsClient({
             >
               📊 Estimate Accuracy
             </Link>
+            <Link
+              href={`/${slug}/reports/custom`}
+              className="px-4 py-2 text-sm font-medium transition border-b-2 border-transparent text-neutral-500 hover:text-neutral-700"
+            >
+              🛠 Custom Builder
+            </Link>
           </div>
         </div>
         <div className={`ml-auto flex flex-wrap items-center gap-2 ${activeTab === "time" ? "hidden" : ""}`}>

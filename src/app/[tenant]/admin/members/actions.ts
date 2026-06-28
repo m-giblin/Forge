@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/members";
 import type { MembershipRole } from "@/lib/repositories/members";
 import { recordAudit } from "@/lib/audit";
+import { canDo } from "@/lib/permissions";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required, tenant context verified by getTenantContext (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
@@ -23,7 +24,8 @@ export async function createInviteAction(
 ) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertAdmin(ctx.role);
+  const memberCanInvite = ctx.role === "member" && canDo(ctx.role, "member.invite_members", ctx.permissionOverrides);
+  if (!memberCanInvite) assertAdmin(ctx.role);
   const { token } = await createInvite({
     tenantId: ctx.tenant.id,
     role: input.role,
