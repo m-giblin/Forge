@@ -1,7 +1,34 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { randomBytes } from "node:crypto";
 import { updateSession } from "@/lib/supabase/middleware";
 import { extractClientIp, isIpAllowed } from "@/lib/services/ipAllowlist";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+
+/**
+ * Build a per-request Content-Security-Policy header using a cryptographic nonce.
+ * The nonce is injected into script-src so `'unsafe-inline'` can be removed —
+ * only scripts carrying the matching nonce attribute will execute.
+ *
+ * Next.js App Router reads the `x-nonce` request header (forwarded by updateSession)
+ * and automatically adds the `nonce` attribute to its own inline hydration scripts.
+ *
+ * style-src retains 'unsafe-inline' for now: inline `style={}` props from React
+ * components are blocked by style-src without it, which requires a broader audit.
+ * This is low-risk compared to script injection.
+ */
+function buildCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    // nonce allows Next.js hydration scripts; strict-dynamic propagates trust to
+    // dynamically-inserted scripts so they don't need individual allowlisting.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: https:",
+    "font-src 'self'",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.x.ai",
+    "frame-ancestors 'none'",
+  ].join("; ");
+}
 
 // In-memory cache: tenantSlug → { list, fetchedAt }. Refreshes every 10 s.
 // Short TTL ensures IP revocations propagate quickly across serverless instances.
@@ -33,6 +60,10 @@ async function checkIpAllowlist(slug: string, clientIp: string): Promise<boolean
 
 // Next.js 16: "middleware" is now "proxy". Single file at the app's root level.
 export async function proxy(request: NextRequest) {
+  // Per-request nonce for CSP. Must be generated before any early-return so that
+  // even blocked responses include the header (keeps CSP enforcement consistent).
+  const nonce = randomBytes(16).toString("base64");
+
   const path = request.nextUrl.pathname;
 
   // Enforce IP allowlist for authenticated routes: /[slug]/... AND session /api/ calls.
@@ -55,13 +86,22 @@ export async function proxy(request: NextRequest) {
       if (!allowed) {
         return new NextResponse(
           JSON.stringify({ error: "Access denied: your IP address is not on the allowlist for this workspace." }),
-          { status: 403, headers: { "Content-Type": "application/json" } }
+          {
+            status: 403,
+            headers: {
+              "Content-Type": "application/json",
+              "Content-Security-Policy": buildCsp(nonce),
+            },
+          }
         );
       }
     }
   }
 
-  return await updateSession(request);
+  // Forward nonce to Server Components via request header; set CSP on response.
+  const response = await updateSession(request, { "x-nonce": nonce });
+  response.headers.set("Content-Security-Policy", buildCsp(nonce));
+  return response;
 }
 
 export const config = {

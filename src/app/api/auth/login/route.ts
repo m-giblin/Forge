@@ -33,9 +33,11 @@ export async function POST(req: Request) {
       .isDomainSsoRequired(domain)
       .catch(() => false);
     if (required) {
+      // Return 401 (not 403) to avoid acting as an SSO oracle — an attacker could
+      // enumerate corporate domains by watching for 403 vs 401 responses.
       return NextResponse.json(
-        { error: "This workspace requires SSO. Please use the Google or Microsoft sign-in button." },
-        { status: 403 }
+        { error: "Invalid email or password." },
+        { status: 401 }
       );
     }
   }

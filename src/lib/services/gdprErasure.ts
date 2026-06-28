@@ -1,6 +1,5 @@
 import "server-only";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { requireSuperAdmin } from "@/lib/super-admin";
 
 export type ErasureResult = {
   erased_at: string;
@@ -24,9 +23,13 @@ export type ErasureResult = {
  * - notification_prefs: deleted
  * - auth user: deleted via admin API
  */
+/**
+ * CALLER CONTRACT: this function performs destructive, irreversible operations.
+ * Every call site MUST verify super-admin privileges before invoking it.
+ * The route at /api/admin/compliance/erase already does this — do not add new
+ * callers without an equivalent gate.
+ */
 export async function eraseSubjectData(email: string): Promise<ErasureResult> {
-  if (!(await requireSuperAdmin())) throw new Error("Forbidden");
-
   const svc = createSupabaseServiceClient();
   const normalised = email.trim().toLowerCase();
   const actions: string[] = [];

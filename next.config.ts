@@ -11,21 +11,8 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "geolocation=(), camera=(), microphone=()" },
   // Enforce HTTPS for 1 year and include subdomains.
   { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" },
-  // CSP: same-origin scripts/styles/images; allow Supabase and AI API.
-  // unsafe-eval removed — Next.js production builds don't require it.
-  // unsafe-inline on script-src remains until nonce support is wired (TODO: nonces).
-  {
-    key: "Content-Security-Policy",
-    value: [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self'",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.x.ai",
-      "frame-ancestors 'none'",
-    ].join("; "),
-  },
+  // CSP is set dynamically in proxy.ts (src/proxy.ts) with a per-request nonce.
+  // Static headers here cannot carry a nonce, so CSP lives in the proxy instead.
   // Prevent browsers from pre-resolving hostnames embedded in page content.
   { key: "X-DNS-Prefetch-Control", value: "off" },
 ];
