@@ -70,7 +70,7 @@ export async function proxy(request: NextRequest) {
   // Machine API (/api/v1/) is excluded — it uses API-key auth with its own rate limits.
   // Public paths are excluded entirely.
   const tenantRouteMatch = path.match(/^\/([a-z0-9-]+)\//);
-  const ALWAYS_SKIP = ["/api/v1/", "/api/auth/", "/api/cron/", "/admin", "/login", "/join", "/shared", "/legal", "/feedback", "/auth/", "/design", "/_next"];
+  const ALWAYS_SKIP = ["/api/v1/", "/api/auth/", "/api/cron/", "/admin", "/login", "/signup", "/join", "/shared", "/legal", "/feedback", "/auth/", "/design", "/_next"];
   const alwaysSkip = ALWAYS_SKIP.some((p) => path.startsWith(p));
 
   if (!alwaysSkip) {
@@ -98,8 +98,8 @@ export async function proxy(request: NextRequest) {
     }
   }
 
-  // Forward nonce to Server Components via request header; set CSP on response.
-  const response = await updateSession(request, { "x-nonce": nonce });
+  // Forward nonce + pathname to Server Components via request headers.
+  const response = await updateSession(request, { "x-nonce": nonce, "x-pathname": path });
   response.headers.set("Content-Security-Policy", buildCsp(nonce));
   return response;
 }

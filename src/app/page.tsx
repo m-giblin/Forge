@@ -2,24 +2,25 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getSessionContext } from "@/lib/auth";
 import SignOutButton from "@/components/SignOutButton";
+import LandingPage from "@/components/marketing/LandingPage";
 
-// Protected dashboard. Proves the human path end-to-end: the page only renders
-// the tenants RLS allows this signed-in user to see.
 export default async function Home() {
   const ctx = await getSessionContext();
-  if (!ctx) redirect("/login");
 
-  // A regular user with exactly one workspace goes straight to its hub. Super
-  // admins (who span tenants) and anyone in multiple workspaces see the picker.
+  // Unauthenticated visitors see the marketing landing page
+  if (!ctx) return <LandingPage />;
+
+  // Single-workspace users go straight to their hub
   if (!ctx.isSuperAdmin && ctx.memberships.length === 1) {
     redirect(`/${ctx.memberships[0].tenant.slug}`);
   }
 
+  // Multi-workspace / super-admin → workspace picker
   return (
     <main className="min-h-screen bg-neutral-50">
       <header className="border-b border-neutral-200 bg-white">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 py-4">
-          <span className="text-lg font-bold tracking-tight text-neutral-900">Forge</span>
+          <span className="text-lg font-bold tracking-tight text-neutral-900">Forge-Worx</span>
           <div className="flex items-center gap-3">
             {ctx.isSuperAdmin && (
               <Link
@@ -37,13 +38,12 @@ export default async function Home() {
 
       <section className="mx-auto max-w-4xl px-6 py-10">
         <h1 className="text-xl font-semibold text-neutral-900">Your workspaces</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Tenants you belong to. Isolation is enforced by RLS — you only see your own.
-        </p>
+        <p className="mt-1 text-sm text-neutral-500">Select a workspace to continue.</p>
 
         {ctx.memberships.length === 0 ? (
           <div className="mt-6 rounded-xl border border-dashed border-neutral-300 bg-white p-8 text-center text-sm text-neutral-500">
-            You&rsquo;re not a member of any workspace yet.
+            You&rsquo;re not a member of any workspace yet.{" "}
+            <Link href="/signup" className="text-indigo-600 hover:underline">Start a free trial</Link> to create one.
           </div>
         ) : (
           <ul className="mt-6 space-y-3">

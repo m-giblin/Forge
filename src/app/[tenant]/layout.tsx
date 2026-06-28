@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { headers } from "next/headers";
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 // eslint-disable-next-line no-restricted-imports -- service-role required: unassigned count bypasses RLS by design; passes through issuesRepo (sec09)
@@ -18,6 +19,11 @@ import GlobalKeys from "@/components/GlobalKeys";
 import AiDisclosureBanner from "@/components/AiDisclosureBanner";
 import MobileSidebar from "@/components/MobileSidebar";
 import { getTenantSetting } from "@/lib/tenantSettings";
+
+function trialDaysRemaining(trialEndsAt: string | null): number | null {
+  if (!trialEndsAt) return null;
+  return Math.ceil((new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+}
 
 export default async function TenantLayout({
   children,
@@ -44,6 +50,28 @@ export default async function TenantLayout({
       redirect(`/mfa-required?next=${next}`);
     }
   }
+
+  // ── Trial expiry gate ────────────────────────────────────────────────────
+  // Check subscription status and redirect expired trials to billing page.
+  // We read x-pathname (injected by proxy.ts) to avoid redirecting from /billing itself.
+  const svc0 = createSupabaseServiceClient();
+  const { data: billingData } = await svc0
+    .from("tenants")
+    .select("subscription_status, subscription_tier, trial_ends_at")
+    .eq("id", ctx.tenant.id)
+    .single();
+
+  const headersList = await headers();
+  const currentPath = headersList.get("x-pathname") ?? "";
+  const isOnBillingPage = currentPath.includes("/billing");
+
+  if (billingData?.subscription_status === "expired" && !isOnBillingPage) {
+    redirect(`/${slug}/billing`);
+  }
+
+  // Compute trial banner data (shown when trialing)
+  const isTrialing = billingData?.subscription_status === "trialing";
+  const trialDaysLeft = trialDaysRemaining(billingData?.trial_ends_at ?? null);
 
   const [supabase, svc] = await Promise.all([
     ctx.impersonating ? Promise.resolve(createSupabaseServiceClient()) : createSupabaseServerClient(),
@@ -205,6 +233,31 @@ export default async function TenantLayout({
 
       {/* ── Main content ── */}
       <div className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
+        {/* Trial countdown banner — shown to all workspace members during trial */}
+        {isTrialing && trialDaysLeft !== null && !isOnBillingPage && (
+          <div className={`flex items-center justify-between gap-3 px-4 py-2 text-xs font-semibold shrink-0 ${
+            trialDaysLeft <= 1
+              ? "bg-red-600 text-white"
+              : trialDaysLeft <= 3
+              ? "bg-orange-500 text-white"
+              : "bg-indigo-600 text-white"
+          }`}>
+            <span>
+              {trialDaysLeft <= 0
+                ? "⚠️ Your Premium trial has ended."
+                : trialDaysLeft === 1
+                ? "⚠️ Your Premium trial ends today."
+                : `⏰ ${trialDaysLeft} day${trialDaysLeft !== 1 ? "s" : ""} left on your Premium trial.`}
+              {" "}Full Premium access until then.
+            </span>
+            <Link
+              href={`/${slug}/billing`}
+              className="shrink-0 rounded-full border border-white/30 bg-white/20 px-3 py-1 text-[11px] font-bold hover:bg-white/30 transition"
+            >
+              Upgrade now →
+            </Link>
+          </div>
+        )}
         {children}
       </div>
 
