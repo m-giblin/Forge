@@ -10,6 +10,7 @@ import {
   addIssueToSprintAction,
   removeIssueFromSprintAction,
 } from "./sprintActions";
+import SprintIntelligence from "./SprintIntelligence";
 
 function fmtDate(d: string | null) {
   if (!d) return "—";
@@ -85,6 +86,7 @@ export default function SprintPanel({
   canEdit,
   estimatedMinutes = 0,
   loggedMinutes = 0,
+  isPremium = false,
 }: {
   slug: string;
   projectId: string;
@@ -95,6 +97,7 @@ export default function SprintPanel({
   canEdit: boolean;
   estimatedMinutes?: number;
   loggedMinutes?: number;
+  isPremium?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
   const [showCreate, setShowCreate] = useState(false);
@@ -233,6 +236,15 @@ export default function SprintPanel({
                 done={done}
               />
             </div>
+          )}
+
+          {/* AI Sprint Intelligence — active and completed sprints */}
+          {(sprint.status === "active" || sprint.status === "completed") && (
+            <SprintIntelligence
+              slug={slug}
+              sprintId={sprint.id}
+              isPremium={isPremium}
+            />
           )}
 
           {/* Issue chips for active sprint */}
