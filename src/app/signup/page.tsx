@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 
 function slugify(s: string): string {
@@ -11,33 +11,77 @@ function slugify(s: string): string {
     .slice(0, 40);
 }
 
+type SlugState = "idle" | "checking" | "available" | "taken" | "too_short";
+
 export default function SignupPage() {
   const [workspaceName, setWorkspaceName] = useState("");
+  const [slugState, setSlugState] = useState<SlugState>("idle");
+  const [checkedSlug, setCheckedSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced slug availability check
+  useEffect(() => {
+    const slug = slugify(workspaceName);
+    const trimmed = workspaceName.trim();
+
+    // Compute immediate state without calling setState synchronously inside the effect.
+    // We use a single batched update via a microtask to satisfy React compiler rules.
+    const immediate: { state: SlugState; slug: string } | null =
+      !trimmed || !slug
+        ? { state: "idle", slug: "" }
+        : slug.length < 3
+        ? { state: "too_short", slug }
+        : null; // will do async check
+
+    if (immediate) {
+      const { state, slug: s } = immediate;
+      queueMicrotask(() => { setSlugState(state); setCheckedSlug(s); });
+      return;
+    }
+
+    // Async debounced check
+    queueMicrotask(() => { setSlugState("checking"); setCheckedSlug(slug); });
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/signup/check-slug?name=${encodeURIComponent(workspaceName)}`);
+        const data = await res.json();
+        setCheckedSlug(data.slug);
+        setSlugState(data.available ? "available" : "taken");
+      } catch {
+        setSlugState("idle");
+      }
+    }, 450);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [workspaceName]);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+
+    if (slugState === "taken") {
+      setError("That workspace name is already taken. Please choose a different name.");
+      return;
+    }
+
     setLoading(true);
 
     const form = e.currentTarget;
     const name = (form.elements.namedItem("name") as HTMLInputElement).value.trim();
     const email = (form.elements.namedItem("email") as HTMLInputElement).value.trim().toLowerCase();
     const password = (form.elements.namedItem("password") as HTMLInputElement).value;
-    const wsName = (form.elements.namedItem("workspaceName") as HTMLInputElement).value.trim();
-
-    if (!name || !email || !password || !wsName) {
-      setError("All fields are required.");
-      setLoading(false);
-      return;
-    }
 
     // Step 1: Create user + tenant
     const res = await fetch("/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, workspaceName: wsName, email, password }),
+      body: JSON.stringify({ name, workspaceName: workspaceName.trim(), email, password }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -47,7 +91,7 @@ export default function SignupPage() {
       return;
     }
 
-    // Step 2: Sign the user in (sets the session cookie)
+    // Step 2: Sign the user in (sets the session cookie via the existing login endpoint)
     const loginRes = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -55,7 +99,7 @@ export default function SignupPage() {
     });
 
     if (!loginRes.ok) {
-      // Account was created but login failed — redirect to login page
+      // Account was created but auto-login failed — redirect to login page
       window.location.href = `/login?next=${encodeURIComponent(`/${data.slug}/board`)}`;
       return;
     }
@@ -63,6 +107,44 @@ export default function SignupPage() {
     // Step 3: Navigate to the new workspace
     window.location.href = `/${data.slug}/board`;
   }
+
+  const slugHint = () => {
+    if (slugState === "idle" || !workspaceName.trim()) return null;
+    if (slugState === "too_short") {
+      return (
+        <p className="mt-1.5 text-xs text-slate-500">
+          Workspace URL: <span className="text-slate-400">/{checkedSlug}</span>
+        </p>
+      );
+    }
+    if (slugState === "checking") {
+      return (
+        <p className="mt-1.5 text-xs text-slate-400">
+          Checking <span className="text-slate-300">/{checkedSlug}</span>&hellip;
+        </p>
+      );
+    }
+    if (slugState === "available") {
+      return (
+        <p className="mt-1.5 text-xs">
+          <span className="text-green-400 font-semibold">✓ Available</span>
+          <span className="text-slate-400"> — your workspace: </span>
+          <span className="text-indigo-400 font-medium">/{checkedSlug}</span>
+        </p>
+      );
+    }
+    if (slugState === "taken") {
+      return (
+        <p className="mt-1.5 text-xs">
+          <span className="text-red-400 font-semibold">✗ Already taken</span>
+          <span className="text-slate-500"> — try a different name, e.g. &ldquo;{workspaceName.trim()} Team&rdquo;</span>
+        </p>
+      );
+    }
+    return null;
+  };
+
+  const canSubmit = !loading && slugState !== "taken" && slugState !== "checking";
 
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col">
@@ -130,13 +212,15 @@ export default function SignupPage() {
                 placeholder="Acme Engineering"
                 value={workspaceName}
                 onChange={(e) => setWorkspaceName(e.target.value)}
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                className={`w-full rounded-xl border px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition bg-slate-900 ${
+                  slugState === "taken"
+                    ? "border-red-500/60 focus:border-red-500 focus:ring-red-500/40"
+                    : slugState === "available"
+                    ? "border-green-500/60 focus:border-green-500 focus:ring-green-500/40"
+                    : "border-slate-700 focus:border-indigo-500 focus:ring-indigo-500"
+                }`}
               />
-              {workspaceName && (
-                <p className="mt-1.5 text-xs text-slate-500">
-                  Your workspace URL: <span className="text-indigo-400">app/<strong>{slugify(workspaceName)}</strong></span>
-                </p>
-              )}
+              {slugHint()}
             </div>
 
             <div>
@@ -160,10 +244,14 @@ export default function SignupPage() {
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full rounded-xl bg-indigo-500 py-3 text-sm font-bold text-white hover:bg-indigo-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={!canSubmit}
+              className="w-full rounded-xl bg-indigo-500 py-3 text-sm font-bold text-white hover:bg-indigo-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              {loading ? "Creating your workspace…" : "Start 14-Day Free Trial →"}
+              {loading
+                ? "Creating your workspace…"
+                : slugState === "checking"
+                ? "Checking availability…"
+                : "Start 14-Day Free Trial →"}
             </button>
           </form>
 
