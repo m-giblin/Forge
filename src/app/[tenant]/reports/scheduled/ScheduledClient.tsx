@@ -79,10 +79,12 @@ export default function ScheduledClient({ slug, isAdmin }: { slug: string; isAdm
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-6 flex items-center gap-2 text-sm text-neutral-500">
-        <Link href={`/${slug}/reports`} className="hover:text-indigo-600 transition-colors">Reports</Link>
-        <span>/</span>
+    <div>
+      <div className="mb-6 flex items-center gap-1.5 text-sm text-neutral-500">
+        <Link href={`/${slug}/reports`} className="hover:text-indigo-600 transition-colors flex items-center gap-1">
+          <span className="text-neutral-400">←</span> Reports
+        </Link>
+        <span className="text-neutral-300">/</span>
         <span className="font-medium text-neutral-800">Scheduled Reports</span>
         <span className="ml-2 inline-flex items-center rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-bold text-indigo-700">PRO</span>
       </div>
@@ -164,7 +166,13 @@ export default function ScheduledClient({ slug, isAdmin }: { slug: string; isAdm
         </form>
       )}
 
-      {error && <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+      {error && (
+        <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error.includes("schema cache") || error.includes("scheduled_reports")
+            ? "Setup required: run migration 0084_scheduled_reports.sql in Supabase before using this feature."
+            : error}
+        </div>
+      )}
       {loading && <div className="text-center py-12 text-neutral-400 text-sm">Loading schedules…</div>}
 
       {!loading && reports.length === 0 && (

@@ -62,11 +62,13 @@ export default function BurndownClient({
   const onTrack = result && result.points.length > 1 ? result.points[result.points.length - 1].actual <= result.points[result.points.length - 1].ideal : null;
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div>
       {/* Breadcrumb */}
-      <div className="mb-6 flex items-center gap-2 text-sm text-neutral-500">
-        <Link href={`/${slug}/reports`} className="hover:text-indigo-600 transition-colors">Reports</Link>
-        <span>/</span>
+      <div className="mb-6 flex items-center gap-1.5 text-sm text-neutral-500">
+        <Link href={`/${slug}/reports`} className="hover:text-indigo-600 transition-colors flex items-center gap-1">
+          <span className="text-neutral-400">←</span> Reports
+        </Link>
+        <span className="text-neutral-300">/</span>
         <span className="font-medium text-neutral-800">Burndown</span>
       </div>
 
@@ -190,7 +192,16 @@ export default function BurndownClient({
       )}
 
       {!result && !loading && !error && (
-        <div className="text-center py-16 text-neutral-400 text-sm">Select a sprint to view the burndown chart.</div>
+        <div className="text-center py-16 text-neutral-400">
+          {sprints.length === 0 ? (
+            <>
+              <p className="text-sm font-medium">No sprints found</p>
+              <p className="text-xs mt-1">Create and start a sprint to see the burndown chart.</p>
+            </>
+          ) : (
+            <p className="text-sm">Select a sprint to view the burndown chart.</p>
+          )}
+        </div>
       )}
     </div>
   );

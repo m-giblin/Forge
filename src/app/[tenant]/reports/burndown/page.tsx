@@ -22,7 +22,7 @@ export default async function BurndownPage({
     svc.from("sprints")
       .select("id, name, status, project_id, start_date, end_date")
       .eq("tenant_id", ctx.tenant.id)
-      .in("status", ["active", "completed"])
+      .in("status", ["active", "completed", "planning"])
       .order("start_date", { ascending: false })
       .limit(30),
     svc.from("projects")
