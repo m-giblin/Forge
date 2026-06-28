@@ -150,11 +150,8 @@ export default function SignupPage() {
     <div className="min-h-screen bg-slate-950 flex flex-col">
       {/* Minimal nav */}
       <header className="border-b border-slate-800 px-6 py-3.5 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-500">
-            <span className="text-xs font-black text-white">F</span>
-          </div>
-          <span className="text-sm font-bold text-white">Forge<span className="text-indigo-400">-Worx</span></span>
+        <Link href="/" className="flex items-center">
+          <img src="/forge-logo.svg" alt="Forge-Worx" className="h-10 w-10 object-contain drop-shadow-md" />
         </Link>
         <p className="text-sm text-slate-400">
           Already a customer?{" "}
