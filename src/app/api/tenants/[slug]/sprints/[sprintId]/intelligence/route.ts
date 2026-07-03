@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { loadTenantFlags } from "@/lib/services/featureFlags";
 import { serverEnv } from "@/lib/env";
 
 type ChatMessage = { role: "system" | "user"; content: string };
@@ -32,19 +33,8 @@ export async function POST(
 
   const svc = createSupabaseServiceClient();
 
-  // Premium gate — check subscription tier
-  const { data: tenantRow } = await svc
-    .from("tenants")
-    .select("subscription_tier, subscription_status")
-    .eq("id", ctx.tenant.id)
-    .single();
-
-  const tier = tenantRow?.subscription_tier ?? "basic";
-  const status = tenantRow?.subscription_status ?? "free";
-  const isPremium = ["premium", "pro", "enterprise"].includes(tier) ||
-    (status === "trialing" && tier === "premium");
-
-  if (!isPremium) {
+  const flags = await loadTenantFlags(ctx.tenant.id);
+  if (!flags.ai_sprint) {
     return NextResponse.json({ error: "AI Sprint Intelligence requires Premium or higher." }, { status: 403 });
   }
 
@@ -66,6 +56,25 @@ export async function POST(
     .eq("tenant_id", ctx.tenant.id);
 
   const allIssues = issues ?? [];
+
+  // Hard gate — refuse to run AI on empty or trivially short sprints
+  if (allIssues.length === 0) {
+    return NextResponse.json(
+      { error: "No issues are attached to this sprint. Add work items before running analysis." },
+      { status: 422 }
+    );
+  }
+  if (sprint.start_date && sprint.end_date) {
+    const days = Math.ceil(
+      (new Date(sprint.end_date as string).getTime() - new Date(sprint.start_date as string).getTime()) / 86_400_000
+    );
+    if (days < 3) {
+      return NextResponse.json(
+        { error: `Sprint is only ${days} day(s) long — too short for meaningful analysis. Extend the end date to at least 3 days.` },
+        { status: 422 }
+      );
+    }
+  }
 
   // Fetch member names for assignees
   const assigneeIds = [...new Set(allIssues.map((i) => i.assignee_id).filter(Boolean))] as string[];

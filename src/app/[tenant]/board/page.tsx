@@ -39,17 +39,6 @@ export default async function BoardPage({
       sprintsRepo(svc).listForProject(ctx.tenant.id, current.id).catch(() => []),
     ]);
 
-  // Premium check for AI Sprint Intelligence
-  const { data: tenantRow } = await svc
-    .from("tenants")
-    .select("subscription_tier, subscription_status")
-    .eq("id", ctx.tenant.id)
-    .single();
-  const tier = (tenantRow?.subscription_tier ?? "basic") as string;
-  const subStatus = (tenantRow?.subscription_status ?? "free") as string;
-  const isPremium =
-    ["premium", "pro", "enterprise"].includes(tier) ||
-    (subStatus === "trialing" && tier === "premium");
 
   const activeSprint = allSprints.find((s) => s.status === "active") ?? null;
   const plannedSprints = allSprints.filter((s) => s.status === "planned");
@@ -98,7 +87,6 @@ export default async function BoardPage({
         canEdit={canEdit}
         estimatedMinutes={estimatedMinutes}
         loggedMinutes={loggedMinutes}
-        isPremium={isPremium}
       />
       <Suspense fallback={null}>
       <Board

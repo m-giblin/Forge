@@ -460,6 +460,7 @@ export default function Board({
           types={types}
           categories={categories}
           customFields={customFields}
+          sprints={sprints}
           onCreated={(issue) => {
             upsert(issue);
             setShowForm(false);
@@ -612,6 +613,7 @@ function NewIssueForm({
   types,
   categories,
   customFields,
+  sprints,
   onCreated,
 }: {
   slug: string;
@@ -620,6 +622,7 @@ function NewIssueForm({
   types: FieldOption[];
   categories: Category[];
   customFields: CustomField[];
+  sprints: Sprint[];
   onCreated: (issue: Issue) => void;
 }) {
   const [title, setTitle] = useState("");
@@ -628,6 +631,7 @@ function NewIssueForm({
   const [type, setType] = useState(defaultKey(types));
   const [categoryId, setCategoryId] = useState("");
   const [custom, setCustom] = useState<Record<string, string>>({});
+  const [sprintId, setSprintId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [aiMode, setAiMode] = useState(false);
@@ -697,6 +701,7 @@ function NewIssueForm({
           type,
           categoryId: categoryId || null,
           customValues,
+          sprintId: sprintId || null,
         });
         setTitle("");
         setCustom({});
@@ -798,6 +803,16 @@ function NewIssueForm({
             <option value="">No category</option>
             {catOptions.map((c) => (
               <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+        )}
+        {sprints.length > 0 && (
+          <select value={sprintId} onChange={(e) => setSprintId(e.target.value)} className="rounded-lg border border-neutral-300 px-2 py-2 text-sm">
+            <option value="">No sprint</option>
+            {sprints.filter((s) => s.status !== "completed").map((s) => (
+              <option key={s.id} value={s.id}>
+                {s.status === "active" ? "▶ " : "○ "}{s.name}
+              </option>
             ))}
           </select>
         )}

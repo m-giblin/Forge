@@ -23,16 +23,14 @@ function displayLabel(row: SuperAdminRow) {
   return row.display_name ?? row.user?.name ?? row.user?.email ?? "—";
 }
 
-// ── Profile slide-over ───────────────────────────────────────────────────────
+// ── Profile slide-over ────────────────────────────────────────────────────────
+
 function ProfilePanel({
-  admin,
-  isMe,
-  onClose,
-  onSave,
-  onRevoke,
+  admin, isMe, lastLogin, onClose, onSave, onRevoke,
 }: {
   admin: SuperAdminRow;
   isMe: boolean;
+  lastLogin: string | null;
   onClose: () => void;
   onSave: (userId: string, patch: Partial<SuperAdminRow>) => Promise<string | null>;
   onRevoke: (userId: string, email: string) => Promise<void>;
@@ -54,9 +52,7 @@ function ProfilePanel({
   }
 
   async function save() {
-    setSaving(true);
-    setError(null);
-    setSaved(false);
+    setSaving(true); setError(null); setSaved(false);
     const err = await onSave(admin.user_id, form);
     setSaving(false);
     if (err) { setError(err); return; }
@@ -66,96 +62,95 @@ function ProfilePanel({
 
   const email = admin.user?.email ?? "—";
 
+  const inputStyle: React.CSSProperties = {
+    width: "100%", padding: "7px 10px", borderRadius: 7,
+    border: "1px solid #e5e7eb", fontSize: 12, color: "#111827",
+    outline: "none", background: "#fff", boxSizing: "border-box",
+  };
+  const labelStyle: React.CSSProperties = {
+    display: "block", fontSize: 10, fontWeight: 700,
+    color: "#6b7280", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 4,
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex" onClick={onClose}>
-      {/* Backdrop */}
-      <div className="flex-1 bg-black/50" />
-      {/* Panel */}
+    <div style={{ position: "fixed", inset: 0, zIndex: 50, display: "flex" }} onClick={onClose}>
+      <div style={{ flex: 1, background: "rgba(0,0,0,0.35)" }} />
       <div
-        className="w-full max-w-md bg-neutral-900 border-l border-neutral-700 flex flex-col h-full overflow-y-auto"
+        style={{ width: "100%", maxWidth: 420, background: "#fff", borderLeft: "1px solid #e5e7eb", display: "flex", flexDirection: "column", height: "100%", overflowY: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-neutral-800">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold text-white shrink-0">
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid #f1f5f9" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
               {initials(admin)}
             </div>
             <div>
-              <h2 className="text-base font-semibold text-white">{displayLabel(admin)}</h2>
-              <p className="text-xs text-neutral-400">{email}</p>
+              <div style={{ fontSize: 14, fontWeight: 700, color: "#111827" }}>{displayLabel(admin)}</div>
+              <div style={{ fontSize: 11, color: "#94a3b8" }}>{email}</div>
             </div>
           </div>
-          <button onClick={onClose} className="text-neutral-400 hover:text-white transition text-xl leading-none px-1">
-            ✕
-          </button>
+          <button onClick={onClose} style={{ fontSize: 18, color: "#94a3b8", background: "none", border: "none", cursor: "pointer", lineHeight: 1, padding: "4px 6px" }}>✕</button>
         </div>
 
         {/* Body */}
-        <div className="flex-1 px-6 py-6 space-y-5">
+        <div style={{ flex: 1, padding: "20px", display: "flex", flexDirection: "column", gap: 16 }}>
           {/* Access info */}
-          <div className="rounded-xl border border-neutral-800 bg-neutral-800/50 px-4 py-3 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-neutral-400">Platform access granted</p>
-              <p className="text-sm font-medium text-white mt-0.5">{timeAgo(admin.created_at)}</p>
+          <div style={{ padding: "12px 14px", background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: 9 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ display: "flex", gap: 20 }}>
+                <div>
+                  <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>Access granted</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginTop: 2 }}>{timeAgo(admin.created_at)}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, color: "#94a3b8", fontWeight: 700, textTransform: "uppercase", letterSpacing: ".07em" }}>Last login</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginTop: 2 }}>
+                    {lastLogin ? new Date(lastLogin).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" }) : "—"}
+                  </div>
+                </div>
+              </div>
+              <span style={{ padding: "3px 10px", borderRadius: 9, background: "#fffbeb", color: "#d97706", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>Super Admin</span>
             </div>
-            <span className="rounded-full bg-amber-500/20 px-2.5 py-1 text-xs font-medium text-amber-300">
-              Super Admin
-            </span>
           </div>
 
-          {/* Form fields */}
-          <div className="space-y-4">
-            <Field label="Display Name" value={form.display_name} onChange={field("display_name")} placeholder="e.g. Matt Giblin" />
-            <Field label="Primary Email" value={email} disabled placeholder="" />
-            <Field label="Alternative Email" value={form.alt_email} onChange={field("alt_email")} placeholder="backup@example.com" type="email" />
-            <div className="grid grid-cols-2 gap-3">
-              <Field label="Phone (office)" value={form.phone} onChange={field("phone")} placeholder="+1 (555) 000-0000" type="tel" />
-              <Field label="Cell / Mobile" value={form.cell} onChange={field("cell")} placeholder="+1 (555) 000-0000" type="tel" />
+          {/* Form */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div><label style={labelStyle}>Display Name</label><input style={inputStyle} value={form.display_name} onChange={field("display_name")} placeholder="e.g. Matt Giblin" /></div>
+            <div><label style={labelStyle}>Primary Email</label><input style={{ ...inputStyle, background: "#f8fafc", color: "#94a3b8" }} value={email} disabled /></div>
+            <div><label style={labelStyle}>Alternative Email</label><input style={inputStyle} type="email" value={form.alt_email} onChange={field("alt_email")} placeholder="backup@example.com" /></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={labelStyle}>Phone (office)</label><input style={inputStyle} type="tel" value={form.phone} onChange={field("phone")} placeholder="+1 (555) 000-0000" /></div>
+              <div><label style={labelStyle}>Cell / Mobile</label><input style={inputStyle} type="tel" value={form.cell} onChange={field("cell")} placeholder="+1 (555) 000-0000" /></div>
             </div>
             <div>
-              <label className="block text-xs font-medium text-neutral-400 mb-1.5">Notes</label>
+              <label style={labelStyle}>Notes</label>
               <textarea
                 value={form.notes}
                 onChange={field("notes")}
                 placeholder="e.g. Primary on-call contact, backup for compliance reviews…"
                 rows={3}
-                className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 outline-none focus:border-indigo-500 resize-none"
+                style={{ ...inputStyle, resize: "none", fontFamily: "inherit" }}
               />
             </div>
           </div>
 
-          {error && (
-            <div className="rounded-lg border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">{error}</div>
-          )}
-          {saved && (
-            <div className="rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-300">
-              Profile saved.
-            </div>
-          )}
+          {error && <div style={{ padding: "9px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, fontSize: 12, color: "#dc2626" }}>{error}</div>}
+          {saved && <div style={{ padding: "9px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 7, fontSize: 12, color: "#059669" }}>Profile saved.</div>}
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-neutral-800 flex items-center justify-between gap-3">
+        <div style={{ padding: "14px 20px", borderTop: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
           {!isMe ? (
-            <button
-              onClick={() => onRevoke(admin.user_id, email)}
-              className="text-sm text-red-400 hover:text-red-300 transition font-medium"
-            >
+            <button onClick={() => onRevoke(admin.user_id, email)} style={{ fontSize: 12, color: "#dc2626", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
               Revoke access
             </button>
           ) : (
-            <span className="text-xs text-neutral-600">You cannot revoke your own access</span>
+            <span style={{ fontSize: 11, color: "#cbd5e1" }}>Cannot revoke your own access</span>
           )}
-          <div className="flex gap-2">
-            <button onClick={onClose} className="px-4 py-2 text-sm text-neutral-400 hover:text-white transition">
-              Cancel
-            </button>
-            <button
-              onClick={save}
-              disabled={saving}
-              className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-sm font-medium text-white transition"
-            >
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={onClose} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#f8fafc", color: "#6b7280", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
+            <button onClick={save} disabled={saving} style={{ padding: "7px 14px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: saving ? .5 : 1 }}>
               {saving ? "Saving…" : "Save profile"}
             </button>
           </div>
@@ -165,34 +160,16 @@ function ProfilePanel({
   );
 }
 
-function Field({
-  label, value, onChange, placeholder, type = "text", disabled = false,
-}: {
-  label: string; value: string; onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  placeholder: string; type?: string; disabled?: boolean;
-}) {
-  return (
-    <div>
-      <label className="block text-xs font-medium text-neutral-400 mb-1.5">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        disabled={disabled}
-        className="w-full rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 outline-none focus:border-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
-      />
-    </div>
-  );
-}
+// ── Main component ─────────────────────────────────────────────────────────────
 
-// ── Main component ────────────────────────────────────────────────────────────
 export default function AdminsClient({
   initialAdmins,
   currentUserId,
+  lastLoginMap = {},
 }: {
   initialAdmins: SuperAdminRow[];
   currentUserId: string;
+  lastLoginMap?: Record<string, string | null>;
 }) {
   const [admins, setAdmins] = useState(initialAdmins);
   const [selected, setSelected] = useState<SuperAdminRow | null>(null);
@@ -210,8 +187,7 @@ export default function AdminsClient({
   }
 
   async function invite() {
-    setError(null);
-    setSuccess(null);
+    setError(null); setSuccess(null);
     startTransition(async () => {
       const res = await fetch("/api/admin/super-admins", {
         method: "POST",
@@ -222,8 +198,7 @@ export default function AdminsClient({
       if (!res.ok) { setError(json.error ?? "Failed"); return; }
       await refreshList();
       setSuccess(`Invitation sent to ${email.trim()}.`);
-      setEmail("");
-      setName("");
+      setEmail(""); setName("");
     });
   }
 
@@ -235,7 +210,6 @@ export default function AdminsClient({
     });
     const json = await res.json();
     if (!res.ok) return json.error ?? "Failed to save";
-    // Update local state
     setAdmins((prev) => prev.map((a) => a.user_id === userId ? { ...a, ...patch } : a));
     if (selected?.user_id === userId) setSelected((s) => s ? { ...s, ...patch } : s);
     return null;
@@ -257,19 +231,25 @@ export default function AdminsClient({
     setRevoking(null);
   }
 
-  return (
-    <div className="space-y-6">
-      {/* Admin list */}
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 overflow-hidden">
-        <div className="px-5 py-4 border-b border-neutral-800 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-neutral-200">Current platform admins</h2>
-          <span className="text-xs text-neutral-500">{admins.length} account{admins.length !== 1 ? "s" : ""}</span>
-        </div>
+  // suppress unused var warning
+  void revoking;
 
+  const cardStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", marginBottom: 14 };
+  const cardHeaderStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderBottom: "1px solid #f1f5f9" };
+  const inputStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 7, border: "1px solid #e5e7eb", fontSize: 12, color: "#111827", outline: "none", background: "#fff" };
+
+  return (
+    <div>
+      {/* Admin list */}
+      <div style={cardStyle}>
+        <div style={cardHeaderStyle}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>Current platform admins</span>
+          <span style={{ fontSize: 11, color: "#94a3b8" }}>{admins.length} account{admins.length !== 1 ? "s" : ""}</span>
+        </div>
         {admins.length === 0 ? (
-          <p className="px-5 py-8 text-sm text-neutral-500 text-center">No admins found.</p>
+          <p style={{ padding: "24px", textAlign: "center", fontSize: 12, color: "#94a3b8" }}>No admins found.</p>
         ) : (
-          <ul className="divide-y divide-neutral-800">
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
             {admins.map((a) => {
               const isMe = a.user_id === currentUserId;
               const label = displayLabel(a);
@@ -279,25 +259,21 @@ export default function AdminsClient({
                 <li
                   key={a.user_id}
                   onClick={() => setSelected(a)}
-                  className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-neutral-800/60 transition group"
+                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}
                 >
-                  <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-sm font-bold text-white shrink-0">
+                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
                     {initials(a)}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-neutral-100 truncate">{label}</span>
-                      {isMe && (
-                        <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[10px] font-medium text-indigo-300">you</span>
-                      )}
-                      {hasProfile && (
-                        <span className="rounded-full bg-neutral-700 px-2 py-0.5 text-[10px] text-neutral-400">profile</span>
-                      )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{label}</span>
+                      {isMe && <span style={{ padding: "1px 7px", borderRadius: 9, background: "#ede9fe", color: "#4f46e5", fontSize: 9, fontWeight: 700 }}>you</span>}
+                      {hasProfile && <span style={{ padding: "1px 7px", borderRadius: 9, background: "#f1f5f9", color: "#64748b", fontSize: 9, fontWeight: 700 }}>profile</span>}
                     </div>
-                    <p className="text-xs text-neutral-500 truncate">{emailStr}</p>
+                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emailStr}</div>
                   </div>
-                  <span className="text-xs text-neutral-500 shrink-0 hidden sm:block">granted {timeAgo(a.created_at)}</span>
-                  <span className="text-neutral-600 group-hover:text-neutral-400 transition text-sm">›</span>
+                  <span style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>granted {timeAgo(a.created_at)}</span>
+                  <span style={{ color: "#d1d5db", fontSize: 14 }}>›</span>
                 </li>
               );
             })}
@@ -305,57 +281,54 @@ export default function AdminsClient({
         )}
       </div>
 
-      {/* Invite form */}
-      <div className="rounded-2xl border border-neutral-800 bg-neutral-900 p-5">
-        <h2 className="text-sm font-semibold text-neutral-200 mb-4">Grant platform access</h2>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            type="email"
-            placeholder="Email address"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && email && invite()}
-            suppressHydrationWarning
-            className="flex-1 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 outline-none focus:border-indigo-500"
-          />
-          <input
-            type="text"
-            placeholder="Display name (optional)"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && email && invite()}
-            className="w-full sm:w-48 rounded-lg border border-neutral-700 bg-neutral-800 px-3 py-2 text-sm text-neutral-100 placeholder-neutral-500 outline-none focus:border-indigo-500"
-          />
-          <button
-            onClick={invite}
-            disabled={!email.trim() || isPending}
-            className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-sm font-medium text-white transition shrink-0"
-          >
-            {isPending ? "Sending…" : "Invite & Grant"}
-          </button>
+      {/* Grant access */}
+      <div style={cardStyle}>
+        <div style={cardHeaderStyle}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>Grant platform access</span>
         </div>
-        <p className="mt-2 text-xs text-neutral-500">
-          New users receive an invitation email to set their password. Existing users get access immediately.
-          You can fill in their full profile after adding them.
-        </p>
-        {error && (
-          <div className="mt-3 rounded-lg border border-red-800 bg-red-950/50 px-4 py-3 text-sm text-red-300">{error}</div>
-        )}
-        {success && (
-          <div className="mt-3 rounded-lg border border-emerald-800 bg-emerald-950/50 px-4 py-3 text-sm text-emerald-300">{success}</div>
-        )}
+        <div style={{ padding: "14px 16px" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <input
+              type="email"
+              placeholder="Email address"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && email && invite()}
+              suppressHydrationWarning
+              style={{ ...inputStyle, flex: 2, minWidth: 180 }}
+            />
+            <input
+              type="text"
+              placeholder="Display name (optional)"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && email && invite()}
+              style={{ ...inputStyle, flex: 1, minWidth: 140 }}
+            />
+            <button
+              onClick={invite}
+              disabled={!email.trim() || isPending}
+              style={{ padding: "7px 16px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: !email.trim() || isPending ? .5 : 1, whiteSpace: "nowrap" }}
+            >
+              {isPending ? "Sending…" : "Invite & Grant"}
+            </button>
+          </div>
+          <p style={{ marginTop: 8, fontSize: 11, color: "#94a3b8" }}>
+            New users receive an invitation email to set their password. Existing users get access immediately. You can fill in their full profile after adding them.
+          </p>
+          {error && <div style={{ marginTop: 10, padding: "9px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, fontSize: 12, color: "#dc2626" }}>{error}</div>}
+          {success && <div style={{ marginTop: 10, padding: "9px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 7, fontSize: 12, color: "#059669" }}>{success}</div>}
+        </div>
       </div>
 
-      {/* Profile slide-over */}
       {selected && (
         <ProfilePanel
           admin={selected}
           isMe={selected.user_id === currentUserId}
+          lastLogin={lastLoginMap[selected.user_id] ?? null}
           onClose={() => setSelected(null)}
           onSave={saveProfile}
-          onRevoke={async (userId, userEmail) => {
-            await revoke(userId, userEmail);
-          }}
+          onRevoke={async (userId, userEmail) => { await revoke(userId, userEmail); }}
         />
       )}
     </div>
