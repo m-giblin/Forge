@@ -75,6 +75,13 @@ const NAV = [
     ],
   },
   {
+    group: "Subscription",
+    info: "View your current plan, manage which features are active in your workspace, and upgrade your subscription.",
+    items: [
+      { seg: "features", label: "Features & Plan", icon: "✦" },
+    ],
+  },
+  {
     group: "Products",
     info: "Access Think Tank for idea management and OKRs for goal tracking across your workspace.",
     items: [

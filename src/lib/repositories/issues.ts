@@ -85,6 +85,7 @@ export type CreateIssueInput = {
   external_id?: string | null;
   category_id?: string | null;
   custom_values?: Record<string, unknown>;
+  sprint_id?: string | null;
 };
 
 const COLS =

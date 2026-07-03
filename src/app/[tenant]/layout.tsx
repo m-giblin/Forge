@@ -81,7 +81,7 @@ export default async function TenantLayout({
   const sessionTimeoutRaw = await getTenantSetting(ctx.tenant.id, "session_timeout_minutes");
   const sessionTimeoutMinutes = sessionTimeoutRaw ? parseInt(sessionTimeoutRaw, 10) : 30;
 
-  const [initialNotifications, unreadCount, unassignedCount, flags, userRow, visibleProjects, superAdminRow] = await Promise.all([
+  const [initialNotifications, unreadCount, unassignedCount, flags, userRow, visibleProjects, superAdminRow, planNotifications] = await Promise.all([
     notificationsRepo(supabase).list(ctx.tenant.id, ctx.appUserId, { limit: 20, includeRead: false }),
     notificationsRepo(supabase).unreadCount(ctx.tenant.id, ctx.appUserId),
     issuesRepo(svc).countUnassigned(ctx.tenant.id),
@@ -89,6 +89,7 @@ export default async function TenantLayout({
     (async () => { try { return await supabase.from("users").select("email_digest").eq("id", ctx.appUserId).maybeSingle(); } catch { return { data: null }; } })(),
     (async () => { try { const { data } = await svc.from("projects").select("id", { count: "exact" }).eq("tenant_id", ctx.tenant.id).not("status", "eq", "archived"); return data?.length ?? 0; } catch { return 0; } })(),
     (async () => { try { const { data } = await svc.from("super_admins").select("user_id").eq("user_id", ctx.appUserId).maybeSingle(); return data; } catch { return null; } })(),
+    (async () => { try { const { data } = await svc.from("tenant_notifications").select("id, title, feature_key").eq("tenant_id", ctx.tenant.id).is("read_at", null).order("created_at", { ascending: false }).limit(3); return data ?? []; } catch { return []; } })(),
   ]);
   const emailDigest = (userRow.data as Record<string, unknown> | null)?.email_digest !== false;
   const isAdmin = ctx.role === "owner" || ctx.role === "admin" || ctx.impersonating;
@@ -233,6 +234,19 @@ export default async function TenantLayout({
 
       {/* ── Main content ── */}
       <div className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
+        {/* Plan feature notification banners */}
+        {(planNotifications as { id: string; title: string; feature_key: string | null }[]).length > 0 && (
+          <div className="flex flex-col gap-0 shrink-0">
+            {(planNotifications as { id: string; title: string; feature_key: string | null }[]).map((n) => (
+              <div key={n.id} className="flex items-center gap-3 px-4 py-2 bg-indigo-600 text-white text-xs font-medium">
+                <span>✦</span>
+                <span className="flex-1">{n.title}</span>
+                <Link href={`/${slug}/admin/features`} className="shrink-0 underline font-semibold">View features →</Link>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Trial countdown banner — shown to all workspace members during trial */}
         {isTrialing && trialDaysLeft !== null && !isOnBillingPage && (
           <div className={`flex items-center justify-between gap-3 px-4 py-2 text-xs font-semibold shrink-0 ${

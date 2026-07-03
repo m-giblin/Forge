@@ -26,9 +26,13 @@ function ScoreBadge({ score, label }: { score: number; label: string }) {
     score >= 60 ? "bg-blue-100 text-blue-700 border-blue-200" :
     score >= 40 ? "bg-amber-100 text-amber-700 border-amber-200" :
                   "bg-red-100 text-red-700 border-red-200";
+  const icon =
+    score >= 80 ? "✓" :
+    score >= 60 ? "→" :
+    score >= 40 ? "⚠" : "✕";
   return (
-    <div className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-semibold ${color}`}>
-      <span className="text-lg font-black">{score}</span>
+    <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold ${color}`}>
+      <span>{icon}</span>
       <span>{label}</span>
     </div>
   );
@@ -37,11 +41,13 @@ function ScoreBadge({ score, label }: { score: number; label: string }) {
 export default function SprintIntelligence({
   slug,
   sprintId,
-  isPremium,
+  issueCount,
+  sprintDays,
 }: {
   slug: string;
   sprintId: string;
-  isPremium: boolean;
+  issueCount: number;
+  sprintDays: number | null;
 }) {
   const [state, setState] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [report, setReport] = useState<IntelligenceReport | null>(null);
@@ -70,29 +76,26 @@ export default function SprintIntelligence({
     }
   }
 
-  if (!isPremium) {
-    return (
-      <div className="mt-3 pt-3 border-t border-neutral-100">
-        <div className="flex items-center justify-between gap-3 rounded-xl border border-dashed border-indigo-200 bg-indigo-50/50 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="text-lg">🧠</span>
-            <div>
-              <p className="text-sm font-semibold text-indigo-900">AI Sprint Intelligence</p>
-              <p className="text-xs text-indigo-600">Automated analysis of velocity, cycle time, and team load.</p>
-            </div>
-          </div>
-          <a
-            href={`/${slug}/billing`}
-            className="shrink-0 rounded-lg bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-400 transition"
-          >
-            Upgrade to Premium
-          </a>
-        </div>
-      </div>
-    );
-  }
-
   if (state === "idle") {
+    // Not enough data to analyze — show a contextual nudge instead of the button
+    if (issueCount === 0) {
+      return (
+        <div className="mt-3 pt-3 border-t border-neutral-100">
+          <p className="text-xs text-neutral-400">
+            🧠 <span className="font-medium">AI Sprint Intelligence</span> — add issues to this sprint to unlock analysis.
+          </p>
+        </div>
+      );
+    }
+    if (sprintDays !== null && sprintDays < 3) {
+      return (
+        <div className="mt-3 pt-3 border-t border-neutral-100">
+          <p className="text-xs text-neutral-400">
+            🧠 <span className="font-medium">AI Sprint Intelligence</span> — sprint is too short ({sprintDays}d) for meaningful analysis. Extend to at least 3 days.
+          </p>
+        </div>
+      );
+    }
     return (
       <div className="mt-3 pt-3 border-t border-neutral-100">
         <button

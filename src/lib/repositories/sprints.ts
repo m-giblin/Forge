@@ -40,7 +40,7 @@ export function sprintsRepo(supabase: SupabaseClient) {
         .select(COLS)
         .eq("tenant_id", tenantId)
         .eq("project_id", projectId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: true });
       if (error) throw error;
       return (data ?? []).map((r) => mapRow(r as Record<string, unknown>));
     },

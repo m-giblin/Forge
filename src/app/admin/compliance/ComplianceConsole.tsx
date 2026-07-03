@@ -18,16 +18,16 @@ type ComplianceRequest = {
 
 type Tenant = { id: string; name: string; slug: string };
 
-const STATUS_STYLES: Record<string, string> = {
-  pending: "bg-amber-500/15 text-amber-300",
-  in_progress: "bg-blue-500/15 text-blue-300",
-  completed: "bg-green-500/15 text-green-300",
-  denied: "bg-red-500/15 text-red-300",
+const STATUS_STYLES: Record<string, React.CSSProperties> = {
+  pending:     { background: "#fffbeb", color: "#d97706" },
+  in_progress: { background: "#eff6ff", color: "#2563eb" },
+  completed:   { background: "#f0fdf4", color: "#16a34a" },
+  denied:      { background: "#fef2f2", color: "#dc2626" },
 };
 
 const TYPE_LABELS: Record<string, string> = {
-  deletion: "Data Deletion",
-  export: "Data Export",
+  deletion:   "Data Deletion",
+  export:     "Data Export",
   correction: "Data Correction",
 };
 
@@ -45,18 +45,13 @@ function thisMonth(iso: string): boolean {
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
-export default function ComplianceConsole({
-  requests,
-  tenants,
-}: {
-  requests: ComplianceRequest[];
-  tenants: Tenant[];
-}) {
+const inputCls = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-400";
+
+export default function ComplianceConsole({ requests, tenants }: { requests: ComplianceRequest[]; tenants: Tenant[] }) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
 
-  // Form state
   const [reqType, setReqType] = useState<"deletion" | "export" | "correction">("deletion");
   const [reqEmail, setReqEmail] = useState("");
   const [reqTenant, setReqTenant] = useState("");
@@ -66,137 +61,90 @@ export default function ComplianceConsole({
   function run(fn: () => Promise<void>) {
     setError(null);
     startTransition(async () => {
-      try {
-        await fn();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Action failed.");
-      }
+      try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : "Action failed."); }
     });
   }
 
   function submitRequest() {
     if (!reqEmail) { setError("Requester email is required."); return; }
     run(async () => {
-      await createComplianceRequestAction({
-        request_type: reqType,
-        requester_email: reqEmail,
-        tenant_id: reqTenant || null,
-        regulation: reqRegulation,
-        notes: reqNotes,
-      });
-      setShowForm(false);
-      setReqType("deletion");
-      setReqEmail("");
-      setReqTenant("");
-      setReqRegulation("GDPR");
-      setReqNotes("");
+      await createComplianceRequestAction({ request_type: reqType, requester_email: reqEmail, tenant_id: reqTenant || null, regulation: reqRegulation, notes: reqNotes });
+      setShowForm(false); setReqType("deletion"); setReqEmail(""); setReqTenant(""); setReqRegulation("GDPR"); setReqNotes("");
     });
   }
 
   const pendingCount = requests.filter((r) => r.status === "pending").length;
   const inProgressCount = requests.filter((r) => r.status === "in_progress").length;
-  const completedThisMonth = requests.filter(
-    (r) => r.status === "completed" && r.completed_at && thisMonth(r.completed_at)
-  ).length;
+  const completedThisMonth = requests.filter((r) => r.status === "completed" && r.completed_at && thisMonth(r.completed_at)).length;
+
+  const kpiCard: React.CSSProperties = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" };
 
   return (
-    <div className="mt-6 space-y-6">
-      {error && (
-        <div className="rounded-lg bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</div>
-      )}
+    <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 20 }}>
+      {error && <div style={{ padding: "9px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, fontSize: 12, color: "#dc2626" }}>{error}</div>}
 
       {/* KPI strip */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Pending</p>
-          <p className={`mt-1 text-3xl font-semibold ${pendingCount > 0 ? "text-amber-400" : "text-white"}`}>{pendingCount}</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+        <div style={kpiCard}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>Pending</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: pendingCount > 0 ? "#d97706" : "#111827", marginTop: 4 }}>{pendingCount}</div>
         </div>
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">In Progress</p>
-          <p className="mt-1 text-3xl font-semibold text-white">{inProgressCount}</p>
+        <div style={kpiCard}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>In Progress</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#111827", marginTop: 4 }}>{inProgressCount}</div>
         </div>
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-4 py-4">
-          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500">Completed This Month</p>
-          <p className="mt-1 text-3xl font-semibold text-white">{completedThisMonth}</p>
+        <div style={kpiCard}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>Completed This Month</div>
+          <div style={{ fontSize: 28, fontWeight: 700, color: "#111827", marginTop: 4 }}>{completedThisMonth}</div>
         </div>
       </div>
 
-      {/* New request */}
+      {/* New request toggle */}
       <div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="rounded-lg border border-neutral-700 bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 transition-colors"
+          style={{ padding: "7px 16px", borderRadius: 7, border: "1px solid #e5e7eb", background: showForm ? "#f8fafc" : "#4f46e5", color: showForm ? "#374151" : "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
         >
           {showForm ? "Cancel" : "New Request"}
         </button>
 
         {showForm && (
-          <div className="mt-3 rounded-xl border border-neutral-800 bg-neutral-900 p-5 space-y-4">
-            <h3 className="text-sm font-semibold text-white">New Compliance Request</h3>
-            <div className="grid gap-4 sm:grid-cols-2">
+          <div style={{ marginTop: 12, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: 20 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#111827", marginBottom: 14 }}>New Compliance Request</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-400">Request Type</label>
-                <select
-                  value={reqType}
-                  onChange={(e) => setReqType(e.target.value as "deletion" | "export" | "correction")}
-                  className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500"
-                >
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 4 }}>Request Type</label>
+                <select value={reqType} onChange={(e) => setReqType(e.target.value as "deletion" | "export" | "correction")} className={inputCls}>
                   <option value="deletion">Data Deletion (Art. 17)</option>
                   <option value="export">Data Export (Art. 20)</option>
                   <option value="correction">Data Correction (Art. 16)</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-400">Regulation</label>
-                <select
-                  value={reqRegulation}
-                  onChange={(e) => setReqRegulation(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500"
-                >
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 4 }}>Regulation</label>
+                <select value={reqRegulation} onChange={(e) => setReqRegulation(e.target.value)} className={inputCls}>
                   <option value="GDPR">GDPR</option>
                   <option value="CCPA">CCPA</option>
                   <option value="other">Other</option>
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-400">Requester Email</label>
-                <input
-                  type="email"
-                  value={reqEmail}
-                  onChange={(e) => setReqEmail(e.target.value)}
-                  placeholder="user@example.com"
-                  className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500"
-                />
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 4 }}>Requester Email</label>
+                <input type="email" value={reqEmail} onChange={(e) => setReqEmail(e.target.value)} placeholder="user@example.com" className={inputCls} />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-neutral-400">Tenant (optional)</label>
-                <select
-                  value={reqTenant}
-                  onChange={(e) => setReqTenant(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500"
-                >
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 4 }}>Tenant (optional)</label>
+                <select value={reqTenant} onChange={(e) => setReqTenant(e.target.value)} className={inputCls}>
                   <option value="">— No specific tenant —</option>
-                  {tenants.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name} (/{t.slug})</option>
-                  ))}
+                  {tenants.map((t) => <option key={t.id} value={t.id}>{t.name} (/{t.slug})</option>)}
                 </select>
               </div>
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-neutral-400">Notes</label>
-                <textarea
-                  value={reqNotes}
-                  onChange={(e) => setReqNotes(e.target.value)}
-                  rows={3}
-                  placeholder="Context, case reference, etc."
-                  className="w-full rounded-lg border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm text-neutral-100 outline-none focus:border-neutral-500 resize-none"
-                />
+              <div style={{ gridColumn: "span 2" }}>
+                <label style={{ display: "block", fontSize: 10, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 4 }}>Notes</label>
+                <textarea value={reqNotes} onChange={(e) => setReqNotes(e.target.value)} rows={3} placeholder="Context, case reference, etc." className={inputCls} style={{ resize: "none", fontFamily: "inherit" }} />
               </div>
             </div>
-            <button
-              onClick={submitRequest}
-              disabled={isPending}
-              className="rounded-lg bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-200 disabled:opacity-40"
-            >
+            <button onClick={submitRequest} disabled={isPending} style={{ marginTop: 12, padding: "7px 16px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: isPending ? .5 : 1 }}>
               Submit Request
             </button>
           </div>
@@ -205,98 +153,47 @@ export default function ComplianceConsole({
 
       {/* Requests table */}
       {requests.length === 0 ? (
-        <div className="rounded-xl border border-neutral-800 bg-neutral-900 px-6 py-12 text-center">
-          <p className="text-sm text-neutral-500">No compliance requests yet.</p>
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "48px 24px", textAlign: "center", fontSize: 13, color: "#94a3b8" }}>
+          No compliance requests yet.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-neutral-800 bg-neutral-900">
-          <table className="w-full text-sm">
+        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
             <thead>
-              <tr className="border-b border-neutral-800 text-left text-xs uppercase tracking-wide text-neutral-500">
-                <th className="px-4 py-2.5 font-medium">Type</th>
-                <th className="px-4 py-2.5 font-medium">Requester</th>
-                <th className="px-4 py-2.5 font-medium">Tenant</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Regulation</th>
-                <th className="px-4 py-2.5 font-medium">Created</th>
-                <th className="px-4 py-2.5 font-medium">Actions</th>
+              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
+                {["Type", "Requester", "Tenant", "Status", "Regulation", "Created", "Actions"].map((h) => (
+                  <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {requests.map((req) => (
-                <tr key={req.id} className="border-b border-neutral-800/60 last:border-0">
-                  <td className="px-4 py-3 font-medium text-neutral-200">
-                    {TYPE_LABELS[req.request_type] ?? req.request_type}
-                  </td>
-                  <td className="px-4 py-3 text-neutral-300 text-xs">{req.requester_email}</td>
-                  <td className="px-4 py-3 text-neutral-400">
-                    {req.tenant_name ?? <span className="text-neutral-600">—</span>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs ${STATUS_STYLES[req.status] ?? "bg-neutral-700 text-neutral-400"}`}
-                    >
+                <tr key={req.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                  <td style={{ padding: "11px 14px", fontWeight: 600, color: "#111827" }}>{TYPE_LABELS[req.request_type] ?? req.request_type}</td>
+                  <td style={{ padding: "11px 14px", color: "#4b5563", fontSize: 12 }}>{req.requester_email}</td>
+                  <td style={{ padding: "11px 14px", color: "#6b7280" }}>{req.tenant_name ?? "—"}</td>
+                  <td style={{ padding: "11px 14px" }}>
+                    <span style={{ padding: "2px 8px", borderRadius: 9, fontSize: 11, fontWeight: 600, ...(STATUS_STYLES[req.status] ?? { background: "#f1f5f9", color: "#64748b" }) }}>
                       {req.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-neutral-400 text-xs">{req.regulation}</td>
-                  <td className="px-4 py-3 text-xs text-neutral-500">{timeAgo(req.created_at)}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
+                  <td style={{ padding: "11px 14px", color: "#6b7280", fontSize: 12 }}>{req.regulation}</td>
+                  <td style={{ padding: "11px 14px", color: "#94a3b8", fontSize: 12 }}>{timeAgo(req.created_at)}</td>
+                  <td style={{ padding: "11px 14px" }}>
+                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                       {req.request_type === "export" && (
-                        <a
-                          href={`/api/admin/compliance/export?email=${encodeURIComponent(req.requester_email)}`}
-                          download
-                          className="text-xs font-medium text-sky-400 hover:underline"
-                        >
-                          Download
-                        </a>
+                        <a href={`/api/admin/compliance/export?email=${encodeURIComponent(req.requester_email)}`} download style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", textDecoration: "none" }}>Download</a>
                       )}
                       {req.request_type === "deletion" && req.status !== "completed" && req.status !== "denied" && (
-                        <button
-                          onClick={() => {
-                            if (!confirm(`Permanently erase all data for ${req.requester_email}? This cannot be undone.`)) return;
-                            run(async () => {
-                              const res = await fetch("/api/admin/compliance/erase", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ email: req.requester_email }),
-                              });
-                              if (!res.ok) throw new Error((await res.json()).error ?? "Erasure failed");
-                              await updateComplianceStatusAction(req.id, "completed", "Automated erasure completed.");
-                            });
-                          }}
-                          disabled={isPending}
-                          className="text-xs font-medium text-red-400 hover:underline disabled:opacity-40"
-                        >
-                          Erase
-                        </button>
+                        <button onClick={() => { if (!confirm(`Permanently erase all data for ${req.requester_email}?`)) return; run(async () => { const res = await fetch("/api/admin/compliance/erase", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: req.requester_email }) }); if (!res.ok) throw new Error((await res.json()).error ?? "Erasure failed"); await updateComplianceStatusAction(req.id, "completed", "Automated erasure completed."); }); }} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0, opacity: isPending ? .4 : 1 }}>Erase</button>
                       )}
                       {req.status === "pending" && (
-                        <button
-                          onClick={() => run(() => updateComplianceStatusAction(req.id, "in_progress"))}
-                          disabled={isPending}
-                          className="text-xs font-medium text-amber-400 hover:underline disabled:opacity-40"
-                        >
-                          Start
-                        </button>
+                        <button onClick={() => run(() => updateComplianceStatusAction(req.id, "in_progress"))} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, color: "#d97706", background: "none", border: "none", cursor: "pointer", padding: 0, opacity: isPending ? .4 : 1 }}>Start</button>
                       )}
                       {(req.status === "pending" || req.status === "in_progress") && (
                         <>
-                          <button
-                            onClick={() => run(() => updateComplianceStatusAction(req.id, "completed"))}
-                            disabled={isPending}
-                            className="text-xs font-medium text-green-400 hover:underline disabled:opacity-40"
-                          >
-                            Complete
-                          </button>
-                          <button
-                            onClick={() => run(() => updateComplianceStatusAction(req.id, "denied"))}
-                            disabled={isPending}
-                            className="text-xs font-medium text-red-400 hover:underline disabled:opacity-40"
-                          >
-                            Deny
-                          </button>
+                          <button onClick={() => run(() => updateComplianceStatusAction(req.id, "completed"))} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, color: "#16a34a", background: "none", border: "none", cursor: "pointer", padding: 0, opacity: isPending ? .4 : 1 }}>Complete</button>
+                          <button onClick={() => run(() => updateComplianceStatusAction(req.id, "denied"))} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0, opacity: isPending ? .4 : 1 }}>Deny</button>
                         </>
                       )}
                     </div>

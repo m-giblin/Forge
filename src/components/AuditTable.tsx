@@ -7,19 +7,25 @@ type AuditView = {
   created_at: string;
 };
 
-// Presentational audit table. `dark` switches palette for the platform console.
 export default function AuditTable({
   entries,
   showTenant = false,
   dark = false,
+  tenantNames = {},
 }: {
   entries: AuditView[];
   showTenant?: boolean;
   dark?: boolean;
+  tenantNames?: Record<string, string>;
 }) {
   const c = dark
-    ? { border: "border-neutral-800", bg: "bg-neutral-900", head: "text-neutral-500", row: "border-neutral-800/60", primary: "text-neutral-100", muted: "text-neutral-400", empty: "text-neutral-500" }
-    : { border: "border-neutral-200", bg: "bg-white", head: "text-neutral-400", row: "border-neutral-100", primary: "text-neutral-800", muted: "text-neutral-500", empty: "text-neutral-400" };
+    ? { border: "border-neutral-800", bg: "bg-neutral-900", head: "text-neutral-500", row: "border-neutral-700", primary: "text-neutral-100", muted: "text-neutral-400", empty: "text-neutral-500" }
+    : { border: "border-neutral-200", bg: "bg-white", head: "text-neutral-400", row: "border-neutral-300", primary: "text-neutral-800", muted: "text-neutral-500", empty: "text-neutral-400" };
+
+  function tenantLabel(id: string | null) {
+    if (!id) return "platform";
+    return tenantNames[id] ?? id.slice(0, 8);
+  }
 
   return (
     <div className={`overflow-hidden rounded-xl border ${c.border} ${c.bg}`}>
@@ -44,7 +50,7 @@ export default function AuditTable({
                 </code>
               </td>
               <td className={`px-4 py-2.5 ${c.muted}`}>{e.target ?? "—"}</td>
-              {showTenant && <td className={`px-4 py-2.5 font-mono text-xs ${c.muted}`}>{e.tenant_id ? e.tenant_id.slice(0, 8) : "platform"}</td>}
+              {showTenant && <td className={`px-4 py-2.5 text-xs ${c.muted}`}>{tenantLabel(e.tenant_id)}</td>}
             </tr>
           ))}
           {entries.length === 0 && (
