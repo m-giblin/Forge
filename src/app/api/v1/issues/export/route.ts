@@ -56,7 +56,9 @@ export async function GET(req: Request) {
     const projectKey = new Map((projectsRes.data ?? []).map((p) => [p.id, p.key]));
     const userName = new Map((usersRes.data ?? []).map((u) => [u.id, u.name || u.email]));
 
-    const headers = ["key", "title", "description", "type", "status", "priority", "assignee", "phase", "start_date", "due_date", "created_at", "updated_at", "external_id", "source"];
+    // external_id is excluded: it stores raw sender email for inbound-email issues, which
+    // would leak PII (email addresses) to any API key holder with issues:read scope.
+    const headers = ["key", "title", "description", "type", "status", "priority", "assignee", "phase", "start_date", "due_date", "created_at", "updated_at", "source"];
     const rows = (data ?? []).map((r) => [
       `${projectKey.get(r.project_id as string) ?? "??"}-${r.number}`,
       r.title,
@@ -70,7 +72,6 @@ export async function GET(req: Request) {
       r.due_date,
       r.created_at,
       r.updated_at,
-      r.external_id,
       r.source,
     ].map(csvEscape).join(","));
 

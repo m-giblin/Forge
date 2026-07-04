@@ -18,6 +18,8 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Remove the X-Powered-By: Next.js header — avoids fingerprinting the tech stack.
+  poweredByHeader: false,
   // Pin the workspace root to this app. A stray lockfile in a parent dir
   // (e.g. ~/package-lock.json) otherwise makes Turbopack guess the wrong root.
   turbopack: {

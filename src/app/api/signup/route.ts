@@ -105,8 +105,11 @@ export async function POST(req: NextRequest) {
   }, { onConflict: "id" });
 
   if (userError) {
-    // Non-fatal: the membership creation below will still work
+    // Fatal: without the users row getTenantContext() returns null for every request.
     console.error("[signup] user upsert error:", userError.message);
+    await supabaseAdmin.auth.admin.deleteUser(userId);
+    await svc.from("tenants").delete().eq("id", tenant.id);
+    return NextResponse.json({ error: "Failed to create account. Please try again." }, { status: 500 });
   }
 
   // Create owner membership

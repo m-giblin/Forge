@@ -19,6 +19,11 @@ const sb = createClient(
 // grok-3-mini pricing (per million tokens)
 const GROK_PRICE = { in: 0.30, out: 0.50 };
 
+// Return 404 on GET so the route doesn't fingerprint itself as existing.
+export function GET() {
+  return new Response(null, { status: 404 });
+}
+
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-g4-secret");
   if (!secret || secret !== process.env.G4_PUBLISH_SECRET) {
@@ -130,7 +135,7 @@ export async function POST(request: NextRequest) {
 
     if (!g4Res.ok) throw new Error(`G4 ingest rejected: ${g4Res.status}`);
 
-    return NextResponse.json({ ok: true, payload });
+    return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("[publish-metrics] forge error:", err);
     return NextResponse.json({ error: String(err) }, { status: 500 });

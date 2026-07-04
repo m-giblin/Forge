@@ -82,7 +82,12 @@ export async function GET(req: NextRequest) {
     .order("updated_at", { ascending: false })
     .limit(limit);
 
-  if (text)              query = query.or(`title.ilike.%${text}%,description.ilike.%${text}%`);
+  // Sanitize free-text before interpolating into PostgREST filter string.
+  // Periods, parens, and commas are PostgREST syntax characters that can escape the filter.
+  if (text) {
+    const safe = text.replace(/[^a-zA-Z0-9 \-_']/g, "");
+    if (safe) query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`);
+  }
   if (filters.status)    query = query.in("status", filters.status);
   if (filters.priority)  query = query.in("priority", filters.priority);
   if (filters.type)      query = query.in("type", filters.type);

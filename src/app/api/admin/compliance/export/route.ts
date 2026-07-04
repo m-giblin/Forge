@@ -2,10 +2,17 @@ import { NextResponse } from "next/server";
 import { exportSubjectData } from "@/lib/services/gdprExport";
 import { requireSuperAdmin } from "@/lib/super-admin";
 
-// GET /api/admin/compliance/export?email=<email>
-export async function GET(req: Request) {
+// POST /api/admin/compliance/export  { email: string }
+// Body (not URL param) so the subject's email doesn't appear in server/CDN logs.
+export async function POST(req: Request) {
   if (!(await requireSuperAdmin())) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const email = new URL(req.url).searchParams.get("email");
+  let email: string | undefined;
+  try {
+    const body = await req.json();
+    email = typeof body?.email === "string" ? body.email.trim() : undefined;
+  } catch {
+    return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+  }
   if (!email) return NextResponse.json({ error: "email required" }, { status: 400 });
   try {
     const data = await exportSubjectData(email);
@@ -13,7 +20,7 @@ export async function GET(req: Request) {
       status: 200,
       headers: {
         "Content-Type": "application/json",
-        "Content-Disposition": `attachment; filename="gdpr-export-${email.replace(/[^a-z0-9]/gi, "-")}.json"`,
+        "Content-Disposition": `attachment; filename="gdpr-export.json"`,
       },
     });
   } catch (e) {

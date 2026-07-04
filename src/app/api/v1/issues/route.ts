@@ -118,6 +118,11 @@ export async function GET(req: Request) {
 
     const supabase = createSupabaseServiceClient();
 
+    // Validate project key format before touching the DB (returns 400, not 500, on bad input).
+    if (projectParam && !/^[A-Z0-9]{1,10}$/.test(projectParam)) {
+      return apiError("invalid_request", "project must be an alphanumeric key up to 10 characters (e.g. FORGE).");
+    }
+
     // Resolve project key → id if provided.
     let projectId: string | undefined;
     if (projectParam) {
