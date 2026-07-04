@@ -29,7 +29,11 @@ export default function GuestPageClient({
     async function boot() {
       // 1. Check stored session
       if (stored) {
-        const res = await fetch(`/api/spaces/guest/verify?sessionToken=${stored}&shareId=${shareId}`);
+        const res = await fetch("/api/spaces/guest/verify/session", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sessionToken: stored, shareId }),
+        });
         const json = await res.json();
         if (json.valid) { setSessionToken(stored); setPhase("view"); return; }
         sessionStorage.removeItem(`forge-guest-${shareId}`);

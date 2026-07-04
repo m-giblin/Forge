@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { WebhookEndpoint } from "@/lib/repositories/webhooks";
-import { createWebhookAction, toggleWebhookAction, deleteWebhookAction, testWebhookAction } from "./actions";
+import type { WebhookEndpointMeta } from "@/lib/repositories/webhooks";
+import { createWebhookAction, toggleWebhookAction, deleteWebhookAction, testWebhookAction, revealSecretAction } from "./actions";
 
 const EVENT_LABELS: Record<string, string> = {
   "issue.created": "Issue created",
@@ -17,7 +17,7 @@ export default function WebhooksClient({
   allEvents,
 }: {
   slug: string;
-  endpoints: WebhookEndpoint[];
+  endpoints: WebhookEndpointMeta[];
   allEvents: string[];
 }) {
   const [list, setList] = useState(endpoints);
@@ -26,6 +26,8 @@ export default function WebhooksClient({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [revealSecret, setRevealSecret] = useState<string | null>(null);
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
+  const [revealPending, setRevealPending] = useState<string | null>(null);
 
   function handleCreate(formData: FormData) {
     setError(null);
@@ -97,15 +99,28 @@ export default function WebhooksClient({
             </label>
           </div>
 
-          {/* Secret */}
+          {/* Secret — fetched on demand; never in initial page data */}
           <div className="flex items-center gap-2 rounded-lg bg-neutral-50 px-3 py-2 text-xs font-mono text-neutral-500">
             <span className="text-neutral-400 shrink-0">Secret:</span>
             <span className="flex-1 truncate">
-              {revealSecret === ep.id ? ep.secret : "••••••••••••••••••••••••"}
+              {revealSecret === ep.id && revealedSecrets[ep.id]
+                ? revealedSecrets[ep.id]
+                : "••••••••••••••••••••••••"}
             </span>
-            <button onClick={() => setRevealSecret(revealSecret === ep.id ? null : ep.id)}
-              className="shrink-0 text-neutral-400 hover:text-neutral-700 text-[11px]">
-              {revealSecret === ep.id ? "Hide" : "Reveal"}
+            <button
+              onClick={async () => {
+                if (revealSecret === ep.id) { setRevealSecret(null); return; }
+                if (revealedSecrets[ep.id]) { setRevealSecret(ep.id); return; }
+                setRevealPending(ep.id);
+                try {
+                  const secret = await revealSecretAction(slug, ep.id);
+                  if (secret) setRevealedSecrets((s) => ({ ...s, [ep.id]: secret }));
+                  setRevealSecret(ep.id);
+                } finally { setRevealPending(null); }
+              }}
+              disabled={revealPending === ep.id}
+              className="shrink-0 text-neutral-400 hover:text-neutral-700 text-[11px] disabled:opacity-50">
+              {revealPending === ep.id ? "…" : revealSecret === ep.id ? "Hide" : "Reveal"}
             </button>
           </div>
 

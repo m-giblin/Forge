@@ -107,26 +107,5 @@ export async function POST(req: Request) {
   return NextResponse.json({ sessionToken, expiresAt });
 }
 
-// GET /api/spaces/guest/verify?sessionToken=xxx&shareId=xxx — validate a session
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const sessionToken = searchParams.get("sessionToken");
-  const shareId = searchParams.get("shareId");
-
-  if (!sessionToken || !shareId) return NextResponse.json({ valid: false });
-
-  const svc = createSupabaseServiceClient();
-  const sessionTokenHash = sha256(sessionToken); // hash before lookup
-
-  const { data } = await svc
-    .from("guest_sessions")
-    .select("id, expires_at, share_id")
-    .eq("session_token", sessionTokenHash)
-    .eq("share_id", shareId)
-    .is("revoked_at", null)
-    .gt("expires_at", new Date().toISOString())
-    .maybeSingle();
-
-  if (!data) return NextResponse.json({ valid: false });
-  return NextResponse.json({ valid: true, expiresAt: data.expires_at });
-}
+// Session validation moved to POST /api/spaces/guest/verify/session
+// to keep the session token out of URL params, browser history, and server logs.

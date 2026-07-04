@@ -56,13 +56,20 @@ export async function POST(req: Request) {
       return new Response(JSON.stringify({ error: "Unknown tenant" }), { status: 404 });
     }
 
-    // Verify HMAC if secret is configured
-    if (secret && sigHeader) {
-      const valid = await verifySignature(secret, body, sigHeader);
-      if (!valid) {
-        logger.warn("GitHub webhook HMAC mismatch", { tenantId });
-        return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401 });
-      }
+    // Require HMAC — reject if no secret configured or signature missing/invalid.
+    // Accepting unsigned payloads would allow anyone to forge webhook events.
+    if (!secret) {
+      logger.warn("GitHub webhook received but no secret configured", { tenantId });
+      return new Response(JSON.stringify({ error: "Webhook secret not configured for this tenant" }), { status: 401 });
+    }
+    if (!sigHeader) {
+      logger.warn("GitHub webhook missing signature header", { tenantId });
+      return new Response(JSON.stringify({ error: "Missing X-Hub-Signature-256 header" }), { status: 401 });
+    }
+    const valid = await verifySignature(secret, body, sigHeader);
+    if (!valid) {
+      logger.warn("GitHub webhook HMAC mismatch", { tenantId });
+      return new Response(JSON.stringify({ error: "Invalid signature" }), { status: 401 });
     }
 
     const payload = JSON.parse(body);

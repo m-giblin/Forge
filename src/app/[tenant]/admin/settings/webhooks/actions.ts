@@ -43,11 +43,18 @@ export async function deleteWebhookAction(slug: string, id: string): Promise<voi
   revalidatePath(`/${slug}/admin/settings/webhooks`);
 }
 
+export async function revealSecretAction(slug: string, id: string): Promise<string | null> {
+  const ctx = await requireAdmin(slug);
+  return svc().getSecret(ctx.tenant.id, id);
+}
+
 export async function testWebhookAction(slug: string, id: string): Promise<{ ok: boolean; status?: number; error?: string }> {
   const ctx = await requireAdmin(slug);
-  const endpoints = await svc().list(ctx.tenant.id);
+  const endpoints = await svc().listMetadata(ctx.tenant.id);
   const ep = endpoints.find((e) => e.id === id);
   if (!ep) throw new Error("Webhook not found.");
+  const secret = await svc().getSecret(ctx.tenant.id, id);
+  if (!secret) throw new Error("Webhook secret not found.");
 
   const payload = JSON.stringify({
     event: "webhook.test",
@@ -56,7 +63,7 @@ export async function testWebhookAction(slug: string, id: string): Promise<{ ok:
   });
 
   const key = await crypto.subtle.importKey(
-    "raw", new TextEncoder().encode(ep.secret),
+    "raw", new TextEncoder().encode(secret),
     { name: "HMAC", hash: "SHA-256" }, false, ["sign"],
   );
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));

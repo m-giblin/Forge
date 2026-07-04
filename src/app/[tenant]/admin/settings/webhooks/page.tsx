@@ -11,7 +11,7 @@ export default async function WebhooksPage({ params }: { params: Promise<{ tenan
   if (!ctx) redirect("/");
   if (ctx.role !== "owner" && ctx.role !== "admin") redirect(`/${slug}/admin`);
 
-  const endpoints = await webhooksRepo(createSupabaseServiceClient()).list(ctx.tenant.id);
+  const endpoints = await webhooksRepo(createSupabaseServiceClient()).listMetadata(ctx.tenant.id);
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
