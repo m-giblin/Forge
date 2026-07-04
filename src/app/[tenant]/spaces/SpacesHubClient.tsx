@@ -26,6 +26,7 @@ export default function SpacesHubClient({
   const [searching, setSearching] = useState(false);
 
   const canEdit = role === "owner" || role === "admin" || role === "member";
+  const isOwnerAdmin = role === "owner" || role === "admin";
 
   const projectSpaces = spaces.filter((s) => s.type === "project");
   const teamSpaces = spaces.filter((s) => s.type === "team");
@@ -156,14 +157,14 @@ export default function SpacesHubClient({
         {/* Team Spaces */}
         <SpaceSection title="Team Spaces" icon="🏢" empty="No team spaces yet.">
           {teamSpaces.map((s) => (
-            <SpaceCard key={s.id} space={s} slug={slug} />
+            <SpaceCard key={s.id} space={s} slug={slug} canDelete={isOwnerAdmin} onDeleted={(id) => router.refresh()} />
           ))}
         </SpaceSection>
 
         {/* My Space */}
         <SpaceSection title="My Space" icon="🧠" empty="Create a personal space to keep private notes, drafts, and ideas.">
           {personalSpaces.map((s) => (
-            <SpaceCard key={s.id} space={s} slug={slug} />
+            <SpaceCard key={s.id} space={s} slug={slug} canDelete userId={userId} onDeleted={(id) => router.refresh()} />
           ))}
         </SpaceSection>
       </div>
@@ -243,34 +244,69 @@ function SpaceSection({ title, icon, children, empty }: { title: string; icon: s
   );
 }
 
-function SpaceCard({ space, slug }: { space: SpaceRow; slug: string }) {
+function SpaceCard({ space, slug, canDelete, userId: _userId, onDeleted }: {
+  space: SpaceRow;
+  slug: string;
+  canDelete?: boolean;
+  userId?: string;
+  onDeleted?: (id: string) => void;
+}) {
+  const [deleting, setDeleting] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+
+  async function handleDelete(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!confirm) { setConfirm(true); return; }
+    setDeleting(true);
+    const res = await fetch(`/api/spaces?slug=${slug}&id=${space.id}`, { method: "DELETE" });
+    if (res.ok) onDeleted?.(space.id);
+    else setDeleting(false);
+  }
+
   return (
-    <Link
-      href={`/${slug}/spaces/${space.id}`}
-      className="group flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm transition"
-    >
-      <span className="mt-0.5 text-2xl shrink-0">{space.icon}</span>
-      <div className="min-w-0">
-        <p className="font-medium text-neutral-800 group-hover:text-indigo-700 transition truncate">{space.name}</p>
-        {space.description && (
-          <p className="mt-0.5 text-xs text-neutral-400 line-clamp-2">{space.description}</p>
-        )}
-        {space.type === "project" && space.projects && (
-          <span className="mt-1 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
-            {space.projects.key}
-          </span>
-        )}
-        {space.type === "personal" && (
-          <span className="mt-1 inline-block rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-600">
-            Private
-          </span>
-        )}
-        {space.type === "team" && (
-          <span className="mt-1 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
-            Team
-          </span>
-        )}
-      </div>
-    </Link>
+    <div className="group relative">
+      <Link
+        href={`/${slug}/spaces/${space.id}`}
+        className="flex items-start gap-3 rounded-xl border border-neutral-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm transition"
+      >
+        <span className="mt-0.5 text-2xl shrink-0">{space.icon}</span>
+        <div className="min-w-0">
+          <p className="font-medium text-neutral-800 group-hover:text-indigo-700 transition truncate">{space.name}</p>
+          {space.description && (
+            <p className="mt-0.5 text-xs text-neutral-400 line-clamp-2">{space.description}</p>
+          )}
+          {space.type === "project" && space.projects && (
+            <span className="mt-1 inline-block rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
+              {space.projects.key}
+            </span>
+          )}
+          {space.type === "personal" && (
+            <span className="mt-1 inline-block rounded-full bg-purple-50 px-2 py-0.5 text-[10px] font-medium text-purple-600">
+              Private
+            </span>
+          )}
+          {space.type === "team" && (
+            <span className="mt-1 inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-medium text-emerald-600">
+              Team
+            </span>
+          )}
+        </div>
+      </Link>
+      {canDelete && (
+        <button
+          onClick={handleDelete}
+          disabled={deleting}
+          onBlur={() => setConfirm(false)}
+          className={`absolute right-2 top-2 rounded-md px-2 py-1 text-[10px] font-medium opacity-0 group-hover:opacity-100 transition-opacity ${
+            confirm
+              ? "bg-red-600 text-white"
+              : "bg-neutral-100 text-neutral-400 hover:bg-red-50 hover:text-red-600"
+          }`}
+        >
+          {deleting ? "…" : confirm ? "Confirm?" : "Delete"}
+        </button>
+      )}
+    </div>
   );
 }

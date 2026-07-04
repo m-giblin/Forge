@@ -141,8 +141,22 @@ export default function SpaceViewClient({
           </div>
         </div>
 
+        {/* Add page button — top of nav, not buried at the bottom */}
+        {canEdit && (
+          <div className="shrink-0 px-2 pt-2 pb-1">
+            <button
+              onClick={() => createPage()}
+              disabled={isPending}
+              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-medium text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 transition"
+            >
+              <span className="text-base leading-none">+</span>
+              <span>New page</span>
+            </button>
+          </div>
+        )}
+
         {/* Pages tree */}
-        <nav className="flex-1 px-2 py-2 space-y-0.5">
+        <nav className="flex-1 px-2 py-1 space-y-0.5 overflow-y-auto">
           {roots.map((page) => (
             <PageTreeItem
               key={page.id}
@@ -161,20 +175,6 @@ export default function SpaceViewClient({
             <p className="px-2 py-4 text-center text-xs text-neutral-400">No pages yet</p>
           )}
         </nav>
-
-        {/* Add page button */}
-        {canEdit && (
-          <div className="shrink-0 border-t border-neutral-100 px-2 py-2">
-            <button
-              onClick={() => createPage()}
-              disabled={isPending}
-              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 transition"
-            >
-              <span className="text-base">+</span>
-              <span>New page</span>
-            </button>
-          </div>
-        )}
       </aside>
 
       {/* Main content */}

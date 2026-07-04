@@ -23,6 +23,9 @@ const ACTION_LABELS: Record<ActionType, string> = {
   fire_webhook: "Fire webhook URL",
 };
 
+const INPUT = "w-full rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+const SELECT = "rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+
 const emptyCondition = (): Condition => ({ field: "priority", operator: "is", value: "" });
 const emptyAction = (): Action => ({ type: "set_priority", value: "" });
 
@@ -41,8 +44,8 @@ export default function AutomationsClient({ slug, rules }: { slug: string; rules
   }
 
   function handleCreate() {
-    if (!name.trim()) { setError("Name is required"); return; }
-    if (actions.length === 0) { setError("Add at least one action"); return; }
+    if (!name.trim()) { setError("Rule name is required."); return; }
+    if (actions.length === 0) { setError("Add at least one action."); return; }
     startTransition(async () => {
       try {
         await createAutomationAction(slug, { name: name.trim(), trigger, conditions, actions });
@@ -63,55 +66,46 @@ export default function AutomationsClient({ slug, rules }: { slug: string; rules
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-white">Automation Rules</h2>
-          <p className="text-sm text-zinc-400 mt-0.5">Trigger actions automatically when issues change</p>
-        </div>
-        <button
-          onClick={() => setShowForm(true)}
-          className="px-3 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-md"
-        >
-          + New rule
-        </button>
-      </div>
-
-      {/* Existing rules */}
-      {rules.length === 0 && !showForm && (
-        <div className="text-center py-12 text-zinc-500 border border-dashed border-zinc-700 rounded-lg">
-          No automation rules yet. Create one to get started.
-        </div>
-      )}
-
-      <div className="space-y-3">
-        {rules.map((rule) => (
-          <RuleRow key={rule.id} rule={rule} slug={slug} />
-        ))}
+        <p className="text-sm text-neutral-500">Trigger actions automatically when issues change</p>
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+          >
+            + New rule
+          </button>
+        )}
       </div>
 
       {/* Create form */}
       {showForm && (
-        <div className="border border-zinc-700 rounded-lg p-5 bg-zinc-800/50 space-y-4">
-          <h3 className="text-sm font-semibold text-white">New automation rule</h3>
+        <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm space-y-5">
+          <h3 className="text-sm font-semibold text-neutral-900">New automation rule</h3>
 
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
+          )}
 
+          {/* Name */}
           <div className="space-y-1">
-            <label className="text-xs text-zinc-400">Rule name</label>
+            <label className="block text-xs font-medium text-neutral-600">Rule name</label>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g. Auto-assign critical bugs"
-              className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white"
+              className={INPUT}
             />
           </div>
 
+          {/* Trigger */}
           <div className="space-y-1">
-            <label className="text-xs text-zinc-400">Trigger</label>
+            <label className="block text-xs font-medium text-neutral-600">Trigger</label>
             <select
               value={trigger}
               onChange={(e) => setTrigger(e.target.value as TriggerType)}
-              className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white"
+              className={`${SELECT} w-full`}
             >
               {Object.entries(TRIGGER_LABELS).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
@@ -122,27 +116,30 @@ export default function AutomationsClient({ slug, rules }: { slug: string; rules
           {/* Conditions */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs text-zinc-400">Conditions (all must match)</label>
+              <label className="text-xs font-medium text-neutral-600">Conditions <span className="font-normal text-neutral-400">(all must match)</span></label>
               <button
                 onClick={() => setConditions((cs) => [...cs, emptyCondition()])}
-                className="text-xs text-indigo-400 hover:text-indigo-300"
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
               >
                 + Add condition
               </button>
             </div>
+            {conditions.length === 0 && (
+              <p className="text-xs text-neutral-400 italic">No conditions — rule runs on every matching trigger.</p>
+            )}
             {conditions.map((c, i) => (
-              <div key={i} className="flex gap-2 items-center">
+              <div key={i} className="flex items-center gap-2">
                 <select
                   value={c.field}
                   onChange={(e) => updateCondition(i, { field: e.target.value as Condition["field"] })}
-                  className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white"
+                  className={SELECT}
                 >
                   {CONDITION_FIELDS.map((f) => <option key={f} value={f}>{f}</option>)}
                 </select>
                 <select
                   value={c.operator}
                   onChange={(e) => updateCondition(i, { operator: e.target.value as Condition["operator"] })}
-                  className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white"
+                  className={SELECT}
                 >
                   {CONDITION_OPS.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
@@ -151,12 +148,12 @@ export default function AutomationsClient({ slug, rules }: { slug: string; rules
                     value={c.value ?? ""}
                     onChange={(e) => updateCondition(i, { value: e.target.value })}
                     placeholder="value"
-                    className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white"
+                    className="flex-1 rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 placeholder-neutral-400 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 )}
                 <button
                   onClick={() => setConditions((cs) => cs.filter((_, idx) => idx !== i))}
-                  className="text-zinc-500 hover:text-red-400 text-xs"
+                  className="text-neutral-400 hover:text-red-500 text-sm leading-none"
                 >
                   ✕
                 </button>
@@ -167,33 +164,38 @@ export default function AutomationsClient({ slug, rules }: { slug: string; rules
           {/* Actions */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <label className="text-xs text-zinc-400">Actions (run in order)</label>
+              <label className="text-xs font-medium text-neutral-600">Actions <span className="font-normal text-neutral-400">(run in order)</span></label>
               <button
                 onClick={() => setActions((as) => [...as, emptyAction()])}
-                className="text-xs text-indigo-400 hover:text-indigo-300"
+                className="text-xs font-medium text-indigo-600 hover:text-indigo-500"
               >
                 + Add action
               </button>
             </div>
             {actions.map((a, i) => (
-              <div key={i} className="flex gap-2 items-center">
+              <div key={i} className="flex items-center gap-2">
                 <select
                   value={a.type}
                   onChange={(e) => updateAction(i, { type: e.target.value as ActionType, value: "" })}
-                  className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white"
+                  className={SELECT}
                 >
                   {ACTION_TYPES.map((t) => <option key={t} value={t}>{ACTION_LABELS[t]}</option>)}
                 </select>
                 <input
                   value={a.value}
                   onChange={(e) => updateAction(i, { value: e.target.value })}
-                  placeholder={a.type === "fire_webhook" ? "https://..." : a.type === "post_comment" ? "Comment text..." : "value"}
-                  className="flex-1 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-xs text-white"
+                  placeholder={
+                    a.type === "fire_webhook" ? "https://hooks.example.com/..."
+                    : a.type === "post_comment" ? "Comment text…"
+                    : a.type === "add_label" ? "bug, urgent, …"
+                    : "value"
+                  }
+                  className="flex-1 rounded-lg border border-neutral-300 bg-white px-2.5 py-1.5 text-sm text-neutral-900 placeholder-neutral-400 focus:border-indigo-500 focus:outline-none"
                 />
                 {actions.length > 1 && (
                   <button
                     onClick={() => setActions((as) => as.filter((_, idx) => idx !== i))}
-                    className="text-zinc-500 hover:text-red-400 text-xs"
+                    className="text-neutral-400 hover:text-red-500 text-sm leading-none"
                   >
                     ✕
                   </button>
@@ -202,20 +204,37 @@ export default function AutomationsClient({ slug, rules }: { slug: string; rules
             ))}
           </div>
 
-          <div className="flex gap-2 pt-1">
+          <div className="flex items-center gap-3 border-t border-neutral-100 pt-4">
             <button
               onClick={handleCreate}
               disabled={isPending}
-              className="px-4 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-md"
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
               {isPending ? "Creating…" : "Create rule"}
             </button>
-            <button onClick={resetForm} className="px-4 py-1.5 text-sm text-zinc-400 hover:text-white">
+            <button
+              onClick={resetForm}
+              className="text-sm text-neutral-500 hover:text-neutral-700"
+            >
               Cancel
             </button>
           </div>
         </div>
       )}
+
+      {/* Rule list */}
+      {rules.length === 0 && !showForm && (
+        <div className="rounded-xl border border-dashed border-neutral-200 py-12 text-center">
+          <p className="text-sm text-neutral-500">No automation rules yet.</p>
+          <p className="mt-1 text-xs text-neutral-400">Create a rule to automatically act when issues change.</p>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {rules.map((rule) => (
+          <RuleRow key={rule.id} rule={rule} slug={slug} />
+        ))}
+      </div>
     </div>
   );
 }
@@ -224,32 +243,37 @@ function RuleRow({ rule, slug }: { rule: AutomationRule; slug: string }) {
   const [isPending, startTransition] = useTransition();
 
   return (
-    <div className="flex items-start gap-4 p-4 bg-zinc-800/40 border border-zinc-700 rounded-lg">
+    <div className="flex items-start gap-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
       <input
         type="checkbox"
         checked={rule.enabled}
         onChange={(e) =>
           startTransition(() => toggleAutomationAction(slug, rule.id, e.target.checked))
         }
-        className="mt-0.5 accent-indigo-500"
+        className="mt-0.5 h-4 w-4 accent-indigo-600 cursor-pointer"
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-white">{rule.name}</span>
-          {!rule.enabled && <span className="text-xs text-zinc-500 bg-zinc-700 px-1.5 py-0.5 rounded">disabled</span>}
+          <span className="text-sm font-medium text-neutral-900">{rule.name}</span>
+          {!rule.enabled && (
+            <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-medium text-neutral-500">
+              Disabled
+            </span>
+          )}
         </div>
-        <p className="text-xs text-zinc-400 mt-0.5">
-          When <span className="text-indigo-300">{TRIGGER_LABELS[rule.trigger]}</span>
+        <p className="mt-0.5 text-xs text-neutral-500">
+          When <span className="font-medium text-indigo-600">{TRIGGER_LABELS[rule.trigger]}</span>
           {rule.conditions.length > 0 && (
             <> — if {rule.conditions.map((c) => `${c.field} ${c.operator}${c.value ? ` "${c.value}"` : ""}`).join(" AND ")}</>
           )}
-          {" → "}{rule.actions.map((a) => `${ACTION_LABELS[a.type]}${a.value ? ` (${a.value.slice(0, 40)})` : ""}`).join(", ")}
+          {" → "}
+          {rule.actions.map((a) => `${ACTION_LABELS[a.type]}${a.value ? ` (${a.value.slice(0, 40)})` : ""}`).join(", ")}
         </p>
       </div>
       <button
         onClick={() => startTransition(() => deleteAutomationAction(slug, rule.id))}
         disabled={isPending}
-        className="text-xs text-zinc-500 hover:text-red-400 disabled:opacity-50"
+        className="text-xs text-neutral-400 hover:text-red-500 disabled:opacity-50"
       >
         Delete
       </button>

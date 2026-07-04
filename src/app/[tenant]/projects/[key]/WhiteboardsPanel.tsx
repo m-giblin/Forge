@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Whiteboard {
   id: string;
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export default function WhiteboardsPanel({ slug, projectId, projectKey, canEdit }: Props) {
+  const router = useRouter();
   const [boards, setBoards] = useState<Whiteboard[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, startCreate] = useTransition();
@@ -45,9 +47,7 @@ export default function WhiteboardsPanel({ slug, projectId, projectKey, canEdit 
       });
       if (res.ok) {
         const j = await res.json();
-        setBoards((prev) => [j.data, ...prev]);
-        setNewName("");
-        setShowCreate(false);
+        router.push(`/${slug}/projects/${projectKey}/whiteboards/${j.data.id}`);
       }
     });
   }

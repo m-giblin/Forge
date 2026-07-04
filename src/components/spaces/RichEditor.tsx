@@ -19,6 +19,7 @@ import bash from "highlight.js/lib/languages/bash";
 import css from "highlight.js/lib/languages/css";
 import json from "highlight.js/lib/languages/json";
 import { useEffect, useCallback, useRef, useState } from "react";
+import { marked } from "marked";
 
 const lowlight = createLowlight();
 lowlight.register("javascript", js);
@@ -90,9 +91,9 @@ export default function RichEditor({ content, onChange, onSave, readOnly = false
         editor.commands.setContent(parsed, { emitUpdate: false });
       }
     } catch {
-      if (editor.getText() !== content) {
-        editor.commands.setContent(content || "", { emitUpdate: false });
-      }
+      // Content is not JSON — treat as markdown and convert to HTML for display
+      const html = content ? (marked.parse(content) as string) : "";
+      editor.commands.setContent(html, { emitUpdate: false });
     }
   }, [content, editor]);
 

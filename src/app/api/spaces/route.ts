@@ -62,3 +62,35 @@ export async function POST(req: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ data }, { status: 201 });
 }
+
+// DELETE /api/spaces?slug=xxx&id=xxx — delete a team or personal space (owner/admin only, not project spaces)
+export async function DELETE(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const slug = searchParams.get("slug");
+  const id = searchParams.get("id");
+  if (!slug || !id) return NextResponse.json({ error: "slug and id required" }, { status: 400 });
+
+  const ctx = await getTenantContext(slug);
+  if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const svc = createSupabaseServiceClient();
+
+  // Fetch the space first to enforce ownership rules
+  const { data: space } = await svc
+    .from("spaces")
+    .select("type, owner_id")
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("id", id)
+    .single();
+
+  if (!space) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (space.type === "project") return NextResponse.json({ error: "Project spaces cannot be deleted here" }, { status: 403 });
+  // Personal spaces: only the owner can delete. Team spaces: owner/admin only.
+  const isOwnerAdmin = ctx.role === "owner" || ctx.role === "admin";
+  const isSpaceOwner = space.owner_id === ctx.appUserId;
+  if (!isSpaceOwner && !isOwnerAdmin) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+
+  const { error } = await svc.from("spaces").delete().eq("tenant_id", ctx.tenant.id).eq("id", id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}
