@@ -13,6 +13,7 @@ import TimelineTab from "./TimelineTab";
 import { ProjectStatusBadge, ProjectDangerZone } from "./ProjectStatusControl";
 import ProjectEditPanel from "./ProjectEditPanel";
 import BudgetAlertBanner from "@/components/BudgetAlertBanner";
+import WhiteboardsPanel from "./WhiteboardsPanel";
 
 const HEALTH_META: Record<Health, { label: string; cls: string; dot: string }> = {
   on_track: { label: "On track", cls: "bg-emerald-100 text-emerald-700", dot: "●" },
@@ -36,7 +37,9 @@ export default async function ProjectDetailPage({
 }) {
   const { tenant: slug, key } = await params;
   const { tab: tabParam } = await searchParams;
-  const tab = tabParam === "timeline" || tabParam === "costs" ? tabParam : "overview";
+  const VALID_TABS = ["overview", "timeline", "costs", "whiteboards"] as const;
+  type TabId = typeof VALID_TABS[number];
+  const tab: TabId = (VALID_TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as TabId) : "overview";
 
   const ctx = await getTenantContext(slug);
   if (!ctx) redirect("/");
@@ -61,6 +64,7 @@ export default async function ProjectDetailPage({
     { id: "board", label: "Board", href: `/${slug}/board?project=${data.project.key}`, active: false },
     { id: "timeline", label: "Timeline", href: `${base}?tab=timeline`, active: tab === "timeline" },
     { id: "costs", label: "Costs", href: `${base}?tab=costs`, active: tab === "costs" },
+    { id: "whiteboards", label: "Whiteboards", href: `${base}?tab=whiteboards`, active: tab === "whiteboards" },
   ];
 
   return (
@@ -151,6 +155,11 @@ export default async function ProjectDetailPage({
       {tab === "overview" && <ProjectOverview slug={slug} data={data} wiki={wiki} canEdit={canEdit} sprintVelocity={sprintVelocity} />}
       {tab === "timeline" && <TimelineTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} />}
       {tab === "costs" && <CostsTabPanel slug={slug} projectKey={data.project.key} tenantId={ctx.tenant.id} impersonating={ctx.impersonating} canEdit={canEdit} />}
+      {tab === "whiteboards" && (
+        <div className="px-6 py-4">
+          <WhiteboardsPanel slug={slug} projectId={data.project.id} projectKey={data.project.key} canEdit={canEdit} />
+        </div>
+      )}
 
       {isAdmin && tab === "overview" && (
         <ProjectDangerZone slug={slug} projectKey={data.project.key} issueCount={data.total} />

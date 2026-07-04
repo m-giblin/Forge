@@ -42,6 +42,7 @@ export default function Board({
   members,
   sprints,
   currentSprint,
+  meUserId,
 }: {
   slug: string;
   tenantId: string;
@@ -60,6 +61,7 @@ export default function Board({
   members: Member[];
   sprints: Sprint[];
   currentSprint: Sprint | null;
+  meUserId?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -78,6 +80,7 @@ export default function Board({
   const [search, setSearch] = useState("");
   const [filterPriorities, setFilterPriorities] = useState<Set<string>>(new Set());
   const [filterAssignee, setFilterAssignee] = useState("");
+  const [presentUsers, setPresentUsers] = useState<Array<{ userId: string; label: string }>>([]);
   const [filterType, setFilterType] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
 
@@ -145,8 +148,13 @@ export default function Board({
       if (!active) return;
       if (session?.access_token) supabase.realtime.setAuth(session.access_token);
 
+      // Resolve current user label for presence tracking
+      const meLabel = meUserId
+        ? (members.find((m) => m.userId === meUserId)?.label ?? "You")
+        : "You";
+
       channel = supabase
-        .channel(`issues:${tenantId}`)
+        .channel(`board:${tenantId}:${currentProject.id}`)
         .on(
           "postgres_changes",
           { event: "*", schema: "public", table: "issues", filter: `tenant_id=eq.${tenantId}` },
@@ -159,7 +167,22 @@ export default function Board({
             }
           }
         )
-        .subscribe();
+        .on("presence", { event: "sync" }, () => {
+          const state = channel!.presenceState<{ userId: string; label: string }>();
+          const others = Object.values(state)
+            .flat()
+            .filter((p) => p.userId !== meUserId)
+            .reduce<Array<{ userId: string; label: string }>>((acc, p) => {
+              if (!acc.find((x) => x.userId === p.userId)) acc.push({ userId: p.userId, label: p.label });
+              return acc;
+            }, []);
+          setPresentUsers(others);
+        })
+        .subscribe(async (status) => {
+          if (status === "SUBSCRIBED" && meUserId) {
+            await channel!.track({ userId: meUserId, label: meLabel });
+          }
+        });
     })();
 
     return () => {
@@ -306,14 +329,46 @@ export default function Board({
             </div>
           )}
         </div>
-        {canEdit && (
-          <button
-            onClick={() => setShowForm((s) => !s)}
-            className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
-          >
-            {showForm ? "Close" : "+ New issue"}
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Presence: who else is viewing this board */}
+          {presentUsers.length > 0 && (
+            <div className="flex items-center" title={presentUsers.map((u) => u.label).join(", ")}>
+              {presentUsers.slice(0, 5).map((u, i) => (
+                <div
+                  key={u.userId}
+                  title={u.label}
+                  style={{
+                    backgroundColor: avatarColor(u.userId),
+                    marginLeft: i > 0 ? "-6px" : "0",
+                    zIndex: 10 - i,
+                  }}
+                  className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[10px] font-semibold text-white shadow-sm"
+                >
+                  {initials(u.label)}
+                </div>
+              ))}
+              {presentUsers.length > 5 && (
+                <div
+                  style={{ marginLeft: "-6px", zIndex: 5 }}
+                  className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-neutral-200 text-[10px] font-semibold text-neutral-600"
+                >
+                  +{presentUsers.length - 5}
+                </div>
+              )}
+              <span className="ml-2 text-xs text-neutral-400">
+                {presentUsers.length === 1 ? "1 other viewing" : `${presentUsers.length} others viewing`}
+              </span>
+            </div>
+          )}
+          {canEdit && (
+            <button
+              onClick={() => setShowForm((s) => !s)}
+              className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
+            >
+              {showForm ? "Close" : "+ New issue"}
+            </button>
+          )}
+        </div>
       </div>
 
       {needsAssignment.length > 0 && (
