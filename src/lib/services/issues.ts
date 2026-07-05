@@ -92,6 +92,7 @@ export async function createIssue(input: {
   customValues?: Record<string, unknown>;
   reporterId?: string | null;
   sprintId?: string | null;
+  assigneeId?: string | null;
 }): Promise<Issue> {
   const supabase = await createSupabaseServerClient();
 
@@ -115,6 +116,7 @@ export async function createIssue(input: {
     custom_values: input.customValues ?? {},
     reporter_id: input.reporterId ?? null,
     sprint_id: input.sprintId ?? null,
+    assignee_id: input.assigneeId ?? null,
     source: "web",
   });
 

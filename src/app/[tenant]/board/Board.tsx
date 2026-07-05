@@ -509,6 +509,7 @@ export default function Board({
           categories={categories}
           customFields={customFields}
           sprints={sprints}
+          members={members}
           onCreated={(issue) => {
             upsert(issue);
             setShowForm(false);
@@ -662,6 +663,7 @@ function NewIssueForm({
   categories,
   customFields,
   sprints,
+  members,
   onCreated,
 }: {
   slug: string;
@@ -671,6 +673,7 @@ function NewIssueForm({
   categories: Category[];
   customFields: CustomField[];
   sprints: Sprint[];
+  members: Member[];
   onCreated: (issue: Issue) => void;
 }) {
   const [title, setTitle] = useState("");
@@ -678,6 +681,7 @@ function NewIssueForm({
   const [priority, setPriority] = useState(defaultKey(priorities));
   const [type, setType] = useState(defaultKey(types));
   const [categoryId, setCategoryId] = useState("");
+  const [assigneeId, setAssigneeId] = useState("");
   const [custom, setCustom] = useState<Record<string, string>>({});
   const [sprintId, setSprintId] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -750,6 +754,7 @@ function NewIssueForm({
           categoryId: categoryId || null,
           customValues,
           sprintId: sprintId || null,
+          assigneeId: assigneeId || null,
         });
         setTitle("");
         setCustom({});
@@ -852,6 +857,14 @@ function NewIssueForm({
             <option value="">No category</option>
             {catOptions.map((c) => (
               <option key={c.id} value={c.id}>{c.label}</option>
+            ))}
+          </select>
+        )}
+        {members.length > 0 && (
+          <select value={assigneeId} onChange={(e) => setAssigneeId(e.target.value)} className="rounded-lg border border-neutral-300 px-2 py-2 text-sm">
+            <option value="">Unassigned</option>
+            {members.map((m) => (
+              <option key={m.userId} value={m.userId}>{m.label}</option>
             ))}
           </select>
         )}

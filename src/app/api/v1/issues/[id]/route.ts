@@ -13,7 +13,10 @@ function serialize(i: {
   id: string; number: number; title: string; description: string | null;
   status: string; priority: string; type: string;
   assignee_id: string | null; labels: string[];
+  category_id: string | null; sprint_id?: string | null; parent_id?: string | null;
+  due_date: string | null; start_date: string | null; story_points: number | null;
   environment: string | null; app_version: string | null; stack_trace: string | null;
+  source: string; phase: string | null;
   created_at: string; updated_at: string;
 }) {
   return {
@@ -26,9 +29,17 @@ function serialize(i: {
     type: i.type,
     assignee_id: i.assignee_id,
     labels: i.labels,
+    category_id: i.category_id,
+    sprint_id: i.sprint_id ?? null,
+    parent_id: i.parent_id ?? null,
+    due_date: i.due_date,
+    start_date: i.start_date,
+    story_points: i.story_points,
     environment: i.environment,
     app_version: i.app_version,
     stack_trace: i.stack_trace,
+    source: i.source,
+    phase: i.phase,
     created_at: i.created_at,
     updated_at: i.updated_at,
   };
@@ -86,18 +97,41 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     });
     if (!fields.ok) return apiError("invalid_request", fields.message);
 
-    // Confirm the issue belongs to THIS key's tenant before updating (the update
-    // is also tenant-scoped, but this gives a clean 404 instead of a silent no-op).
     const existing = await repo.get(tenantId, id);
     if (!existing) return apiError("not_found", "Issue not found.");
 
-    // status/priority/type are configurable text now; the repo's Issue type still
-    // narrows them to the seeded unions (reconciled in the board refactor). Cast.
     const updated = await repo.update(tenantId, id, parsed.data as Parameters<typeof repo.update>[2]);
     return apiOk(serialize(updated));
   } catch (e) {
     const requestId = crypto.randomUUID();
     logger.error("PATCH /api/v1/issues/[id] unhandled exception", {
+      requestId,
+      error: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined,
+    });
+    return apiError("internal", "An unexpected error occurred.", undefined, requestId);
+  }
+}
+
+/** DELETE /api/v1/issues/{id} — delete an issue (scope: issues:write). */
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const gate = await enforce(req, SCOPES.ISSUES_WRITE);
+    if (gate.error) return gate.error;
+    const { id } = await params;
+    const { tenantId } = gate.auth;
+
+    const supabase = createSupabaseServiceClient();
+    const repo = issuesRepo(supabase);
+
+    const existing = await repo.get(tenantId, id);
+    if (!existing) return apiError("not_found", "Issue not found.");
+
+    await repo.delete(tenantId, id);
+    return apiOk({ deleted: true, id });
+  } catch (e) {
+    const requestId = crypto.randomUUID();
+    logger.error("DELETE /api/v1/issues/[id] unhandled exception", {
       requestId,
       error: e instanceof Error ? e.message : String(e),
       stack: e instanceof Error ? e.stack : undefined,

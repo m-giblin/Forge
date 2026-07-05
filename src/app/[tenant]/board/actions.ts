@@ -23,6 +23,7 @@ export async function createIssueAction(
     categoryId?: string | null;
     customValues?: Record<string, unknown>;
     sprintId?: string | null;
+    assigneeId?: string | null;
   }
 ) {
   const ctx = await getTenantContext(slug);
@@ -45,6 +46,7 @@ export async function createIssueAction(
     customValues: input.customValues,
     reporterId: ctx.appUserId,
     sprintId: input.sprintId,
+    assigneeId: input.assigneeId,
   });
   revalidatePath(`/${slug}/board`);
   return issue;

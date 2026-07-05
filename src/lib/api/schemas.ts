@@ -17,6 +17,12 @@ export const createIssueSchema = z.object({
   stackTrace: z.string().max(50_000).optional(),
   labels: z.array(z.string().max(50)).max(20).optional(),
   assignee_id: z.string().uuid().nullable().optional(),
+  category_id: z.string().uuid().nullable().optional(),
+  sprint_id: z.string().uuid().nullable().optional(),
+  parent_id: z.string().uuid().nullable().optional(),
+  due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "due_date must be YYYY-MM-DD").nullable().optional(),
+  start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "start_date must be YYYY-MM-DD").nullable().optional(),
+  story_points: z.number().int().min(0).max(999).nullable().optional(),
   // SDK dedup: stable hash of error type+message+first stack frame.
   // If an open issue with the same fingerprint exists, occurrence_count is
   // incremented and the existing issue is returned (HTTP 200, not 201).
@@ -36,6 +42,15 @@ export const updateIssueSchema = z
     priority: z.string().min(1).max(40).optional(),
     type: z.string().min(1).max(40).optional(),
     assignee_id: z.string().uuid().nullable().optional(),
+    labels: z.array(z.string().max(50)).max(20).optional(),
+    category_id: z.string().uuid().nullable().optional(),
+    sprint_id: z.string().uuid().nullable().optional(),
+    parent_id: z.string().uuid().nullable().optional(),
+    due_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "due_date must be YYYY-MM-DD").nullable().optional(),
+    start_date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "start_date must be YYYY-MM-DD").nullable().optional(),
+    story_points: z.number().int().min(0).max(999).nullable().optional(),
+    environment: z.string().max(200).nullable().optional(),
+    app_version: z.string().max(100).nullable().optional(),
   })
   .refine((o) => Object.keys(o).length > 0, { message: "Provide at least one field to update." });
 

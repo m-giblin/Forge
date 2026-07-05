@@ -84,8 +84,12 @@ export type CreateIssueInput = {
   source?: IssueSource;
   external_id?: string | null;
   category_id?: string | null;
-  custom_values?: Record<string, unknown>;
   sprint_id?: string | null;
+  parent_id?: string | null;
+  due_date?: string | null;
+  start_date?: string | null;
+  story_points?: number | null;
+  custom_values?: Record<string, unknown>;
   fingerprint?: string | null;
 };
 
