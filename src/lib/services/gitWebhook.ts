@@ -107,6 +107,60 @@ export async function handleGithubWebhook(
           occurredAt: new Date().toISOString(), payload: commit,
         });
       }
+    } else if (eventType === "release" || eventType === "create") {
+      // GitHub release published or tag pushed — record as a deployment.
+      const repoFullName: string = payload.repository?.full_name ?? "";
+      const actorLogin: string = payload.sender?.login ?? "";
+      let version: string | null = null;
+      let sha: string | null = null;
+
+      if (eventType === "release" && payload.action === "published") {
+        version = payload.release?.tag_name ?? null;
+        sha = payload.release?.target_commitish ?? null;
+      } else if (eventType === "create" && payload.ref_type === "tag") {
+        version = payload.ref ?? null;
+      }
+
+      if (version) {
+        const svc = createSupabaseServiceClient();
+        await svc.from("deployments").insert({
+          tenant_id: tenantId,
+          connection_id: connectionId,
+          environment: "production",
+          version,
+          repo_full_name: repoFullName,
+          deployed_by: actorLogin,
+          status: "success",
+          commit_sha: sha,
+          commit_url: sha ? `https://github.com/${repoFullName}/commit/${sha}` : null,
+        });
+        logger.info("Deployment recorded", { tenantId, version, repoFullName });
+      }
+    } else if (eventType === "deployment_status") {
+      // GitHub Deployments API — update or insert a deployment record.
+      const deploymentStatus = payload.deployment_status;
+      const deployment = payload.deployment;
+      const repoFullName: string = payload.repository?.full_name ?? "";
+      if (!deploymentStatus || !deployment) return;
+
+      const state: string = deploymentStatus.state ?? "unknown"; // success | failure | in_progress
+      const environment: string = deployment.environment ?? "production";
+      const version: string = deployment.ref ?? deployment.sha?.slice(0, 8) ?? "unknown";
+      const sha: string = deployment.sha ?? "";
+      const actorLogin: string = payload.sender?.login ?? "";
+
+      const svc = createSupabaseServiceClient();
+      await svc.from("deployments").upsert({
+        tenant_id: tenantId,
+        connection_id: connectionId,
+        environment,
+        version,
+        repo_full_name: repoFullName,
+        deployed_by: actorLogin,
+        status: state === "success" ? "success" : state === "failure" ? "failure" : "in_progress",
+        commit_sha: sha,
+        deployed_at: deploymentStatus.created_at ?? new Date().toISOString(),
+      }, { onConflict: "tenant_id,environment,version,repo_full_name", ignoreDuplicates: false });
     }
   } catch (e) {
     logger.warn("Git webhook processing error", { tenantId, eventType, err: String(e) });

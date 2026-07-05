@@ -48,7 +48,21 @@ export async function POST(req: Request) {
   // return the SAME issue instead of creating a duplicate (safe retries).
   const idempotencyKey = req.headers.get("Idempotency-Key")?.trim() || null;
   const ok201or200 = (issue: Awaited<ReturnType<typeof repo.create>>, projectKey: string, status: 200 | 201) =>
-    apiOk({ id: issue.id, key: `${projectKey}-${issue.number}`, status: issue.status, title: issue.title }, status);
+    apiOk({
+      id: issue.id,
+      key: `${projectKey}-${issue.number}`,
+      number: issue.number,
+      title: issue.title,
+      description: issue.description,
+      status: issue.status,
+      priority: issue.priority,
+      type: issue.type,
+      assignee_id: issue.assignee_id,
+      labels: issue.labels,
+      environment: issue.environment,
+      project: projectKey,
+      created_at: issue.created_at,
+    }, status);
 
   if (idempotencyKey) {
     const existing = await repo.getByExternalId(tenantId, idempotencyKey);
@@ -58,6 +72,7 @@ export async function POST(req: Request) {
     }
   }
 
+  // Resolve project early so fingerprint dedup and create both use same project.
   const project = input.projectKey
     ? await projectsRepo(supabase).getByKey(tenantId, input.projectKey)
     : await projectsRepo(supabase).getDefault(tenantId);
@@ -69,6 +84,26 @@ export async function POST(req: Request) {
   }
 
   try {
+    // Fingerprint dedup (FORGE-76): if caller supplies a fingerprint, check
+    // whether an open issue for that error already exists in this project.
+    // If so, bump occurrence_count + last_seen_at and return the existing issue.
+    if (input.fingerprint) {
+      const { data: existing } = await supabase
+        .from("issues")
+        .select("id, number, title, description, status, priority, type, assignee_id, labels, environment, created_at")
+        .eq("tenant_id", tenantId)
+        .eq("project_id", project.id)
+        .eq("fingerprint", input.fingerprint)
+        .not("status", "in", '("done","closed")')
+        .limit(1)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase.rpc("increment_issue_occurrence", { issue_id: existing.id });
+        return ok201or200(existing as Parameters<typeof ok201or200>[0], project.key, 200);
+      }
+    }
+
     const issue = await repo.create({
       tenant_id: tenantId,
       project_id: project.id,
@@ -81,8 +116,10 @@ export async function POST(req: Request) {
       app_version: input.appVersion ?? null,
       stack_trace: input.stackTrace ?? null,
       labels: input.labels ?? [],
+      assignee_id: input.assignee_id ?? null,
       source: "api",
       external_id: idempotencyKey,
+      fingerprint: input.fingerprint ?? null,
     });
     return ok201or200(issue, project.key, 201);
   } catch (e) {
@@ -154,9 +191,13 @@ export async function GET(req: Request) {
       id: i.id,
       number: i.number,
       title: i.title,
+      description: i.description,
       status: i.status,
       priority: i.priority,
       type: i.type,
+      assignee_id: i.assignee_id,
+      labels: i.labels,
+      environment: i.environment,
       created_at: i.created_at,
       updated_at: i.updated_at,
     }));

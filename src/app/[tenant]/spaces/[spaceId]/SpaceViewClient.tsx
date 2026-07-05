@@ -251,6 +251,7 @@ export default function SpaceViewClient({
                   onSave={savePage}
                   readOnly={!canEdit}
                   placeholder="Start writing… type / to insert a block"
+                  slug={slug}
                 />
               </div>
             </div>

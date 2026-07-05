@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTenantContext } from "@/lib/auth";
+// eslint-disable-next-line no-restricted-imports -- service-role: wiki search log insert (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 // GET /api/spaces/pages/search?slug=xxx&q=xxx  — full-text search across tenant pages
@@ -37,6 +38,9 @@ export async function GET(req: Request) {
       const s = (Array.isArray(p.spaces) ? p.spaces[0] : p.spaces) as { type: string; owner_id: string } | null;
       return s?.type !== "personal" || s.owner_id === ctx.appUserId;
     });
+    if (filtered.length === 0) {
+      svc.from("wiki_search_logs").insert({ tenant_id: ctx.tenant.id, search_term: q }).then(() => {});
+    }
     return NextResponse.json({ data: filtered });
   }
 
@@ -45,6 +49,11 @@ export async function GET(req: Request) {
     const s = (Array.isArray(p.spaces) ? p.spaces[0] : p.spaces) as { type: string; owner_id: string } | null;
     return s?.type !== "personal" || s.owner_id === ctx.appUserId;
   });
+
+  // Log zero-result queries for admin content-gap analysis (fire-and-forget)
+  if (filtered.length === 0) {
+    svc.from("wiki_search_logs").insert({ tenant_id: ctx.tenant.id, search_term: q }).then(() => {});
+  }
 
   return NextResponse.json({ data: filtered });
 }

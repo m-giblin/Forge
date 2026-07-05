@@ -20,6 +20,7 @@ import css from "highlight.js/lib/languages/css";
 import json from "highlight.js/lib/languages/json";
 import { useEffect, useCallback, useRef, useState } from "react";
 import { marked } from "marked";
+import { createIssueKeyExtension } from "./IssueKeyExtension";
 
 const lowlight = createLowlight();
 lowlight.register("javascript", js);
@@ -36,9 +37,10 @@ interface Props {
   onSave?: () => void;
   readOnly?: boolean;
   placeholder?: string;
+  slug?: string;
 }
 
-export default function RichEditor({ content, onChange, onSave, readOnly = false, placeholder }: Props) {
+export default function RichEditor({ content, onChange, onSave, readOnly = false, placeholder, slug }: Props) {
   const saveTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "saving" | "unsaved">("saved");
   const [showSlash, setShowSlash] = useState(false);
@@ -61,6 +63,7 @@ export default function RichEditor({ content, onChange, onSave, readOnly = false
       Placeholder.configure({
         placeholder: placeholder ?? "Start writing… type / to insert a block",
       }),
+      ...(slug ? [createIssueKeyExtension(slug)] : []),
     ],
     content: content || "",
     editable: !readOnly,

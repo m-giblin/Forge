@@ -20,12 +20,15 @@ function buildCsp(nonce: string): string {
   return [
     "default-src 'self'",
     // nonce allows Next.js hydration scripts; strict-dynamic propagates trust to
-    // dynamically-inserted scripts so they don't need individual allowlisting.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'`,
+    // dynamically-inserted scripts. unsafe-eval is required by tldraw (uses
+    // new Function() for its compute engine) and by React dev-mode callstacks.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self'",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.x.ai",
+    // tldraw spawns web workers via blob: URLs — worker-src must explicitly allow them.
+    "worker-src 'self' blob:",
     "frame-ancestors 'none'",
   ].join("; ");
 }

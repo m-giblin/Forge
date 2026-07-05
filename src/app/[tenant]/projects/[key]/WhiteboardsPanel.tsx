@@ -127,30 +127,67 @@ export default function WhiteboardsPanel({ slug, projectId, projectKey, canEdit 
             <div key={board.id} className="group relative overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm transition hover:shadow-md hover:border-neutral-300">
               {/* Preview area */}
               <Link href={`/${slug}/projects/${projectKey}/whiteboards/${board.id}`}>
-                <div className="flex h-36 items-center justify-center bg-neutral-50">
+                <div className="relative flex h-36 items-center justify-center overflow-hidden"
+                  style={{ background: "linear-gradient(135deg, #f8f9ff 0%, #eef0f8 100%)" }}>
+                  {/* Dot-grid background pattern */}
+                  <svg className="absolute inset-0 h-full w-full opacity-30" xmlns="http://www.w3.org/2000/svg">
+                    <defs>
+                      <pattern id={`dots-${board.id}`} x="0" y="0" width="16" height="16" patternUnits="userSpaceOnUse">
+                        <circle cx="2" cy="2" r="1" fill="#94a3b8" />
+                      </pattern>
+                    </defs>
+                    <rect width="100%" height="100%" fill={`url(#dots-${board.id})`} />
+                  </svg>
                   {board.thumbnail ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={board.thumbnail} alt="" className="h-full w-full object-contain" />
+                    <img src={board.thumbnail} alt="" className="relative h-full w-full object-contain" />
                   ) : (
-                    <svg className="h-12 w-12 text-neutral-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                      <rect x="3" y="3" width="18" height="18" rx="2" />
-                      <path d="M7 8h5m-5 4h8m-8 4h3" />
+                    /* Decorative mini-shapes suggesting a real whiteboard */
+                    <svg className="relative h-24 w-32" viewBox="0 0 128 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      {/* Sticky note 1 */}
+                      <rect x="4" y="12" width="36" height="32" rx="3" fill="#fef08a" stroke="#fbbf24" strokeWidth="1"/>
+                      <line x1="10" y1="22" x2="34" y2="22" stroke="#92400e" strokeWidth="1.5" strokeLinecap="round"/>
+                      <line x1="10" y1="28" x2="30" y2="28" stroke="#92400e" strokeWidth="1.5" strokeLinecap="round"/>
+                      <line x1="10" y1="34" x2="26" y2="34" stroke="#92400e" strokeWidth="1.5" strokeLinecap="round"/>
+                      {/* Sticky note 2 */}
+                      <rect x="46" y="8" width="36" height="32" rx="3" fill="#bbf7d0" stroke="#34d399" strokeWidth="1"/>
+                      <line x1="52" y1="18" x2="76" y2="18" stroke="#065f46" strokeWidth="1.5" strokeLinecap="round"/>
+                      <line x1="52" y1="24" x2="72" y2="24" stroke="#065f46" strokeWidth="1.5" strokeLinecap="round"/>
+                      <line x1="52" y1="30" x2="68" y2="30" stroke="#065f46" strokeWidth="1.5" strokeLinecap="round"/>
+                      {/* Sticky note 3 */}
+                      <rect x="88" y="14" width="36" height="32" rx="3" fill="#ddd6fe" stroke="#a78bfa" strokeWidth="1"/>
+                      <line x1="94" y1="24" x2="118" y2="24" stroke="#4c1d95" strokeWidth="1.5" strokeLinecap="round"/>
+                      <line x1="94" y1="30" x2="114" y2="30" stroke="#4c1d95" strokeWidth="1.5" strokeLinecap="round"/>
+                      {/* Connecting arrow */}
+                      <path d="M40 28 C42 28 44 28 46 28" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" markerEnd="url(#arrow)"/>
+                      <path d="M82 24 C85 24 87 24 88 24" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round"/>
+                      <polygon points="86,21 90,24 86,27" fill="#94a3b8"/>
+                      {/* Frame outline */}
+                      <rect x="4" y="58" width="120" height="28" rx="4" stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 3" fill="none"/>
+                      <text x="14" y="77" fontSize="8" fill="#94a3b8" fontFamily="sans-serif">Whiteboard</text>
                     </svg>
                   )}
+                  {/* Board type badge */}
+                  <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-white/80 backdrop-blur-sm px-2 py-0.5 text-[10px] font-semibold text-neutral-500 shadow-sm border border-neutral-200/60">
+                    <svg className="h-2.5 w-2.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zm0 6a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1v-2zm0 6a1 1 0 011-1h7a1 1 0 110 2H4a1 1 0 01-1-1z"/>
+                    </svg>
+                    Whiteboard
+                  </div>
                 </div>
               </Link>
               {/* Footer */}
-              <div className="flex items-center justify-between px-3 py-2.5">
-                <div>
-                  <p className="text-sm font-medium text-neutral-900 truncate max-w-[160px]">{board.name}</p>
+              <div className="flex items-center justify-between px-3 py-2.5 border-t border-neutral-100">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-neutral-900 truncate max-w-[160px]">{board.name}</p>
                   <p className="text-xs text-neutral-400">
-                    {new Date(board.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    Updated {new Date(board.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   </p>
                 </div>
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0">
                   <Link
                     href={`/${slug}/projects/${projectKey}/whiteboards/${board.id}`}
-                    className="rounded-md px-2 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                    className="rounded-lg bg-neutral-900 px-2.5 py-1 text-xs font-medium text-white hover:bg-neutral-700 transition"
                   >
                     Open
                   </Link>
@@ -158,7 +195,7 @@ export default function WhiteboardsPanel({ slug, projectId, projectKey, canEdit 
                     <button
                       onClick={() => deleteBoard(board.id)}
                       disabled={deleteId === board.id}
-                      className="rounded-md px-2 py-1 text-xs text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      className="rounded-md px-2 py-1 text-xs text-neutral-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 transition"
                     >
                       {deleteId === board.id ? "…" : "Delete"}
                     </button>

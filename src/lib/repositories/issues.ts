@@ -86,6 +86,7 @@ export type CreateIssueInput = {
   category_id?: string | null;
   custom_values?: Record<string, unknown>;
   sprint_id?: string | null;
+  fingerprint?: string | null;
 };
 
 const COLS =

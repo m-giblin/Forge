@@ -11,12 +11,26 @@ export const runtime = "nodejs";
 
 function serialize(i: {
   id: string; number: number; title: string; description: string | null;
-  status: string; priority: string; type: string; created_at: string; updated_at: string;
+  status: string; priority: string; type: string;
+  assignee_id: string | null; labels: string[];
+  environment: string | null; app_version: string | null; stack_trace: string | null;
+  created_at: string; updated_at: string;
 }) {
   return {
-    id: i.id, number: i.number, title: i.title, description: i.description,
-    status: i.status, priority: i.priority, type: i.type,
-    created_at: i.created_at, updated_at: i.updated_at,
+    id: i.id,
+    number: i.number,
+    title: i.title,
+    description: i.description,
+    status: i.status,
+    priority: i.priority,
+    type: i.type,
+    assignee_id: i.assignee_id,
+    labels: i.labels,
+    environment: i.environment,
+    app_version: i.app_version,
+    stack_trace: i.stack_trace,
+    created_at: i.created_at,
+    updated_at: i.updated_at,
   };
 }
 

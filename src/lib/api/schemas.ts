@@ -16,6 +16,11 @@ export const createIssueSchema = z.object({
   appVersion: z.string().max(100).optional(),
   stackTrace: z.string().max(50_000).optional(),
   labels: z.array(z.string().max(50)).max(20).optional(),
+  assignee_id: z.string().uuid().nullable().optional(),
+  // SDK dedup: stable hash of error type+message+first stack frame.
+  // If an open issue with the same fingerprint exists, occurrence_count is
+  // incremented and the existing issue is returned (HTTP 200, not 201).
+  fingerprint: z.string().max(256).optional(),
 });
 
 export type CreateIssueBody = z.infer<typeof createIssueSchema>;
