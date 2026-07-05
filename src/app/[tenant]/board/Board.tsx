@@ -415,14 +415,59 @@ export default function Board({
         </div>
       )}
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search title, description, assignee…"
-          className="min-w-[200px] flex-1 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-900"
-        />
-        <div className="flex flex-wrap gap-1">
+      <div className="mb-4 space-y-2">
+        {/* Row 1: search + group-by */}
+        <div className="flex gap-2">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search…"
+            className="flex-1 min-w-0 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+          />
+          <select
+            value={groupBy}
+            onChange={(e) => setGroupBy(e.target.value as "status" | "assignee" | "priority")}
+            className="rounded-lg border border-neutral-300 px-2 py-2 text-sm text-neutral-600 shrink-0"
+          >
+            <option value="status">By Status</option>
+            <option value="assignee">By Assignee</option>
+            <option value="priority">By Priority</option>
+          </select>
+        </div>
+        {/* Row 2: filters */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <select
+            value={filterAssignee}
+            onChange={(e) => setFilterAssignee(e.target.value)}
+            className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+          >
+            <option value="">All assignees</option>
+            <option value="__unassigned">Unassigned</option>
+            {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
+          </select>
+          <select
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+          >
+            <option value="">All types</option>
+            {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+          </select>
+          {categories.length > 0 && (
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+            >
+              <option value="">All categories</option>
+              {categories.filter((c) => !c.parent_id).flatMap((top) => [
+                <option key={top.id} value={top.id}>{top.name}</option>,
+                ...categories.filter((c) => c.parent_id === top.id).map((sub) => (
+                  <option key={sub.id} value={sub.id}>— {sub.name}</option>
+                )),
+              ])}
+            </select>
+          )}
           {priorities.map((p) => {
             const active = filterPriorities.has(p.key);
             return (
@@ -433,7 +478,7 @@ export default function Board({
                   active ? next.delete(p.key) : next.add(p.key);
                   return next;
                 })}
-                className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                   active
                     ? "border-neutral-900 bg-neutral-900 text-white"
                     : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400"
@@ -444,58 +489,6 @@ export default function Board({
               </button>
             );
           })}
-        </div>
-        <select
-          value={filterAssignee}
-          onChange={(e) => setFilterAssignee(e.target.value)}
-          className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
-        >
-          <option value="">All assignees</option>
-          <option value="__unassigned">Unassigned</option>
-          {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
-        </select>
-        <select
-          value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
-          className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
-        >
-          <option value="">All types</option>
-          {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-        </select>
-        {categories.length > 0 && (
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
-          >
-            <option value="">All categories</option>
-            {categories.filter((c) => !c.parent_id).flatMap((top) => [
-              <option key={top.id} value={top.id}>{top.name}</option>,
-              ...categories.filter((c) => c.parent_id === top.id).map((sub) => (
-                <option key={sub.id} value={sub.id}>— {sub.name}</option>
-              )),
-            ])}
-          </select>
-        )}
-        <div className="flex rounded-lg border border-neutral-300 text-sm">
-          <button
-            onClick={() => setGroupBy("status")}
-            className={`px-3 py-1.5 ${groupBy === "status" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"} rounded-l-lg`}
-          >
-            By Status
-          </button>
-          <button
-            onClick={() => setGroupBy("assignee")}
-            className={`px-3 py-1.5 ${groupBy === "assignee" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"} border-l border-neutral-300`}
-          >
-            By Assignee
-          </button>
-          <button
-            onClick={() => setGroupBy("priority")}
-            className={`px-3 py-1.5 ${groupBy === "priority" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"} rounded-r-lg border-l border-neutral-300`}
-          >
-            By Priority
-          </button>
         </div>
         {(search || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory) && (
           <button
@@ -829,15 +822,16 @@ function NewIssueForm({
           </div>
         </div>
       ) : (
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="space-y-2">
         <input
           autoFocus
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
           placeholder="Issue title…"
-          className="min-w-[240px] flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
         />
+        <div className="flex flex-wrap gap-2">
         <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="rounded-lg border border-neutral-300 px-2 py-2 text-sm">
           {projects.map((p) => (
             <option key={p.id} value={p.id}>{p.key}</option>
@@ -871,6 +865,7 @@ function NewIssueForm({
             ))}
           </select>
         )}
+        </div>
         <button
           onClick={submit}
           disabled={pending || !title.trim()}

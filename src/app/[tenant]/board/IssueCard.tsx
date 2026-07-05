@@ -63,7 +63,7 @@ function QuickEditPopover({ issue, slug, prMap, memMap, onClose }: QuickEditProp
     <div
       ref={ref}
       onClick={(e) => e.stopPropagation()}
-      className="absolute right-0 top-7 z-50 w-52 rounded-xl border border-neutral-200 bg-white shadow-lg p-3 space-y-3"
+      className="absolute right-0 top-7 z-50 w-52 max-w-[calc(100vw-2rem)] rounded-xl border border-neutral-200 bg-white shadow-lg p-3 space-y-3"
     >
       {isPending && (
         <p className="text-[10px] text-neutral-400 text-center">Saving…</p>
@@ -181,17 +181,17 @@ export default function IssueCard({
     >
       <div className="mb-1.5 flex items-center gap-1.5">
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: pr?.color ?? "#9CA3AF" }} />
-        <span className="text-[10px] font-medium" style={{ color: pr?.color ?? "#9CA3AF" }}>
+        <span className="text-xs font-medium" style={{ color: pr?.color ?? "#9CA3AF" }}>
           {pr?.label ?? issue.priority}
         </span>
         <span className="ml-auto text-xs font-medium text-neutral-400">{projectKey}-{issue.number}</span>
-        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium" style={{ color: ty?.color ?? "#525252" }}>
+        <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-medium" style={{ color: ty?.color ?? "#525252" }}>
           {ty?.label ?? issue.type}
         </span>
-        {canEdit && hovered && (
+        {canEdit && (
           <button
             onClick={(e) => { e.stopPropagation(); setEditing((v) => !v); }}
-            className="ml-1 rounded px-1 py-0.5 text-[10px] text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition"
+            className={`ml-1 flex h-7 w-7 items-center justify-center rounded text-base text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition md:h-auto md:w-auto md:px-1 md:py-0.5 md:text-xs ${hovered || editing ? "opacity-100" : "opacity-0 md:opacity-0 sm:opacity-100"}`}
             title="Quick edit"
           >
             ⋯
@@ -203,12 +203,12 @@ export default function IssueCard({
 
       <div className="mt-1.5 flex flex-wrap gap-1">
         {issue.phase && (
-          <span className="rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-600">
+          <span className="rounded bg-purple-50 px-1.5 py-0.5 text-xs font-medium text-purple-600">
             {issue.phase.charAt(0).toUpperCase() + issue.phase.slice(1)}
           </span>
         )}
         {issue.category_id && catMap.get(issue.category_id) && (
-          <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-500">
+          <span className="rounded bg-neutral-100 px-1.5 py-0.5 text-xs font-medium text-neutral-500">
             {catMap.get(issue.category_id)}
           </span>
         )}
@@ -217,13 +217,13 @@ export default function IssueCard({
       {showAssignee && issue.assignee_id && (
         <div className="mt-2 flex items-center gap-1.5">
           <span
-            className="flex h-5 w-5 items-center justify-center rounded-full text-[9px] font-semibold text-white"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
             style={{ backgroundColor: avatarColor(issue.assignee_id) }}
             title={memMap.get(issue.assignee_id) ?? "Assigned"}
           >
             {initials(memMap.get(issue.assignee_id) ?? "?")}
           </span>
-          <span className="truncate text-[11px] text-neutral-400">
+          <span className="truncate text-xs text-neutral-400">
             {memMap.get(issue.assignee_id) ?? "Assigned"}
           </span>
         </div>
