@@ -5,6 +5,7 @@ import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role: webhook admin writes (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { webhooksRepo, WEBHOOK_EVENTS } from "@/lib/repositories/webhooks";
+import { validateWebhookUrl } from "@/lib/api/ssrfGuard";
 
 function svc() { return webhooksRepo(createSupabaseServiceClient()); }
 
@@ -18,7 +19,8 @@ async function requireAdmin(slug: string) {
 export async function createWebhookAction(slug: string, formData: FormData): Promise<void> {
   const ctx = await requireAdmin(slug);
   const url = (formData.get("url") as string ?? "").trim();
-  if (!url.startsWith("https://") && !url.startsWith("http://")) throw new Error("URL must start with http(s)://");
+  const guard = await validateWebhookUrl(url);
+  if (!guard.ok) throw new Error(`Invalid webhook URL: ${guard.reason}`);
 
   const events = WEBHOOK_EVENTS.filter((e) => formData.get(`event_${e}`) === "on");
   if (events.length === 0) throw new Error("Select at least one event.");
@@ -53,6 +55,8 @@ export async function testWebhookAction(slug: string, id: string): Promise<{ ok:
   const endpoints = await svc().listMetadata(ctx.tenant.id);
   const ep = endpoints.find((e) => e.id === id);
   if (!ep) throw new Error("Webhook not found.");
+  const guard = await validateWebhookUrl(ep.url);
+  if (!guard.ok) return { ok: false, error: `Blocked: ${guard.reason}` };
   const secret = await svc().getSecret(ctx.tenant.id, id);
   if (!secret) throw new Error("Webhook secret not found.");
 

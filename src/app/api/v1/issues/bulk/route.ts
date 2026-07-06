@@ -44,6 +44,18 @@ export async function PATCH(req: Request) {
     const supabase = createSupabaseServiceClient();
     const repo = issuesRepo(supabase);
 
+    // Verify all IDs belong to this tenant before updating — prevents silent cross-tenant probing
+    const { data: owned } = await supabase
+      .from("issues")
+      .select("id")
+      .eq("tenant_id", tenantId)
+      .in("id", ids);
+    const ownedIds = new Set((owned ?? []).map((r) => r.id as string));
+    const unknown = ids.filter((id) => !ownedIds.has(id));
+    if (unknown.length > 0) {
+      return apiError("not_found", `Issue(s) not found: ${unknown.join(", ")}`);
+    }
+
     // Snapshot before state so we can detect field changes for side-effects
     const before = await Promise.all(ids.map((id) => repo.get(tenantId, id)));
 

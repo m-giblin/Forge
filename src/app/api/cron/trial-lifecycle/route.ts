@@ -6,7 +6,7 @@ import { verifyCronAuth } from "@/lib/api/cronAuth";
 // Call via: GET /api/cron/trial-lifecycle
 // Protected by CRON_SECRET header.
 export async function GET(req: NextRequest) {
-  if (!verifyCronAuth(req.headers.get("authorization") ?? req.headers.get("x-cron-secret"))) {
+  if (!verifyCronAuth(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

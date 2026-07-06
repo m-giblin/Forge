@@ -16,13 +16,12 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
  * components are blocked by style-src without it, which requires a broader audit.
  * This is low-risk compared to script injection.
  */
-function buildCsp(nonce: string): string {
+function buildCsp(nonce: string, reqPath: string): string {
   return [
     "default-src 'self'",
     // nonce allows Next.js hydration scripts; strict-dynamic propagates trust to
-    // dynamically-inserted scripts. unsafe-eval is required by tldraw (uses
-    // new Function() for its compute engine) and by React dev-mode callstacks.
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-eval'`,
+    // dynamically-inserted scripts. unsafe-eval is scoped to tldraw whiteboard routes only.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${reqPath.includes("/whiteboard") ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self'",
@@ -77,7 +76,10 @@ export async function proxy(request: NextRequest) {
   // Machine API (/api/v1/) is excluded — it uses API-key auth with its own rate limits.
   // Public paths are excluded entirely.
   const tenantRouteMatch = path.match(/^\/([a-z0-9-]+)\//);
-  const ALWAYS_SKIP = ["/api/v1/", "/api/auth/", "/api/cron/", "/api/signup", "/api/internal/", "/admin", "/login", "/signup", "/preview-landing", "/join", "/shared", "/legal", "/feedback", "/auth/", "/design", "/_next"];
+  // NOTE: /api/v1/ is excluded from the IP allowlist because machine API clients authenticate
+  // via API keys which have their own rate limiting and scopes. Tenant admins configuring
+  // an IP allowlist should be aware it does not restrict API key access.
+  const ALWAYS_SKIP = ["/api/v1/", "/api/auth/", "/api/cron/", "/api/signup", "/api/internal/", "/login", "/signup", "/preview-landing", "/join", "/shared", "/legal", "/feedback", "/auth/", "/design", "/_next"];
   const alwaysSkip = ALWAYS_SKIP.some((p) => path.startsWith(p));
 
   if (!alwaysSkip) {
@@ -97,7 +99,7 @@ export async function proxy(request: NextRequest) {
             status: 403,
             headers: {
               "Content-Type": "application/json",
-              "Content-Security-Policy": buildCsp(nonce),
+              "Content-Security-Policy": buildCsp(nonce, path),
             },
           }
         );
@@ -112,7 +114,7 @@ export async function proxy(request: NextRequest) {
 
   // Forward nonce + pathname to Server Components via request headers.
   const response = await updateSession(request, { "x-nonce": nonce, "x-pathname": path });
-  response.headers.set("Content-Security-Policy", buildCsp(nonce));
+  response.headers.set("Content-Security-Policy", buildCsp(nonce, path));
   response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");

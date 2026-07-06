@@ -16,7 +16,7 @@ async function hmacSignature(secret: string, body: string): Promise<string> {
 }
 
 async function deliver(url: string, secret: string, payload: string): Promise<void> {
-  const guard = validateWebhookUrl(url);
+  const guard = await validateWebhookUrl(url);
   if (!guard.ok) {
     logger.warn("Webhook delivery blocked by SSRF guard", { url, reason: guard.reason });
     return;

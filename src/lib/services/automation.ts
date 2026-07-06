@@ -58,7 +58,7 @@ async function runAction(action: Action, issue: IssueContext, tenantId: string):
       break;
 
     case "fire_webhook": {
-      const guard = validateWebhookUrl(action.value ?? "");
+      const guard = await validateWebhookUrl(action.value ?? "");
       if (!guard.ok) {
         logger.warn("Automation fire_webhook blocked by SSRF guard", { url: action.value, reason: guard.reason });
         break;

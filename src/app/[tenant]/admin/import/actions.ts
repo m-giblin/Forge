@@ -36,6 +36,7 @@ export async function importIssuesAction(
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Unauthorized.");
   if (ctx.role !== "owner" && ctx.role !== "admin") throw new Error("Admin only.");
+  if (rows.length > 5000) throw new Error("Import limit is 5,000 rows per batch. Split your file and re-import.");
 
   const svc = createSupabaseServiceClient();
   const cfg = fieldConfigRepo(svc);

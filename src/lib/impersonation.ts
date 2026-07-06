@@ -44,10 +44,18 @@ export async function clearImpersonationCookie(): Promise<void> {
 export async function readImpersonation(): Promise<Impersonation | null> {
   const raw = (await cookies()).get(COOKIE)?.value;
   if (!raw) return null;
-  const [payload, sig] = raw.split(".");
+  // Use lastIndexOf so a base64url payload containing "." (which it won't, but defensively) is handled correctly
+  const dot = raw.lastIndexOf(".");
+  if (dot === -1) return null;
+  const payload = raw.slice(0, dot);
+  const sig = raw.slice(dot + 1);
   if (!payload || !sig) return null;
   const expected = sign(payload);
-  if (sig.length !== expected.length || !timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  const sigBuf = Buffer.alloc(Math.max(sig.length, expected.length));
+  const expBuf = Buffer.alloc(Math.max(sig.length, expected.length));
+  sigBuf.write(sig);
+  expBuf.write(expected);
+  if (!timingSafeEqual(sigBuf, expBuf)) return null;
   try {
     const imp = JSON.parse(Buffer.from(payload, "base64url").toString()) as Impersonation;
     if (typeof imp.exp !== "number" || imp.exp < Date.now()) return null;

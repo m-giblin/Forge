@@ -11,7 +11,8 @@ export const runtime = "nodejs";
 
 const commentSchema = z.object({
   body: z.string().min(1).max(10_000),
-  author_label: z.string().max(200).optional(),
+  // Strip any HTML tags before storing — author_label is rendered in the UI
+  author_label: z.string().max(200).optional().transform((v) => v?.replace(/<[^>]*>/g, "").trim() || undefined),
 });
 
 /** POST /api/v1/issues/{id}/comments — add a comment (scope: issues:write). */

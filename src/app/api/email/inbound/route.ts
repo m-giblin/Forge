@@ -2,6 +2,11 @@ import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 // eslint-disable-next-line no-restricted-imports -- service-role: email inbound is machine path, tenant routed by recipient address (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { getRateLimiter } from "@/lib/providers/rate-limiter";
+
+// Max inbound email issues per tenant per minute to prevent DoS via the shared webhook secret.
+const EMAIL_INBOUND_LIMIT = 60;
+const EMAIL_INBOUND_WINDOW_MS = 60_000;
 
 function safeCompareSecret(a: string, b: string): boolean {
   // Pad to same length before comparison to avoid length oracle
@@ -62,7 +67,17 @@ function parseRecipient(to: string): { slug: string; projectKey: string | null }
 }
 
 function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+  // Remove all tags then decode common HTML entities to plain text.
+  // This is storage-level sanitization; React escapes on render anyway.
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#x27;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 export async function POST(req: NextRequest) {
@@ -94,6 +109,12 @@ export async function POST(req: NextRequest) {
 
   const { data: tenant } = await svc.from("tenants").select("id").eq("slug", slug).maybeSingle();
   if (!tenant) return NextResponse.json({ error: "Tenant not found" }, { status: 404 });
+
+  const rl = getRateLimiter();
+  const rateCheck = await rl.check(`email_inbound:${tenant.id}`, EMAIL_INBOUND_LIMIT, EMAIL_INBOUND_WINDOW_MS);
+  if (!rateCheck.allowed) {
+    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  }
 
   let projectId: string | null = null;
   if (projectKey) {

@@ -60,7 +60,7 @@ interface IssueRow {
   priority: string;
   type: string;
   assignee_id: string | null;
-  assignee_email: string | null;
+  assignee_name: string | null;
   labels: string[] | null;
   sprint_id: string | null;
   project_id: string | null;
@@ -145,7 +145,7 @@ export async function GET(req: NextRequest) {
   async function fetchIssues(from: string, to: string): Promise<IssueRow[]> {
     let q = svc
       .from("issues")
-      .select("id, status, priority, type, assignee_id, labels, sprint_id, project_id, phase, environment, story_points, created_at, updated_at, users!issues_assignee_id_fkey(email)")
+      .select("id, status, priority, type, assignee_id, labels, sprint_id, project_id, phase, environment, story_points, created_at, updated_at, users!issues_assignee_id_fkey(name)")
       .eq("tenant_id", ctx.tenant.id)
       .gte("created_at", `${from}T00:00:00Z`)
       .lte("created_at", `${to}T23:59:59Z`);
@@ -155,14 +155,14 @@ export async function GET(req: NextRequest) {
     return ((data ?? []) as unknown[]).map((row) => {
       const r = row as Record<string, unknown>;
       const userObj = r.users;
-      const email = Array.isArray(userObj) ? (userObj[0]?.email ?? null) : ((userObj as Record<string, unknown> | null)?.email ?? null);
+      const name = Array.isArray(userObj) ? (userObj[0]?.name ?? null) : ((userObj as Record<string, unknown> | null)?.name ?? null);
       return {
         id: r.id as string,
         status: r.status as string,
         priority: r.priority as string,
         type: r.type as string,
         assignee_id: r.assignee_id as string | null,
-        assignee_email: email as string | null,
+        assignee_name: name as string | null,
         labels: r.labels as string[] | null,
         sprint_id: r.sprint_id as string | null,
         project_id: r.project_id as string | null,
@@ -196,7 +196,7 @@ export async function GET(req: NextRequest) {
       case "status": return [issue.status || "unknown"];
       case "priority": return [issue.priority || "none"];
       case "type": return [issue.type || "task"];
-      case "assignee": return [issue.assignee_email ?? "Unassigned"];
+      case "assignee": return [issue.assignee_name ?? "Unassigned"];
       case "label": {
         const ls = issue.labels;
         return ls && ls.length > 0 ? ls : ["Unlabeled"];

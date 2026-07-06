@@ -9,7 +9,6 @@ export const maxDuration = 60;
 
 async function handler(req: Request) {
   const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
   if (!verifyCronAuth(authHeader)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

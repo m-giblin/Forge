@@ -35,6 +35,11 @@ export async function createIssueAction(
   if (!viewerGranted && !ctxCanDo(ctx, "create_issues"))
     throw new Error("You don't have permission to create issues in this workspace");
 
+  // Validate projectId belongs to this tenant — prevents cross-tenant project injection
+  const svcForCheck = createSupabaseServiceClient();
+  const { data: proj } = await svcForCheck.from("projects").select("id").eq("id", input.projectId).eq("tenant_id", ctx.tenant.id).maybeSingle();
+  if (!proj) throw new Error("Project not found");
+
   const issue = await createIssue({
     tenantId: ctx.tenant.id,
     projectId: input.projectId,
@@ -85,6 +90,10 @@ export async function loadMoreForStatusAction(
   if (!ctx) throw new Error("Not authorized");
 
   const svc = createSupabaseServiceClient();
+
+  // Validate projectId belongs to this tenant before using it in the query
+  const { data: proj } = await svc.from("projects").select("id").eq("id", projectId).eq("tenant_id", ctx.tenant.id).maybeSingle();
+  if (!proj) throw new Error("Project not found");
   const { data } = await svc
     .from("issues")
     .select("*")

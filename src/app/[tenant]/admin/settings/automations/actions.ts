@@ -13,10 +13,15 @@ async function adminCtx(slug: string) {
   return ctx;
 }
 
+const MAX_CONDITIONS = 10;
+const MAX_ACTIONS = 10;
+
 export async function createAutomationAction(
   slug: string,
   input: { name: string; trigger: TriggerType; conditions: Condition[]; actions: Action[] },
 ): Promise<void> {
+  if (input.conditions.length > MAX_CONDITIONS) throw new Error(`Maximum ${MAX_CONDITIONS} conditions allowed.`);
+  if (input.actions.length > MAX_ACTIONS) throw new Error(`Maximum ${MAX_ACTIONS} actions allowed.`);
   const ctx = await adminCtx(slug);
   const svc = createSupabaseServiceClient();
   await automationRulesRepo(svc).create(ctx.tenant.id, { ...input, enabled: true });
