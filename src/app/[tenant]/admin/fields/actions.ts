@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import {
   addFieldOption, deleteFieldOption, setDefaultOption, addCategory, deleteCategory,
-  addCustomField, deleteCustomField,
+  addCustomField, deleteCustomField, importCategories,
 } from "@/lib/services/fieldConfig";
+import type { CsvCategoryRow } from "@/lib/services/fieldConfig";
 import { recordAudit } from "@/lib/audit";
 import type { FieldName, CustomFieldType } from "@/lib/repositories/fieldConfig";
 
@@ -35,9 +36,9 @@ export async function setDefaultAction(slug: string, id: string, field: FieldNam
   revalidatePath(`/${slug}/admin/fields`);
 }
 
-export async function addCategoryAction(slug: string, name: string, parentId: string | null) {
+export async function addCategoryAction(slug: string, name: string, parentId: string | null, projectId?: string | null) {
   const ctx = await admin(slug);
-  await addCategory(ctx.tenant.id, name, parentId);
+  await addCategory(ctx.tenant.id, name, parentId, projectId);
   await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "category.add", target: name });
   revalidatePath(`/${slug}/admin/fields`);
 }
@@ -62,4 +63,17 @@ export async function deleteCustomFieldAction(slug: string, id: string) {
   const ctx = await admin(slug);
   await deleteCustomField(ctx.tenant.id, id);
   revalidatePath(`/${slug}/admin/fields`);
+}
+
+export async function importCategoriesAction(
+  slug: string,
+  projectId: string,
+  rows: CsvCategoryRow[],
+  replace: boolean,
+): Promise<{ created: number; errors: string[] }> {
+  const ctx = await admin(slug);
+  const result = await importCategories(ctx.tenant.id, projectId, rows, replace);
+  await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "category.import", target: `project:${projectId} rows:${rows.length}` });
+  revalidatePath(`/${slug}/admin/fields`);
+  return result;
 }

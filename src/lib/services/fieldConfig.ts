@@ -136,13 +136,48 @@ export async function setDefaultOption(tenantId: string, id: string, field: Fiel
   await repo.setDefault(tenantId, id);
 }
 
-export async function addCategory(tenantId: string, name: string, parentId: string | null): Promise<void> {
+export async function addCategory(tenantId: string, name: string, parentId: string | null, projectId?: string | null): Promise<void> {
   if (!name.trim()) throw new Error("Name is required.");
   const supabase = await createSupabaseServerClient();
-  await fieldConfigRepo(supabase).addCategory({ tenant_id: tenantId, parent_id: parentId, name: name.trim() });
+  await fieldConfigRepo(supabase).addCategory({ tenant_id: tenantId, project_id: projectId ?? null, parent_id: parentId, name: name.trim() });
 }
 
 export async function deleteCategory(tenantId: string, id: string): Promise<void> {
   const supabase = await createSupabaseServerClient();
   await fieldConfigRepo(supabase).deleteCategory(tenantId, id);
+}
+
+export type CsvCategoryRow = { name: string; parent_name: string };
+
+export async function importCategories(
+  tenantId: string,
+  projectId: string,
+  rows: CsvCategoryRow[],
+  replace: boolean,
+): Promise<{ created: number; errors: string[] }> {
+  const supabase = await createSupabaseServerClient();
+  const repo = fieldConfigRepo(supabase);
+  const errors: string[] = [];
+
+  if (replace) await repo.deleteCategoriesByProject(tenantId, projectId);
+
+  // First pass: insert top-level categories
+  const tops = rows.filter((r) => !r.parent_name.trim());
+  const topInserts = tops.map((r, i) => ({
+    tenant_id: tenantId, project_id: projectId, parent_id: null, name: r.name.trim(), position: i,
+  }));
+  const topRows = topInserts.length > 0 ? await repo.bulkAddCategories(topInserts) : [];
+  const topMap = new Map(topRows.map((r) => [r.name, r.id]));
+
+  // Second pass: insert sub-categories
+  const subs = rows.filter((r) => r.parent_name.trim());
+  const subInserts: { tenant_id: string; project_id: string; parent_id: string | null; name: string; position: number }[] = [];
+  subs.forEach((r, i) => {
+    const parentId = topMap.get(r.parent_name.trim());
+    if (!parentId) { errors.push(`Unknown parent "${r.parent_name}" for sub-category "${r.name}"`); return; }
+    subInserts.push({ tenant_id: tenantId, project_id: projectId, parent_id: parentId, name: r.name.trim(), position: i });
+  });
+  if (subInserts.length > 0) await repo.bulkAddCategories(subInserts);
+
+  return { created: topRows.length + subInserts.length, errors };
 }

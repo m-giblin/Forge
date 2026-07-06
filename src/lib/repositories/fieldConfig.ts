@@ -16,6 +16,7 @@ export type FieldOption = {
 export type Category = {
   id: string;
   parent_id: string | null;
+  project_id?: string | null;
   name: string;
   position: number;
 };
@@ -92,28 +93,44 @@ export function fieldConfigRepo(supabase: SupabaseClient) {
       if (error) throw error;
     },
 
-    async listCategories(tenantId: string): Promise<Category[]> {
-      const { data, error } = await supabase
+    async listCategories(tenantId: string, projectId?: string): Promise<Category[]> {
+      let q = supabase
         .from("tenant_categories")
-        .select("id, parent_id, name, position")
+        .select("id, parent_id, name, position, project_id")
         .eq("tenant_id", tenantId)
         .order("position");
+      if (projectId) q = q.eq("project_id", projectId);
+      const { data, error } = await q;
       if (error) throw error;
       return (data ?? []) as Category[];
     },
 
-    async addCategory(input: { tenant_id: string; parent_id: string | null; name: string }): Promise<Category> {
+    async addCategory(input: { tenant_id: string; project_id?: string | null; parent_id: string | null; name: string }): Promise<Category> {
       const { data, error } = await supabase
         .from("tenant_categories")
         .insert({ ...input })
-        .select("id, parent_id, name, position")
+        .select("id, parent_id, name, position, project_id")
         .single();
       if (error) throw error;
       return data as Category;
     },
 
+    async bulkAddCategories(rows: { tenant_id: string; project_id: string; parent_id: string | null; name: string; position: number }[]): Promise<Category[]> {
+      const { data, error } = await supabase
+        .from("tenant_categories")
+        .insert(rows)
+        .select("id, parent_id, name, position, project_id");
+      if (error) throw error;
+      return (data ?? []) as Category[];
+    },
+
     async deleteCategory(tenantId: string, id: string): Promise<void> {
       const { error } = await supabase.from("tenant_categories").delete().eq("tenant_id", tenantId).eq("id", id);
+      if (error) throw error;
+    },
+
+    async deleteCategoriesByProject(tenantId: string, projectId: string): Promise<void> {
+      const { error } = await supabase.from("tenant_categories").delete().eq("tenant_id", tenantId).eq("project_id", projectId);
       if (error) throw error;
     },
 

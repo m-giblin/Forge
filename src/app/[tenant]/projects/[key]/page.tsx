@@ -14,6 +14,8 @@ import { ProjectStatusBadge, ProjectDangerZone } from "./ProjectStatusControl";
 import ProjectEditPanel from "./ProjectEditPanel";
 import BudgetAlertBanner from "@/components/BudgetAlertBanner";
 import WhiteboardsPanel from "./WhiteboardsPanel";
+import CategoryImporter from "@/app/[tenant]/admin/fields/CategoryImporter";
+import { fieldConfigRepo } from "@/lib/repositories/fieldConfig";
 
 const HEALTH_META: Record<Health, { label: string; cls: string; dot: string }> = {
   on_track: { label: "On track", cls: "bg-emerald-100 text-emerald-700", dot: "●" },
@@ -37,7 +39,7 @@ export default async function ProjectDetailPage({
 }) {
   const { tenant: slug, key } = await params;
   const { tab: tabParam } = await searchParams;
-  const VALID_TABS = ["overview", "timeline", "costs", "whiteboards"] as const;
+  const VALID_TABS = ["overview", "timeline", "costs", "whiteboards", "categories"] as const;
   type TabId = typeof VALID_TABS[number];
   const tab: TabId = (VALID_TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as TabId) : "overview";
 
@@ -50,9 +52,10 @@ export default async function ProjectDetailPage({
   if (!data) notFound();
 
   const svcClient = createSupabaseServiceClient();
-  const [wiki, sprintVelocity] = await Promise.all([
+  const [wiki, sprintVelocity, existingCategories] = await Promise.all([
     projectWikiPagesRepo(supabase).getForProject(ctx.tenant.id, data.project.id),
     sprintsRepo(svcClient).velocity(ctx.tenant.id, data.project.id).catch(() => []),
+    fieldConfigRepo(svcClient).listCategories(ctx.tenant.id, data.project.id).catch(() => []),
   ]);
   const canEdit = ctx.role !== "viewer" && !ctx.impersonating;
   const isAdmin = (ctx.role === "owner" || ctx.role === "admin") && !ctx.impersonating;
@@ -65,6 +68,7 @@ export default async function ProjectDetailPage({
     { id: "timeline", label: "Timeline", href: `${base}?tab=timeline`, active: tab === "timeline" },
     { id: "costs", label: "Costs", href: `${base}?tab=costs`, active: tab === "costs" },
     { id: "whiteboards", label: "Whiteboards", href: `${base}?tab=whiteboards`, active: tab === "whiteboards" },
+    ...(isAdmin ? [{ id: "categories", label: "Categories", href: `${base}?tab=categories`, active: tab === "categories" }] : []),
   ];
 
   return (
@@ -158,6 +162,38 @@ export default async function ProjectDetailPage({
       {tab === "whiteboards" && (
         <div className="px-6 py-4">
           <WhiteboardsPanel slug={slug} projectId={data.project.id} projectKey={data.project.key} canEdit={canEdit} />
+        </div>
+      )}
+
+      {tab === "categories" && isAdmin && (
+        <div className="max-w-2xl space-y-6">
+          <div>
+            <h3 className="text-sm font-semibold text-neutral-900">Categories for {data.project.name}</h3>
+            <p className="mt-1 text-xs text-neutral-500">Upload a CSV to bulk-import categories, or manage them one by one below.</p>
+          </div>
+          <CategoryImporter
+            slug={slug}
+            projects={[{ id: data.project.id, key: data.project.key, name: data.project.name }]}
+            defaultProjectId={data.project.id}
+          />
+          {existingCategories.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-neutral-600 mb-2">Current categories ({existingCategories.length})</p>
+              <div className="rounded-xl border border-neutral-200 bg-white p-4 space-y-2">
+                {existingCategories.filter((c) => !c.parent_id).map((cat) => (
+                  <div key={cat.id}>
+                    <p className="text-sm font-medium text-neutral-800">{cat.name}</p>
+                    {existingCategories.filter((s) => s.parent_id === cat.id).map((sub) => (
+                      <p key={sub.id} className="ml-4 text-xs text-neutral-500 border-l border-neutral-200 pl-2 mt-0.5">— {sub.name}</p>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {existingCategories.length === 0 && (
+            <p className="text-sm text-neutral-400">No categories yet for this project. Import a CSV to get started.</p>
+          )}
         </div>
       )}
 
