@@ -112,9 +112,12 @@ export async function POST(req: NextRequest) {
   const rawBody = envelope.text.startsWith("<") ? stripHtml(envelope.text) : envelope.text;
   const description = rawBody.slice(0, 5000) || null;
 
-  const { data: last } = await svc.from("issues").select("number")
-    .eq("tenant_id", tenant.id).order("number", { ascending: false }).limit(1).maybeSingle();
-  const number = ((last?.number as number) ?? 0) + 1;
+  const { data: numData, error: numError } = await svc.rpc("next_issue_number", {
+    p_tenant_id: tenant.id,
+    p_project_id: projectId,
+  });
+  if (numError) return NextResponse.json({ error: numError.message }, { status: 500 });
+  const number = numData as number;
 
   const { data: issue, error } = await svc.from("issues").insert({
     tenant_id: tenant.id,

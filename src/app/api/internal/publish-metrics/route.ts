@@ -7,8 +7,18 @@
 //   G4_INGEST_URL=https://your-g4-core.vercel.app/api/ingest/forge
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+
+function safeCompareSecret(provided: string, expected: string): boolean {
+  const maxLen = Math.max(provided.length, expected.length, 32);
+  const a = Buffer.alloc(maxLen);
+  const b = Buffer.alloc(maxLen);
+  a.write(provided);
+  b.write(expected);
+  return timingSafeEqual(a, b);
+}
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -26,7 +36,8 @@ export function GET() {
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-g4-secret");
-  if (!secret || secret !== process.env.G4_PUBLISH_SECRET) {
+  const expected = process.env.G4_PUBLISH_SECRET ?? "";
+  if (!secret || !expected || !safeCompareSecret(secret, expected)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

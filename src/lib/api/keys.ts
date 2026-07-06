@@ -1,11 +1,17 @@
-import { createHash } from "node:crypto";
+import { createHmac } from "node:crypto";
 import type { Scope } from "@/lib/api/scopes";
 
 // Pure key helpers — no server-only boundary, so they're unit-testable.
 
-/** SHA-256 hex. Must match the key-issuance script exactly. */
+/**
+ * HMAC-SHA256 hex using API_KEY_HASH_SECRET as pepper.
+ * Must match the key-issuance script exactly.
+ * WARNING: changing this invalidates all existing API keys — re-issue after deploy.
+ */
 export function hashKey(raw: string): string {
-  return createHash("sha256").update(raw).digest("hex");
+  const pepper = process.env.API_KEY_HASH_SECRET;
+  if (!pepper) throw new Error("API_KEY_HASH_SECRET env var is not set");
+  return createHmac("sha256", pepper).update(raw).digest("hex");
 }
 
 export function hasScope(scopes: string[], required: Scope): boolean {

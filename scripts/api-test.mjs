@@ -7,15 +7,17 @@
  * Run:  node --env-file=.env.local scripts/api-test.mjs
  */
 import { createClient } from "@supabase/supabase-js";
-import { createHash, randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BASE = process.env.FORGE_BASE_URL || "http://localhost:3100";
+const API_KEY_HASH_SECRET = process.env.API_KEY_HASH_SECRET;
 if (!URL || !SERVICE) { console.error("Missing env."); process.exit(1); }
+if (!API_KEY_HASH_SECRET) { console.error("Missing API_KEY_HASH_SECRET — set it in .env.local"); process.exit(1); }
 
 const admin = createClient(URL, SERVICE, { auth: { persistSession: false } });
-const hashKey = (raw) => createHash("sha256").update(raw).digest("hex");
+const hashKey = (raw) => createHmac("sha256", API_KEY_HASH_SECRET).update(raw).digest("hex");
 const stamp = Date.now();
 
 let pass = 0, fail = 0;

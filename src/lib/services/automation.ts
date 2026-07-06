@@ -4,6 +4,7 @@ import { automationRulesRepo, type TriggerType, type Condition, type Action } fr
 import { issuesRepo, type Issue } from "@/lib/repositories/issues";
 import { issueActivityRepo } from "@/lib/repositories/issueActivity";
 import { logger } from "@/lib/logger";
+import { validateWebhookUrl } from "@/lib/api/ssrfGuard";
 
 type IssueContext = Issue & { projectKey?: string };
 
@@ -57,6 +58,11 @@ async function runAction(action: Action, issue: IssueContext, tenantId: string):
       break;
 
     case "fire_webhook": {
+      const guard = validateWebhookUrl(action.value ?? "");
+      if (!guard.ok) {
+        logger.warn("Automation fire_webhook blocked by SSRF guard", { url: action.value, reason: guard.reason });
+        break;
+      }
       const payload = JSON.stringify({ event: "automation.fired", data: { issueId: issue.id, issueTitle: issue.title } });
       await fetch(action.value, {
         method: "POST",

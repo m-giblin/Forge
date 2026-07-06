@@ -1,6 +1,7 @@
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { webhooksRepo, type WebhookEvent } from "@/lib/repositories/webhooks";
 import { logger } from "@/lib/logger";
+import { validateWebhookUrl } from "@/lib/api/ssrfGuard";
 
 async function hmacSignature(secret: string, body: string): Promise<string> {
   const key = await crypto.subtle.importKey(
@@ -15,6 +16,11 @@ async function hmacSignature(secret: string, body: string): Promise<string> {
 }
 
 async function deliver(url: string, secret: string, payload: string): Promise<void> {
+  const guard = validateWebhookUrl(url);
+  if (!guard.ok) {
+    logger.warn("Webhook delivery blocked by SSRF guard", { url, reason: guard.reason });
+    return;
+  }
   const sig = await hmacSignature(secret, payload);
   const headers = {
     "Content-Type": "application/json",
