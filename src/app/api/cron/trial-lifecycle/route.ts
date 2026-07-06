@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { runTrialLifecycle } from "@/lib/services/trialLifecycle";
+import { verifyCronAuth } from "@/lib/api/cronAuth";
 
 // Nightly cron: checks trial status, sends lifecycle emails, auto-expires trials.
 // Call via: GET /api/cron/trial-lifecycle
 // Protected by CRON_SECRET header.
 export async function GET(req: NextRequest) {
-  const secret = req.headers.get("x-cron-secret");
-  if (!secret || secret !== process.env.CRON_SECRET) {
+  if (!verifyCronAuth(req.headers.get("authorization") ?? req.headers.get("x-cron-secret"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -3,16 +3,8 @@
 import { useState, useRef, useEffect, useTransition } from "react";
 import type { Issue } from "@/lib/repositories/issues";
 import type { FieldOption } from "@/lib/repositories/fieldConfig";
+import { avatarColor, initials } from "@/lib/ui/avatar";
 import { quickEditIssueAction } from "./actions";
-
-function avatarColor(id: string): string {
-  const h = [...id].reduce((a, c) => a + c.charCodeAt(0), 0);
-  const COLORS = ["#7C3AED", "#2563EB", "#059669", "#D97706", "#DC2626", "#7C3AED", "#0284C7", "#16A34A"];
-  return COLORS[h % COLORS.length];
-}
-function initials(name: string): string {
-  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-}
 
 type QuickEditProps = {
   issue: Issue;

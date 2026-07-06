@@ -29,7 +29,7 @@ export async function setImpersonationCookie(imp: Impersonation): Promise<void> 
   const token = `${payload}.${sign(payload)}`;
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "strict",
     path: "/",
     maxAge: TTL_SECONDS,
     secure: process.env.NODE_ENV === "production",

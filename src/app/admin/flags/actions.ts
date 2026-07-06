@@ -1,20 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { setGlobalFlag, setTenantOverride } from "@/lib/services/featureFlagsAdmin";
 import { requireSuperAdmin } from "@/lib/super-admin";
 // eslint-disable-next-line no-restricted-imports -- admin/super-admin: service-role required, explicit tenant scoping applied (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-
-// Authorization is enforced inside each service call via requireSuperAdmin().
+import { featureFlagsRepo } from "@/lib/repositories/featureFlags";
 
 export async function setGlobalFlagAction(key: string, enabled: boolean) {
-  await setGlobalFlag(key, enabled);
+  if (!(await requireSuperAdmin())) throw new Error("Forbidden");
+  await featureFlagsRepo(createSupabaseServiceClient()).setGlobal(key, enabled);
   revalidatePath("/admin/flags");
 }
 
 export async function setTenantOverrideAction(tenantId: string, key: string, enabled: boolean | null) {
-  await setTenantOverride(tenantId, key, enabled);
+  if (!(await requireSuperAdmin())) throw new Error("Forbidden");
+  await featureFlagsRepo(createSupabaseServiceClient()).setOverride(tenantId, key, enabled);
   revalidatePath("/admin/flags");
 }
 

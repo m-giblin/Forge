@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { runBoardMonitor } from "@/lib/services/boardMonitor";
 import { getChatWebhooks } from "@/lib/services/chatNotifications";
+import { verifyCronAuth } from "@/lib/api/cronAuth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -76,9 +77,7 @@ async function sendHealthDigestToSlack(tenantId: string, tenantSlug: string, dig
 }
 
 async function handler(req: Request) {
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

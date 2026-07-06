@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { verifyCronAuth } from "@/lib/api/cronAuth";
 // eslint-disable-next-line no-restricted-imports -- service-role: cron runs outside user JWT context (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { generateStandupDigest, sendStandupToSlack, sendStandupEmail } from "@/lib/services/standupDigest";
@@ -9,7 +10,7 @@ export const maxDuration = 60;
 async function handler(req: Request) {
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(authHeader)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

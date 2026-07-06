@@ -1,17 +1,20 @@
 import Link from "next/link";
-import { listGlobalFlags, listAllOverrides } from "@/lib/services/featureFlagsAdmin";
 import { listTenants } from "@/lib/services/platform";
+import { requireSuperAdmin } from "@/lib/super-admin";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { featureFlagsRepo } from "@/lib/repositories/featureFlags";
 import FeatureFlagsConsole from "./FeatureFlagsConsole";
 import { adminStyles as S } from "../page";
 
 export default async function FlagsPage() {
+  if (!(await requireSuperAdmin())) throw new Error("Forbidden");
   const svc = createSupabaseServiceClient();
+  const repo = featureFlagsRepo(svc);
   const [tenants, flags, overrides, settingsResult] = await Promise.all([
     listTenants(),
-    listGlobalFlags().catch(() => []),
-    listAllOverrides().catch(() => []),
+    repo.listFlags().catch(() => []),
+    repo.listOverrides().catch(() => []),
     svc.from("platform_settings").select("key, value").in("key", ["maintenance_mode", "ai_disabled"]),
   ]);
   const settingsMap: Record<string, string> = {};

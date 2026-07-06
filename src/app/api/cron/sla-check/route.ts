@@ -2,14 +2,13 @@ import { NextResponse } from "next/server";
 // eslint-disable-next-line no-restricted-imports -- service-role: cron runs outside user JWT context (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { runSlaCron } from "@/lib/services/sla";
+import { verifyCronAuth } from "@/lib/api/cronAuth";
 
 export const dynamic = "force-dynamic";
 
 async function handler(req: Request) {
   // Verify Vercel cron secret (or internal calls)
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyCronAuth(req.headers.get("authorization"))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

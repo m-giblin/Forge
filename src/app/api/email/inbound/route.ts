@@ -1,6 +1,17 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 // eslint-disable-next-line no-restricted-imports -- service-role: email inbound is machine path, tenant routed by recipient address (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+
+function safeCompareSecret(a: string, b: string): boolean {
+  // Pad to same length before comparison to avoid length oracle
+  const maxLen = Math.max(a.length, b.length, 32);
+  const bufA = Buffer.alloc(maxLen);
+  const bufB = Buffer.alloc(maxLen);
+  bufA.write(a);
+  bufB.write(b);
+  return timingSafeEqual(bufA, bufB);
+}
 
 export const runtime = "nodejs";
 
@@ -60,7 +71,9 @@ export async function POST(req: NextRequest) {
     req.headers.get("x-webhook-secret") ??
     req.headers.get("x-postmark-secret") ??
     req.headers.get("authorization")?.replace(/^Bearer /, "");
-  if (!secret || provided !== secret) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!secret || !provided || !safeCompareSecret(provided, secret)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   let body: Record<string, unknown>;
   try {

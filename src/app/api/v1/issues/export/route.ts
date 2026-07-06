@@ -49,12 +49,13 @@ export async function GET(req: Request) {
         ? supabase.from("projects").select("id,key").in("id", projectIds)
         : Promise.resolve({ data: [] }),
       assigneeIds.length > 0
-        ? supabase.from("users").select("id,name,email").in("id", assigneeIds)
+        ? supabase.from("users").select("id,name").in("id", assigneeIds)
         : Promise.resolve({ data: [] }),
     ]);
 
     const projectKey = new Map((projectsRes.data ?? []).map((p) => [p.id, p.key]));
-    const userName = new Map((usersRes.data ?? []).map((u) => [u.id, u.name || u.email]));
+    // name only — never expose member emails to API key holders (issues:read scope = minimal privilege)
+    const userName = new Map((usersRes.data ?? []).map((u) => [u.id, u.name ?? "Unknown"]));
 
     // external_id is excluded: it stores raw sender email for inbound-email issues, which
     // would leak PII (email addresses) to any API key holder with issues:read scope.

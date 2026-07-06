@@ -55,6 +55,7 @@ export async function getSessionContext(): Promise<SessionContext | null> {
     // super_admins_self RLS lets a user read only their own row.
     supabase.from("super_admins").select("user_id").eq("user_id", appUserId).maybeSingle(),
   ]);
+  if (superAdminRes.error) throw superAdminRes.error;
   if (membershipsRes.error) throw membershipsRes.error;
 
   const memberships = (membershipsRes.data ?? []).map((m) => ({

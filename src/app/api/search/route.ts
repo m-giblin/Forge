@@ -85,7 +85,7 @@ export async function GET(req: NextRequest) {
   // Sanitize free-text before interpolating into PostgREST filter string.
   // Periods, parens, and commas are PostgREST syntax characters that can escape the filter.
   if (text) {
-    const safe = text.replace(/[^a-zA-Z0-9 \-_']/g, "");
+    const safe = text.replace(/[^a-zA-Z0-9 \-_]/g, ""); // single-quote removed: PostgREST treats it as string delimiter
     if (safe) query = query.or(`title.ilike.%${safe}%,description.ilike.%${safe}%`);
   }
   if (filters.status)    query = query.in("status", filters.status);

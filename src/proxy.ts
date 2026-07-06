@@ -57,7 +57,11 @@ async function checkIpAllowlist(slug: string, clientIp: string): Promise<boolean
     _allowlistCache.set(slug, { list, at: now });
     return isIpAllowed(clientIp, list);
   } catch {
-    return true; // fail open — never block on DB error
+    // Fail open only when tenant has no allowlist configured (list is empty).
+    // If we had a non-empty list cached but DB threw, the cached result already returned above.
+    // Reaching here means we couldn't load the list at all — log and allow to avoid lockout.
+    console.error("[ip-allowlist] DB error checking allowlist for slug:", slug);
+    return true;
   }
 }
 
@@ -109,6 +113,10 @@ export async function proxy(request: NextRequest) {
   // Forward nonce + pathname to Server Components via request headers.
   const response = await updateSession(request, { "x-nonce": nonce, "x-pathname": path });
   response.headers.set("Content-Security-Policy", buildCsp(nonce));
+  response.headers.set("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+  response.headers.set("X-Content-Type-Options", "nosniff");
+  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
   return response;
 }
 

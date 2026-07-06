@@ -8,21 +8,13 @@ import { type Issue } from "@/lib/repositories/issues";
 import { type Sprint } from "@/lib/repositories/sprints";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { isUnassignedOverdue } from "@/lib/sla";
+import { avatarColor, initials } from "@/lib/ui/avatar";
 import { createIssueAction, moveIssueAction, loadMoreForStatusAction, draftIssueFromDescriptionAction } from "./actions";
 import { cascadeStatusToChildrenAction } from "../issues/[id]/actions";
 import IssueCard from "./IssueCard";
 
 type Project = { id: string; key: string; name: string };
 type Member = { userId: string; label: string };
-
-const AVATAR_COLORS = ["#6366F1","#8B5CF6","#EC4899","#14B8A6","#F59E0B","#10B981","#3B82F6","#F97316"];
-function avatarColor(userId: string): string {
-  const code = userId.charCodeAt(0) + userId.charCodeAt(userId.length - 1);
-  return AVATAR_COLORS[code % AVATAR_COLORS.length];
-}
-function initials(label: string): string {
-  return label.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
-}
 
 export default function Board({
   slug,
