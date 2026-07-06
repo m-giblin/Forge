@@ -130,8 +130,9 @@ export function fieldConfigRepo(supabase: SupabaseClient) {
     },
 
     async deleteCategoriesByProject(tenantId: string, projectId: string): Promise<void> {
-      const { error } = await supabase.from("tenant_categories").delete().eq("tenant_id", tenantId).eq("project_id", projectId);
-      if (error) throw error;
+      // Delete both project-scoped rows AND legacy null-project rows (pre-migration 0092)
+      await supabase.from("tenant_categories").delete().eq("tenant_id", tenantId).eq("project_id", projectId);
+      await supabase.from("tenant_categories").delete().eq("tenant_id", tenantId).is("project_id", null);
     },
 
     async listCustomFields(tenantId: string): Promise<CustomField[]> {
