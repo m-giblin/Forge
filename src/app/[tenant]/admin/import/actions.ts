@@ -3,6 +3,7 @@ import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- bulk import uses service-role across multiple tables; some raw .from() calls remain (sec09: accepted, pending repo refactor)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { fieldConfigRepo } from "@/lib/repositories/fieldConfig";
+import { sanitizeCustomValues } from "@/lib/api/validateFields";
 
 export type ImportRow = {
   title: string;
@@ -151,8 +152,8 @@ export async function importIssuesAction(
 
     // Build custom_values: validate selects, pass text/number/date through as-is.
     // Invalid select values are dropped silently — a bad custom value shouldn't
-    // block the row from importing.
-    const custom_values: Record<string, string> = {};
+    // block the row from importing. sanitizeCustomValues caps keys/length.
+    const rawCustomValues: Record<string, string> = {};
     if (row.custom_values) {
       for (const [key, val] of Object.entries(row.custom_values)) {
         if (!val?.trim()) continue;
@@ -160,13 +161,14 @@ export async function importIssuesAction(
         if (!field) continue;
         if (field.type === "select") {
           if (field.options.map((o) => o.toLowerCase()).includes(val.trim().toLowerCase())) {
-            custom_values[key] = field.options.find((o) => o.toLowerCase() === val.trim().toLowerCase())!;
+            rawCustomValues[key] = field.options.find((o) => o.toLowerCase() === val.trim().toLowerCase())!;
           }
         } else {
-          custom_values[key] = val.trim();
+          rawCustomValues[key] = val.trim();
         }
       }
     }
+    const custom_values = sanitizeCustomValues(rawCustomValues);
 
     const { error } = await svc.from("issues").insert({
       tenant_id: ctx.tenant.id,

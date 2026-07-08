@@ -1,6 +1,29 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fieldConfigRepo } from "@/lib/repositories/fieldConfig";
 
+// Hard caps that match the UI limits (MAX_CUSTOM_FIELDS=50, value inputs capped at 500 chars).
+// These prevent a malicious tenant member from ballooning the issues.custom_values JSONB column.
+const MAX_CUSTOM_KEYS = 50;
+const MAX_VALUE_LEN = 500;
+
+/**
+ * Clamp an untrusted custom_values object before it reaches the DB.
+ * - Drops any key beyond the first 50.
+ * - Truncates any string value to 500 characters.
+ * - Silently drops non-string values (all legitimate values are strings).
+ */
+export function sanitizeCustomValues(
+  raw: Record<string, unknown> | undefined | null
+): Record<string, string> {
+  if (!raw) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (Object.keys(out).length >= MAX_CUSTOM_KEYS) break;
+    if (typeof v === "string") out[k] = v.slice(0, MAX_VALUE_LEN);
+  }
+  return out;
+}
+
 type Vals = { status?: string | null; priority?: string | null; type?: string | null };
 
 /**

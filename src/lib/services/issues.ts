@@ -12,6 +12,7 @@ import { fireWebhook } from "@/lib/services/webhooks";
 import { triageIssue } from "@/lib/services/triage";
 import { runAutomations } from "@/lib/services/automation";
 import { notifyChat } from "@/lib/services/chatNotifications";
+import { sanitizeCustomValues } from "@/lib/api/validateFields";
 
 export type Project = { id: string; key: string; name: string };
 
@@ -113,7 +114,7 @@ export async function createIssue(input: {
     priority: input.priority ?? def("priority") ?? "medium",
     type: input.type ?? def("type") ?? "bug",
     category_id: input.categoryId ?? null,
-    custom_values: input.customValues ?? {},
+    custom_values: sanitizeCustomValues(input.customValues),
     reporter_id: input.reporterId ?? null,
     sprint_id: input.sprintId ?? null,
     assignee_id: input.assigneeId ?? null,
@@ -219,7 +220,7 @@ export async function updateIssue(
   if (patch.dueDate !== undefined) dbPatch.due_date = patch.dueDate || null;
   if (patch.phase !== undefined) dbPatch.phase = patch.phase || null;
   if (patch.storyPoints !== undefined) dbPatch.story_points = patch.storyPoints ?? null;
-  if (patch.customValues !== undefined) dbPatch.custom_values = { ...before.custom_values, ...patch.customValues };
+  if (patch.customValues !== undefined) dbPatch.custom_values = sanitizeCustomValues({ ...before.custom_values, ...patch.customValues });
 
   const updated = await repo.update(tenantId, id, dbPatch);
 

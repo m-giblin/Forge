@@ -1,9 +1,14 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeAll } from "vitest";
 import { hashKey, hasScope, parseBearer } from "@/lib/api/keys";
 import { SCOPES } from "@/lib/api/scopes";
 
+// hashKey uses HMAC-SHA256 with API_KEY_HASH_SECRET. Tests set a fixed pepper so
+// they don't depend on the production secret and can include a known-vector check.
+const TEST_PEPPER = "test-pepper-for-unit-tests-only-not-a-real-secret";
+beforeAll(() => { process.env.API_KEY_HASH_SECRET = TEST_PEPPER; });
+
 describe("hashKey", () => {
-  it("is deterministic and SHA-256 hex (64 chars)", () => {
+  it("is deterministic and returns 64-char hex", () => {
     const h = hashKey("forge_travli_abc123");
     expect(h).toBe(hashKey("forge_travli_abc123"));
     expect(h).toMatch(/^[a-f0-9]{64}$/);
@@ -13,9 +18,11 @@ describe("hashKey", () => {
     expect(hashKey("a")).not.toBe(hashKey("b"));
   });
 
-  it("matches a known SHA-256 vector", () => {
-    // echo -n "abc" | shasum -a 256
-    expect(hashKey("abc")).toBe("ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad");
+  it("matches a known HMAC-SHA256 vector", () => {
+    // node -e "require('crypto').createHmac('sha256','test-pepper-for-unit-tests-only-not-a-real-secret').update('abc').digest('hex') |> console.log"
+    const { createHmac } = require("node:crypto");
+    const expected = createHmac("sha256", TEST_PEPPER).update("abc").digest("hex");
+    expect(hashKey("abc")).toBe(expected);
   });
 });
 
