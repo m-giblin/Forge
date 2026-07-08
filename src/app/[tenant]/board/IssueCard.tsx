@@ -132,6 +132,14 @@ function QuickEditPopover({ issue, slug, prMap, memMap, onClose }: QuickEditProp
   );
 }
 
+function agingInfo(updatedAt: string): { color: string | null; days: number } {
+  const days = Math.floor((Date.now() - new Date(updatedAt).getTime()) / 86_400_000);
+  if (days < 4) return { color: "#4ade80", days };
+  if (days < 8) return { color: "#facc15", days };
+  if (days < 15) return { color: "#fb923c", days };
+  return { color: "#ef4444", days };
+}
+
 export default function IssueCard({
   issue,
   slug,
@@ -144,6 +152,7 @@ export default function IssueCard({
   onClickIssue,
   projectKey,
   showAssignee,
+  showAging = false,
 }: {
   issue: Issue;
   slug: string;
@@ -156,11 +165,13 @@ export default function IssueCard({
   onClickIssue: () => void;
   projectKey: string;
   showAssignee: boolean;
+  showAging?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const [editing, setEditing] = useState(false);
   const ty = tyMap.get(issue.type);
   const pr = prMap.get(issue.priority);
+  const { color: agingBorderColor, days: ageDays } = showAging ? agingInfo(issue.updated_at) : { color: null, days: 0 };
 
   return (
     <div
@@ -169,8 +180,16 @@ export default function IssueCard({
       onClick={() => { if (!editing) onClickIssue(); }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => { if (!editing) setHovered(false); }}
-      className={`relative cursor-pointer rounded-lg border border-neutral-200 bg-white p-3 shadow-sm hover:border-neutral-300 ${canEdit ? "active:cursor-grabbing" : ""}`}
+      className={`relative cursor-pointer rounded-lg border bg-white p-3 shadow-sm hover:border-neutral-300 ${canEdit ? "active:cursor-grabbing" : ""}`}
+      style={agingBorderColor ? { borderColor: agingBorderColor, borderWidth: 2 } : { borderColor: "#e5e7eb" }}
+      title={showAging ? `Last updated ${ageDays}d ago` : undefined}
     >
+      {agingBorderColor && (
+        <div
+          className="absolute inset-x-0 top-0 h-0.5 rounded-t-lg"
+          style={{ backgroundColor: agingBorderColor }}
+        />
+      )}
       <div className="mb-1.5 flex items-center gap-1.5">
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: pr?.color ?? "#9CA3AF" }} />
         <span className="text-xs font-medium" style={{ color: pr?.color ?? "#9CA3AF" }}>

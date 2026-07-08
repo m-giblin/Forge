@@ -52,6 +52,7 @@ const NAV = [
     items: [
       { seg: "settings/automations", label: "Automations", icon: "⚙️" },
       { seg: "settings/sla", label: "SLA Policies", icon: "⏱️" },
+      { seg: "recurring", label: "Recurring Issues", icon: "🔁" },
       { seg: "notifications", label: "Notifications", icon: "🔔" },
     ],
   },

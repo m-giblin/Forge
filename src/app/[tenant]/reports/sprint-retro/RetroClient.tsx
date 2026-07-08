@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { generateRetroSummaryAction } from "./retroActions";
 
 interface SprintRef {
   id: string;
@@ -64,18 +65,39 @@ export default function RetroClient({
   sprints,
   selectedSprintId,
   issues,
+  aiSummary: initialAiSummary,
+  aiGeneratedAt,
 }: {
   slug: string;
   sprints: SprintRef[];
   selectedSprintId: string | null;
   issues: IssueRetro[];
+  aiSummary: string | null;
+  aiGeneratedAt: string | null;
 }) {
   const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>("delta");
   const [sortAsc, setSortAsc] = useState(false);
+  const [aiSummary, setAiSummary] = useState(initialAiSummary);
+  const [generating, startGenerate] = useTransition();
+  const [genError, setGenError] = useState<string | null>(null);
 
   function handleSprintChange(id: string) {
+    setAiSummary(null);
     router.push(`/${slug}/reports/sprint-retro?sprintId=${id}`);
+  }
+
+  function handleGenerate() {
+    if (!selectedSprintId) return;
+    setGenError(null);
+    startGenerate(async () => {
+      try {
+        const result = await generateRetroSummaryAction(slug, selectedSprintId);
+        setAiSummary(result);
+      } catch (e) {
+        setGenError(e instanceof Error ? e.message : "Failed to generate");
+      }
+    });
   }
 
   function handleSort(key: SortKey) {
@@ -172,6 +194,46 @@ export default function RetroClient({
 
       {sprints.length > 0 && (
         <>
+          {/* AI Retrospective Summary */}
+          <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-neutral-200">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-neutral-900">AI Retrospective</span>
+                {aiGeneratedAt && !aiSummary && (
+                  <span className="text-xs text-neutral-400">Generated {new Date(aiGeneratedAt).toLocaleDateString()}</span>
+                )}
+              </div>
+              <button
+                onClick={handleGenerate}
+                disabled={generating}
+                className="text-xs px-3 py-1.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-50 font-medium transition"
+              >
+                {generating ? "Generating…" : aiSummary ? "Regenerate" : "Generate AI Summary"}
+              </button>
+            </div>
+            <div className="px-4 py-4">
+              {genError && (
+                <p className="text-sm text-red-600">{genError}</p>
+              )}
+              {!aiSummary && !generating && !genError && (
+                <p className="text-sm text-neutral-400">
+                  Click &ldquo;Generate AI Summary&rdquo; to get a Grok-powered retrospective analysis — what shipped, what slipped, and what to focus on next sprint.
+                </p>
+              )}
+              {generating && (
+                <div className="flex items-center gap-2 text-sm text-neutral-500">
+                  <div className="h-3 w-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                  Analyzing sprint data…
+                </div>
+              )}
+              {aiSummary && !generating && (
+                <div className="prose prose-sm prose-neutral max-w-none text-sm text-neutral-700 whitespace-pre-wrap leading-relaxed">
+                  {aiSummary}
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
               { label: "Planned", value: fmtH(plannedMinutes), color: "text-neutral-700" },

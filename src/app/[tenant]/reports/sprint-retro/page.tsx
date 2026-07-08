@@ -39,7 +39,7 @@ export default async function SprintRetroPage({
   const selectedSprintId = sp.sprintId ?? sprints[0]?.id ?? null;
 
   if (!selectedSprintId) {
-    return <RetroClient slug={slug} sprints={[]} selectedSprintId={null} issues={[]} />;
+    return <RetroClient slug={slug} sprints={[]} selectedSprintId={null} issues={[]} aiSummary={null} aiGeneratedAt={null} />;
   }
 
   const selectedSprint = sprints.find((s) => s.id === selectedSprintId);
@@ -78,12 +78,22 @@ export default async function SprintRetroPage({
     };
   });
 
+  // Load existing AI summary for selected sprint
+  const { data: sprintMeta } = await svc
+    .from("sprints")
+    .select("retro_ai_summary, retro_generated_at")
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("id", selectedSprintId)
+    .maybeSingle();
+
   return (
     <RetroClient
       slug={slug}
       sprints={sprints}
       selectedSprintId={selectedSprintId}
       issues={issues}
+      aiSummary={(sprintMeta?.retro_ai_summary as string | null) ?? null}
+      aiGeneratedAt={(sprintMeta?.retro_generated_at as string | null) ?? null}
     />
   );
 }

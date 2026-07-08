@@ -4,6 +4,7 @@ import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
 import { issuesRepo } from "@/lib/repositories/issues";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { logger } from "@/lib/logger";
+import { grokComplete } from "@/lib/services/grokAi";
 
 // Parse issue keys like FORGE-123, WEB-42 from text
 const KEY_RE = /\b([A-Z]{2,10}-\d+)\b/g;
@@ -106,6 +107,46 @@ export async function handleGithubWebhook(
           branch, actorLogin: commit.author?.name ?? null,
           occurredAt: new Date().toISOString(), payload: commit,
         });
+
+        // Link commit to any Forge issues mentioned in its message and generate an AI summary.
+        const commitKeys = extractIssueKeys(commit.message ?? "");
+        if (commitKeys.length > 0) {
+          const shortSha = (commit.id ?? "").slice(0, 7);
+          const commitUrl = commit.url ?? `https://github.com/${repoFullName}/commit/${commit.id}`;
+
+          // Best-effort Grok summary — fire and forget per commit.
+          void (async () => {
+            try {
+              const aiSummary = await grokComplete(tenantId,
+                `Summarize this git commit in one sentence (max 120 chars), starting with a verb. Focus on what changed and why, not the issue key.
+
+Message: ${(commit.message ?? "").slice(0, 500)}`,
+                { model: "grok-3-mini", temperature: 0.2, maxTokens: 80 },
+              );
+
+              for (const key of commitKeys) {
+                const issue = await resolveIssueByKey(svc, tenantId, key);
+                if (!issue) continue;
+                // Upsert with ai_summary and commit_sha (0095 migration adds these columns)
+                await svc.from("issue_code_links").upsert({
+                  tenant_id: tenantId,
+                  issue_id: issue.id,
+                  connection_id: connectionId,
+                  repo_full_name: repoFullName,
+                  pr_number: 0,
+                  link_kind: "commit",
+                  pr_state: "merged",
+                  pr_title: `${shortSha}: ${(commit.message ?? "").split("\n")[0].slice(0, 80)}`,
+                  pr_url: commitUrl,
+                  ai_summary: aiSummary || null,
+                  commit_sha: commit.id ?? null,
+                }, { onConflict: "tenant_id,issue_id,repo_full_name,pr_number" });
+              }
+            } catch (e) {
+              logger.warn("Commit AI summary failed", { tenantId, sha: commit.id, err: String(e) });
+            }
+          })();
+        }
       }
     } else if (eventType === "release" || eventType === "create") {
       // GitHub release published or tag pushed — record as a deployment.

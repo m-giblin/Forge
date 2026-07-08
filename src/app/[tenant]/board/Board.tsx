@@ -75,6 +75,7 @@ export default function Board({
   const [filterAssignee, setFilterAssignee] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
+  const [showAging, setShowAging] = useState(false);
 
   const groupByParam = (searchParams.get("groupBy") ?? "status") as "status" | "assignee" | "priority";
   const groupBy = ["status", "assignee", "priority"].includes(groupByParam) ? groupByParam : "status";
@@ -371,6 +372,27 @@ export default function Board({
         categories={categories}
         members={members}
       />
+      <div className="flex items-center gap-2 px-4">
+        <button
+          onClick={() => setShowAging((v) => !v)}
+          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+            showAging
+              ? "border-orange-300 bg-orange-50 text-orange-700"
+              : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300"
+          }`}
+          title="Highlight issues by days since last update"
+        >
+          <span>🔥</span> Aging {showAging ? "On" : "Off"}
+        </button>
+        {showAging && (
+          <div className="flex items-center gap-3 text-[11px] text-neutral-500">
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-green-400" /> &lt;4d</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-yellow-400" /> 4–7d</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-orange-400" /> 8–14d</span>
+            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-500" /> 15d+</span>
+          </div>
+        )}
+      </div>
 
       {showForm && (
         <NewIssueForm
@@ -404,7 +426,7 @@ export default function Board({
                   </span>
                   <span className="text-xs text-neutral-400">{colIssues.length}</span>
                 </div>
-                <IssueCardList issues={colIssues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee />
+                <IssueCardList issues={colIssues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee showAging={showAging} />
               </div>
             );
           });
@@ -428,7 +450,7 @@ export default function Board({
                 </span>
                 <span className="text-xs text-neutral-400">{colIssues.length}</span>
               </div>
-              <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee />
+              <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee showAging={showAging} />
               {showLoadMore && (
                 <button
                   onClick={() => loadMore(status.key)}
@@ -460,7 +482,7 @@ export default function Board({
                 </span>
                 <span className="text-xs text-neutral-400">{col.issues.length}</span>
               </div>
-              <IssueCardList issues={col.issues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee={false} />
+              <IssueCardList issues={col.issues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee={false} showAging={showAging} />
             </div>
           ));
         })() : null}
@@ -481,6 +503,7 @@ function IssueCardList({
   onClickIssue,
   projectKey,
   showAssignee,
+  showAging = false,
 }: {
   issues: Issue[];
   canEdit: boolean;
@@ -493,6 +516,7 @@ function IssueCardList({
   onClickIssue: (id: string) => void;
   projectKey: (projectId: string) => string;
   showAssignee: boolean;
+  showAging?: boolean;
 }) {
   if (issues.length === 0) {
     return (
@@ -517,6 +541,7 @@ function IssueCardList({
           onClickIssue={() => onClickIssue(issue.id)}
           projectKey={`${projectKey(issue.project_id)}`}
           showAssignee={showAssignee}
+          showAging={showAging}
         />
       ))}
     </div>

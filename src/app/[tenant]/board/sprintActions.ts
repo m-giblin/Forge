@@ -63,6 +63,57 @@ export async function startSprintAction(slug: string, sprintId: string): Promise
         .eq("id", sprint.project_id)
         .maybeSingle();
 
+      // Seed recurring issues for this sprint
+      const { data: recurring } = await db
+        .from("recurring_issues")
+        .select("id, title, type, priority, description, trigger, interval_sprints, sprint_count")
+        .eq("tenant_id", ctx.tenant.id)
+        .eq("project_id", sprint.project_id)
+        .eq("is_active", true);
+
+      for (const ri of recurring ?? []) {
+        const newCount = (ri.sprint_count as number) + 1;
+        const shouldCreate =
+          ri.trigger === "every_sprint" ||
+          (ri.trigger === "every_n_sprints" && newCount >= (ri.interval_sprints as number));
+
+        if (shouldCreate) {
+          // Get next issue number for this project
+          const { data: maxRow } = await db
+            .from("issues")
+            .select("number")
+            .eq("tenant_id", ctx.tenant.id)
+            .eq("project_id", sprint.project_id)
+            .order("number", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          const nextNum = ((maxRow?.number as number) ?? 0) + 1;
+
+          await db.from("issues").insert({
+            tenant_id: ctx.tenant.id,
+            project_id: sprint.project_id,
+            sprint_id: sprintId,
+            title: ri.title,
+            type: ri.type,
+            priority: ri.priority,
+            description: ri.description,
+            status: "todo",
+            number: nextNum,
+            source: "recurring",
+          });
+
+          await db
+            .from("recurring_issues")
+            .update({ sprint_count: 0, updated_at: new Date().toISOString() })
+            .eq("id", ri.id);
+        } else {
+          await db
+            .from("recurring_issues")
+            .update({ sprint_count: newCount, updated_at: new Date().toISOString() })
+            .eq("id", ri.id);
+        }
+      }
+
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100";
 
       await notifyChatSprintEvent(ctx.tenant.id, {

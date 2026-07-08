@@ -139,6 +139,7 @@ export default async function TenantLayout({
             <p className="mb-1 px-2 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">My Work</p>
             <div className="space-y-0.5">
               <SideLink href={`/${slug}`} icon="🏠" label="Home" />
+              <SideLink href={`/${slug}/me/today`} icon="🎯" label="My Day" />
               <SideLink href={`/${slug}/assigned`} icon="📌" label="Assigned to Me" />
               <SideLink href={`/${slug}/watching`} icon="👁" label="Watching" />
               <SideLink href={`/${slug}/inbox`} icon="📥" label="Inbox" badge={unreadCount > 0 ? unreadCount : undefined} />

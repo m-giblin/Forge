@@ -29,6 +29,8 @@ export type IssueCodeLink = {
   prState: string | null;
   prTitle: string | null;
   prUrl: string | null;
+  aiSummary?: string | null;
+  commitSha?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -161,7 +163,7 @@ export function gitIntegrationRepo(supabase: SupabaseClient) {
     async listCodeLinks(tenantId: string, issueId: string): Promise<IssueCodeLink[]> {
       const { data } = await supabase
         .from("issue_code_links")
-        .select("id, tenant_id, issue_id, connection_id, repo_full_name, pr_number, link_kind, pr_state, pr_title, pr_url, created_at, updated_at")
+        .select("id, tenant_id, issue_id, connection_id, repo_full_name, pr_number, link_kind, pr_state, pr_title, pr_url, ai_summary, commit_sha, created_at, updated_at")
         .eq("tenant_id", tenantId)
         .eq("issue_id", issueId)
         .order("created_at");
@@ -169,6 +171,8 @@ export function gitIntegrationRepo(supabase: SupabaseClient) {
         id: r.id, tenantId: r.tenant_id, issueId: r.issue_id, connectionId: r.connection_id,
         repoFullName: r.repo_full_name, prNumber: r.pr_number, linkKind: r.link_kind,
         prState: r.pr_state, prTitle: r.pr_title, prUrl: r.pr_url,
+        aiSummary: (r.ai_summary as string | null) ?? null,
+        commitSha: (r.commit_sha as string | null) ?? null,
         createdAt: r.created_at, updatedAt: r.updated_at,
       }));
     },
