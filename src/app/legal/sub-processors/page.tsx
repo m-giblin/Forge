@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "List of third-party sub-processors used by Forge to deliver the service.",
 };
 
-const UPDATED = "2026-06-22";
+const UPDATED = "2026-07-08";
 
 const SUB_PROCESSORS = [
   {
@@ -54,9 +54,12 @@ export default function SubProcessorsPage() {
 
         <div className="prose prose-neutral max-w-none">
           <p className="text-neutral-700 leading-relaxed">
-            Forge uses the following sub-processors to deliver its services. We maintain Data Processing
-            Agreements (DPAs) with each sub-processor and require them to process personal data only on
-            our documented instructions and under appropriate technical and organisational measures.
+            Forge uses the following sub-processors to deliver its services. Each sub-processor is
+            required, under their own standard data protection terms, to process personal data only on
+            documented instructions and under appropriate technical and organisational measures. Where a
+            sub-processor supports EU/UK data transfers, we rely on their published Standard Contractual
+            Clauses (SCCs); dedicated Forge-executed DPAs with individual sub-processors are being put in
+            place on a rolling basis and are not yet complete for every vendor listed below.
           </p>
 
           <p className="text-neutral-700 leading-relaxed">
@@ -91,9 +94,11 @@ export default function SubProcessorsPage() {
         </div>
 
         <div className="mt-10 rounded-xl border border-indigo-100 bg-indigo-50 p-6">
-          <h2 className="text-sm font-semibold text-indigo-900 mb-1">Request a Data Processing Agreement</h2>
+          <h2 className="text-sm font-semibold text-indigo-900 mb-1">Request a Data Processing Agreement with Forge</h2>
           <p className="text-sm text-indigo-800 mb-4">
-            If your organisation requires a signed DPA (e.g. for GDPR compliance), email us at{" "}
+            This is separate from the sub-processor terms above — it&apos;s the agreement between{" "}
+            <strong>your organisation and Forge</strong> covering how we process your data. If you need a
+            signed DPA (e.g. for GDPR compliance), email us at{" "}
             <a href="mailto:privacy@forge.app" className="underline font-medium">privacy@forge.app</a>.
             We will respond within 5 business days with a standard DPA for review and countersignature.
           </p>
