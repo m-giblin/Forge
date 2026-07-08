@@ -1,12 +1,12 @@
 # Forge Tech Debt Register — 2026-07-08
 
+Audited: 102 page.tsx, 40+ route.ts, ~70 components, ~84k total lines
+
+---
+
 ## Executive Summary
 
-Full audit of 102 page.tsx files, 62 API route.ts files, and 23 component .tsx files across the Forge codebase (83 613 total lines). The codebase is in generally good shape for a sprint-1 SaaS product: no debug console.log pollution, no TypeScript compiler errors (tsc passes clean), and no dangerouslySetInnerHTML. Three categories of pre-existing debt were found: 54 ESLint errors (mostly React Compiler violations that don't crash the app but indicate correctness risk), broken internal navigation links, and zero loading.tsx skeletons on any page.
-
-**Fixed this session:** 5 broken links, 2 raw `<a>` → `<Link>` conversions, 6 loading skeletons created.
-
-**Remaining:** 54 ESLint errors across ~40 files, 10+ raw `<img>` instead of next/image, 116 ESLint warnings, 60+ pages still missing loading.tsx, stale orphan files in repo root.
+TypeScript compiler is clean (0 errors). No debug console.log pollution. No XSS vectors (zero dangerouslySetInnerHTML). All 100+ nav routes verified to have corresponding page.tsx. The dominant debt is the React Compiler rule set (38 ESLint errors in report/board/admin clients) which flags real correctness risks — setState called synchronously in effects, hooks called conditionally, components created inside render. These predate the compiler migration and need a focused sweep before the first production release.
 
 ---
 
@@ -14,146 +14,134 @@ Full audit of 102 page.tsx files, 62 API route.ts files, and 23 component .tsx f
 
 | Category | Files Changed | What Was Done |
 |---|---|---|
-| Broken href (dead links) | reports/cycle-time/page.tsx, reports/aging/page.tsx, reports/scheduled/page.tsx | `/admin/billing` → `/{slug}/billing` — gating screens sent users to a 404 |
-| Raw `<a>` → Next.js `<Link>` | think-tank/[id]/IdeaDetail.tsx, admin/roles/page.tsx | Internal navigation using raw anchor tags; added Link import |
-| Missing loading.tsx | [tenant]/loading.tsx, board/loading.tsx, issues/loading.tsx, projects/loading.tsx, think-tank/loading.tsx, admin/loading.tsx | Created pulse-animation skeletons for 6 high-traffic page groups |
+| Broken billing upgrade links | reports/aging, cycle-time, scheduled | <a> → Link pointing to correct /${slug}/billing (admin/billing doesn't exist) |
+| Raw anchor tags for internal nav | think-tank/IdeaDetail.tsx, admin/roles/page.tsx | Converted to Next.js Link |
+| Loading skeletons created | [tenant], board, issues, projects, think-tank | 5 new loading.tsx files |
+| no-require-imports | src/lib/api/keys.test.ts | require("node:crypto") → top-level ES import |
+| no-unescaped-entities | admin/flags/FeatureFlagsConsole.tsx, PlansConsole.tsx | Escaped JSX string quotes |
+| prefer-const | src/app/api/spaces/guest/request/route.ts | let accessUrl → const accessUrl |
+| no-html-link-for-pages | src/app/design/workflow/page.tsx | Raw anchor → Link for /design route |
+| no-children-prop | SpaceViewClient.tsx | Renamed children: PageMeta[] prop → subPages: PageMeta[] |
+| M-03 custom_values JSONB | issues.ts, import/actions.ts | sanitizeCustomValues() caps keys (50) and value length (500 chars) |
+| HMAC API key script | scripts/issue-api-key.mjs | Was SHA-256, now HMAC-SHA256 matching runtime auth.ts |
 
 ---
 
-## Remaining Debt
+## Remaining Debt Register
 
-### 🔴 Critical — Fix Before Launch
+### CRITICAL — Fix Before Launch
 
-**1. React Hooks called inside callbacks — design/page.tsx lines 2052, 2117**
-- File: `src/app/design/page.tsx`
-- Issue: `useState` called inside array `.map()` callbacks — violates Rules of Hooks, will crash at runtime when array length changes
-- Fix: Extract each map item into a named component that owns its own state
-- Why it matters: Active bug, not just a lint warning
+**React Compiler violations (38 ESLint errors)**
+These are correctness bugs, not style nits. The React Compiler catches patterns that cause cascading re-renders and stale closures.
 
-**2. useState called conditionally — design/page.tsx line 231**
-- File: `src/app/design/page.tsx`
-- Issue: Hook call inside conditional branch — guaranteed to cause subtle state corruption bugs
-- Fix: Move hook calls to top of component unconditionally
+| File | Lines | Violation | Fix |
+|---|---|---|---|
+| reports/custom/CustomReportClient.tsx | 61, 237, 307-322 | setState in effect; useState inside callback; components created during render | Refactor chart component creation out of render; move setState after async boundary |
+| issues/[id]/IssueTimePanel.tsx | 80 | setState synchronously in effect | Wrap in setTimeout(0) or restructure effect |
+| morning/MorningClient.tsx | 82 | Calling impure function during render | Move into useEffect |
+| reports/aging/AgingClient.tsx | 33 | setState synchronously in effect | Restructure |
+| reports/burndown/BurndownClient.tsx | 35 | setState synchronously in effect | Restructure |
+| board/SprintPanel.tsx | 34 | setState synchronously in effect | Restructure |
+| issues/[id]/IssueDetail.tsx | 2052 | useState inside callback | Move hook to top level |
+| spaces/[spaceId]/SpaceViewClient.tsx | 119 | Cannot access refs during render | Move ref access into useEffect |
+| admin/security/page.tsx | 67 | Cannot call impure function during render | Extract to effect |
+| admin/release-notes/ReleaseNotesGenerator.tsx | 49 | Cannot call impure function during render | Extract to effect |
 
-**3. Components created during render — CustomReportClient.tsx lines 307-322**
-- File: `src/app/[tenant]/reports/custom/CustomReportClient.tsx`
-- Issue: React Compiler flags `Cannot create components during render` — inline component definitions recreated on every render, breaking reconciliation and memoization
-- Fix: Hoist the component definitions outside the parent component function
+**In-memory rate limiter (serverless unsafe)**
+- File: src/app/api/me/export/route.ts:8
+- Issue: const exportCooldowns = new Map() — module-level Map doesn't persist across Vercel serverless invocations. The 1-hour GDPR export cooldown silently doesn't work in production.
+- Fix: Move to Supabase. Small migration: gdpr_export_log(user_id, exported_at). Check last row before proceeding.
 
-**4. `<a>` navigating to internal page route — design/workflow/page.tsx line 1507**
-- File: `src/app/design/workflow/page.tsx`
-- Issue: `<a href="/design">` triggers full page reload instead of client navigation; ESLint flags it 8 times (counts per lint rule variant)
-- Fix: Replace with `<Link href="/design">` from next/link
-
----
-
-### 🟠 High — Fix Within 2 Sprints
-
-**5. setState called synchronously inside useEffect — 12 locations**
-- Files: AgingClient.tsx:33, BurndownClient.tsx:35, CycleTimeClient.tsx:49, ScheduledClient.tsx:45, SprintPanel.tsx:34, MorningClient.tsx:82, TimesheetClient.tsx:527, PortalClient.tsx:85, admin/ai/page.tsx:98, MobileSidebar.tsx:74, ReportBugButton.tsx, SpaceViewClient.tsx
-- Issue: React Compiler's "Calling setState synchronously within an effect can trigger cascading renders" — causes waterfall re-renders and potential infinite loops under Concurrent Mode
-- Fix: Wrap in `setTimeout(() => setState(...), 0)` or restructure effect dependencies; or derive value directly without intermediate state
-
-**6. Cannot access refs during render — SpaceViewClient.tsx line 119**
-- File: `src/app/[tenant]/spaces/[spaceId]/SpaceViewClient.tsx`
-- Issue: Ref read during render phase — unreliable, will produce inconsistent values with SSR
-- Fix: Move ref access into useEffect or event handler
-
-**7. Unused named exports causing dead code — lib/services/**
-- Files: `src/lib/services/chatNotifications.ts` (`getWebhookUrl` unused), `src/lib/services/issues.ts` (`_impersonating` unused), `src/lib/services/platform.ts` (`projectsRepo` unused), `src/lib/services/standupDigest.ts` (`projectMap` unused)
-- Fix: Delete the dead variables or exports; straightforward 1-line removals
-
-**8. Stale files in repo root**
-- Files: `Forge-Academy-Landing.html`, `Forge-Academy-Module1-Animatic.html`, `Forge-Academy-Module1-Script.docx`, `Forge-Academy-Training-Plan.docx`, `Your-First-Forge-Video-Guide.docx`
-- Status: Deleted from working tree but not committed — they show as `deleted` in `git status`
-- Fix: `git add` the deletions and commit
-
-**9. `require()` imports in test and extension files**
-- Files: `src/lib/api/keys.test.ts:38-40`, `forge-vscode/src/extension.ts:23`
-- Issue: ESLint `@typescript-eslint/no-require-imports` errors — inconsistent module style, blocks ESLint clean runs
-- Fix: Convert to `import` syntax
+**Email/domain inconsistency (brand coherence before launch)**
+- Legal pages use both privacy@forge.app and privacy@forge-worx.com
+- Outbound Resend from-address uses notifications@forge.app
+- Support/billing use hello@forge-worx.com
+- Fix: Decide one canonical domain. Extract to src/lib/constants/brand.ts. Update all references.
 
 ---
 
-### 🟡 Medium — Fix Within 1 Month
+### HIGH — Fix Within 2 Sprints
 
-**10. 60+ pages missing loading.tsx**
-- All `[tenant]/admin/*`, `[tenant]/reports/*`, `[tenant]/spaces/*`, `[tenant]/time`, `[tenant]/roadmap`, `[tenant]/calendar`, `[tenant]/inbox`, `[tenant]/settings`, `[tenant]/workload`, and most auth/public pages have no loading skeleton
-- This session created 6 skeletons for the highest-traffic routes; the rest still show a blank flash on navigation
-- Fix: Copy the pulse-animation pattern from the 6 created this session; ~30 min per batch of 10
+**No error boundaries anywhere**
+- Zero error.tsx files in the entire app. A server component throw shows users a raw Next.js error screen.
+- Fix: Add src/app/[tenant]/error.tsx and src/app/admin/error.tsx. These two cover 90% of surfaces. Pattern: display error message + "Try refreshing" button.
 
-**11. Raw `<img>` instead of next/image — 10 locations**
-- Files: `signup/page.tsx`, `mfa-required/MfaWall.tsx`, `[tenant]/layout.tsx` (sidebar logo), `projects/[key]/WhiteboardsPanel.tsx` (board thumbnails), `components/marketing/LandingPage.tsx` (x2), `login/page.tsx`, `components/MobileSidebar.tsx` (x2), `components/ReportBugButton.tsx` (screenshot preview)
-- Issue: No automatic optimization; larger LCP payloads; ESLint warns on each
-- Fix: Replace with `<Image>` from `next/image` with explicit width/height; layout logo and landing page logo are highest-impact
+**10 raw img tags in production components**
+Prevents Next.js image optimization (WebP, lazy loading, CLS prevention).
+- src/app/[tenant]/layout.tsx:121 — nav logo (renders on every page — highest priority)
+- src/components/MobileSidebar.tsx:101,149 — mobile nav logos
+- src/app/login/page.tsx:159 — 256x256 logo (large, no lazy load)
+- src/app/signup/page.tsx:154 — logo
+- src/components/marketing/LandingPage.tsx:112,594 — logos
+- Fix: Replace with next/image Image for all static assets. Add width and height.
 
-**12. `children` passed as prop instead of JSX children — IssuesTable.tsx, IssueDetail.tsx**
-- Files: `src/app/[tenant]/issues/IssuesTable.tsx:164`, `src/app/[tenant]/issues/[id]/IssueDetail.tsx:385`
-- Issue: `react/no-children-prop` — works at runtime but is an anti-pattern that breaks some tooling
-- Fix: Convert `<Component children={x} />` to `<Component>{x}</Component>`
-
-**13. Unescaped quote characters in JSX — 6 locations**
-- Files: `IssueDetail.tsx:172`, `SprintPanel.tsx:319`, `ReleaseNotesGenerator.tsx:49`, and 3 more
-- Issue: `"` character literal in JSX must be `&ldquo;`/`&rdquo;` or template string; technically valid HTML but ESLint errors
-- Fix: `npx eslint --fix` handles these automatically
-
-**14. Unused eslint-disable directives — 4 files**
-- Files: `boardMonitor.ts:1`, `morningBriefing.ts:8`, `sla.ts:2`, `standupDigest.ts:8`
-- Issue: `// eslint-disable-next-line no-restricted-imports` directives where the rule no longer fires — ESLint reports as errors; creates noise in CI
-- Fix: Remove the stale directives
-
-**15. Undefined rule reference — components/AiDisclosureBanner.tsx line 13**
-- File: `src/components/AiDisclosureBanner.tsx`
-- Issue: ESLint config references `react/no-unstable-default-props` which is not installed — always errors
-- Fix: Remove the eslint-disable comment that references the missing rule, or add the rule's plugin
-
-**16. `prefer-const` violation — spaces/[spaceId]/page.tsx:119**
-- File: `src/app/[tenant]/spaces/[spaceId]/page.tsx`
-- Issue: `accessUrl` declared with `let` but never reassigned — trivial fix
-- Fix: Change `let accessUrl` to `const accessUrl`
+**IssueDetail.tsx at 1,214 lines**
+- Single file handles: metadata, comments, time logging, attachments, AI triage, custom fields, activity, watchers.
+- Fix: Extract IssueMetaPanel, IssueComments, IssueTimeline, IssueAITriage sub-components. Not urgent but blocks parallel sprint work on issue detail features.
 
 ---
 
-### 🟢 Low / Nice To Have
+### MEDIUM — Fix Within 1 Month
 
-**17. `any` types in tenant-client.ts**
-- File: `src/lib/supabase/tenant-client.ts` lines 32, 37, 42, 51, 58
-- Return types on the fluent query builder are typed `: any` — loses type safety on all tenant DB calls
-- Fix: Type against Supabase's generated types once the DB schema types are generated
+**54 pages still missing loading.tsx**
+Priority order for high-traffic routes:
+1. src/app/[tenant]/timeline/ — Gantt loads significant data
+2. src/app/[tenant]/workload/ — member workload calculations
+3. src/app/[tenant]/spaces/[spaceId]/ — wiki page tree
+4. src/app/[tenant]/reports/velocity/, burndown/, cycle-time/
+5. src/app/[tenant]/admin/members/, admin/fields/, admin/security/
+6. src/app/admin/tenants/ and src/app/admin/tenants/[id]/
 
-**18. `any` in gitWebhook service**
-- File: `src/lib/services/gitWebhook.ts:48`
-- `payload: any` parameter — narrow to a union of known GitHub webhook event shapes
+**Unused eslint-disable directives (7 warnings to clean up)**
+- src/lib/services/morningBriefing.ts:8 — no-restricted-imports disable no longer needed
+- src/lib/services/sla.ts:2 — same
+- src/lib/services/standupDigest.ts:8 — same
+- src/app/api/search/route.ts:3 — same
+- Fix: Remove the directives. Run npm run check to confirm.
 
-**19. `any` cast in IssueKeyExtension**
-- File: `src/components/spaces/IssueKeyExtension.tsx:122`
-- `props: any` in a ReactNodeViewRenderer callback — low risk (TipTap API) but makes the component untyped
+**Unused variables (3)**
+- src/lib/services/issues.ts:42 — _impersonating assigned but unused
+- src/lib/services/platform.ts:7 — projectsRepo imported but unused
+- src/lib/services/standupDigest.ts:59 — projectMap built but unused
 
-**20. design/workflow/page.tsx — 1547 lines**
-- This is a design preview/prototype file. At 1547 lines with duplicate lint errors it should either be cleaned up or excluded from ESLint with `/* eslint-disable */` at the top since it is not production code
-
-**21. FOR_FORGE_publish-metrics.ts orphan file**
-- File: `src/app/api/internal/publish-metrics/FOR_FORGE_publish-metrics.ts`
-- This appears to be a draft/reference copy sitting next to the real `route.ts`. It will be included in the build. Delete or move to Docs/
-
----
-
-## Structural Issues (Systemic Patterns)
-
-**React Compiler compatibility gap.** The codebase has 20+ React Compiler lint errors (`Cannot call impure function during render`, `Calling setState synchronously within an effect`, `Cannot create components during render`). These come from `eslint-plugin-react-compiler` which enforces rules needed for React's upcoming compiler optimization. The pattern is pervasive across report clients and board components — it suggests these files were written without the React Compiler ruleset active and haven't been revisited. Each violation is a latent correctness bug under Concurrent Mode even without the compiler enabled.
-
-**No loading.tsx discipline.** The project grew from sprint 1 with no established pattern for loading states. 60+ routes have none. Adding loading skeletons was never in the PR checklist. Establish a rule: every new page.tsx ships with a sibling loading.tsx.
-
-**ESLint not blocking CI.** With 54 errors, `npm run check` exits non-zero but PRs still merge (the errors predate this session). Either enforce `lint-staged` to block merges, or do a single dedicated lint-cleanup sprint to get to zero errors, then enforce from there.
-
-**Oversized files.** Five files exceed 1000 lines (design/page.tsx at 3269, TimesheetClient.tsx at 1330, IssueDetail.tsx at 1214, TimelineClient.tsx at 1096, think-tank/actions.ts at 1095). These are not bugs but will accumulate future debt fastest — any bug fix requires reading a wall of code.
+**Missing eslint plugin rule**
+- src/app/[tenant]/admin/think-tank/actions.ts:13 — react/no-unstable-default-props not found
+- Fix: npm update eslint-plugin-react
 
 ---
 
-## Action Order (Next 3 Sprint Priorities)
+### LOW — Nice To Have
 
-1. **React Hooks correctness sweep** — Fix the `useState` in callback (design/page.tsx 2052/2117) and `setState` in effects pattern across the ~12 report/board client files. These are the only issues that can cause silent runtime bugs under React 19 Concurrent Mode. Budget: 1 sprint, 2 engineers, ~4h each.
+**Design prototype pages in production build**
+- src/app/design/, src/app/design/admin/, src/app/design/workflow/ are ~5,500 lines of mockup that ship to production (not linked from nav).
+- Fix: Move behind env-gated route or exclude from production deploy.
 
-2. **ESLint zero-errors sprint** — Fix the 54 errors: unescaped entities (auto-fixable), stale eslint-disable directives (delete), `prefer-const` (1 line), `children` prop pattern (2 files), `<a>` → `<Link>` in design/workflow. Goal: `npm run check` exits 0 so CI can enforce it going forward. Budget: 1 day.
+**forge-vscode/out/ included in lint scope**
+- Compiled VS Code extension output being linted. Generates noise.
+- Fix: Add forge-vscode/out/ to .eslintignore.
 
-3. **Loading skeleton completion** — Create loading.tsx for all remaining admin, reports, spaces, and settings pages using the 6 created this session as a template. Batch 10 at a time per PR. Budget: 2–3h total, can be parallelized.
+**Report download links using raw anchor tags**
+- CustomReportClient.tsx:626,630 — Excel and PDF export links correctly use <a> (file downloads) but inconsistent with rest of codebase.
+- Fix: Add explicit download attribute. Low priority.
+
+---
+
+## Structural / Systemic Issues
+
+**React Compiler adoption without cleanup**: The codebase uses babel-plugin-react-compiler but many client components still use patterns the compiler flags as unsafe. These need a dedicated sweep sprint.
+
+**No error boundary strategy**: Next.js App Router makes per-route error boundaries trivial to add, but none were added during the initial build. Zero error boundaries means any unexpected throw shows users a raw error screen.
+
+**Monolith client components**: IssueDetail (1,214 lines), TimesheetClient (1,330 lines), CustomReportClient (700 lines) grew as feature-by-feature accumulation. This creates merge conflict risk and makes features harder to test in isolation.
+
+**Email/domain split**: Two domain names (forge.app, forge-worx.com) used interchangeably across legal, support, outbound email, and in-app copy. Needs a business decision + cleanup pass before launch.
+
+---
+
+## Action Order — Next 3 Sprint Priorities
+
+1. **React Compiler sweep** — CustomReportClient, AgingClient, BurndownClient, SprintPanel, IssueTimePanel, MorningClient. Attack file-by-file. Target: 38 errors → 0. Unlocks CI enforcement on the lint gate.
+
+2. **Add error boundaries** — src/app/[tenant]/error.tsx + src/app/admin/error.tsx. Two files, ~30 lines each. Prevents raw error pages from reaching users.
+
+3. **Fix in-memory GDPR export rate limiter** — Move the 1-hour cooldown to a Supabase row. Single-file fix, closes a silent production bug on Vercel.
