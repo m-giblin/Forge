@@ -7,11 +7,11 @@ import { projectsRepo } from "@/lib/repositories/projects";
 import { safeListCustomFields } from "@/lib/services/fieldConfig";
 import { issueActivityRepo, type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
 import { sendAssignedEmail, notifyIssueComment, notifyIssueAssigned } from "@/lib/services/notifications";
+import { notifyChat } from "@/lib/services/chatNotifications";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import { fireWebhook } from "@/lib/services/webhooks";
 import { triageIssue } from "@/lib/services/triage";
 import { runAutomations } from "@/lib/services/automation";
-import { notifyChat } from "@/lib/services/chatNotifications";
 import { sanitizeCustomValues } from "@/lib/api/validateFields";
 
 export type Project = { id: string; key: string; name: string };
@@ -335,6 +335,17 @@ export async function updateIssue(
           assigneeId: patch.assigneeId!,
           actorId: actor?.userId ?? patch.assigneeId!,
           actorLabel: actor?.label ?? null,
+        });
+
+        void notifyChat(tenantId, {
+          event: "assigned",
+          issueKey,
+          issueTitle: updated.title,
+          issueUrl,
+          status: updated.status,
+          priority: updated.priority,
+          actorLabel: actor?.label ?? null,
+          assigneeName: assignee.name ?? assignee.email,
         });
       } catch (e) {
         console.error("assignment notification failed", e);

@@ -5,6 +5,9 @@ import { getTenantContext } from "@/lib/auth";
 import { createProject } from "@/lib/services/projects";
 import { updateIssue } from "@/lib/services/issues";
 import { recordAudit } from "@/lib/audit";
+// eslint-disable-next-line no-restricted-imports -- service-role: template seeding writes bypass user-JWT RLS
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { getTemplate, type TemplateKey } from "@/lib/projectTemplates";
 
 export async function quickAssignAction(slug: string, issueId: string, assigneeId: string): Promise<void> {
   const ctx = await getTenantContext(slug);
@@ -56,4 +59,79 @@ export async function createProjectAction(
   revalidatePath(`/${slug}`);
   revalidatePath(`/${slug}/admin/projects`);
   return { key: project.key };
+}
+
+export async function applyProjectTemplateAction(
+  slug: string,
+  projectKey: string,
+  templateKey: TemplateKey,
+): Promise<void> {
+  if (templateKey === "blank") return;
+
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  assertAdmin(ctx.role);
+
+  const svc = createSupabaseServiceClient();
+  const template = getTemplate(templateKey);
+
+  const { data: project } = await svc
+    .from("projects")
+    .select("id")
+    .eq("tenant_id", ctx.tenant.id)
+    .eq("key", projectKey)
+    .maybeSingle();
+  if (!project) throw new Error("Project not found");
+
+  // Seed categories
+  if (template.categories.length) {
+    await svc.from("issue_categories").insert(
+      template.categories.map((c) => ({
+        tenant_id: ctx.tenant.id,
+        project_id: project.id,
+        name: c.name,
+        color: c.color,
+      })),
+    );
+  }
+
+  // Seed issues (number them starting from 1 within project)
+  if (template.issues.length) {
+    const { data: maxRow } = await svc
+      .from("issues")
+      .select("number")
+      .eq("tenant_id", ctx.tenant.id)
+      .eq("project_id", project.id)
+      .order("number", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    let nextNum = (maxRow?.number ?? 0) + 1;
+
+    for (const iss of template.issues) {
+      await svc.from("issues").insert({
+        tenant_id: ctx.tenant.id,
+        project_id: project.id,
+        title: iss.title,
+        type: iss.type,
+        priority: iss.priority,
+        status: iss.status,
+        number: nextNum++,
+        source: "template",
+      });
+    }
+  }
+
+  // Seed a sprint if template has one
+  if (template.sprintName) {
+    await svc.from("sprints").insert({
+      tenant_id: ctx.tenant.id,
+      project_id: project.id,
+      name: template.sprintName,
+      goal: template.sprintGoal ?? null,
+      status: "planning",
+    });
+  }
+
+  revalidatePath(`/${slug}`);
+  revalidatePath(`/${slug}/admin/projects`);
 }

@@ -6,6 +6,8 @@ import { ctxCanDo } from "@/lib/rbac";
 // eslint-disable-next-line no-restricted-imports -- service-role: sprint writes bypass user-JWT RLS (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { sprintsRepo, type Sprint } from "@/lib/repositories/sprints";
+import { notifyChatSprintEvent } from "@/lib/services/chatNotifications";
+import { notificationsRepo } from "@/lib/repositories/notifications";
 
 function assertCanEdit(ctx: Parameters<typeof ctxCanDo>[0]) {
   if (!ctxCanDo(ctx, "manage_sprints")) throw new Error("You don't have permission to manage sprints.");
@@ -44,6 +46,58 @@ export async function startSprintAction(slug: string, sprintId: string): Promise
   assertCanEdit(ctx);
   await svc().update(ctx.tenant.id, sprintId, { status: "active" });
   revalidatePath(`/${slug}/board`);
+
+  void (async () => {
+    try {
+      const db = createSupabaseServiceClient();
+      const { data: sprint } = await db
+        .from("sprints")
+        .select("name, goal, project_id")
+        .eq("id", sprintId)
+        .maybeSingle();
+      if (!sprint) return;
+
+      const { data: project } = await db
+        .from("projects")
+        .select("key")
+        .eq("id", sprint.project_id)
+        .maybeSingle();
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100";
+
+      await notifyChatSprintEvent(ctx.tenant.id, {
+        event: "sprint_started",
+        sprintName: sprint.name,
+        sprintGoal: sprint.goal,
+        projectKey: project?.key ?? "?",
+        boardUrl: `${baseUrl}/${slug}/board`,
+        actorLabel: ctx.email ?? null,
+      });
+
+      // In-app: notify all project members
+      const { data: members } = await db
+        .from("memberships")
+        .select("user_id")
+        .eq("tenant_id", ctx.tenant.id);
+      const body = `Sprint "${sprint.name}" has started${sprint.goal ? ` — ${sprint.goal}` : ""}.`;
+      await Promise.allSettled(
+        (members ?? [])
+          .filter((m) => m.user_id !== ctx.appUserId)
+          .map((m) =>
+            notificationsRepo(db).create({
+              tenantId: ctx.tenant.id,
+              userId: m.user_id,
+              type: "sprint_started",
+              title: `Sprint started: ${sprint.name}`,
+              body,
+              linkPath: `/${slug}/board`,
+            }),
+          ),
+      );
+    } catch (e) {
+      console.error("startSprintAction notification failed", e);
+    }
+  })();
 }
 
 export async function completeSprintAction(slug: string, sprintId: string): Promise<void> {
@@ -52,6 +106,69 @@ export async function completeSprintAction(slug: string, sprintId: string): Prom
   assertCanEdit(ctx);
   await svc().update(ctx.tenant.id, sprintId, { status: "completed" });
   revalidatePath(`/${slug}/board`);
+
+  void (async () => {
+    try {
+      const db = createSupabaseServiceClient();
+      const { data: sprint } = await db
+        .from("sprints")
+        .select("name, goal, project_id")
+        .eq("id", sprintId)
+        .maybeSingle();
+      if (!sprint) return;
+
+      const { data: project } = await db
+        .from("projects")
+        .select("key")
+        .eq("id", sprint.project_id)
+        .maybeSingle();
+
+      // Count velocity
+      const { data: issues } = await db
+        .from("issues")
+        .select("status")
+        .eq("tenant_id", ctx.tenant.id)
+        .eq("sprint_id", sprintId);
+      const totalIssues = issues?.length ?? 0;
+      const doneIssues = (issues ?? []).filter((i) => i.status === "done" || i.status === "closed").length;
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100";
+
+      await notifyChatSprintEvent(ctx.tenant.id, {
+        event: "sprint_completed",
+        sprintName: sprint.name,
+        sprintGoal: sprint.goal,
+        projectKey: project?.key ?? "?",
+        boardUrl: `${baseUrl}/${slug}/board`,
+        actorLabel: ctx.email ?? null,
+        totalIssues,
+        doneIssues,
+      });
+
+      // In-app: notify all project members
+      const { data: members } = await db
+        .from("memberships")
+        .select("user_id")
+        .eq("tenant_id", ctx.tenant.id);
+      const body = `Sprint "${sprint.name}" completed — ${doneIssues}/${totalIssues} issues done.`;
+      await Promise.allSettled(
+        (members ?? [])
+          .filter((m) => m.user_id !== ctx.appUserId)
+          .map((m) =>
+            notificationsRepo(db).create({
+              tenantId: ctx.tenant.id,
+              userId: m.user_id,
+              type: "sprint_completed",
+              title: `Sprint completed: ${sprint.name}`,
+              body,
+              linkPath: `/${slug}/board`,
+            }),
+          ),
+      );
+    } catch (e) {
+      console.error("completeSprintAction notification failed", e);
+    }
+  })();
 }
 
 export async function addIssueToSprintAction(slug: string, sprintId: string, issueId: string): Promise<void> {

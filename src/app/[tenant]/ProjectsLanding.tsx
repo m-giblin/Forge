@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Project, ProjectStatus } from "@/lib/repositories/projects";
 import { STATUS_META } from "./projects/[key]/ProjectStatusControl";
-import { createProjectAction } from "./actions";
+import { createProjectAction, applyProjectTemplateAction } from "./actions";
+import { PROJECT_TEMPLATES, type TemplateKey } from "@/lib/projectTemplates";
 
 type OwnerOption = { userId: string; label: string };
 
@@ -214,6 +215,7 @@ function NewProjectForm({
   const [ownerUserId, setOwnerUserId] = useState("");
   const [startDate, setStartDate] = useState("");
   const [targetGoLive, setTargetGoLive] = useState("");
+  const [templateKey, setTemplateKey] = useState<TemplateKey>("blank");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -236,6 +238,9 @@ function NewProjectForm({
           startDate: startDate || null,
           targetGoLive: targetGoLive || null,
         });
+        if (templateKey !== "blank") {
+          await applyProjectTemplateAction(slug, createdKey, templateKey);
+        }
         onDone(createdKey);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not create project");
@@ -248,6 +253,28 @@ function NewProjectForm({
 
   return (
     <form onSubmit={submit} className="mt-5 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
+      {/* Template picker */}
+      <div className="mb-5">
+        <p className="text-xs font-medium text-neutral-600 mb-2">Start from a template</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {PROJECT_TEMPLATES.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTemplateKey(t.key)}
+              className={`rounded-lg border p-3 text-left transition ${
+                templateKey === t.key
+                  ? "border-neutral-900 bg-neutral-50 ring-1 ring-neutral-900"
+                  : "border-neutral-200 hover:border-neutral-400"
+              }`}
+            >
+              <div className="text-lg">{t.icon}</div>
+              <div className="mt-1 text-xs font-semibold text-neutral-900">{t.label}</div>
+              <div className="mt-0.5 text-[11px] text-neutral-500 leading-tight">{t.description}</div>
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className={label}>Project name</label>

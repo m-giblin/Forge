@@ -62,20 +62,39 @@ type IssuePayload = {
   status?: string;
   priority?: string;
   actorLabel?: string | null;
-  event: "created" | "updated" | "commented";
+  event: "created" | "updated" | "commented" | "assigned";
   commentBody?: string;
+  assigneeName?: string;
+};
+
+export type SprintPayload = {
+  sprintName: string;
+  sprintGoal?: string | null;
+  projectKey: string;
+  boardUrl: string;
+  actorLabel?: string | null;
+  event: "sprint_started" | "sprint_completed";
+  totalIssues?: number;
+  doneIssues?: number;
 };
 
 function slackPayload(p: IssuePayload): object {
-  const color = { created: "#6366f1", updated: "#f59e0b", commented: "#22c55e" }[p.event];
+  const colorMap: Record<IssuePayload["event"], string> = {
+    created: "#6366f1", updated: "#f59e0b", commented: "#22c55e", assigned: "#0ea5e9",
+  };
+  const color = colorMap[p.event];
   const title = p.event === "created"
     ? `🐛 New issue: ${p.issueKey}`
     : p.event === "commented"
     ? `💬 Comment on ${p.issueKey}`
+    : p.event === "assigned"
+    ? `👤 Assigned: ${p.issueKey}`
     : `✏️ Updated: ${p.issueKey}`;
 
   const text = p.event === "commented" && p.commentBody
     ? p.commentBody.slice(0, 300)
+    : p.event === "assigned" && p.assigneeName
+    ? `Assigned to ${p.assigneeName} — ${p.issueTitle}`
     : p.issueTitle;
 
   return {
@@ -99,6 +118,8 @@ function teamsPayload(p: IssuePayload): object {
     ? `New issue: ${p.issueKey}`
     : p.event === "commented"
     ? `Comment on ${p.issueKey}`
+    : p.event === "assigned"
+    ? `Assigned: ${p.issueKey}`
     : `Updated: ${p.issueKey}`;
 
   return {
@@ -125,7 +146,10 @@ function teamsPayload(p: IssuePayload): object {
 }
 
 function discordPayload(p: IssuePayload): object {
-  const color = { created: 0x6366f1, updated: 0xf59e0b, commented: 0x22c55e }[p.event];
+  const colorMap: Record<IssuePayload["event"], number> = {
+    created: 0x6366f1, updated: 0xf59e0b, commented: 0x22c55e, assigned: 0x0ea5e9,
+  };
+  const color = colorMap[p.event];
   const description = p.event === "commented" && p.commentBody
     ? p.commentBody.slice(0, 300)
     : p.issueTitle;
@@ -152,6 +176,84 @@ async function deliverOne(url: string, provider: ChatProvider, body: object): Pr
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(8000),
   });
+}
+
+function slackSprintPayload(p: SprintPayload): object {
+  const color = p.event === "sprint_started" ? "#6366f1" : "#22c55e";
+  const title = p.event === "sprint_started"
+    ? `🏃 Sprint started: ${p.sprintName}`
+    : `✅ Sprint completed: ${p.sprintName}`;
+  const fields = [
+    { title: "Project", value: p.projectKey, short: true },
+    ...(p.sprintGoal ? [{ title: "Goal", value: p.sprintGoal, short: false }] : []),
+    ...(p.event === "sprint_completed" && p.totalIssues != null
+      ? [{ title: "Velocity", value: `${p.doneIssues ?? 0}/${p.totalIssues} issues done`, short: true }]
+      : []),
+    ...(p.actorLabel ? [{ title: "By", value: p.actorLabel, short: true }] : []),
+  ];
+  return { attachments: [{ color, fallback: title, title, title_link: p.boardUrl, fields }] };
+}
+
+function teamsSprintPayload(p: SprintPayload): object {
+  const title = p.event === "sprint_started"
+    ? `Sprint started: ${p.sprintName}`
+    : `Sprint completed: ${p.sprintName}`;
+  return {
+    "@type": "MessageCard", "@context": "https://schema.org/extensions",
+    summary: title, themeColor: "6366f1", title,
+    text: p.sprintGoal ?? p.sprintName,
+    potentialAction: [{ "@type": "OpenUri", name: "View Board", targets: [{ os: "default", uri: p.boardUrl }] }],
+    sections: [{
+      facts: [
+        { name: "Project", value: p.projectKey },
+        ...(p.event === "sprint_completed" && p.totalIssues != null
+          ? [{ name: "Velocity", value: `${p.doneIssues ?? 0}/${p.totalIssues} done` }]
+          : []),
+        ...(p.actorLabel ? [{ name: "By", value: p.actorLabel }] : []),
+      ],
+    }],
+  };
+}
+
+function discordSprintPayload(p: SprintPayload): object {
+  const color = p.event === "sprint_started" ? 0x6366f1 : 0x22c55e;
+  const title = p.event === "sprint_started"
+    ? `Sprint started: ${p.sprintName}`
+    : `Sprint completed: ${p.sprintName}`;
+  return {
+    embeds: [{
+      color, title, url: p.boardUrl,
+      description: p.sprintGoal ?? undefined,
+      fields: [
+        { name: "Project", value: p.projectKey, inline: true },
+        ...(p.event === "sprint_completed" && p.totalIssues != null
+          ? [{ name: "Velocity", value: `${p.doneIssues ?? 0}/${p.totalIssues}`, inline: true }]
+          : []),
+        ...(p.actorLabel ? [{ name: "By", value: p.actorLabel, inline: true }] : []),
+      ],
+    }],
+  };
+}
+
+export async function notifyChatSprintEvent(tenantId: string, payload: SprintPayload): Promise<void> {
+  const webhooks = await getChatWebhooks(tenantId).catch(() => null);
+  if (!webhooks) return;
+
+  const sends: Promise<void>[] = [];
+  const providers: ChatProvider[] = ["slack", "teams", "discord"];
+  for (const provider of providers) {
+    const url = webhooks[provider];
+    if (!url) continue;
+    const body = provider === "slack" ? slackSprintPayload(payload)
+      : provider === "teams" ? teamsSprintPayload(payload)
+      : discordSprintPayload(payload);
+    sends.push(
+      deliverOne(url, provider, body).catch((e) =>
+        logger.warn("Sprint chat notification failed", { tenantId, provider, err: String(e) }),
+      ),
+    );
+  }
+  await Promise.allSettled(sends);
 }
 
 export async function notifyChat(tenantId: string, payload: IssuePayload): Promise<void> {

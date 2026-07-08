@@ -71,6 +71,7 @@ const NAV = [
       { seg: "settings/ai", label: "AI Settings", icon: "✨" },
       { seg: "release-notes", label: "Release Notes", icon: "📝" },
       { seg: "import", label: "Import Issues", icon: "📥" },
+      { seg: "export", label: "Export Data", icon: "📤" },
       { seg: "support", label: "Support Queue", icon: "🎧" },
       { seg: "wiki-insights", label: "Wiki Insights", icon: "🔍" },
     ],
