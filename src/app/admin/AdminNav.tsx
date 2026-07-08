@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { href: "/admin/tenants", label: "Tenants" },
   { href: "/admin/support", label: "Support" },
   { href: "/admin/flags", label: "Feature Flags" },
+  { href: "/admin/billing", label: "Billing" },
   { href: "/admin/compliance", label: "Compliance" },
   { href: "/admin/audit", label: "Audit" },
   { href: "/admin/admins", label: "Admins" },

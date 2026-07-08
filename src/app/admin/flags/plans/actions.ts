@@ -34,11 +34,12 @@ export async function applyPlanToTenantsAction(
   if (!(await requireSuperAdmin())) throw new Error("Forbidden");
   const svc = createSupabaseServiceClient();
 
-  // Get all tenants on this plan
+  // Get all tenants on this plan — subscription_tier is the source of truth
+  // (plan is kept in sync but subscription_tier is what billing/signup write).
   const { data: tenants } = await svc
     .from("tenants")
     .select("id")
-    .eq("plan", planKey);
+    .eq("subscription_tier", planKey);
 
   if (!tenants || tenants.length === 0) return { applied: 0, skipped: 0 };
 

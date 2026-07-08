@@ -106,6 +106,21 @@ export default function BillingClient({ slug, tenant, isOwner }: BillingClientPr
     setLoading(true);
     setError(null);
     try {
+      // Try real Stripe Checkout first — returns a normal 200 with an `error`
+      // reason (not_configured/no_price) rather than an HTTP error when Stripe
+      // isn't wired up yet, so this falls through to the manual request flow
+      // below with zero behavior change until keys + a price ID are set.
+      const checkoutRes = await fetch(`/api/tenants/${slug}/billing/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: selectedTier, seats }),
+      });
+      const checkoutData = await checkoutRes.json().catch(() => ({}));
+      if (checkoutRes.ok && checkoutData.url) {
+        window.location.href = checkoutData.url;
+        return;
+      }
+
       const res = await fetch(`/api/tenants/${slug}/billing/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },

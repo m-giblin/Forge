@@ -137,6 +137,18 @@ export async function acceptInvite(token: string): Promise<string> {
     throw new Error("This invite is for a different email address.");
   }
 
+  // Seat quota — the actual moment a seat gets consumed is when a membership
+  // row is created, not when the invite is sent, so this is the real gate.
+  const { data: seatTenant } = await svc.from("tenants").select("subscription_seats").eq("id", inv.tenant_id).maybeSingle();
+  const seatLimit = (seatTenant?.subscription_seats as number | null) ?? 1;
+  const { count: activeMembers } = await svc
+    .from("memberships")
+    .select("id", { count: "exact", head: true })
+    .eq("tenant_id", inv.tenant_id);
+  if ((activeMembers ?? 0) >= seatLimit) {
+    throw new Error(`This workspace is at its seat limit (${seatLimit}). Ask an owner to add seats in Billing before accepting.`);
+  }
+
   // Accepted exception: user upsert on invite claim is a one-off provisioning step
   // (find-or-create the app user row for the Supabase auth identity). No repo method
   // warranted — this is the only place that ever bootstraps a user this way.

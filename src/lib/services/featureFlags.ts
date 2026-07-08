@@ -5,7 +5,8 @@ import { featureFlagsRepo } from "@/lib/repositories/featureFlags";
 // Resolution precedence (highest wins):
 //   1. Kill switch (platform_settings) — handled at call site, not here
 //   2. tenant_feature_overrides — super-admin per-tenant hard on/off
-//   3. plan_tier_features[tenant.plan][key] — plan default
+//   3. plan_tier_features[tenant.subscription_tier][key] — plan default, only while
+//      subscription_status is trialing/active; a lapsed subscription drops to 'basic'
 //   4. tenant_self_overrides — tenant admin can only disable (never enable beyond plan)
 //   5. Fail open if tables missing
 
@@ -39,7 +40,7 @@ export async function loadTenantFlags(tenantId: string): Promise<TenantFlags> {
     const [flags, superOverrides, tenantRow, selfOverrides] = await Promise.all([
       repo.listFlags(),
       repo.listOverridesForTenant(tenantId),
-      svc.from("tenants").select("plan").eq("id", tenantId).maybeSingle(),
+      svc.from("tenants").select("subscription_tier, subscription_status").eq("id", tenantId).maybeSingle(),
       svc.from("tenant_self_overrides")
         .select("feature_key, enabled")
         .eq("tenant_id", tenantId),
@@ -47,7 +48,11 @@ export async function loadTenantFlags(tenantId: string): Promise<TenantFlags> {
 
     if (flags.length === 0) return { ...ALL_ON };
 
-    const plan = (tenantRow.data?.plan as string | null) ?? "basic";
+    const status = (tenantRow.data?.subscription_status as string | null) ?? "free";
+    // A lapsed or cancelled subscription loses paid-tier entitlements immediately —
+    // billing status gates the tier, not just the tier name stored on the row.
+    const billingActive = status === "trialing" || status === "active";
+    const plan = billingActive ? ((tenantRow.data?.subscription_tier as string | null) ?? "basic") : "basic";
 
     // Fetch plan tier features for this tenant's plan
     const { data: planFeatures } = await svc
