@@ -216,7 +216,7 @@ export default function PlansConsole({
 
       <p style={{ fontSize: 11, color: "#94a3b8" }}>
         Toggling a feature here updates the <strong>plan default</strong> — new tenants on this plan get it automatically.
-        Use <strong>"Push On/Off to N"</strong> to immediately update existing tenants (skips any with super-admin overrides).
+        Use <strong>&quot;Push On/Off to N&quot;</strong> to immediately update existing tenants (skips any with super-admin overrides).
       </p>
     </div>
   );

@@ -161,7 +161,7 @@ export default function SpaceViewClient({
             <PageTreeItem
               key={page.id}
               page={page}
-              children={children(page.id)}
+              subPages={children(page.id)}
               active={activePage?.id === page.id}
               canEdit={canEdit}
               onSelect={loadPage}
@@ -328,10 +328,10 @@ export default function SpaceViewClient({
 }
 
 function PageTreeItem({
-  page, children, active, canEdit, onSelect, onArchive, onAddChild, activePageId,
+  page, subPages, active, canEdit, onSelect, onArchive, onAddChild, activePageId,
 }: {
   page: PageMeta;
-  children: PageMeta[];
+  subPages: PageMeta[];
   active: boolean;
   canEdit: boolean;
   onSelect: (id: string) => void;
@@ -341,7 +341,7 @@ function PageTreeItem({
 }) {
   const [expanded, setExpanded] = useState(true);
   const [hovered, setHovered] = useState(false);
-  const hasChildren = children.length > 0;
+  const hasChildren = subPages.length > 0;
 
   return (
     <div>
@@ -378,11 +378,11 @@ function PageTreeItem({
       </div>
       {hasChildren && expanded && (
         <div className="ml-4 pl-2 border-l border-neutral-200 space-y-0.5 mt-0.5">
-          {children.map((child) => (
+          {subPages.map((child) => (
             <PageTreeItem
               key={child.id}
               page={child}
-              children={[]}
+              subPages={[]}
               active={child.id === activePageId}
               canEdit={canEdit}
               onSelect={onSelect}

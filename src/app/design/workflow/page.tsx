@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable react/no-unescaped-entities -- design prototype */
 
+import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 
 // ══════════════════════════════════════════════════════════════
@@ -1504,7 +1505,7 @@ export default function WorkflowDesignPage() {
       <div className="sticky top-0 z-40 bg-white border-b border-neutral-200">
         <div className="px-6 py-3 flex items-center gap-4">
           <div className="flex items-center gap-3 mr-2">
-            <a href="/design" className="text-sm text-neutral-500 hover:text-neutral-900 transition font-medium">← Role Views</a>
+            <Link href="/design" className="text-sm text-neutral-500 hover:text-neutral-900 transition font-medium">← Role Views</Link>
             <span className="text-neutral-200">|</span>
             <div>
               <p className="text-sm font-bold text-neutral-900">Forge UX & Workflow Flows</p>

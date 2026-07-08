@@ -1,6 +1,6 @@
 import { redirect, notFound } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
-import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, thinkTankPillsRepo, ideaDecisionsRepo, ideaSignoffsRepo } from "@/lib/repositories/ideas";
+import { ideasRepo, ideaCommentsRepo, ideaAiTurnsRepo, thinkTankPillsRepo, ideaDecisionsRepo, ideaSignoffsRepo, okrsRepo } from "@/lib/repositories/ideas";
 import { membersRepo } from "@/lib/repositories/members";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { usersRepo } from "@/lib/repositories/users";
@@ -22,7 +22,8 @@ export default async function IdeaPage({
     ? createSupabaseServiceClient()
     : await createSupabaseServerClient();
 
-  const [rawIdea, members, comments, recentAiTurns, customPillRows, decisions, signoffs] = await Promise.all([
+  const svcForOkr = createSupabaseServiceClient();
+  const [rawIdea, members, comments, recentAiTurns, customPillRows, decisions, signoffs, okrAlignment] = await Promise.all([
     ideasRepo(supabase).getById(ctx.tenant.id, id),
     membersRepo(supabase).list(ctx.tenant.id),
     ideaCommentsRepo(supabase).list(ctx.tenant.id, id),
@@ -32,6 +33,22 @@ export default async function IdeaPage({
     // Fails open: if migration 0029 hasn't been run yet, the table is absent —
     // return no sign-offs rather than breaking the whole idea page.
     ideaSignoffsRepo(supabase).list(ctx.tenant.id, id).catch(() => []),
+    // OKR alignment — fails open (table may not exist in older envs)
+    (async () => {
+      try {
+        const [okrs, links] = await Promise.all([
+          okrsRepo(svcForOkr).listForTenant(ctx.tenant.id),
+          okrsRepo(svcForOkr).listLinksForIdea(ctx.tenant.id, id),
+        ]);
+        const linkMap = new Map(links.map((l) => [l.okr_id, l]));
+        return okrs.map((okr) => {
+          const link = linkMap.get(okr.id);
+          return { okr, score: link?.alignment_score ?? null, justification: null, linked: !!link };
+        });
+      } catch {
+        return [];
+      }
+    })(),
   ]);
 
   if (!rawIdea) notFound();
@@ -101,6 +118,7 @@ export default async function IdeaPage({
       customPills={customPillRows.map((r) => ({ id: r.id, label: r.label, instruction: r.instruction }))}
       decisions={decisions}
       signoffs={signoffs}
+      okrAlignment={okrAlignment}
     />
   );
 }

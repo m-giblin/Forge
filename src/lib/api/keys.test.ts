@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from "vitest";
+import { createHmac } from "node:crypto";
 import { hashKey, hasScope, parseBearer } from "@/lib/api/keys";
 import { SCOPES } from "@/lib/api/scopes";
 
@@ -20,7 +21,6 @@ describe("hashKey", () => {
 
   it("matches a known HMAC-SHA256 vector", () => {
     // node -e "require('crypto').createHmac('sha256','test-pepper-for-unit-tests-only-not-a-real-secret').update('abc').digest('hex') |> console.log"
-    const { createHmac } = require("node:crypto");
     const expected = createHmac("sha256", TEST_PEPPER).update("abc").digest("hex");
     expect(hashKey("abc")).toBe(expected);
   });

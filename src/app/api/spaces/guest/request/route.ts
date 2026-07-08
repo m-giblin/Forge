@@ -116,7 +116,7 @@ export async function POST(req: Request) {
   }
 
   // Determine what they're accessing for email copy
-  let accessUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100"}/shared/page?token=${rawToken}&share=${shareId}`;
+  const accessUrl = `${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100"}/shared/page?token=${rawToken}&share=${shareId}`;
 
   // Send magic link via Resend
   const { Resend } = await import("resend");

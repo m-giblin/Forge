@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createIdeaAction, searchSimilarIdeasAction } from "../actions";
 import { IDEA_TEMPLATES } from "@/lib/ideaTemplates";
 import { PILL_MAP } from "@/lib/ai/pills";
@@ -22,12 +22,17 @@ const STATUS_LABELS: Record<string, string> = {
 
 export default function IdeaCreateForm({ slug, thinkTankId, members, tenantTemplates = [], okrs = [] }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const prefillTitle = searchParams.get("title") ?? "";
+  const prefillDescription = searchParams.get("description") ?? "";
+  const prefillTags = searchParams.get("tags") ?? "";
+  const isCompetitorImport = searchParams.get("source") === "competitor";
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [description, setDescription] = useState("");
+  const [description, setDescription] = useState(prefillDescription);
   const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
-  const [titleValue, setTitleValue] = useState("");
+  const [titleValue, setTitleValue] = useState(prefillTitle);
   const [similarIdeas, setSimilarIdeas] = useState<Array<{ id: string; title: string; status: string }>>([]);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -88,6 +93,13 @@ export default function IdeaCreateForm({ slug, thinkTankId, members, tenantTempl
 
   return (
     <form ref={formRef} onSubmit={handleSubmit} className="space-y-5">
+      {/* Competitor import notice */}
+      {isCompetitorImport && (
+        <div className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <span>📥</span>
+          <span>Pre-filled from competitor import — review and edit before saving.</span>
+        </div>
+      )}
       {/* Title */}
       <div>
         <label className="mb-1 block text-sm font-medium text-neutral-700">
@@ -235,6 +247,7 @@ export default function IdeaCreateForm({ slug, thinkTankId, members, tenantTempl
         <input
           name="tags"
           type="text"
+          defaultValue={prefillTags}
           placeholder="e.g. product, growth, Q3 — comma-separated"
           className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
         />

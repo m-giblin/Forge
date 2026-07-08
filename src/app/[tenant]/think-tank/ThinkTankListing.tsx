@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { IdeaSummary } from "@/lib/repositories/ideas";
 import { toggleVoteAction } from "./actions";
 import ImpactEffortMatrix from "./ImpactEffortMatrix";
+import CompetitorImportModal from "./CompetitorImportModal";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -31,7 +32,7 @@ interface Props {
 type SortMode = "recent" | "votes";
 type ViewMode = "list" | "matrix";
 
-export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, members, canCreate, blindVoting = false, isAdmin = false }: Props) {
+export default function ThinkTankListing({ slug, thinkTankId, ideas: initialIdeas, allTags, members, canCreate, blindVoting = false, isAdmin = false }: Props) {
   const [ideas, setIdeas] = useState(initialIdeas);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -125,6 +126,9 @@ export default function ThinkTankListing({ slug, ideas: initialIdeas, allTags, m
                 ⊞ Matrix
               </button>
             </div>
+          )}
+          {canCreate && (
+            <CompetitorImportModal slug={slug} thinkTankId={thinkTankId} />
           )}
           {canCreate && (
             <Link

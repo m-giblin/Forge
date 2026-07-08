@@ -169,7 +169,7 @@ export default function FeatureFlagsConsole({
                 </tbody>
               </table>
             </div>
-            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>● = feature is effectively on for that tenant. "Default" follows the global toggle above.</p>
+            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>{'● = feature is effectively on for that tenant. "Default" follows the global toggle above.'}</p>
           </section>
         </>
       )}

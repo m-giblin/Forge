@@ -796,3 +796,80 @@ export function tenantIdeaTemplatesRepo(supabase: SupabaseClient) {
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// OKR repo — read tenant OKRs + manage idea-OKR links
+// ---------------------------------------------------------------------------
+
+export interface OkrRow {
+  id: string;
+  tenant_id: string;
+  title: string;
+  description: string | null;
+  quarter: string | null;
+  status: string;
+  progress: number;
+}
+
+export interface IdeaOkrLink {
+  id: string;
+  idea_id: string;
+  okr_id: string;
+  tenant_id: string;
+  /** Alignment score 1-5 from AI */
+  alignment_score: number | null;
+}
+
+export function okrsRepo(supabase: SupabaseClient) {
+  return {
+    async listForTenant(tenantId: string): Promise<OkrRow[]> {
+      const { data, error } = await supabase
+        .from("okrs")
+        .select("id, tenant_id, title, description, quarter, status, progress")
+        .eq("tenant_id", tenantId)
+        .eq("status", "active")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return (data ?? []) as OkrRow[];
+    },
+
+    async listLinksForIdea(tenantId: string, ideaId: string): Promise<IdeaOkrLink[]> {
+      const { data, error } = await supabase
+        .from("idea_okr_links")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("idea_id", ideaId);
+      if (error) throw error;
+      return (data ?? []) as IdeaOkrLink[];
+    },
+
+    async linkIdea(tenantId: string, ideaId: string, okrId: string, alignmentScore?: number): Promise<void> {
+      const payload: Record<string, unknown> = { tenant_id: tenantId, idea_id: ideaId, okr_id: okrId };
+      if (alignmentScore !== undefined) payload.alignment_score = alignmentScore;
+      const { error } = await supabase
+        .from("idea_okr_links")
+        .upsert(payload, { onConflict: "idea_id,okr_id" });
+      if (error) throw error;
+    },
+
+    async unlinkIdea(tenantId: string, ideaId: string, okrId: string): Promise<void> {
+      const { error } = await supabase
+        .from("idea_okr_links")
+        .delete()
+        .eq("tenant_id", tenantId)
+        .eq("idea_id", ideaId)
+        .eq("okr_id", okrId);
+      if (error) throw error;
+    },
+
+    async updateAlignmentScore(tenantId: string, ideaId: string, okrId: string, score: number): Promise<void> {
+      const { error } = await supabase
+        .from("idea_okr_links")
+        .update({ alignment_score: score })
+        .eq("tenant_id", tenantId)
+        .eq("idea_id", ideaId)
+        .eq("okr_id", okrId);
+      if (error) throw error;
+    },
+  };
+}
