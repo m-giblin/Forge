@@ -3,6 +3,7 @@ import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required, tenant context verified by getTenantContext (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { customRolesRepo } from "@/lib/repositories/customRoles";
+import Link from "next/link";
 import { loadTenantFlags } from "@/lib/services/featureFlags";
 import RolesManager from "./RolesManager";
 
@@ -24,7 +25,7 @@ export default async function RolesPage({ params }: { params: Promise<{ tenant: 
         <h1 className="text-xl font-semibold text-neutral-900">Custom Roles</h1>
         <p className="mt-1 text-sm text-neutral-500">
           Define named roles with specific permission sets. Assign them to members on the{" "}
-          <a href={`/${slug}/admin/members`} className="text-indigo-600 hover:underline">Members page</a>.
+          <Link href={`/${slug}/admin/members`} className="text-indigo-600 hover:underline">Members page</Link>.
         </p>
       </div>
       <RolesManager slug={slug} initialRoles={roles} />

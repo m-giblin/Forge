@@ -20,7 +20,7 @@ export default async function ScheduledPage({ params }: { params: Promise<{ tena
           <div className="inline-flex items-center gap-1.5 rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700 mb-4">PRO</div>
           <h2 className="text-xl font-bold text-neutral-900 mb-2">Scheduled Reports</h2>
           <p className="text-neutral-500 text-sm mb-6">Automatically email reports to stakeholders on your schedule — daily, weekly, or monthly. Set it once, show up every board meeting prepared.</p>
-          <a href={`/${slug}/admin/billing`} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Upgrade to Pro →</a>
+          <Link href={`/${slug}/billing`} className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors">Upgrade to Pro →</Link>
         </div>
       </main>
     );

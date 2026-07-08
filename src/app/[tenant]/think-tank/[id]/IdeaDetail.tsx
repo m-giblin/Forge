@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { updateIdeaAction, advanceStatusAction, convertIdeaAction } from "../actions";
-import type { IdeaRow, IdeaComment, IdeaAiTurn, IdeaDecision, IdeaSignoff } from "@/lib/repositories/ideas";
+import type { IdeaRow, IdeaComment, IdeaAiTurn, IdeaDecision, IdeaSignoff, OkrRow } from "@/lib/repositories/ideas";
 import { SIGNOFF_ROLES } from "@/lib/repositories/ideas";
 import type { Pill } from "@/lib/ai/pills";
 import IdeaComments from "./IdeaComments";
@@ -11,6 +12,8 @@ import IdeaDecisions from "./IdeaDecisions";
 import IdeaSignoffs from "./IdeaSignoffs";
 import IdeaPRDPanel from "./IdeaPRDPanel";
 import DevilsAdvocateButton from "./DevilsAdvocateButton";
+import OkrAlignmentPanel from "./OkrAlignmentPanel";
+import ConsensusPanel from "./ConsensusPanel";
 
 const STATUS_META: Record<string, { label: string; color: string }> = {
   new:         { label: "New",         color: "bg-neutral-100 text-neutral-600" },
@@ -44,9 +47,10 @@ interface Props {
   customPills: Pill[];
   decisions: IdeaDecision[];
   signoffs: IdeaSignoff[];
+  okrAlignment: Array<{ okr: OkrRow; score: number | null; justification: string | null; linked: boolean }>;
 }
 
-export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey, provenanceProject, customPills, decisions, signoffs }: Props) {
+export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName, comments, currentUserId, isAdmin, isViewer, recentAiTurns, linkedProjectKey, provenanceProject, customPills, decisions, signoffs, okrAlignment }: Props) {
   const [editing, setEditing] = useState(false);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +123,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
     <div className="w-full px-6 py-8">
       {/* Breadcrumb */}
       <div className="mb-4 flex items-center gap-2 text-sm text-neutral-400">
-        <a href={`/${slug}/think-tank`} className="hover:text-neutral-600">Think Tank</a>
+        <Link href={`/${slug}/think-tank`} className="hover:text-neutral-600">Think Tank</Link>
         <span>/</span>
         {ideaKey && <span className="font-mono text-neutral-500">{ideaKey}</span>}
       </div>
@@ -469,6 +473,22 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         ideaId={idea.id}
         signoffs={signoffs}
         canSign={!isViewer && !isTerminal}
+      />
+
+      {/* OKR Alignment — shown when OKRs exist for the tenant */}
+      <OkrAlignmentPanel
+        slug={slug}
+        ideaId={idea.id}
+        isViewer={isViewer}
+        initialResults={okrAlignment}
+      />
+
+      {/* AI Consensus — shown when 3+ active comments exist */}
+      <ConsensusPanel
+        slug={slug}
+        ideaId={idea.id}
+        isViewer={isViewer}
+        commentCount={activeCommentCount}
       />
 
       <IdeaComments
