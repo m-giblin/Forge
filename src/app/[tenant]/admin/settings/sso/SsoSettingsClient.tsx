@@ -2,13 +2,101 @@
 
 import { useState, useTransition } from "react";
 import type { SsoConfig, SsoProvider } from "@/lib/repositories/ssoConfig";
-import { saveSsoConfigAction } from "./actions";
+import { saveSsoConfigAction, saveSamlProviderAction, deleteSamlProviderAction } from "./actions";
 
 const PROVIDER_OPTIONS: { value: SsoProvider; label: string; icon: string; color: string }[] = [
   { value: "google", label: "Google Workspace", icon: "G", color: "bg-red-50 text-red-600 border-red-200" },
   { value: "microsoft", label: "Microsoft / Entra ID", icon: "M", color: "bg-blue-50 text-blue-600 border-blue-200" },
   { value: "both", label: "Both providers", icon: "G+M", color: "bg-purple-50 text-purple-600 border-purple-200" },
+  { value: "saml", label: "SAML 2.0 (Okta, OneLogin, PingIdentity…)", icon: "🔒", color: "bg-amber-50 text-amber-600 border-amber-200" },
 ];
+
+function SamlConfigPanel({ slug, initial }: { slug: string; initial: SsoConfig | null }) {
+  const [domain, setDomain] = useState(initial?.sso_domain ?? "");
+  const [metadataUrl, setMetadataUrl] = useState(initial?.saml_metadata_url ?? "");
+  const [metadataXml, setMetadataXml] = useState(initial?.saml_metadata_xml ?? "");
+  const [saving, startSave] = useTransition();
+  const [removing, startRemove] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  const connected = !!initial?.supabase_sso_provider_id;
+
+  function save() {
+    setError(null);
+    setSaved(false);
+    startSave(async () => {
+      const result = await saveSamlProviderAction(slug, {
+        domain,
+        metadataUrl: metadataUrl.trim() || null,
+        metadataXml: metadataXml.trim() || null,
+      });
+      if (!result.ok) { setError(result.error); return; }
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    });
+  }
+
+  function remove() {
+    if (!confirm("Remove this SAML provider? Users on this domain will lose SSO access.")) return;
+    startRemove(async () => {
+      await deleteSamlProviderAction(slug);
+    });
+  }
+
+  const field = "w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 font-mono";
+  const label = "block text-xs font-medium text-neutral-600 mb-1.5";
+
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+      <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50 flex items-center justify-between">
+        <p className="text-sm font-semibold text-neutral-800">SAML 2.0 identity provider</p>
+        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${connected ? "bg-green-100 text-green-700" : "bg-neutral-200 text-neutral-500"}`}>
+          {connected ? "Connected" : "Not connected"}
+        </span>
+      </div>
+      <div className="px-5 py-4 space-y-4">
+        <p className="text-xs text-neutral-500">
+          Get a SAML metadata URL or XML file from your identity provider (Okta, OneLogin, PingIdentity, Azure AD SAML app, etc.),
+          then paste it below. Set your IdP&apos;s ACS URL to
+          {" "}<code className="bg-neutral-100 text-neutral-700 rounded px-1 text-xs break-all">{process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/sso/saml/acs</code>.
+        </p>
+        <div>
+          <label className={label}>Domain</label>
+          <input value={domain} onChange={(e) => setDomain(e.target.value.replace(/^@/, ""))} placeholder="acme.com" className={field} />
+        </div>
+        <div>
+          <label className={label}>Metadata URL <span className="text-neutral-400 font-normal">(preferred — most IdPs publish one)</span></label>
+          <input value={metadataUrl} onChange={(e) => setMetadataUrl(e.target.value)} placeholder="https://idp.example.com/metadata" className={field} />
+        </div>
+        <div>
+          <label className={label}>— or paste metadata XML directly —</label>
+          <textarea value={metadataXml} onChange={(e) => setMetadataXml(e.target.value)} rows={4} placeholder="<EntityDescriptor …>" className={`${field} resize-none`} />
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            onClick={save}
+            disabled={saving || !domain.trim()}
+            className="px-4 py-2 text-sm font-medium bg-neutral-900 hover:bg-neutral-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+          >
+            {saving ? "Saving…" : connected ? "Update provider" : "Connect provider"}
+          </button>
+          {connected && (
+            <button
+              onClick={remove}
+              disabled={removing}
+              className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              {removing ? "Removing…" : "Remove"}
+            </button>
+          )}
+          {saved && <span className="text-sm text-green-600 font-medium">✓ Saved</span>}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function Toggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
   return (
@@ -124,7 +212,8 @@ export default function SsoSettingsClient({ slug, initial }: { slug: string; ini
             </div>
           </Card>
 
-          {/* Domain restriction */}
+          {/* Domain restriction — OAuth (Google/Microsoft) only; SAML has its own domain field below */}
+          {provider !== "saml" && (
           <Card title="Domain restriction" description="Only allow users from a specific email domain. Leave blank to allow any account.">
             <div className="py-4 space-y-0">
               <div className="pb-4 border-b border-neutral-100">
@@ -153,8 +242,10 @@ export default function SsoSettingsClient({ slug, initial }: { slug: string; ini
               </SettingRow>
             </div>
           </Card>
+          )}
 
-          {/* Setup instructions */}
+          {/* Setup instructions — OAuth only */}
+          {provider !== "saml" && (
           <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
             <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50 flex items-center gap-2">
               <span className="text-sm">📋</span>
@@ -185,17 +276,10 @@ export default function SsoSettingsClient({ slug, initial }: { slug: string; ini
               )}
             </div>
           </div>
+          )}
 
-          {/* SAML upsell */}
-          <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-5">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🔒</span>
-              <div>
-                <p className="text-sm font-semibold text-neutral-800">SAML 2.0 / Enterprise SSO</p>
-                <p className="text-xs text-neutral-500 mt-0.5">Custom SAML integration with Okta, OneLogin, PingIdentity, and others. Available on enterprise plans — <span className="text-indigo-600 cursor-pointer">contact us</span> to enable.</p>
-              </div>
-            </div>
-          </div>
+          {/* Real SAML 2.0 connection — registers a live provider with Supabase */}
+          {provider === "saml" && <SamlConfigPanel slug={slug} initial={initial} />}
         </>
       )}
 

@@ -9,13 +9,19 @@ type Screen = "credentials" | "totp";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
+/** Module-level so the React Compiler doesn't treat the window mutation as a component-render side effect. */
+function navigateTo(url: string) {
+  window.location.href = url;
+}
+
 function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
   const next = params.get("next") || "/";
 
   const supabase = createBrowserClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  const [ssoLoading, setSsoLoading] = useState<"google" | "microsoft" | null>(null);
+  const [ssoLoading, setSsoLoading] = useState<"google" | "microsoft" | "saml" | null>(null);
+  const [samlAvailable, setSamlAvailable] = useState(false);
 
   async function signInWithOAuth(provider: "google" | "azure") {
     const label = provider === "google" ? "google" : "microsoft";
@@ -33,6 +39,20 @@ function LoginForm() {
     // On success Supabase redirects — no further action needed
   }
 
+  async function signInWithSaml(domain: string) {
+    setSsoLoading("saml");
+    const { data, error } = await supabase.auth.signInWithSSO({
+      domain,
+      options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+    });
+    if (error || !data?.url) {
+      setError(error?.message ?? "SSO sign-in failed.");
+      setSsoLoading(null);
+      return;
+    }
+    navigateTo(data.url);
+  }
+
   useEffect(() => {
     const hash = window.location.hash.slice(1);
     if (hash.includes("type=recovery")) {
@@ -43,6 +63,20 @@ function LoginForm() {
   const [screen, setScreen] = useState<Screen>("credentials");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  // Debounced check for a live SAML provider on this email's domain — shows a
+  // "Continue with SSO" option only when one is actually registered.
+  useEffect(() => {
+    const domain = email.includes("@") ? email.split("@")[1]?.trim().toLowerCase() : "";
+    const timer = setTimeout(() => {
+      if (!domain || !domain.includes(".")) { setSamlAvailable(false); return; }
+      fetch(`/api/auth/sso-check?domain=${encodeURIComponent(domain)}`)
+        .then((r) => r.json())
+        .then((d) => setSamlAvailable(!!d.available))
+        .catch(() => setSamlAvailable(false));
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [email]);
   const [totpCode, setTotpCode] = useState("");
   const [pendingFactorId, setPendingFactorId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -175,6 +209,16 @@ function LoginForm() {
               suppressHydrationWarning
             />
           </div>
+          {samlAvailable && (
+            <button
+              type="button"
+              onClick={() => signInWithSaml(email.split("@")[1].trim().toLowerCase())}
+              disabled={!!ssoLoading}
+              className="flex w-full items-center justify-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 disabled:opacity-60 transition"
+            >
+              🔒 {ssoLoading === "saml" ? "Redirecting…" : "Continue with your company's SSO"}
+            </button>
+          )}
           <div>
             <label className="mb-1 block text-sm font-medium text-neutral-700">Password</label>
             <input
