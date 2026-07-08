@@ -298,7 +298,7 @@ export const DOC_GUIDES: DocGuide[] = [
             step: 1,
             title: 'What triggers a gate',
             description:
-              'When a developer runs PR Impact Prediction and the result is High or Critical risk, Forge automatically opens a Risk Gate on that issue. The issue is blocked — it cannot be moved to Done until the gate is approved or denied by a PM or Admin. Medium risk issues surface as a warning on your dashboard but do not block.',
+              'When a developer runs PR Impact Prediction and the result is High or Critical risk, Forge automatically opens a Risk Gate on that issue. The issue is blocked — it cannot be moved to Done until the gate is approved or denied by a PM or Admin. Medium risk issues surface as a warning on your dashboard but do not block. The prediction reads the issue\'s title, description, and any linked PR titles — it does not read code diffs or CI results, so it is a judgment aid, not a static analysis tool.',
           },
           {
             step: 2,
