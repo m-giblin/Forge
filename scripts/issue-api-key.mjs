@@ -8,7 +8,7 @@
  *   scopes      default "issues:read,issues:write"
  */
 import { createClient } from "@supabase/supabase-js";
-import { createHash, randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -22,7 +22,9 @@ const slug = process.argv[2] || "travli";
 const name = process.argv[3] || "Integration";
 const scopes = (process.argv[4] || "issues:read,issues:write").split(",").map((s) => s.trim());
 
-const hashKey = (raw) => createHash("sha256").update(raw).digest("hex");
+const PEPPER = process.env.API_KEY_HASH_SECRET;
+if (!PEPPER) { console.error("API_KEY_HASH_SECRET is not set in env."); process.exit(1); }
+const hashKey = (raw) => createHmac("sha256", PEPPER).update(raw).digest("hex");
 
 (async () => {
   const { data: tenant, error: tErr } = await admin
