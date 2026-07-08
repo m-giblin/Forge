@@ -4,9 +4,14 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role: roadmap_phases writes bypass user RLS (phase mgmt is admin-only; gate enforced in code)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { ctxCanDo, type RbacPermissionSet } from "@/lib/rbac";
 
-function requireAdmin(role: string) {
-  if (role !== "owner" && role !== "admin") {
+// Matches the manage_roadmap gate already used in roadmap/actions.ts for
+// roadmap items — phases are the same feature area and were inconsistently
+// stricter (owner/admin only, no custom-role path) before this fix.
+function requireAdmin(ctx: { role: string; customRolePermissions: RbacPermissionSet | null }) {
+  const role = ctx.role as "owner" | "admin" | "member" | "viewer";
+  if (role !== "owner" && role !== "admin" && !ctxCanDo(ctx as Parameters<typeof ctxCanDo>[0], "manage_roadmap")) {
     throw new Error("Only owners and admins can manage roadmap phases.");
   }
 }
@@ -17,7 +22,7 @@ export async function createPhaseAction(
 ) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  requireAdmin(ctx.role);
+  requireAdmin(ctx);
 
   const svc = createSupabaseServiceClient();
   const { count } = await svc
@@ -44,7 +49,7 @@ export async function updatePhaseAction(
 ) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  requireAdmin(ctx.role);
+  requireAdmin(ctx);
 
   const patch: Record<string, unknown> = {};
   if (data.name !== undefined) patch.name = data.name.trim();
@@ -65,7 +70,7 @@ export async function updatePhaseAction(
 export async function deletePhaseAction(slug: string, phaseId: string) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  requireAdmin(ctx.role);
+  requireAdmin(ctx);
 
   const svc = createSupabaseServiceClient();
   // Unlink projects first
@@ -87,7 +92,7 @@ export async function deletePhaseAction(slug: string, phaseId: string) {
 export async function assignProjectPhaseAction(slug: string, projectId: string, phaseId: string | null) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  requireAdmin(ctx.role);
+  requireAdmin(ctx);
 
   const svc = createSupabaseServiceClient();
   const { error } = await svc

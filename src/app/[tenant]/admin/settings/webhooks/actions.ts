@@ -6,13 +6,17 @@ import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { webhooksRepo, WEBHOOK_EVENTS } from "@/lib/repositories/webhooks";
 import { validateWebhookUrl } from "@/lib/api/ssrfGuard";
+import { ctxCanDo } from "@/lib/rbac";
 
 function svc() { return webhooksRepo(createSupabaseServiceClient()); }
 
 async function requireAdmin(slug: string) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  if (ctx.role !== "owner" && ctx.role !== "admin") throw new Error("Admins only.");
+  const role = ctx.role as "owner" | "admin" | "member" | "viewer";
+  if (role !== "owner" && role !== "admin" && !ctxCanDo(ctx as Parameters<typeof ctxCanDo>[0], "manage_settings")) {
+    throw new Error("Admins only.");
+  }
   return ctx;
 }
 

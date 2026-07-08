@@ -7,15 +7,19 @@ import { addProjectMember, removeProjectMember } from "@/lib/services/projects";
 import { recordAudit } from "@/lib/audit";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ctxCanDo } from "@/lib/rbac";
 
-function assertAdmin(role: string) {
-  if (role !== "owner" && role !== "admin") throw new Error("Only owners and admins manage project teams.");
+function assertAdmin(ctx: { role: string; customRolePermissions: import("@/lib/rbac").RbacPermissionSet | null }) {
+  const role = ctx.role as "owner" | "admin" | "member" | "viewer";
+  if (role !== "owner" && role !== "admin" && !ctxCanDo(ctx as Parameters<typeof ctxCanDo>[0], "manage_projects")) {
+    throw new Error("Only owners and admins manage project teams.");
+  }
 }
 
 export async function addProjectMemberAction(slug: string, projectId: string, userId: string) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertAdmin(ctx.role);
+  assertAdmin(ctx);
   await addProjectMember(ctx.tenant.id, projectId, userId);
   await recordAudit({
     tenantId: ctx.tenant.id,
@@ -30,7 +34,7 @@ export async function addProjectMemberAction(slug: string, projectId: string, us
 export async function removeProjectMemberAction(slug: string, projectId: string, userId: string) {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  assertAdmin(ctx.role);
+  assertAdmin(ctx);
   await removeProjectMember(ctx.tenant.id, projectId, userId);
   await recordAudit({
     tenantId: ctx.tenant.id,

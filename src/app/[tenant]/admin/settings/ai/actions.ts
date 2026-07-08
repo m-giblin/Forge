@@ -5,9 +5,13 @@ import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { tenantAiKeysRepo, type AIProvider } from "@/lib/repositories/aiKeys";
 import { revalidatePath } from "next/cache";
+import { ctxCanDo, type RbacPermissionSet } from "@/lib/rbac";
 
-function requireAdmin(role: string) {
-  if (role !== "owner" && role !== "admin") throw new Error("Admin access required.");
+function requireAdmin(ctx: { role: string; customRolePermissions: RbacPermissionSet | null }) {
+  const role = ctx.role as "owner" | "admin" | "member" | "viewer";
+  if (role !== "owner" && role !== "admin" && !ctxCanDo(ctx as Parameters<typeof ctxCanDo>[0], "manage_settings")) {
+    throw new Error("Admin access required.");
+  }
 }
 
 export async function saveAiKeyAction(
@@ -17,7 +21,7 @@ export async function saveAiKeyAction(
 ): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  requireAdmin(ctx.role);
+  requireAdmin(ctx);
 
   const trimmed = apiKey.trim();
   if (!trimmed) throw new Error("API key cannot be empty.");
@@ -34,7 +38,7 @@ export async function selectAiProviderAction(
 ): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  requireAdmin(ctx.role);
+  requireAdmin(ctx);
 
   const svc = createSupabaseServiceClient();
   const has = await tenantAiKeysRepo(svc).hasKey(ctx.tenant.id, provider);
@@ -50,7 +54,7 @@ export async function deleteAiKeyAction(
 ): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  requireAdmin(ctx.role);
+  requireAdmin(ctx);
 
   const svc = createSupabaseServiceClient();
   await tenantAiKeysRepo(svc).deleteKey(ctx.tenant.id, provider);
@@ -60,7 +64,7 @@ export async function deleteAiKeyAction(
 export async function resetToDefaultAction(slug: string): Promise<void> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
-  requireAdmin(ctx.role);
+  requireAdmin(ctx);
 
   // Deselect all keys — sounding board falls back to platform Grok.
   const svc = createSupabaseServiceClient();
