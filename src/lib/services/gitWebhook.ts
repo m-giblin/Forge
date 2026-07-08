@@ -127,20 +127,43 @@ Message: ${(commit.message ?? "").slice(0, 500)}`,
               for (const key of commitKeys) {
                 const issue = await resolveIssueByKey(svc, tenantId, key);
                 if (!issue) continue;
-                // Upsert with ai_summary and commit_sha (0095 migration adds these columns)
-                await svc.from("issue_code_links").upsert({
+
+                // Dedup on the commit SHA (partial unique index uq_issue_code_links_commit).
+                // PostgREST upsert can't target a partial index, so check-then-write.
+                const row = {
                   tenant_id: tenantId,
                   issue_id: issue.id,
                   connection_id: connectionId,
                   repo_full_name: repoFullName,
-                  pr_number: 0,
+                  pr_number: null,
                   link_kind: "commit",
                   pr_state: "merged",
                   pr_title: `${shortSha}: ${(commit.message ?? "").split("\n")[0].slice(0, 80)}`,
                   pr_url: commitUrl,
                   ai_summary: aiSummary || null,
                   commit_sha: commit.id ?? null,
-                }, { onConflict: "tenant_id,issue_id,repo_full_name,pr_number" });
+                };
+
+                const { data: existing } = await svc
+                  .from("issue_code_links")
+                  .select("id")
+                  .eq("tenant_id", tenantId)
+                  .eq("issue_id", issue.id)
+                  .eq("repo_full_name", repoFullName)
+                  .eq("link_kind", "commit")
+                  .eq("commit_sha", commit.id ?? "")
+                  .maybeSingle();
+
+                if (existing) {
+                  await svc.from("issue_code_links").update({
+                    ai_summary: row.ai_summary,
+                    pr_title: row.pr_title,
+                    pr_url: row.pr_url,
+                    updated_at: new Date().toISOString(),
+                  }).eq("id", existing.id);
+                } else {
+                  await svc.from("issue_code_links").insert(row);
+                }
               }
             } catch (e) {
               logger.warn("Commit AI summary failed", { tenantId, sha: commit.id, err: String(e) });

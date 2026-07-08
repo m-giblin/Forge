@@ -2,37 +2,31 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useParams } from "next/navigation";
-
-type RecurringIssue = {
-  id: string;
-  project_id: string;
-  title: string;
-  type: string;
-  priority: string;
-  description: string | null;
-  trigger: string;
-  interval_sprints: number;
-  is_active: boolean;
-};
-
-type Project = { id: string; key: string; name: string };
+import {
+  listRecurringAction,
+  createRecurringAction,
+  updateRecurringAction,
+  deleteRecurringAction,
+  type RecurringIssue,
+  type RecurringProject,
+} from "./recurringActions";
 
 const PRIORITY_OPTIONS = ["urgent", "high", "medium", "low"];
 const TYPE_OPTIONS = ["task", "bug", "feature", "chore"];
 
 function RecurringForm({
+  slug,
   projects,
   onSaved,
   onCancel,
   initial,
 }: {
-  projects: Project[];
+  slug: string;
+  projects: RecurringProject[];
   onSaved: () => void;
   onCancel: () => void;
   initial?: RecurringIssue;
 }) {
-  const params = useParams();
-  const slug = params.tenant as string;
   const [projectId, setProjectId] = useState(initial?.project_id ?? projects[0]?.id ?? "");
   const [title, setTitle] = useState(initial?.title ?? "");
   const [type, setType] = useState(initial?.type ?? "task");
@@ -43,12 +37,10 @@ function RecurringForm({
   const [saving, startSave] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  const KEY = process.env.NEXT_PUBLIC_FORGE_SELF_API_KEY ?? "";
-
   function save() {
     setError(null);
     startSave(async () => {
-      const body = {
+      const data = {
         project_id: projectId,
         title: title.trim(),
         type,
@@ -57,17 +49,13 @@ function RecurringForm({
         trigger,
         interval_sprints: trigger === "every_n_sprints" ? parseInt(interval) : 1,
       };
-      const url = initial
-        ? `/api/v1/recurring-issues/${initial.id}?slug=${slug}`
-        : `/api/v1/recurring-issues?slug=${slug}`;
-      const method = initial ? "PATCH" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) { setError("Save failed — check fields and try again"); return; }
-      onSaved();
+      try {
+        if (initial) await updateRecurringAction(slug, initial.id, data);
+        else await createRecurringAction(slug, data);
+        onSaved();
+      } catch {
+        setError("Save failed — check fields and try again");
+      }
     });
   }
 
@@ -132,55 +120,38 @@ function RecurringForm({
 export default function RecurringPage() {
   const params = useParams();
   const slug = params.tenant as string;
-  const KEY = process.env.NEXT_PUBLIC_FORGE_SELF_API_KEY ?? "";
 
   const [items, setItems] = useState<RecurringIssue[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
+  const [projects, setProjects] = useState<RecurringProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<RecurringIssue | null>(null);
   const [, startToggle] = useTransition();
 
   async function load() {
-    const [itemsRes, projectsRes] = await Promise.all([
-      fetch(`/api/v1/recurring-issues?slug=${slug}`, { headers: { Authorization: `Bearer ${KEY}` } }),
-      fetch(`/api/v1/projects?slug=${slug}`, { headers: { Authorization: `Bearer ${KEY}` } }),
-    ]);
-    if (itemsRes.ok) setItems((await itemsRes.json()).data ?? []);
-    if (projectsRes.ok) setProjects((await projectsRes.json()).data ?? []);
+    const { items, projects } = await listRecurringAction(slug);
+    setItems(items);
+    setProjects(projects);
     setLoading(false);
   }
 
   useEffect(() => {
-    Promise.all([
-      fetch(`/api/v1/recurring-issues?slug=${slug}`, { headers: { Authorization: `Bearer ${KEY}` } }),
-      fetch(`/api/v1/projects?slug=${slug}`, { headers: { Authorization: `Bearer ${KEY}` } }),
-    ])
-      .then(async ([itemsRes, projectsRes]) => {
-        if (itemsRes.ok) setItems((await itemsRes.json()).data ?? []);
-        if (projectsRes.ok) setProjects((await projectsRes.json()).data ?? []);
-      })
+    listRecurringAction(slug)
+      .then(({ items, projects }) => { setItems(items); setProjects(projects); })
       .catch(() => null)
       .finally(() => setLoading(false));
-  }, [slug, KEY]);
+  }, [slug]);
 
   function toggleActive(item: RecurringIssue) {
     startToggle(async () => {
-      await fetch(`/api/v1/recurring-issues/${item.id}?slug=${slug}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${KEY}` },
-        body: JSON.stringify({ is_active: !item.is_active }),
-      });
+      await updateRecurringAction(slug, item.id, { is_active: !item.is_active });
       void load();
     });
   }
 
   async function remove(id: string) {
     if (!confirm("Delete this recurring issue?")) return;
-    await fetch(`/api/v1/recurring-issues/${id}?slug=${slug}`, {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${KEY}` },
-    });
+    await deleteRecurringAction(slug, id);
     void load();
   }
 
@@ -205,6 +176,7 @@ export default function RecurringPage() {
 
       {(showForm || editing) && (
         <RecurringForm
+          slug={slug}
           projects={projects}
           initial={editing ?? undefined}
           onSaved={() => { setShowForm(false); setEditing(null); void load(); }}
