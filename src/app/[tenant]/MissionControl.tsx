@@ -8,9 +8,10 @@ import NeedsYouCards from "./NeedsYouCard";
 
 /**
  * Mission Control — the tenant login hub ("Design E"), wired to REAL issue data.
- * The "Engineering Intelligence" band at the bottom is clearly badged PREVIEW:
- * those metrics (DORA, commit→deploy phases, Monte Carlo) need Git/CI data Forge
- * doesn't collect yet, so they render sample values behind a Preview badge.
+ * The "Engineering Intelligence" band's DORA four-keys are computed from real
+ * deployments + code_events (see lib/services/dora.ts) — not sample data. A
+ * tenant with no Git/CI connection yet simply has no deployment rows, so those
+ * tiles show "—" and a connect-git prompt instead of a fabricated number.
  */
 
 
@@ -256,9 +257,45 @@ export default function MissionControl({ slug, data, members = [] }: {
           />
         </div>
 
-        <div className="mt-4 rounded-lg bg-amber-50 border border-amber-100 px-4 py-2.5 text-xs text-amber-700">
-          🔗 Connect GitHub/GitLab in <Link href={`/${slug}/admin/settings/git`} className="underline font-medium">Git settings</Link> to unlock deploy frequency, change failure rate, and MTTR from real CI data.
-        </div>
+        {data.dora.totalDeployments > 0 ? (
+          <>
+            <div className="mt-5 flex items-center gap-2 mb-1">
+              <h3 className="text-sm font-semibold text-neutral-800">DORA four-keys</h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">LIVE</span>
+              <span className="text-[11px] text-neutral-400">— last {data.dora.windowDays} days, {data.dora.totalDeployments} deploy{data.dora.totalDeployments !== 1 ? "s" : ""}</span>
+            </div>
+            <div className="grid grid-cols-4 gap-3">
+              <MetricTile
+                label="Deploy frequency"
+                value={data.dora.deploymentsPerWeek != null ? `${data.dora.deploymentsPerWeek}/wk` : "—"}
+                sub="successful deploys"
+                good={data.dora.deploymentsPerWeek != null && data.dora.deploymentsPerWeek >= 1}
+              />
+              <MetricTile
+                label="Lead time"
+                value={data.dora.leadTimeHours != null ? `${Math.round(data.dora.leadTimeHours)}h` : "—"}
+                sub="PR merge → deploy"
+                good={data.dora.leadTimeHours != null && data.dora.leadTimeHours < 24}
+              />
+              <MetricTile
+                label="Change failure rate"
+                value={data.dora.changeFailureRatePct != null ? `${data.dora.changeFailureRatePct}%` : "—"}
+                sub="deploys that failed"
+                good={data.dora.changeFailureRatePct != null && data.dora.changeFailureRatePct < 15}
+              />
+              <MetricTile
+                label="MTTR"
+                value={data.dora.mttrHours != null ? `${Math.round(data.dora.mttrHours)}h` : "—"}
+                sub="failure → recovery"
+                good={data.dora.mttrHours != null && data.dora.mttrHours < 24}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="mt-4 rounded-lg bg-amber-50 border border-amber-100 px-4 py-2.5 text-xs text-amber-700">
+            🔗 Connect GitHub/GitLab in <Link href={`/${slug}/admin/settings/git`} className="underline font-medium">Git settings</Link> to unlock deploy frequency, lead time, change failure rate, and MTTR from real deployment data.
+          </div>
+        )}
       </div>
     </main>
   );

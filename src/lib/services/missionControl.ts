@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { listVisibleProjects } from "@/lib/services/projects";
 import type { MembershipRole } from "@/lib/repositories/members";
+import { computeDoraMetrics, type DoraMetrics } from "@/lib/services/dora";
 
 /**
  * Mission Control — the post-login tenant hub ("Design E").
@@ -61,6 +62,8 @@ export type MissionControlData = {
   avgBugCycleDays: number | null;
   /** Issues shipped per week over last 4 weeks */
   weeklyVelocity: number | null;
+  /** Real DORA four-keys computed from deployments + code_events. Null fields = not enough data yet, not fabricated. */
+  dora: DoraMetrics;
 };
 
 type LeanIssue = {
@@ -132,7 +135,7 @@ export async function loadMissionControl(input: {
   const scope: ScopeKey = input.scope === "team" && canSeeTeam ? "team" : "mine";
 
   // Fetch the building blocks in parallel. Lean columns only (no body/stack).
-  const [issuesRes, eventsRes, projects, nameRes] = await Promise.all([
+  const [issuesRes, eventsRes, projects, nameRes, dora] = await Promise.all([
     supabase
       .from("issues")
       .select("id, project_id, number, title, status, priority, type, assignee_id, reporter_id, labels, created_at, updated_at")
@@ -147,6 +150,9 @@ export async function loadMissionControl(input: {
       .limit(1000),
     listVisibleProjects(input.tenantId, input.appUserId, input.role, input.impersonating),
     supabase.from("users").select("name").eq("id", input.appUserId).maybeSingle(),
+    computeDoraMetrics(input.tenantId).catch(() => ({
+      deploymentsPerWeek: null, changeFailureRatePct: null, mttrHours: null, leadTimeHours: null, totalDeployments: 0, windowDays: 30,
+    })),
   ]);
 
   const allIssues = (issuesRes.data ?? []) as LeanIssue[];
@@ -322,5 +328,6 @@ export async function loadMissionControl(input: {
     bugFailRate,
     avgBugCycleDays,
     weeklyVelocity,
+    dora,
   };
 }
