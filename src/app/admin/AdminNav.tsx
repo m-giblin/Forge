@@ -9,6 +9,7 @@ const NAV_LINKS = [
   { href: "/admin/support", label: "Support" },
   { href: "/admin/flags", label: "Feature Flags" },
   { href: "/admin/billing", label: "Billing" },
+  { href: "/admin/permissions", label: "Permissions" },
   { href: "/admin/compliance", label: "Compliance" },
   { href: "/admin/audit", label: "Audit" },
   { href: "/admin/admins", label: "Admins" },

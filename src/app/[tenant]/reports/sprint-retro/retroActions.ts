@@ -9,6 +9,7 @@ import { grokComplete } from "@/lib/services/grokAi";
 export async function generateRetroSummaryAction(slug: string, sprintId: string): Promise<string> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot generate a retro summary.");
 
   const svc = createSupabaseServiceClient();
 

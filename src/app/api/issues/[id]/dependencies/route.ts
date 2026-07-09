@@ -46,6 +46,7 @@ export async function POST(
 
   const ctx = await getTenantContext(slug);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (ctx.role === "viewer") return NextResponse.json({ error: "Viewers cannot edit dependencies." }, { status: 403 });
 
   const svc = createSupabaseServiceClient();
 
@@ -87,6 +88,7 @@ export async function DELETE(
 
   const ctx = await getTenantContext(slug);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (ctx.role === "viewer") return NextResponse.json({ error: "Viewers cannot edit dependencies." }, { status: 403 });
 
   const svc = createSupabaseServiceClient();
 

@@ -5,6 +5,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { readImpersonation } from "@/lib/impersonation";
 import { requireSuperAdmin } from "@/lib/super-admin";
 import { getIpAllowlist, isIpAllowed, extractClientIp } from "@/lib/services/ipAllowlist";
+import { loadPermissionDefaults } from "@/lib/services/permissionDefaults";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PermissionOverrides } from "@/lib/permissions";
 
@@ -79,6 +80,7 @@ export type TenantContext = {
   impersonating: boolean;
   permissionOverrides: PermissionOverrides;
   customRolePermissions: import("@/lib/rbac").RbacPermissionSet | null;
+  permissionDefaults: import("@/lib/rbac").PermissionDefaults;
 };
 
 /**
@@ -130,6 +132,7 @@ export async function getTenantContext(slug: string): Promise<TenantContext | nu
           .maybeSingle();
         customRolePermissions = (cr?.permissions as import("@/lib/rbac").RbacPermissionSet) ?? null;
       }
+      const permissionDefaults = await loadPermissionDefaults();
       return {
         tenant: { id: tenant.id, name: tenant.name, slug: tenant.slug },
         role: membership.role as TenantContext["role"],
@@ -138,6 +141,7 @@ export async function getTenantContext(slug: string): Promise<TenantContext | nu
         impersonating: false,
         permissionOverrides: (tenant.permission_overrides ?? {}) as PermissionOverrides,
         customRolePermissions,
+        permissionDefaults,
       };
     }
   }
@@ -150,7 +154,7 @@ export async function getTenantContext(slug: string): Promise<TenantContext | nu
     const svc = createSupabaseServiceClient();
     const { data: t } = await svc.from("tenants").select("id, name, slug, permission_overrides").eq("slug", slug).maybeSingle();
     if (t && imp.tenantId === t.id) {
-      return { tenant: { id: t.id, name: t.name, slug: t.slug }, role: "viewer", appUserId, email: user.email ?? null, impersonating: true, permissionOverrides: (t.permission_overrides ?? {}) as PermissionOverrides, customRolePermissions: null };
+      return { tenant: { id: t.id, name: t.name, slug: t.slug }, role: "viewer", appUserId, email: user.email ?? null, impersonating: true, permissionOverrides: (t.permission_overrides ?? {}) as PermissionOverrides, customRolePermissions: null, permissionDefaults: await loadPermissionDefaults() };
     }
   }
 

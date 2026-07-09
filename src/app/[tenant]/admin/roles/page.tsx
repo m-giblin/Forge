@@ -3,6 +3,7 @@ import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required, tenant context verified by getTenantContext (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { customRolesRepo } from "@/lib/repositories/customRoles";
+import { permissionDefinitionsRepo } from "@/lib/repositories/permissionDefinitions";
 import Link from "next/link";
 import { loadTenantFlags } from "@/lib/services/featureFlags";
 import RolesManager from "./RolesManager";
@@ -17,7 +18,10 @@ export default async function RolesPage({ params }: { params: Promise<{ tenant: 
   if (!flags.rbac) redirect(`/${slug}/admin`);
 
   const svc = createSupabaseServiceClient();
-  const roles = await customRolesRepo(svc).list(ctx.tenant.id);
+  const [roles, permissions] = await Promise.all([
+    customRolesRepo(svc).list(ctx.tenant.id),
+    permissionDefinitionsRepo(svc).listActive(),
+  ]);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -28,7 +32,7 @@ export default async function RolesPage({ params }: { params: Promise<{ tenant: 
           <Link href={`/${slug}/admin/members`} className="text-indigo-600 hover:underline">Members page</Link>.
         </p>
       </div>
-      <RolesManager slug={slug} initialRoles={roles} />
+      <RolesManager slug={slug} initialRoles={roles} permissions={permissions} />
     </div>
   );
 }

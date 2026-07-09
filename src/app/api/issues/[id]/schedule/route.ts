@@ -20,6 +20,7 @@ export async function PATCH(
 
   const ctx = await getTenantContext(slug);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (ctx.role === "viewer") return NextResponse.json({ error: "Viewers cannot edit issue scheduling." }, { status: 403 });
 
   const svc = createSupabaseServiceClient();
 

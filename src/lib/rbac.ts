@@ -8,8 +8,25 @@
  *
  * Owners and Admins always return true — no custom role can restrict them.
  * Gated by the `rbac` feature flag (per-tenant, off by default).
+ *
+ * PERMISSION KEYS ARE DATA, NOT CODE (as of migration 0100). The catalog of
+ * valid keys, their labels/descriptions/groups, and the member/viewer default
+ * access level all live in `permission_definitions` — manage them at
+ * /admin/permissions, no deploy required. `RbacPermission` is intentionally
+ * `string`, not a fixed union, so a newly-registered key works immediately
+ * anywhere it's referenced.
+ *
+ * What still requires code: the server action or route that actually calls
+ * ctxCanDo() for a given key. No schema change can make a mutation start
+ * checking a permission it never references — see scripts/audit-rbac.mjs,
+ * wired into `npm run check`, which flags mutating actions with no
+ * permission check anywhere nearby.
  */
 
+export type RbacPermission = string;
+export type RbacPermissionSet = Partial<Record<RbacPermission, boolean>>;
+
+/** The 12 permissions Forge shipped with, kept only as a typo-resistant reference for code call sites and as the emergency fallback defaults below. The database (permission_definitions) is the real source of truth. */
 export const RBAC_PERMISSIONS = [
   "create_issues",
   "edit_any_issue",
@@ -24,9 +41,6 @@ export const RBAC_PERMISSIONS = [
   "view_reports",
   "export_data",
 ] as const;
-
-export type RbacPermission = (typeof RBAC_PERMISSIONS)[number];
-export type RbacPermissionSet = Partial<Record<RbacPermission, boolean>>;
 
 export type CustomRole = {
   id: string;
@@ -63,10 +77,17 @@ export const COLOR_CLASSES: Record<RoleColor, { bg: string; text: string; border
   slate:   { bg: "bg-slate-100",   text: "text-slate-700",   border: "border-slate-300" },
 };
 
-export type PermissionGroup = "Issues" | "Planning" | "Admin" | "Reporting";
+export type PermissionGroup = string;
 
+/**
+ * @deprecated Fallback only, used when the DB registry can't be reached (fail
+ * open on read errors) or for legacy code paths that haven't been threaded
+ * with dynamic defaults yet. /admin/permissions + permission_definitions is
+ * the real source of truth — see PermissionDefinition in
+ * lib/repositories/permissionDefinitions.ts.
+ */
 export const PERMISSION_META: Record<
-  RbacPermission,
+  string,
   { label: string; description: string; group: PermissionGroup }
 > = {
   create_issues:   { label: "Create issues",       description: "Can file new bugs, tasks, or feature requests",  group: "Issues"    },
@@ -85,64 +106,61 @@ export const PERMISSION_META: Record<
 
 export const PERMISSION_GROUPS: PermissionGroup[] = ["Issues", "Planning", "Admin", "Reporting"];
 
-/** Default permissions for a member with no custom role assigned. */
-const MEMBER_DEFAULTS: Record<RbacPermission, boolean> = {
-  create_issues:   true,
-  edit_any_issue:  false,
-  delete_issues:   false,
-  manage_sprints:  false,
-  manage_projects: false,
-  manage_roadmap:  false,
-  view_roadmap:    true,
-  manage_members:  false,
-  manage_settings: false,
-  manage_api_keys: false,
-  view_reports:    true,
-  export_data:     false,
+/** @deprecated fallback defaults — see permission_definitions.member_default in the DB. */
+const MEMBER_DEFAULTS: Record<string, boolean> = {
+  create_issues: true, edit_any_issue: false, delete_issues: false, manage_sprints: false,
+  manage_projects: false, manage_roadmap: false, view_roadmap: true, manage_members: false,
+  manage_settings: false, manage_api_keys: false, view_reports: true, export_data: false,
 };
 
-/** Default permissions for a viewer with no custom role assigned. */
-const VIEWER_DEFAULTS: Record<RbacPermission, boolean> = {
-  create_issues:   false,
-  edit_any_issue:  false,
-  delete_issues:   false,
-  manage_sprints:  false,
-  manage_projects: false,
-  manage_roadmap:  false,
-  view_roadmap:    true,
-  manage_members:  false,
-  manage_settings: false,
-  manage_api_keys: false,
-  view_reports:    true,
-  export_data:     false,
+/** @deprecated fallback defaults — see permission_definitions.viewer_default in the DB. */
+const VIEWER_DEFAULTS: Record<string, boolean> = {
+  create_issues: false, edit_any_issue: false, delete_issues: false, manage_sprints: false,
+  manage_projects: false, manage_roadmap: false, view_roadmap: true, manage_members: false,
+  manage_settings: false, manage_api_keys: false, view_reports: true, export_data: false,
 };
+
+/** Per-permission default access for member/viewer roles — loaded from permission_definitions at request time. */
+export type PermissionDefaults = Record<string, { member: boolean; viewer: boolean }>;
 
 /**
  * Check whether a user can perform an action.
  * - Owner and Admin always return true.
- * - If a custom role is provided, its permission set wins over system defaults.
- * - Falls back to member/viewer defaults when no custom role is assigned.
+ * - If a custom role is provided, its permission set wins over dynamic defaults.
+ * - Falls back to `defaults` (loaded from permission_definitions) when no
+ *   custom role is assigned, or to the hardcoded emergency fallback for
+ *   permissions the caller didn't supply dynamic defaults for.
  */
 export function rbacCanDo(
   permission: RbacPermission,
   baseRole: "owner" | "admin" | "member" | "viewer",
-  customRolePermissions?: RbacPermissionSet | null
+  customRolePermissions?: RbacPermissionSet | null,
+  defaults?: PermissionDefaults | null
 ): boolean {
   if (baseRole === "owner" || baseRole === "admin") return true;
   if (customRolePermissions != null) {
     return customRolePermissions[permission] ?? false;
   }
-  const defaults = baseRole === "member" ? MEMBER_DEFAULTS : VIEWER_DEFAULTS;
-  return defaults[permission];
+  const dynamic = defaults?.[permission];
+  if (dynamic) return baseRole === "member" ? dynamic.member : dynamic.viewer;
+  const fallback = baseRole === "member" ? MEMBER_DEFAULTS : VIEWER_DEFAULTS;
+  return fallback[permission] ?? false;
 }
 
 /**
  * Convenience wrapper — checks a permission against a TenantContext-shaped object.
  * Import this instead of rbacCanDo at call sites to avoid spreading ctx fields.
+ * `permissionDefaults` is optional so existing call sites (ctx objects built
+ * before this field existed) still compile and behave via the hardcoded
+ * fallback — no call site changes were required by this migration.
  */
 export function ctxCanDo(
-  ctx: { role: "owner" | "admin" | "member" | "viewer"; customRolePermissions: RbacPermissionSet | null },
+  ctx: {
+    role: "owner" | "admin" | "member" | "viewer";
+    customRolePermissions: RbacPermissionSet | null;
+    permissionDefaults?: PermissionDefaults | null;
+  },
   permission: RbacPermission
 ): boolean {
-  return rbacCanDo(permission, ctx.role, ctx.customRolePermissions);
+  return rbacCanDo(permission, ctx.role, ctx.customRolePermissions, ctx.permissionDefaults);
 }
