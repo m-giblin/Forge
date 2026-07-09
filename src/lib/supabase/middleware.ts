@@ -17,9 +17,10 @@ export async function updateSession(
   request: NextRequest,
   extraRequestHeaders?: Record<string, string>
 ) {
-  // The integration API authenticates with API keys, not user sessions. Skip
-  // session work entirely so the machine path pays no auth-cookie overhead.
-  if (request.nextUrl.pathname.startsWith("/api/v1")) {
+  // The integration API and SCIM provisioning both authenticate with bearer
+  // tokens, not user sessions. Skip session work entirely so the machine path
+  // pays no auth-cookie overhead.
+  if (request.nextUrl.pathname.startsWith("/api/v1") || request.nextUrl.pathname.startsWith("/api/scim")) {
     return NextResponse.next({ request });
   }
 
@@ -63,6 +64,7 @@ export async function updateSession(
     path.startsWith("/preview-landing") ||
     path.startsWith("/join") ||
     path.startsWith("/api/v1") ||
+    path.startsWith("/api/scim") ||
     path.startsWith("/api/auth/") ||
     path.startsWith("/api/signup") ||
     path.startsWith("/api/cron/") ||

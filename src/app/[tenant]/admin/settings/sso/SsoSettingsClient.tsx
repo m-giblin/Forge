@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { SsoConfig, SsoProvider } from "@/lib/repositories/ssoConfig";
 import { saveSsoConfigAction, saveSamlProviderAction, deleteSamlProviderAction } from "./actions";
+import { generateScimTokenAction, revokeScimTokenAction } from "./scimActions";
 
 const PROVIDER_OPTIONS: { value: SsoProvider; label: string; icon: string; color: string }[] = [
   { value: "google", label: "Google Workspace", icon: "G", color: "bg-red-50 text-red-600 border-red-200" },
@@ -139,7 +140,89 @@ function Card({ title, description, children }: { title?: string; description?: 
   );
 }
 
-export default function SsoSettingsClient({ slug, initial }: { slug: string; initial: SsoConfig | null }) {
+function ScimCard({ slug, initial }: { slug: string; initial: { configured: boolean; lastUsedAt: string | null } }) {
+  const [token, setToken] = useState<string | null>(null);
+  const [configured, setConfigured] = useState(initial.configured);
+  const [generating, startGenerate] = useTransition();
+  const [revoking, startRevoke] = useTransition();
+  const [copied, setCopied] = useState(false);
+
+  const baseUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/scim/v2`;
+
+  function generate() {
+    startGenerate(async () => {
+      const raw = await generateScimTokenAction(slug);
+      setToken(raw);
+      setConfigured(true);
+    });
+  }
+
+  function revoke() {
+    if (!confirm("Revoke the SCIM token? Your IdP will stop being able to provision or deprovision users until you generate a new one.")) return;
+    startRevoke(async () => {
+      await revokeScimTokenAction(slug);
+      setConfigured(false);
+      setToken(null);
+    });
+  }
+
+  function copyToken() {
+    if (!token) return;
+    navigator.clipboard.writeText(token);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+      <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-neutral-800">SCIM provisioning</p>
+          <p className="text-xs text-neutral-500 mt-0.5">Automated user provisioning + deprovisioning from your IdP directory.</p>
+        </div>
+        <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${configured ? "bg-green-100 text-green-700" : "bg-neutral-200 text-neutral-500"}`}>
+          {configured ? "Configured" : "Not configured"}
+        </span>
+      </div>
+      <div className="px-5 py-4 space-y-3">
+        <div>
+          <label className="block text-xs font-medium text-neutral-600 mb-1.5">SCIM base URL</label>
+          <code className="block w-full rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 break-all">{baseUrl}</code>
+        </div>
+        {token && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+            <p className="text-xs font-medium text-amber-800 mb-1">Bearer token — copy it now, it won&apos;t be shown again:</p>
+            <div className="flex items-center gap-2">
+              <code className="flex-1 text-xs break-all text-amber-900">{token}</code>
+              <button onClick={copyToken} className="shrink-0 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium px-2.5 py-1">
+                {copied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+        )}
+        {initial.lastUsedAt && !token && (
+          <p className="text-xs text-neutral-400">Last used: {new Date(initial.lastUsedAt).toLocaleString()}</p>
+        )}
+        <div className="flex items-center gap-3 pt-1">
+          <button
+            onClick={generate}
+            disabled={generating}
+            className="px-4 py-2 text-sm font-medium bg-neutral-900 hover:bg-neutral-700 disabled:opacity-50 text-white rounded-lg transition-colors"
+          >
+            {generating ? "Generating…" : configured ? "Regenerate token" : "Generate token"}
+          </button>
+          {configured && (
+            <button onClick={revoke} disabled={revoking} className="px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+              {revoking ? "Revoking…" : "Revoke"}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function SsoSettingsClient({ slug, initial, scimStatus }: { slug: string; initial: SsoConfig | null; scimStatus: { configured: boolean; lastUsedAt: string | null } }) {
   const [enabled, setEnabled] = useState(initial?.enabled ?? false);
   const [provider, setProvider] = useState<SsoProvider>(initial?.provider ?? "google");
   const [domain, setDomain] = useState(initial?.allowed_domain ?? "");
@@ -295,6 +378,9 @@ export default function SsoSettingsClient({ slug, initial }: { slug: string; ini
         {saved && <span className="text-sm text-green-600 font-medium">✓ Saved</span>}
         {error && <span className="text-sm text-red-600">{error}</span>}
       </div>
+
+      {/* SCIM — independent of which SSO method is chosen above */}
+      <ScimCard slug={slug} initial={scimStatus} />
     </div>
   );
 }
