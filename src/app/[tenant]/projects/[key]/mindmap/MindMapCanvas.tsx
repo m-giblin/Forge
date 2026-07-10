@@ -11,6 +11,7 @@ import {
   type Node,
   type Edge,
   type NodeProps,
+  type NodeChange,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import dagre from "dagre";
@@ -203,6 +204,23 @@ export default function MindMapCanvas({
   const router = useRouter();
   const [tree, setTree] = useState(initialTree);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  // Dagre recomputes every node's position on each layout(); a dragged node's
+  // position is stored here and overlaid on top so a drag survives expand/
+  // collapse and "+ Add" instead of snapping back to the auto-layout spot.
+  const [dragOverrides, setDragOverrides] = useState<Map<string, { x: number; y: number }>>(new Map());
+
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setDragOverrides((prev) => {
+      let next = prev;
+      for (const change of changes) {
+        if (change.type === "position" && change.position) {
+          if (next === prev) next = new Map(prev);
+          next.set(change.id, change.position);
+        }
+      }
+      return next;
+    });
+  }, []);
 
   const toggle = useCallback((id: string) => {
     setCollapsed((prev) => {
@@ -248,9 +266,10 @@ export default function MindMapCanvas({
     () =>
       laidOutNodes.map((n) => ({
         ...n,
+        position: dragOverrides.get(n.id) ?? n.position,
         data: { ...n.data, onToggle: toggle, onOpen: open, onAddChild: addChild } as FlowNodeData,
       })),
-    [laidOutNodes, toggle, open, addChild]
+    [laidOutNodes, toggle, open, addChild, dragOverrides]
   );
 
   return (
@@ -259,6 +278,7 @@ export default function MindMapCanvas({
         nodes={nodes}
         edges={edges}
         nodeTypes={NODE_TYPES}
+        onNodesChange={onNodesChange}
         fitView
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{ style: { stroke: "#d4d4d8", strokeWidth: 1.75 } }}
