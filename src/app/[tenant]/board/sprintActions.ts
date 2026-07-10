@@ -8,6 +8,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { sprintsRepo, type Sprint } from "@/lib/repositories/sprints";
 import { notifyChatSprintEvent } from "@/lib/services/chatNotifications";
 import { notificationsRepo } from "@/lib/repositories/notifications";
+import { grokComplete } from "@/lib/services/grokAi";
 
 function assertCanEdit(ctx: Parameters<typeof ctxCanDo>[0]) {
   if (!ctxCanDo(ctx, "manage_sprints")) throw new Error("You don't have permission to manage sprints.");
@@ -287,23 +288,6 @@ export async function parseSprintDocAction(
   if (!ctx) throw new Error("Not authorized");
   assertCanEdit(ctx);
 
-  // eslint-disable-next-line no-restricted-imports -- service-role: AI key lookup (sec09)
-  const { createSupabaseServiceClient: svcClient } = await import("@/lib/supabase/service");
-  const { serverEnv } = await import("@/lib/env");
-
-  // Get tenant AI key or fall back to platform key
-  const db = svcClient();
-  const { data: keyRow } = await db
-    .from("tenant_ai_keys")
-    .select("key_enc, key_nonce, key_tag")
-    .eq("tenant_id", ctx.tenant.id)
-    .eq("provider", "xai")
-    .eq("is_active", true)
-    .maybeSingle();
-
-  const apiKey = keyRow ? await decryptKey(keyRow) : serverEnv().GROK_API_KEY;
-  if (!apiKey) throw new Error("No AI key configured. Add an xAI key in Admin → AI Settings.");
-
   const today = new Date().toISOString().slice(0, 10);
   const prompt = `You are a sprint planning assistant. Parse the following sprint plan document and return a JSON array of sprint objects.
 
@@ -321,24 +305,10 @@ Document:
 ${text.slice(0, 8000)}
 ---`;
 
-  const res = await fetch("https://api.x.ai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "grok-3-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.1,
-      max_tokens: 2000,
-    }),
-    signal: AbortSignal.timeout(30_000),
-  });
-
-  if (!res.ok) throw new Error(`AI error ${res.status}`);
-  const json = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-  const raw = json.choices?.[0]?.message?.content?.trim() ?? "[]";
+  const raw = await grokComplete(ctx.tenant.id, prompt, { temperature: 0.1, maxTokens: 2000, feature: "sprint_plan_parser" });
 
   try {
-    const parsed = JSON.parse(raw) as unknown;
+    const parsed = JSON.parse(raw || "[]") as unknown;
     if (!Array.isArray(parsed)) throw new Error("AI did not return an array");
     return (parsed as Record<string, string>[]).map((s) => ({
       name:      String(s.name ?? "Sprint"),
@@ -348,21 +318,5 @@ ${text.slice(0, 8000)}
     }));
   } catch {
     throw new Error("AI returned unreadable output. Try again or simplify the document.");
-  }
-}
-
-async function decryptKey(row: { key_enc: string; key_nonce: string; key_tag: string }): Promise<string | null> {
-  try {
-    const secret = process.env.FORGE_AI_KEY_SECRET;
-    if (!secret) return null;
-    const keyMat = await crypto.subtle.importKey("raw", Buffer.from(secret, "hex"), "AES-GCM", false, ["decrypt"]);
-    const iv = Buffer.from(row.key_nonce, "base64");
-    const ciphertext = Buffer.from(row.key_enc, "base64");
-    const tag = Buffer.from(row.key_tag, "base64");
-    const combined = Buffer.concat([ciphertext, tag]);
-    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, keyMat, combined);
-    return new TextDecoder().decode(plain);
-  } catch {
-    return null;
   }
 }

@@ -4,6 +4,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 // eslint-disable-next-line no-restricted-imports -- service-role for issue creation
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { grokComplete } from "@/lib/services/grokAi";
 
 interface SubIssueDraft {
   title: string;
@@ -30,17 +31,6 @@ export async function decomposeIssueAction(
 
   if (!issue) throw new Error("Issue not found.");
 
-  const grokKey = process.env.GROK_API_KEY;
-  if (!grokKey) {
-    return {
-      subIssues: [
-        { title: "Sub-task 1", description: "First breakdown task.", type: "task", priority: "medium" },
-        { title: "Sub-task 2", description: "Second breakdown task.", type: "task", priority: "medium" },
-        { title: "Sub-task 3", description: "Third breakdown task.", type: "task", priority: "low" },
-      ],
-    };
-  }
-
   const prompt = `You are a senior engineering lead. Break down the following issue into 3-6 concrete, actionable sub-tasks.
 
 Issue: "${(issue.title as string).slice(0, 200)}"
@@ -55,28 +45,23 @@ Return a JSON array of sub-task objects. Each object must have:
 Return ONLY the JSON array, no prose.`;
 
   try {
-    const res = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${grokKey}`,
-      },
-      body: JSON.stringify({
-        model: "grok-3-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.4,
-        max_tokens: 1200,
-      }),
-    });
-    const json = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-    const raw = json.choices?.[0]?.message?.content ?? "[]";
+    const raw = await grokComplete(ctx.tenant.id, prompt, { temperature: 0.4, maxTokens: 1200, feature: "issue_decompose" });
     const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-    const parsed: unknown = JSON.parse(clean);
+    const parsed: unknown = JSON.parse(clean || "[]");
     if (!Array.isArray(parsed)) {
       return { subIssues: [], error: "AI returned an unexpected format. Try again." };
     }
     return { subIssues: parsed as SubIssueDraft[] };
-  } catch {
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("No AI key configured")) {
+      return {
+        subIssues: [
+          { title: "Sub-task 1", description: "First breakdown task.", type: "task", priority: "medium" },
+          { title: "Sub-task 2", description: "Second breakdown task.", type: "task", priority: "medium" },
+          { title: "Sub-task 3", description: "Third breakdown task.", type: "task", priority: "low" },
+        ],
+      };
+    }
     return { subIssues: [], error: "AI decomposition failed. Try again." };
   }
 }

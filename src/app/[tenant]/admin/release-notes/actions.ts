@@ -3,6 +3,7 @@
 import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role for cross-tenant issue fetch
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { grokComplete } from "@/lib/services/grokAi";
 
 export interface ReleaseIssue {
   key: string;
@@ -32,7 +33,6 @@ export async function generateReleaseNotesAction(
   if (!ctx) throw new Error("Unauthorized");
   if (ctx.role !== "owner" && ctx.role !== "admin") throw new Error("Admin only");
 
-  const env = process.env;
   const svc = createSupabaseServiceClient();
 
   // Fetch done issues in date range
@@ -84,18 +84,15 @@ export async function generateReleaseNotesAction(
     projectName: i.projects?.name ?? "Unknown",
   }));
 
-  if (!env.GROK_API_KEY) {
-    // Fallback: categorize without AI
-    return {
-      version: "v1.0",
-      summary: `${issues.length} issues completed between ${fromDate} and ${toDate}.`,
-      features: rawIssues.filter((i) => i.type === "feature").map((i) => `${i.key}: ${i.title}`),
-      fixes: rawIssues.filter((i) => i.type === "bug").map((i) => `${i.key}: ${i.title}`),
-      improvements: rawIssues.filter((i) => i.type === "task").map((i) => `${i.key}: ${i.title}`),
-      breaking: [],
-      rawIssues,
-    };
-  }
+  const noAiFallback = (): ReleaseNotes => ({
+    version: "v1.0",
+    summary: `${issues.length} issues completed between ${fromDate} and ${toDate}.`,
+    features: rawIssues.filter((i) => i.type === "feature").map((i) => `${i.key}: ${i.title}`),
+    fixes: rawIssues.filter((i) => i.type === "bug").map((i) => `${i.key}: ${i.title}`),
+    improvements: rawIssues.filter((i) => i.type === "task").map((i) => `${i.key}: ${i.title}`),
+    breaking: [],
+    rawIssues,
+  });
 
   const issueList = rawIssues
     .map((i) => `- [${i.key}] (${i.type}, ${i.priority}) ${i.title}`)
@@ -121,21 +118,16 @@ Respond ONLY with valid JSON in this exact format:
   "breaking": ["<breaking change if any>", ...]
 }`;
 
-  const res = await fetch("https://api.x.ai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.GROK_API_KEY}` },
-    body: JSON.stringify({
-      model: "grok-3-mini",
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
-      temperature: 0.3,
-      max_tokens: 1500,
-    }),
-    signal: AbortSignal.timeout(30_000),
-  });
-
-  if (!res.ok) throw new Error(`AI API error ${res.status}`);
-  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const text = json.choices?.[0]?.message?.content ?? "";
+  let text: string;
+  try {
+    text = await grokComplete(ctx.tenant.id,
+      [{ role: "system", content: system }, { role: "user", content: user }],
+      { temperature: 0.3, maxTokens: 1500, feature: "release_notes" },
+    );
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("No AI key configured")) return noAiFallback();
+    throw e;
+  }
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("AI returned unexpected format");
 

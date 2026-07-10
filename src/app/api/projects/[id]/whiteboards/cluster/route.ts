@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getTenantContext } from "@/lib/auth";
-import { serverEnv } from "@/lib/env";
+import { grokComplete } from "@/lib/services/grokAi";
 
 interface StickyInput {
   id: string;
@@ -12,21 +12,13 @@ interface ClusterGroup {
   stickyIds: string[];
 }
 
-async function callGrok(stickies: StickyInput[]): Promise<ClusterGroup[]> {
-  const apiKey = serverEnv().GROK_API_KEY;
-  if (!apiKey) throw new Error("GROK_API_KEY not set");
-
+async function callGrok(tenantId: string, stickies: StickyInput[]): Promise<ClusterGroup[]> {
   const stickyList = stickies.map((s, i) => `[${i + 1}] id="${s.id}": ${s.text}`).join("\n");
 
-  const res = await fetch("https://api.x.ai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "grok-3-mini",
-      messages: [
-        {
-          role: "system",
-          content: `You are a workshop facilitator helping a product team cluster sticky notes into named themes.
+  const text = await grokComplete(tenantId, [
+    {
+      role: "system",
+      content: `You are a workshop facilitator helping a product team cluster sticky notes into named themes.
 Return ONLY a JSON array. No prose. No markdown. Just raw JSON.
 Format: [{"name":"<short group label>","stickyIds":["<id1>","<id2>"]}]
 Rules:
@@ -35,24 +27,16 @@ Rules:
 - Each group name is 2-5 words, title case
 - Every sticky must appear in exactly one group
 - stickyIds must match the ids from the input exactly`,
-        },
-        {
-          role: "user",
-          content: `Cluster these sticky notes into named themes:\n\n${stickyList}`,
-        },
-      ],
-      temperature: 0.3,
-      max_tokens: 800,
-    }),
-  });
-
-  if (!res.ok) throw new Error(`Grok API error: ${res.status}`);
-  const json = await res.json();
-  const text = json.choices?.[0]?.message?.content ?? "[]";
+    },
+    {
+      role: "user",
+      content: `Cluster these sticky notes into named themes:\n\n${stickyList}`,
+    },
+  ], { temperature: 0.3, maxTokens: 800, feature: "whiteboard_cluster" });
 
   // Strip markdown code fences if Grok wraps it
   const clean = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-  return JSON.parse(clean) as ClusterGroup[];
+  return JSON.parse(clean || "[]") as ClusterGroup[];
 }
 
 export async function POST(
@@ -84,7 +68,7 @@ export async function POST(
   }));
 
   try {
-    const groups = await callGrok(sanitized);
+    const groups = await callGrok(ctx.tenant.id, sanitized);
     return NextResponse.json({ groups });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "AI clustering failed";

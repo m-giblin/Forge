@@ -82,7 +82,7 @@ Write a retrospective summary in 3 sections:
 
 Keep it under 300 words. No emojis. No fluff.`;
 
-  const summary = await grokComplete(ctx.tenant.id, prompt, { temperature: 0.3, maxTokens: 600 });
+  const summary = await grokComplete(ctx.tenant.id, prompt, { temperature: 0.3, maxTokens: 600, feature: "sprint_retro" });
 
   // Store on the sprint row
   await svc

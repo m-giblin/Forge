@@ -7,6 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issueRiskGatesRepo } from "@/lib/repositories/issueRiskGates";
 import { issueActivityRepo } from "@/lib/repositories/issueActivity";
+import { grokComplete } from "@/lib/services/grokAi";
 
 export interface PrImpactPrediction {
   risk: "low" | "medium" | "high" | "critical";
@@ -41,23 +42,13 @@ export async function predictPrImpactAction(
     .eq("issue_id", issueId)
     .limit(5);
 
-  const grokKey = process.env.GROK_API_KEY;
   let prediction: PrImpactPrediction;
 
-  if (!grokKey) {
-    prediction = {
-      risk: "medium",
-      scope: "component-level",
-      summary: "Based on the issue description, this change appears to be moderate in scope. Enable GROK_API_KEY for real AI analysis.",
-      concerns: ["Could affect related components", "Testing coverage should be verified"],
-      suggestions: ["Add unit tests before merging", "Review with a second set of eyes"],
-    };
-  } else {
-    const prContext = links && links.length > 0
-      ? links.map((l) => `- PR #${l.pr_number}: "${l.pr_title}" (${l.pr_state}) in ${l.repo_full_name}`).join("\n")
-      : "No pull requests linked yet.";
+  const prContext = links && links.length > 0
+    ? links.map((l) => `- PR #${l.pr_number}: "${l.pr_title}" (${l.pr_state}) in ${l.repo_full_name}`).join("\n")
+    : "No pull requests linked yet.";
 
-    const prompt = `You are a senior software engineer reviewing a pull request before it merges. Assess the risk and impact.
+  const prompt = `You are a senior software engineer reviewing a pull request before it merges. Assess the risk and impact.
 
 Issue: "${(issue.title as string).slice(0, 200)}"
 Type: ${issue.type} | Priority: ${issue.priority}
@@ -75,22 +66,20 @@ Return a JSON object with:
 
 Return ONLY the JSON object, no prose.`;
 
-    try {
-      const res = await fetch("https://api.x.ai/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${grokKey}` },
-        body: JSON.stringify({
-          model: "grok-3-mini",
-          messages: [{ role: "user", content: prompt }],
-          temperature: 0.3,
-          max_tokens: 600,
-        }),
-      });
-      const json = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-      const raw = json.choices?.[0]?.message?.content ?? "{}";
-      const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
-      prediction = JSON.parse(clean) as PrImpactPrediction;
-    } catch {
+  try {
+    const raw = await grokComplete(ctx.tenant.id, prompt, { temperature: 0.3, maxTokens: 600, feature: "pr_impact" });
+    const clean = raw.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
+    prediction = JSON.parse(clean) as PrImpactPrediction;
+  } catch (e) {
+    if (e instanceof Error && e.message.includes("No AI key configured")) {
+      prediction = {
+        risk: "medium",
+        scope: "component-level",
+        summary: "Based on the issue description, this change appears to be moderate in scope. Enable GROK_API_KEY for real AI analysis.",
+        concerns: ["Could affect related components", "Testing coverage should be verified"],
+        suggestions: ["Add unit tests before merging", "Review with a second set of eyes"],
+      };
+    } else {
       return { error: "AI analysis failed. Try again." };
     }
   }

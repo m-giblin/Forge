@@ -2,27 +2,8 @@ import "server-only";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issuesRepo, type TriageSuggestion } from "@/lib/repositories/issues";
 import { fieldConfigRepo } from "@/lib/repositories/fieldConfig";
-import { serverEnv } from "@/lib/env";
+import { grokComplete } from "@/lib/services/grokAi";
 import { logger } from "@/lib/logger";
-
-async function callGrok(prompt: string): Promise<string> {
-  const env = serverEnv();
-  if (!env.GROK_API_KEY) throw new Error("GROK_API_KEY not set");
-  const res = await fetch("https://api.x.ai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.GROK_API_KEY}` },
-    body: JSON.stringify({
-      model: "grok-3-mini",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
-      max_tokens: 512,
-    }),
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!res.ok) throw new Error(`Grok ${res.status}`);
-  const json = await res.json() as { choices?: Array<{ message?: { content?: string } }> };
-  return json.choices?.[0]?.message?.content ?? "";
-}
 
 export async function triageIssue(tenantId: string, issueId: string): Promise<TriageSuggestion | null> {
   try {
@@ -68,7 +49,7 @@ Respond with this exact JSON structure:
   "reasoning": "<2-3 sentence explanation of your suggestions>"
 }`;
 
-    const raw = await callGrok(prompt);
+    const raw = await grokComplete(tenantId, prompt, { temperature: 0.2, maxTokens: 512, feature: "issue_triage" });
 
     // Strip markdown fences if model wraps the JSON
     const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();

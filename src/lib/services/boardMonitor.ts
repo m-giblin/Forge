@@ -6,7 +6,7 @@
 import "server-only";
 // eslint-disable-next-line no-restricted-imports -- service-role: cron runs outside user JWT
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { serverEnv } from "@/lib/env";
+import { grokComplete } from "@/lib/services/grokAi";
 
 export type AlertLevel = "critical" | "warning" | "info";
 
@@ -137,12 +137,10 @@ function runRules(issues: IssueRow[]): BoardAlert[] {
 // ─── Grok AI narrative ────────────────────────────────────────────────────────
 
 async function callGrokDigest(
+  tenantId: string,
   issues: IssueRow[],
   alerts: BoardAlert[]
 ): Promise<string | null> {
-  const env = serverEnv();
-  if (!env.GROK_API_KEY) return null;
-
   const summary = {
     total_open: issues.length,
     by_status: Object.entries(
@@ -166,27 +164,10 @@ async function callGrokDigest(
   const userMsg = `--- BOARD SNAPSHOT ---\n${JSON.stringify(summary, null, 2)}\n--- END ---\n\nWrite a brief health assessment covering: (1) overall status in one sentence, (2) the top 1-2 risks to address today, (3) one positive if there is one. Keep it under 120 words.`;
 
   try {
-    const res = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env.GROK_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "grok-3-mini",
-        messages: [
-          { role: "system", content: systemMsg },
-          { role: "user", content: userMsg },
-        ],
-        temperature: 0.4,
-        max_tokens: 300,
-      }),
-      signal: AbortSignal.timeout(20_000),
-    });
-
-    if (!res.ok) return null;
-    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    return json.choices?.[0]?.message?.content ?? null;
+    return await grokComplete(tenantId, [
+      { role: "system", content: systemMsg },
+      { role: "user", content: userMsg },
+    ], { temperature: 0.4, maxTokens: 300, feature: "board_monitor" });
   } catch {
     return null;
   }
@@ -226,7 +207,7 @@ export async function runBoardMonitor(tenantId: string): Promise<BoardHealthDige
   }));
 
   const alerts = runRules(issues);
-  const ai_digest = await callGrokDigest(issues, alerts);
+  const ai_digest = await callGrokDigest(tenantId, issues, alerts);
 
   const digest: BoardHealthDigest = {
     scanned_at: new Date().toISOString(),

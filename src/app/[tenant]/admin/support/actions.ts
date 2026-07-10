@@ -145,6 +145,7 @@ export async function submitPlatformTicketAction(
   // AI triage — non-fatal
   try {
     const triage = await triageSupportTicket({
+      tenantId: ctx.tenant.id,
       title: ticket.title,
       body: ticket.body,
       tenantName: ctx.tenant.name,

@@ -8,6 +8,7 @@ import { ctxCanDo } from "@/lib/rbac";
 import { canDo } from "@/lib/permissions";
 // eslint-disable-next-line no-restricted-imports -- service-role required for child-count and load-more reads
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { grokComplete } from "@/lib/services/grokAi";
 
 // Every action re-checks tenant membership server-side. The client cannot be
 // trusted; authorization lives here + RLS, never in the UI.
@@ -121,45 +122,26 @@ export async function draftIssueFromDescriptionAction(
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
 
-  const { serverEnv } = await import("@/lib/env");
-  const env = serverEnv();
-  if (!env.GROK_API_KEY) {
-    // Fallback: use the raw description as the title
-    return { title: rawDescription.slice(0, 100), description: rawDescription, priority: "medium", type: "bug" };
-  }
-
   const system = `You are an issue tracker assistant. Given a raw description of a problem or task, extract structured issue fields. Respond ONLY with a JSON object, no prose.`;
   const user = `Description: "${rawDescription.slice(0, 1000)}"\n\nExtract: {"title": "<concise title under 80 chars>", "description": "<cleaned-up description with context>", "priority": "<low|medium|high|urgent>", "type": "<bug|feature|task|question>"}`;
 
   try {
-    const res = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.GROK_API_KEY}` },
-      body: JSON.stringify({
-        model: "grok-3-mini",
-        messages: [{ role: "system", content: system }, { role: "user", content: user }],
-        temperature: 0.2,
-        max_tokens: 400,
-      }),
-      signal: AbortSignal.timeout(15_000),
-    });
-
-    if (res.ok) {
-      const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-      const text = json.choices?.[0]?.message?.content ?? "";
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as Partial<IssueDraft>;
-        return {
-          title: (parsed.title ?? rawDescription.slice(0, 80)).slice(0, 80),
-          description: parsed.description ?? rawDescription,
-          priority: (["low", "medium", "high", "urgent"].includes(parsed.priority ?? "") ? parsed.priority : "medium") as IssuePriority,
-          type: (["bug", "feature", "task", "question"].includes(parsed.type ?? "") ? parsed.type : "bug") as IssueType,
-        };
-      }
+    const text = await grokComplete(ctx.tenant.id,
+      [{ role: "system", content: system }, { role: "user", content: user }],
+      { temperature: 0.2, maxTokens: 400, feature: "draft_issue" },
+    );
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]) as Partial<IssueDraft>;
+      return {
+        title: (parsed.title ?? rawDescription.slice(0, 80)).slice(0, 80),
+        description: parsed.description ?? rawDescription,
+        priority: (["low", "medium", "high", "urgent"].includes(parsed.priority ?? "") ? parsed.priority : "medium") as IssuePriority,
+        type: (["bug", "feature", "task", "question"].includes(parsed.type ?? "") ? parsed.type : "bug") as IssueType,
+      };
     }
   } catch {
-    // fall through to fallback
+    // fall through to fallback (covers missing key + any API failure)
   }
 
   return { title: rawDescription.slice(0, 80), description: rawDescription, priority: "medium", type: "bug" };

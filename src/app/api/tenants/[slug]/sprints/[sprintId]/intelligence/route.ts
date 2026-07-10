@@ -2,26 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { loadTenantFlags } from "@/lib/services/featureFlags";
-import { serverEnv } from "@/lib/env";
-
-type ChatMessage = { role: "system" | "user"; content: string };
-
-async function callGrok(messages: ChatMessage[], apiKey: string): Promise<string> {
-  const res = await fetch("https://api.x.ai/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ model: "grok-3-mini", messages, temperature: 0.4, max_tokens: 1500 }),
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Grok API error ${res.status}: ${body.slice(0, 200)}`);
-  }
-  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  const text = json.choices?.[0]?.message?.content;
-  if (!text) throw new Error("Grok returned an empty response.");
-  return text;
-}
+import { grokComplete } from "@/lib/services/grokAi";
 
 export async function POST(
   _req: NextRequest,
@@ -168,16 +149,11 @@ export async function POST(
 Sprint data:
 ${metricsBlock}`;
 
-  const env = serverEnv();
-  if (!env.GROK_API_KEY) {
-    return NextResponse.json({ error: "AI is not configured on this platform." }, { status: 503 });
-  }
-
   let raw: string;
   try {
-    raw = await callGrok(
+    raw = await grokComplete(ctx.tenant.id,
       [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
-      env.GROK_API_KEY
+      { temperature: 0.4, maxTokens: 1500, feature: "sprint_intelligence" },
     );
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "AI call failed." }, { status: 502 });

@@ -7,7 +7,7 @@
 import "server-only";
 // eslint-disable-next-line no-restricted-imports -- service-role: cron runs outside user JWT
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { serverEnv } from "@/lib/env";
+import { grokComplete } from "@/lib/services/grokAi";
 
 export interface StandupEntry {
   section: "shipped" | "in_progress" | "blocked" | "needs_triage";
@@ -102,7 +102,7 @@ export async function generateStandupDigest(tenantId: string): Promise<StandupDi
     unassigned: unassigned.length,
   };
 
-  const ai_summary = await generateAISummary(entries, stats);
+  const ai_summary = await generateAISummary(tenantId, entries, stats);
   const now = new Date();
 
   const digest: StandupDigest = {
@@ -121,10 +121,7 @@ export async function generateStandupDigest(tenantId: string): Promise<StandupDi
   return digest;
 }
 
-async function generateAISummary(entries: StandupEntry[], stats: ReturnType<typeof Object.assign>): Promise<string | null> {
-  const env = serverEnv();
-  if (!env.GROK_API_KEY) return null;
-
+async function generateAISummary(tenantId: string, entries: StandupEntry[], stats: ReturnType<typeof Object.assign>): Promise<string | null> {
   const body = entries.map((e) => `${e.section.toUpperCase()}:\n${e.items.join("\n")}`).join("\n\n");
   const statsLine = `Stats: ${stats.shipped_today} shipped today, ${stats.in_progress} in progress, ${stats.blocked} blocked, ${stats.unassigned} unassigned.`;
 
@@ -132,20 +129,9 @@ async function generateAISummary(entries: StandupEntry[], stats: ReturnType<type
   const user = `${statsLine}\n\n${body}\n\nWrite a 2-3 sentence summary covering: what the team accomplished, current focus, and any blockers or risks that need immediate attention.`;
 
   try {
-    const res = await fetch("https://api.x.ai/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.GROK_API_KEY}` },
-      body: JSON.stringify({
-        model: "grok-3-mini",
-        messages: [{ role: "system", content: system }, { role: "user", content: user }],
-        temperature: 0.3,
-        max_tokens: 200,
-      }),
-      signal: AbortSignal.timeout(15_000),
+    return await grokComplete(tenantId, [{ role: "system", content: system }, { role: "user", content: user }], {
+      temperature: 0.3, maxTokens: 200, feature: "standup_digest",
     });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    return json.choices?.[0]?.message?.content ?? null;
   } catch {
     return null;
   }

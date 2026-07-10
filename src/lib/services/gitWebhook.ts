@@ -5,9 +5,17 @@ import { issuesRepo } from "@/lib/repositories/issues";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { logger } from "@/lib/logger";
 import { grokComplete } from "@/lib/services/grokAi";
+import { getRateLimiter } from "@/lib/providers/rate-limiter";
 
 // Parse issue keys like FORGE-123, WEB-42 from text
 const KEY_RE = /\b([A-Z]{2,10}-\d+)\b/g;
+
+// Commit AI summaries fire per commit with no natural ceiling — a busy repo,
+// or a scripted burst of commits, could otherwise generate unbounded AI spend
+// on the platform key. Cap per tenant per hour; commits over the cap still
+// link to their issue, they just skip the AI summary.
+const COMMIT_SUMMARY_LIMIT = 50;
+const COMMIT_SUMMARY_WINDOW_MS = 60 * 60 * 1000;
 // Closing keywords that trigger auto-close on PR merge
 const CLOSE_RE = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:#|([A-Z]{2,10}-))?(\d+)/gi;
 
@@ -114,14 +122,18 @@ export async function handleGithubWebhook(
           const shortSha = (commit.id ?? "").slice(0, 7);
           const commitUrl = commit.url ?? `https://github.com/${repoFullName}/commit/${commit.id}`;
 
-          // Best-effort Grok summary — fire and forget per commit.
+          // Best-effort Grok summary — fire and forget per commit, capped per tenant/hour.
           void (async () => {
             try {
+              const rl = getRateLimiter();
+              const { allowed } = await rl.check(`commit-summary:${tenantId}`, COMMIT_SUMMARY_LIMIT, COMMIT_SUMMARY_WINDOW_MS);
+              if (!allowed) return;
+
               const aiSummary = await grokComplete(tenantId,
                 `Summarize this git commit in one sentence (max 120 chars), starting with a verb. Focus on what changed and why, not the issue key.
 
 Message: ${(commit.message ?? "").slice(0, 500)}`,
-                { model: "grok-3-mini", temperature: 0.2, maxTokens: 80 },
+                { model: "grok-3-mini", temperature: 0.2, maxTokens: 80, feature: "commit_summary" },
               );
 
               for (const key of commitKeys) {

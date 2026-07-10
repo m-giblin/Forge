@@ -10,6 +10,7 @@ import { serverEnv } from "@/lib/env";
 import { getRateLimiter } from "@/lib/providers/rate-limiter";
 import { resolvePills, type Pill } from "./pills";
 import type { AIProvider } from "@/lib/repositories/aiKeys";
+import { recordAiUsage } from "@/lib/services/grokAi";
 
 export type { AIProvider };
 
@@ -83,9 +84,11 @@ export async function callSoundingBoard(params: {
 
   let result: ProviderResult;
   let providerLabel: string;
+  let modelUsed: string;
 
   if (byoKey) {
     providerLabel = `byo:${byoKey.provider}`;
+    modelUsed = BYO_MODEL_BY_PROVIDER[byoKey.provider];
     result = await dispatchBYO(messages, byoKey.provider, byoKey.apiKey);
   } else {
     const env = serverEnv();
@@ -94,11 +97,26 @@ export async function callSoundingBoard(params: {
     }
     result = await callOpenAICompat(messages, env.GROK_API_KEY, "https://api.x.ai/v1", "grok-3-mini");
     providerLabel = "platform:grok";
+    modelUsed = "grok-3-mini";
   }
+
+  void recordAiUsage({
+    tenantId, feature: "sounding_board", model: modelUsed,
+    keySource: byoKey ? "byo" : "platform",
+    inputTokens: result.tokensInput ?? 0,
+    outputTokens: result.tokensOutput ?? 0,
+  });
 
   const promptSent = JSON.stringify(messages);
   return { text: result.text, provider: providerLabel, promptSent, tokensInput: result.tokensInput, tokensOutput: result.tokensOutput };
 }
+
+const BYO_MODEL_BY_PROVIDER: Record<AIProvider, string> = {
+  xai: "grok-3-mini",
+  openai: "gpt-4o",
+  anthropic: "claude-sonnet-4-6",
+  gemini: "gemini-2.0-flash",
+};
 
 // ---------------------------------------------------------------------------
 // Provider dispatch
