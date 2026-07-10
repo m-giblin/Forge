@@ -165,6 +165,13 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href={`/${slug}/think-tank/${idea.id}/canvas`}
+            className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-700 hover:bg-violet-100"
+            title="Brainstorm freely, then test the shape with AI before converting"
+          >
+            ✨ Canvas
+          </Link>
           <a
             href={`/${slug}/think-tank/${idea.id}/print`}
             target="_blank"
