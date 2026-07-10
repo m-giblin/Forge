@@ -65,6 +65,7 @@ export default async function ProjectDetailPage({
   const tabs: { id: string; label: string; href: string; active: boolean }[] = [
     { id: "overview", label: "Overview", href: base, active: tab === "overview" },
     { id: "board", label: "Board", href: `/${slug}/board?project=${data.project.key}`, active: false },
+    { id: "mindmap", label: "Mind Map", href: `${base}/mindmap`, active: false },
     { id: "timeline", label: "Timeline", href: `${base}?tab=timeline`, active: tab === "timeline" },
     { id: "costs", label: "Costs", href: `${base}?tab=costs`, active: tab === "costs" },
     { id: "whiteboards", label: "Whiteboards", href: `${base}?tab=whiteboards`, active: tab === "whiteboards" },

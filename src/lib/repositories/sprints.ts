@@ -11,6 +11,7 @@ export type Sprint = {
   status: SprintStatus;
   startDate: string | null;
   endDate: string | null;
+  epicId: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -25,12 +26,13 @@ function mapRow(r: Record<string, unknown>): Sprint {
     status: r.status as SprintStatus,
     startDate: (r.start_date as string | null) ?? null,
     endDate: (r.end_date as string | null) ?? null,
+    epicId: (r.epic_id as string | null) ?? null,
     createdAt: r.created_at as string,
     updatedAt: r.updated_at as string,
   };
 }
 
-const COLS = "id, tenant_id, project_id, name, goal, status, start_date, end_date, created_at, updated_at";
+const COLS = "id, tenant_id, project_id, name, goal, status, start_date, end_date, epic_id, created_at, updated_at";
 
 export function sprintsRepo(supabase: SupabaseClient) {
   return {
@@ -64,6 +66,7 @@ export function sprintsRepo(supabase: SupabaseClient) {
       goal?: string | null;
       startDate?: string | null;
       endDate?: string | null;
+      epicId?: string | null;
     }): Promise<Sprint> {
       const { data, error } = await supabase
         .from("sprints")
@@ -74,6 +77,7 @@ export function sprintsRepo(supabase: SupabaseClient) {
           goal: input.goal ?? null,
           start_date: input.startDate ?? null,
           end_date: input.endDate ?? null,
+          epic_id: input.epicId ?? null,
         })
         .select(COLS)
         .single();
@@ -84,7 +88,7 @@ export function sprintsRepo(supabase: SupabaseClient) {
     async update(
       tenantId: string,
       sprintId: string,
-      patch: { name?: string; goal?: string | null; status?: SprintStatus; startDate?: string | null; endDate?: string | null }
+      patch: { name?: string; goal?: string | null; status?: SprintStatus; startDate?: string | null; endDate?: string | null; epicId?: string | null }
     ): Promise<void> {
       const { error } = await supabase
         .from("sprints")
@@ -94,6 +98,7 @@ export function sprintsRepo(supabase: SupabaseClient) {
           ...(patch.status !== undefined ? { status: patch.status } : {}),
           ...(patch.startDate !== undefined ? { start_date: patch.startDate } : {}),
           ...(patch.endDate !== undefined ? { end_date: patch.endDate } : {}),
+          ...(patch.epicId !== undefined ? { epic_id: patch.epicId } : {}),
         })
         .eq("tenant_id", tenantId)
         .eq("id", sprintId);

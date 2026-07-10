@@ -360,6 +360,13 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
                 className="font-semibold underline hover:no-underline"
               >
                 {convertedProject.key} — View Project →
+              </a>{" "}
+              ·{" "}
+              <a
+                href={`/${slug}/projects/${convertedProject.key}/mindmap`}
+                className="font-semibold underline hover:no-underline"
+              >
+                View Mind Map →
               </a>
             </span>
           ) : idea.status === "converted" ? (
@@ -373,6 +380,13 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
                     className="font-semibold underline hover:no-underline"
                   >
                     View Project →
+                  </a>{" "}
+                  ·{" "}
+                  <a
+                    href={`/${slug}/projects/${linkedProjectKey}/mindmap`}
+                    className="font-semibold underline hover:no-underline"
+                  >
+                    View Mind Map →
                   </a>
                 </>
               )}
