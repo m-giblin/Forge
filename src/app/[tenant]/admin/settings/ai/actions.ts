@@ -6,6 +6,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { tenantAiKeysRepo, type AIProvider } from "@/lib/repositories/aiKeys";
 import { revalidatePath } from "next/cache";
 import { ctxCanDo, type RbacPermissionSet } from "@/lib/rbac";
+import { getTenantSettings, setTenantSetting } from "@/lib/tenantSettings";
 
 function requireAdmin(ctx: { role: string; customRolePermissions: RbacPermissionSet | null }) {
   const role = ctx.role as "owner" | "admin" | "member" | "viewer";
@@ -69,5 +70,24 @@ export async function resetToDefaultAction(slug: string): Promise<void> {
   // Deselect all keys — sounding board falls back to platform Grok.
   const svc = createSupabaseServiceClient();
   await tenantAiKeysRepo(svc).deselectAll(ctx.tenant.id);
+  revalidatePath(`/${slug}/admin/settings/ai`);
+}
+
+// F-05: per-tenant AI-off + optional outbound PII scrub.
+export async function getAiPrivacySettingsAction(slug: string): Promise<{ aiDisabled: boolean; piiScrub: boolean }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  const settings = await getTenantSettings(ctx.tenant.id, ["ai_disabled", "ai_pii_scrub"]);
+  return { aiDisabled: settings.ai_disabled === "true", piiScrub: settings.ai_pii_scrub === "true" };
+}
+
+export async function setAiPrivacySettingsAction(slug: string, aiDisabled: boolean, piiScrub: boolean): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  requireAdmin(ctx);
+  await Promise.all([
+    setTenantSetting(ctx.tenant.id, "ai_disabled", String(aiDisabled)),
+    setTenantSetting(ctx.tenant.id, "ai_pii_scrub", String(piiScrub)),
+  ]);
   revalidatePath(`/${slug}/admin/settings/ai`);
 }

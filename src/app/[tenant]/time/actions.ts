@@ -37,6 +37,10 @@ export async function startTimerAction(
   if (ctx.role === "viewer") return { ok: false, error: "Viewers cannot log time." };
   try {
     const svc = createSupabaseServiceClient();
+    // F-02: issueId was never verified to belong to this tenant before —
+    // an authed user could start a timer against another tenant's issue UUID.
+    const { data: issue } = await svc.from("issues").select("id").eq("id", issueId).eq("tenant_id", ctx.tenant.id).maybeSingle();
+    if (!issue) return { ok: false, error: "Issue not found." };
     await activeTimersRepo(svc).start(ctx.tenant.id, ctx.appUserId, issueId);
     revalidatePath(`/${slug}/time`);
     return { ok: true };
@@ -166,6 +170,9 @@ export async function logTimeFromSheetAction(
   if (!ctx) return { ok: false, error: "Not authorized" };
   if (ctx.role === "viewer") return { ok: false, error: "Viewers cannot log time." };
   const svc = createSupabaseServiceClient();
+  // F-02: same ownership check as startTimerAction — issueId must belong to this tenant.
+  const { data: issue } = await svc.from("issues").select("id").eq("id", issueId).eq("tenant_id", ctx.tenant.id).maybeSingle();
+  if (!issue) return { ok: false, error: "Issue not found." };
   const { error } = await svc.from("issue_time_logs").insert({
     tenant_id: ctx.tenant.id,
     issue_id: issueId,

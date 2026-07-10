@@ -18,8 +18,10 @@ export type ErasureResult = {
  * - issue_comments: body→"[deleted]" for this user
  * - issue_events: user_id nullified (preserves history, removes attribution)
  * - issues: reporter_id/assignee_id nullified where they reference this user
- * - issue_attachments: uploaded_by nullified (file itself is not removed —
- *   see the scope note below)
+ * - issue_attachments: storage file bytes deleted from the "issue-attachments"
+ *   bucket, then uploaded_by nullified on the record (F-06 fix, 2026-07-10 —
+ *   previously only the DB attribution was cleared, the file itself lived on
+ *   in storage indefinitely)
  * - support_tickets: submitted_by nullified, title/body redacted, and
  *   actor_label overwritten — this field is an email snapshot explicitly
  *   designed to survive the user row being deleted, so it must be handled
@@ -43,8 +45,13 @@ export type ErasureResult = {
  *   erasable there. A user's name could theoretically appear in a free-text
  *   `notes` field written by someone else; that is a manual-review case, not
  *   an automatable one.
- * - Attachment files in storage are not deleted, only their uploader
- *   attribution in the DB — a follow-up if file-content erasure is required.
+ * - No propagation to third-party processors: this function only erases data
+ *   Forge itself stores. It does NOT reach copies of the subject's content
+ *   already sent to xAI (AI prompts), Slack (notifications/bot messages), or
+ *   Stripe (billing records) — those are governed by each processor's own
+ *   retention policy and ToS, disclosed on /legal/sub-processors. If a
+ *   subject needs those copies removed too, that is a manual per-processor
+ *   request, not something this function can trigger.
  */
 /**
  * CALLER CONTRACT: this function performs destructive, irreversible operations.
@@ -92,12 +99,27 @@ export async function eraseSubjectData(email: string): Promise<ErasureResult> {
   const { count: assigneeCount } = await svc.from("issues").update({ assignee_id: null }, { count: "exact" }).eq("assignee_id", userId);
   actions.push(`Removed reporter attribution from ${reporterCount ?? 0} issue(s) and assignee attribution from ${assigneeCount ?? 0} issue(s).`);
 
-  // 3b. Nullify attachment uploader attribution (file itself is not deleted — see scope note above).
+  // 3b. F-06: delete the actual storage files this user uploaded, then nullify
+  // uploader attribution. Previously only the DB attribution was cleared —
+  // the file content itself remained in storage indefinitely, which is the
+  // gap the audit flagged (erasure honored app-side but not for the actual
+  // file bytes).
   try {
+    const { data: attachments } = await svc
+      .from("issue_attachments")
+      .select("id, storage_path")
+      .eq("uploaded_by", userId);
+
+    const paths = (attachments ?? []).map((a) => a.storage_path as string);
+    if (paths.length > 0) {
+      const { error: removeError } = await svc.storage.from("issue-attachments").remove(paths);
+      if (removeError) actions.push(`Attachment file deletion partially failed: ${removeError.message}`);
+    }
+
     const { count: attachmentCount } = await svc.from("issue_attachments").update({ uploaded_by: null }, { count: "exact" }).eq("uploaded_by", userId);
-    actions.push(`Removed uploader attribution from ${attachmentCount ?? 0} attachment(s).`);
+    actions.push(`Deleted ${paths.length} storage attachment file(s) and removed uploader attribution from ${attachmentCount ?? 0} attachment record(s).`);
   } catch {
-    actions.push("Attachment attribution removal skipped (table not found).");
+    actions.push("Attachment removal skipped (table not found).");
   }
 
   // 3c. Support tickets: redact free text + the durable email snapshot, not just the FK.

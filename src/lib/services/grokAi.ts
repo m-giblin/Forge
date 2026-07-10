@@ -3,6 +3,21 @@ import "server-only";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { serverEnv } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { getTenantSettings } from "@/lib/tenantSettings";
+
+// F-05: no PII masking existed before outbound content left the trust
+// boundary to xAI. Best-effort regex scrub for the two highest-value,
+// lowest-false-positive patterns — not a full PII/NLP solution, but a real
+// reduction for the common case (an email or phone number quoted in an
+// issue/comment/commit message). Opt-in per tenant via ai_pii_scrub setting,
+// since redaction can degrade AI output quality for tenants who want full
+// context (e.g. Think Tank discussing a named customer).
+const EMAIL_RE = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
+const PHONE_RE = /(?:\+?\d{1,2}[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g;
+
+function scrubPii(text: string): string {
+  return text.replace(EMAIL_RE, "[redacted-email]").replace(PHONE_RE, "[redacted-phone]");
+}
 
 async function decryptKey(row: { key_enc: string; key_nonce: string; key_tag: string }): Promise<string | null> {
   try {
@@ -110,11 +125,23 @@ export async function grokComplete(
   promptOrMessages: string | GrokMessage[],
   opts: { model?: string; temperature?: number; maxTokens?: number; feature: string },
 ): Promise<string> {
+  // F-05: per-tenant kill switch for AI features, independent of any
+  // individual feature flag — a privacy-sensitive customer can opt out of
+  // every AI feature at once rather than one flag at a time.
+  const tenantAiSettings = await getTenantSettings(tenantId, ["ai_disabled", "ai_pii_scrub"]);
+  if (tenantAiSettings.ai_disabled === "true") {
+    throw new Error("AI features are disabled for this workspace.");
+  }
+
   const { apiKey, keySource } = await resolveGrokKey(tenantId);
   const model = opts.model ?? "grok-3-mini";
-  const messages: GrokMessage[] = typeof promptOrMessages === "string"
+  let messages: GrokMessage[] = typeof promptOrMessages === "string"
     ? [{ role: "user", content: promptOrMessages }]
     : promptOrMessages;
+
+  if (tenantAiSettings.ai_pii_scrub === "true") {
+    messages = messages.map((m) => ({ ...m, content: scrubPii(m.content) }));
+  }
 
   const res = await fetch("https://api.x.ai/v1/chat/completions", {
     method: "POST",

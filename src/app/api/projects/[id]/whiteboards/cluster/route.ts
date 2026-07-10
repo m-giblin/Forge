@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getTenantContext } from "@/lib/auth";
 import { grokComplete } from "@/lib/services/grokAi";
+// eslint-disable-next-line no-restricted-imports -- service-role: F-03 parent-ownership check (sec09)
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 interface StickyInput {
   id: string;
@@ -50,6 +52,12 @@ export async function POST(
 
   const ctx = await getTenantContext(slug);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // F-03: projectId was never verified to belong to this tenant before
+  // spending a billable AI call against it.
+  const svc = createSupabaseServiceClient();
+  const { data: project } = await svc.from("projects").select("id").eq("id", projectId).eq("tenant_id", ctx.tenant.id).maybeSingle();
+  if (!project) return NextResponse.json({ error: "Project not found" }, { status: 404 });
 
   const body = await req.json().catch(() => null);
   const stickies: StickyInput[] = body?.stickies ?? [];

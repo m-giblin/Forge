@@ -1,7 +1,20 @@
 import "server-only";
+import { timingSafeEqual } from "node:crypto";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { encryptSecret, decryptSecret } from "@/lib/encryption";
+
+// F-08: plain string equality on an HMAC result leaks timing information.
+// Same pattern as api/email/inbound/route.ts's safeCompareSecret — pad to a
+// common length first so length itself isn't a timing oracle either.
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const maxLen = Math.max(a.length, b.length, 32);
+  const bufA = Buffer.alloc(maxLen);
+  const bufB = Buffer.alloc(maxLen);
+  bufA.write(a);
+  bufB.write(b);
+  return timingSafeEqual(bufA, bufB);
+}
 
 
 // Values are stored as `enc:<base64json>` when encrypted so we can detect and
@@ -116,7 +129,7 @@ export async function verifySlackSignature(
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
   const expected = `v0=${hex}`;
-  return expected === signature;
+  return timingSafeStringEqual(expected, signature);
 }
 
 // --- Issue creation from Slack ---

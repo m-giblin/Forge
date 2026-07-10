@@ -45,12 +45,25 @@ export async function POST(req: Request) {
   const ctx = await getTenantContext(slug);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Only owner/admin or the page's editor can share
-  if (ctx.role !== "owner" && ctx.role !== "admin" && ctx.role !== "member") {
+  // F-01: sharing external access to a page/space is admin-sensitive —
+  // restrict to owner/admin (was: any member).
+  if (ctx.role !== "owner" && ctx.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const svc = createSupabaseServiceClient();
+
+  // F-01: the supplied pageId/spaceId was never verified to belong to this
+  // tenant — without this, any member could share/revoke a domain-scoped
+  // guest link for a UUID they don't own by guessing it. 404, not 403 —
+  // don't reveal whether the id exists in another tenant.
+  if (pageId) {
+    const { data: page } = await svc.from("pages").select("id").eq("id", pageId).eq("tenant_id", ctx.tenant.id).maybeSingle();
+    if (!page) return NextResponse.json({ error: "Page not found" }, { status: 404 });
+  } else {
+    const { data: space } = await svc.from("spaces").select("id").eq("id", spaceId!).eq("tenant_id", ctx.tenant.id).maybeSingle();
+    if (!space) return NextResponse.json({ error: "Space not found" }, { status: 404 });
+  }
 
   // Upsert: deactivate old share for this page/space, create new one
   if (pageId) {
@@ -88,6 +101,11 @@ export async function DELETE(req: Request) {
 
   const ctx = await getTenantContext(slug);
   if (!ctx) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // F-01: revoking is as sensitive as creating a share — same owner/admin gate.
+  if (ctx.role !== "owner" && ctx.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const svc = createSupabaseServiceClient();
   const { error } = await svc

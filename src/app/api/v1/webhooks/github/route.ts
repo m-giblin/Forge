@@ -1,9 +1,21 @@
+import { timingSafeEqual } from "node:crypto";
 import { createSupabaseServiceClient } from "@/lib/supabase/service"; // eslint-disable-line no-restricted-imports -- service-role: webhook ingest, no user session (sec09)
 import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
 import { handleGithubWebhook } from "@/lib/services/gitWebhook";
 import { logger } from "@/lib/logger";
 
 export const runtime = "nodejs";
+
+// F-08: plain === on an HMAC result leaks timing information. Same pattern
+// as api/email/inbound/route.ts's safeCompareSecret.
+function timingSafeStringEqual(a: string, b: string): boolean {
+  const maxLen = Math.max(a.length, b.length, 32);
+  const bufA = Buffer.alloc(maxLen);
+  const bufB = Buffer.alloc(maxLen);
+  bufA.write(a);
+  bufB.write(b);
+  return timingSafeEqual(bufA, bufB);
+}
 
 async function verifySignature(secret: string, body: string, sigHeader: string): Promise<boolean> {
   if (!sigHeader.startsWith("sha256=")) return false;
@@ -13,7 +25,7 @@ async function verifySignature(secret: string, body: string, sigHeader: string):
   );
   const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(body));
   const hex = Array.from(new Uint8Array(sig)).map((b) => b.toString(16).padStart(2, "0")).join("");
-  return hex === expected;
+  return timingSafeStringEqual(hex, expected);
 }
 
 /** POST /api/v1/webhooks/github — receives GitHub push + pull_request events */

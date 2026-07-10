@@ -535,6 +535,11 @@ export async function prepareAttachmentUploadAction(
 
   const svc = createSupabaseServiceClient();
 
+  // F-03: ideaId was never verified to belong to this tenant before storage
+  // quota was allocated and an attachment row created against it.
+  const { data: idea } = await svc.from("ideas").select("id").eq("id", ideaId).eq("tenant_id", ctx.tenant.id).maybeSingle();
+  if (!idea) throw new Error("Idea not found.");
+
   // Monthly quota check
   const monthStart = new Date();
   monthStart.setDate(1);

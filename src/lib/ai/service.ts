@@ -11,6 +11,7 @@ import { getRateLimiter } from "@/lib/providers/rate-limiter";
 import { resolvePills, type Pill } from "./pills";
 import type { AIProvider } from "@/lib/repositories/aiKeys";
 import { recordAiUsage } from "@/lib/services/grokAi";
+import { getTenantSettings } from "@/lib/tenantSettings";
 
 export type { AIProvider };
 
@@ -71,6 +72,15 @@ export async function callSoundingBoard(params: {
   byoKey?: { provider: AIProvider; apiKey: string };
 }): Promise<AIResponse> {
   const { tenantId, idea, pills, userInput, history = [], customPills = [], byoKey } = params;
+
+  // F-05: same per-tenant AI kill switch grokComplete() enforces — the
+  // Sounding Board is multi-provider so it can't route through that
+  // function, but the toggle needs to cover every AI call or "AI off"
+  // wouldn't actually mean all AI.
+  const { ai_disabled } = await getTenantSettings(tenantId, ["ai_disabled"]);
+  if (ai_disabled === "true") {
+    throw new AIProviderError("AI features are disabled for this workspace.");
+  }
 
   const rl = getRateLimiter();
   const { allowed, resetMs } = await rl.check(
