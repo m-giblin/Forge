@@ -104,3 +104,29 @@ export async function createIssueFromMindMapAction(
   revalidatePath(`/${slug}/board`);
   return issue;
 }
+
+/** Bulk re-parent: moves every selected issue into one sprint in a single action. */
+export async function bulkMoveIssuesToSprintAction(
+  slug: string,
+  projectKey: string,
+  projectId: string,
+  issueIds: string[],
+  sprintId: string
+): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  assertCanManageSprints(ctx);
+  await assertProjectInTenant(ctx.tenant.id, projectId);
+
+  const repo = sprintsRepo(createSupabaseServiceClient());
+  await Promise.all(issueIds.map((issueId) => repo.addIssue(sprintId, ctx.tenant.id, issueId)));
+
+  await recordAudit({
+    tenantId: ctx.tenant.id,
+    actorUserId: ctx.appUserId,
+    action: "issue.bulk_move_sprint",
+    target: `${issueIds.length} issue(s) → sprint ${sprintId}`,
+  });
+  revalidatePath(`/${slug}/projects/${projectKey}/mindmap`);
+  revalidatePath(`/${slug}/board`);
+}
