@@ -445,7 +445,7 @@ drop policy if exists "create own" on public.time_off_requests;
 create policy "members read own + admins read all" on public.time_off_requests
   for select using (
     user_id = public.current_app_user_id()
-    or public.has_tenant_role(tenant_id, array['owner','admin'])
+    or public.has_tenant_role(tenant_id, array['owner','admin']::membership_role[])
   );
 
 create policy "create own" on public.time_off_requests
@@ -471,7 +471,7 @@ drop policy if exists "own or admin balance" on public.time_off_balances;
 create policy "own or admin balance" on public.time_off_balances
   for select using (
     user_id = public.current_app_user_id()
-    or public.has_tenant_role(tenant_id, array['owner','admin'])
+    or public.has_tenant_role(tenant_id, array['owner','admin']::membership_role[])
   );
 
 -- ============================================================
