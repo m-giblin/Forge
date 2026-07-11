@@ -21,10 +21,25 @@ export default async function IdeaCanvasPage({
   if (!idea) notFound();
 
   const canvas = ideaCanvasRepo(svc);
-  const [nodes, edges] = await Promise.all([
-    canvas.listNodes(ctx.tenant.id, ideaId),
-    canvas.listEdges(ctx.tenant.id, ideaId),
-  ]);
+  let nodes, edges;
+  try {
+    [nodes, edges] = await Promise.all([
+      canvas.listNodes(ctx.tenant.id, ideaId),
+      canvas.listEdges(ctx.tenant.id, ideaId),
+    ]);
+  } catch {
+    return (
+      <div className="px-6 py-10 text-center">
+        <p className="text-sm text-neutral-500">
+          Idea Canvas isn&apos;t set up yet — migration <code className="font-mono">0105_idea_canvas.sql</code> needs
+          to be run first.
+        </p>
+        <Link href={`/${slug}/think-tank/${ideaId}`} className="mt-3 inline-block text-xs text-indigo-600 hover:underline">
+          ← Back to idea
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="px-6 py-4">
