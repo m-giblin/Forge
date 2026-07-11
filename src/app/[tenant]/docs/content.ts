@@ -34,7 +34,7 @@ export const DOC_GUIDES: DocGuide[] = [
         title: 'Getting Started',
         description: 'Join your workspace, set up your profile, and complete onboarding',
         icon: '🚀',
-        roles: ['member', 'viewer'],
+        roles: ['owner', 'admin', 'member', 'viewer'],
         steps: [
           {
             step: 1,
@@ -68,7 +68,7 @@ export const DOC_GUIDES: DocGuide[] = [
         title: 'Working with Issues',
         description: 'View, update, and comment on issues in your workspace',
         icon: '🎫',
-        roles: ['member', 'viewer'],
+        roles: ['owner', 'admin', 'member', 'viewer'],
         steps: [
           {
             step: 1,
@@ -102,7 +102,7 @@ export const DOC_GUIDES: DocGuide[] = [
         title: 'Your Daily Workflow',
         description: 'Morning dashboard, Inbox, and end-of-day habits for staying on top of work',
         icon: '📅',
-        roles: ['member', 'viewer'],
+        roles: ['owner', 'admin', 'member', 'viewer'],
         steps: [
           {
             step: 1,
@@ -136,7 +136,7 @@ export const DOC_GUIDES: DocGuide[] = [
         title: 'Sprint Board',
         description: 'Understand the Kanban board, move issues, and create quick tasks',
         icon: '🗂️',
-        roles: ['member', 'viewer'],
+        roles: ['owner', 'admin', 'member', 'viewer'],
         steps: [
           {
             step: 1,
@@ -381,7 +381,7 @@ export const DOC_GUIDES: DocGuide[] = [
         title: 'Developer Workflow',
         description: 'Pick up issues, report progress, block on dependencies, and close work',
         icon: '💻',
-        roles: ['member'],
+        roles: ['owner', 'admin', 'member'],
         steps: [
           {
             step: 1,
@@ -421,7 +421,7 @@ export const DOC_GUIDES: DocGuide[] = [
         title: 'Think Tank',
         description: 'Submit ideas, vote, and link approved ideas to project issues',
         icon: '💡',
-        roles: ['member'],
+        roles: ['owner', 'admin', 'member'],
         steps: [
           {
             step: 1,
@@ -455,7 +455,7 @@ export const DOC_GUIDES: DocGuide[] = [
         title: 'Using the Board',
         description: 'Views, filters, and quick-create patterns for developers',
         icon: '🗂️',
-        roles: ['member'],
+        roles: ['owner', 'admin', 'member'],
         steps: [
           {
             step: 1,
@@ -489,7 +489,7 @@ export const DOC_GUIDES: DocGuide[] = [
         title: 'PR Risk Overview — What PMs See',
         description: 'Understand the risk dashboard your PM watches so there are no surprises',
         icon: '📊',
-        roles: ['member'],
+        roles: ['owner', 'admin', 'member'],
         steps: [
           {
             step: 1,
@@ -529,7 +529,7 @@ export const DOC_GUIDES: DocGuide[] = [
         title: 'PR Impact Prediction',
         description: 'Run AI risk analysis before merging and respond to risk gates on your issues',
         icon: '🔬',
-        roles: ['member'],
+        roles: ['owner', 'admin', 'member'],
         steps: [
           {
             step: 1,
@@ -570,7 +570,7 @@ export const DOC_GUIDES: DocGuide[] = [
         title: 'Comments & Decisions',
         description: 'Structured async collaboration with decisions, @mentions, and reactions',
         icon: '💬',
-        roles: ['member'],
+        roles: ['owner', 'admin', 'member'],
         steps: [
           {
             step: 1,
