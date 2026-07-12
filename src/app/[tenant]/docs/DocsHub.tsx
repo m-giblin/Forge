@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react';
 import { DOC_GUIDES, type DocSection as DocSectionType } from './content';
 import { DocSectionCard } from './DocSection';
+import { blocksToText } from './blocks';
 
 const GUIDE_TABS = [
   { key: 'user' as const, label: 'User Guide' },
@@ -52,19 +53,21 @@ export function DocsHub({ role, tenantName, slug: _slug }: Props) {
       .map((section) => {
         const matchSection =
           section.title.toLowerCase().includes(q) ||
-          section.description.toLowerCase().includes(q);
-        const matchingSteps = section.steps.filter(
+          section.description.toLowerCase().includes(q) ||
+          (section.blocks ? blocksToText(section.blocks).toLowerCase().includes(q) : false);
+        const matchingSteps = (section.steps ?? []).filter(
           (s) =>
             s.title.toLowerCase().includes(q) ||
             s.description.toLowerCase().includes(q) ||
             (s.tip?.toLowerCase().includes(q) ?? false)
         );
         if (matchSection || matchingSteps.length > 0) {
-          return { ...section, steps: matchSection ? section.steps : matchingSteps };
+          const result: DocSectionType = { ...section, steps: matchSection ? section.steps : matchingSteps };
+          return result;
         }
         return null;
       })
-      .filter((s): s is DocSectionType => s !== null);
+      .filter((s): s is NonNullable<typeof s> => s !== null);
   }, [activeGuide, search]);
 
   const accentClass = ACCENT_CLASSES[activeGuide.color] ?? ACCENT_CLASSES.blue;

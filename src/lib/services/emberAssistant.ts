@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DOC_GUIDES, type DocSection } from "@/app/[tenant]/docs/content";
+import { blocksToText } from "@/app/[tenant]/docs/blocks";
 import { grokComplete } from "@/lib/services/grokAi";
 
 export type EmberRole = "owner" | "admin" | "member" | "viewer";
@@ -47,7 +48,10 @@ function sectionText(section: DocSection): string {
     section.title,
     section.description,
     section.overview,
-    ...section.steps.map((s) => `${s.title} ${s.description}`),
+    // Prose sections (blocks) take priority once converted; the step list
+    // still contributes for sections not yet migrated to blocks.
+    section.blocks ? blocksToText(section.blocks) : "",
+    ...(section.steps ?? []).map((s) => `${s.title} ${s.description}`),
     ...(section.commonIssues ?? []).map((c) => `${c.problem} ${c.fix}`),
   ].join(" ");
 }
@@ -80,7 +84,12 @@ export function retrieveRelevantSections(question: string, role: EmberRole, limi
 }
 
 function formatSectionForPrompt(section: DocSection & { guideTitle: string }): string {
-  const steps = section.steps.map((s) => `  ${s.step}. ${s.title} — ${s.description}${s.tip ? ` (Tip: ${s.tip})` : ""}`).join("\n");
+  // Prose (blocks) sections carry the real depth once converted — use that
+  // verbatim rather than the (often now-thin) legacy step list.
+  if (section.blocks && section.blocks.length > 0) {
+    return `### [Forge product docs] ${section.guideTitle} — ${section.title}\n${blocksToText(section.blocks)}`;
+  }
+  const steps = (section.steps ?? []).map((s) => `  ${s.step}. ${s.title} — ${s.description}${s.tip ? ` (Tip: ${s.tip})` : ""}`).join("\n");
   const issues = (section.commonIssues ?? [])
     .map((c) => `  - Problem: ${c.problem} → Fix: ${c.fix}`)
     .join("\n");
@@ -258,7 +267,11 @@ export async function askEmber(
   }
 
   const context = [...sections.map(formatSectionForPrompt), ...wikiPages.map(formatWikiForPrompt)].join("\n\n");
-  const prompt = `You are Ember, the in-app help assistant for Forge (a project-management tool). Answer the user's question using ONLY the excerpts below — do not invent features, menu paths, or behavior that isn't stated. Excerpts marked [Forge product docs] describe how Forge itself works; excerpts marked [Team wiki] are this team's own notes and may describe their process, not Forge's. Distinguish the two when relevant. If the excerpts don't fully answer the question, say what's missing rather than guessing. Keep the answer under 150 words and reference which source(s) you drew from by name.
+  const prompt = `You are Ember, the in-app help assistant for Forge (a project-management tool). Answer the user's question using ONLY the excerpts below — do not invent features, menu paths, or behavior that isn't stated. Excerpts marked [Forge product docs] describe how Forge itself works; excerpts marked [Team wiki] are this team's own notes and may describe their process, not Forge's. Distinguish the two when relevant. If the excerpts don't fully answer the question, say what's missing rather than guessing.
+
+If the question asks how to do something and the excerpts contain a numbered procedure or steps, reproduce those steps in order as a numbered list rather than compressing them into a summary paragraph. If the excerpts contain a code/curl example directly relevant to the question, include it verbatim in a fenced code block rather than describing it in prose. Otherwise, answer in prose as normal.
+
+Keep the answer under 150 words for a normal question. For a how-to/procedural question that requires reproducing steps or code, you may go up to 350 words — use the extra room for the steps/code themselves, not padding. Reference which source(s) you drew from by name.
 
 EXCERPTS:
 ${context}
@@ -268,7 +281,7 @@ QUESTION: ${question}`;
   const answer = await grokComplete(tenantId, prompt, {
     feature: "ember_assistant",
     temperature: 0.2,
-    maxTokens: 400,
+    maxTokens: 700,
   });
 
   return {

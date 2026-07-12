@@ -1,7 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { DocSection } from './content';
+import { extractHeadings } from './blocks';
+import { DocRenderer } from './DocRenderer';
+import { DocToc } from './DocToc';
 
 interface Props {
   section: DocSection;
@@ -10,6 +13,8 @@ interface Props {
 
 export function DocSectionCard({ section, defaultOpen = false }: Props) {
   const [open, setOpen] = useState(defaultOpen);
+  const hasBlocks = !!section.blocks && section.blocks.length > 0;
+  const headings = useMemo(() => (hasBlocks ? extractHeadings(section.blocks!) : []), [hasBlocks, section.blocks]);
 
   return (
     <div id={section.id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -21,9 +26,11 @@ export function DocSectionCard({ section, defaultOpen = false }: Props) {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-gray-900">{section.title}</h3>
-            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
-              {section.steps.length} steps
-            </span>
+            {!hasBlocks && (
+              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full shrink-0">
+                {(section.steps ?? []).length} steps
+              </span>
+            )}
           </div>
           <p className="text-sm text-gray-500 mt-0.5 truncate">{section.description}</p>
         </div>
@@ -36,14 +43,29 @@ export function DocSectionCard({ section, defaultOpen = false }: Props) {
         </span>
       </button>
 
-      {open && (
+      {open && hasBlocks && (
+        <div className="border-t border-gray-100 flex gap-6 px-5 py-5">
+          <div className="flex-1 min-w-0">
+            <DocRenderer blocks={section.blocks!} />
+          </div>
+          {headings.length >= 2 && (
+            <div className="hidden lg:block w-44 shrink-0">
+              <div className="sticky top-4">
+                <DocToc headings={headings} />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {open && !hasBlocks && (
         <div className="border-t border-gray-100 px-5 py-4 space-y-5">
           {section.overview && (
             <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">
               {section.overview}
             </p>
           )}
-          {section.steps.map((step) => (
+          {(section.steps ?? []).map((step) => (
             <div key={step.step} className="flex gap-4">
               <div className="shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center mt-0.5">
                 {step.step}
