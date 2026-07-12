@@ -44,7 +44,7 @@ export default function EmberWidget({ slug }: { slug: string }) {
           <div className="flex items-center justify-between border-b border-neutral-100 bg-violet-600 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-white">✦ Ember</p>
-              <p className="text-[11px] text-violet-100">Only searches your workspace&apos;s docs</p>
+              <p className="text-[11px] text-violet-100">🔒 Only searches your workspace — docs &amp; wiki</p>
             </div>
             <button type="button" onClick={() => setOpen(false)} className="text-white/80 hover:text-white text-lg leading-none">
               ×
@@ -69,15 +69,25 @@ export default function EmberWidget({ slug }: { slug: string }) {
                     <p className="text-sm text-neutral-800 whitespace-pre-wrap">{t.answer}</p>
                     {t.sources.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1.5 border-t border-neutral-200 pt-2">
-                        {t.sources.map((s) => (
-                          <Link
-                            key={s.sectionId}
-                            href={`/${slug}/docs#${s.sectionId}`}
-                            className="rounded-full bg-white border border-violet-200 px-2 py-0.5 text-[11px] font-medium text-violet-700 hover:bg-violet-50"
-                          >
-                            {s.sectionTitle} →
-                          </Link>
-                        ))}
+                        {t.sources.map((s) =>
+                          s.kind === "doc" ? (
+                            <Link
+                              key={`doc-${s.sectionId}`}
+                              href={`/${slug}/docs#${s.sectionId}`}
+                              className="rounded-full bg-white border border-violet-200 px-2 py-0.5 text-[11px] font-medium text-violet-700 hover:bg-violet-50"
+                            >
+                              📄 {s.sectionTitle} →
+                            </Link>
+                          ) : (
+                            <Link
+                              key={`wiki-${s.pageId}`}
+                              href={`/${slug}/spaces/${s.spaceId}/${s.pageId}`}
+                              className="rounded-full bg-white border border-amber-200 px-2 py-0.5 text-[11px] font-medium text-amber-700 hover:bg-amber-50"
+                            >
+                              📚 {s.pageTitle} →
+                            </Link>
+                          )
+                        )}
                       </div>
                     )}
                   </div>

@@ -1,6 +1,7 @@
 "use server";
 
 import { getTenantContext } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { askEmber, type EmberAnswer } from "@/lib/services/emberAssistant";
 
 export async function askEmberAction(slug: string, question: string): Promise<EmberAnswer> {
@@ -15,5 +16,6 @@ export async function askEmberAction(slug: string, question: string): Promise<Em
     ? ctx.role
     : "viewer") as "owner" | "admin" | "member" | "viewer";
 
-  return askEmber(ctx.tenant.id, trimmed, role);
+  const supabase = await createSupabaseServerClient();
+  return askEmber(supabase, ctx.tenant.id, ctx.appUserId, trimmed, role);
 }
