@@ -182,6 +182,185 @@ export const DOC_GUIDES: DocGuide[] = [
           },
         ],
       },
+      {
+        id: 'time-tracking',
+        title: 'Time Tracking',
+        description: 'Log time on an issue, run a timer, and keep your weekly timesheet current',
+        overview:
+          'Time can be logged two ways: directly on the issue you\'re working on, or from your personal weekly timesheet — both write to the same underlying log, so it doesn\'t matter which one you use day to day. Viewers cannot log time or run timers; everyone else can. If your workspace doesn\'t show a "My Timesheet" link in the sidebar, time tracking (the `ops_layer` feature) hasn\'t been turned on for this workspace — ask an Admin.',
+        icon: '⏱️',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Log time on an issue',
+            description:
+              'Open an issue and find the time panel. Click "+ Log time manually" to enter Hours/Minutes, an optional note, a tag (Development, Review, Meetings, Testing, Design, Planning, Support, or your own), and whether it\'s billable.',
+          },
+          {
+            step: 2,
+            title: 'Or just run the timer',
+            description:
+              'Click "▶ Start Timer" when you begin work on an issue, and "⏹ Stop & Log" when you\'re done — Forge logs the elapsed time automatically with a note like "Timer · 12m 34s". Only one timer runs at a time; starting a new one on a different issue stops the old one.',
+          },
+          {
+            step: 3,
+            title: 'Watch the estimate vs. logged comparison',
+            description:
+              'If the issue has an estimate set, a progress bar shows how much of it you\'ve used — it turns amber past 90% and red past 100%, with a dismissible banner warning you\'re approaching or over the estimate. This is a heads-up, not a hard stop; you can keep logging time past 100%.',
+          },
+          {
+            step: 4,
+            title: 'Use your weekly timesheet for a full-week view',
+            description:
+              'Open My Timesheet from the sidebar to see every issue you logged time against this week in a grid, with a daily total row. Click any day/issue cell to add or edit an entry directly from here instead of going to each issue individually.',
+          },
+          {
+            step: 5,
+            title: 'Set up a recurring entry for regular work',
+            description:
+              'If you do the same loggable work on a schedule (e.g. a standing weekly meeting), add a Recurring Entry from the timesheet page — daily or specific weekdays. This is a saved template you can toggle active/paused, not a substitute for actually logging your other work.',
+          },
+          {
+            step: 6,
+            title: 'Request time off',
+            description:
+              'If your workspace has Timesheet Premium enabled, a "🏖 Time Off" button on the timesheet page lets you submit a PTO, Sick, Holiday, or Other request with a date range and optional notes. Submitted requests show as pending until an Admin approves or rejects them.',
+          },
+        ],
+        commonIssues: [
+          {
+            problem: 'I don\'t see "My Timesheet" in the sidebar at all.',
+            fix: 'The base time-tracking feature is off for this workspace. Per-issue time logging on an individual issue still works regardless — ask an Admin to enable the timesheet feature if you need the weekly view.',
+          },
+          {
+            problem: 'I don\'t see a "Submit week" or "Time Off" button on my timesheet.',
+            fix: 'Those two specifically require the Premium tier of time tracking, separate from the base feature — logging time itself still works without it.',
+          },
+        ],
+      },
+      {
+        id: 'team-wiki',
+        title: 'Team Wiki (Spaces)',
+        description: 'Personal, team, and project knowledge bases with rich text and search',
+        overview:
+          'Spaces come in three flavors: a Project Space (auto-created with every project, for that project\'s own docs), Team Spaces (shared workspace-wide — runbooks, how-tos), and My Space (private to you). Only Team and My Space are created by you; a Project Space just appears automatically.',
+        icon: '📚',
+        roles: ['owner', 'admin', 'member', 'viewer'],
+        steps: [
+          {
+            step: 1,
+            title: 'Create a Team Space or My Space',
+            description:
+              'From Spaces in the sidebar, click "+ Team Space" (shared) or "+ My Space" (private to you) and pick an icon and name. Project Spaces aren\'t created here — they come automatically with the project.',
+          },
+          {
+            step: 2,
+            title: 'Write a page',
+            description:
+              'Click "+ New page." The editor supports headings, bold/italic/strikethrough, lists, tables, code blocks with syntax highlighting, and a slash-command menu (type "/") for quick formatting — it autosaves about a second after you stop typing.',
+          },
+          {
+            step: 3,
+            title: 'Search across everything you have access to',
+            description:
+              'Use the search box on the Spaces hub page — it searches page titles and content together, not just titles. There\'s no separate search inside one space; search from the hub.',
+          },
+          {
+            step: 4,
+            title: 'Share a page externally, if you need to',
+            description:
+              'Click "🔗 Share" on a page to grant read-only access to anyone with an email at a specific company domain — access expires after 48 hours and you can revoke it any time. Generic providers (Gmail, Yahoo, etc.) can\'t be used as the allowed domain.',
+          },
+        ],
+      },
+      {
+        id: 'calendar',
+        title: 'Calendar',
+        description: 'Issue due dates and sprint date ranges, in one monthly view',
+        overview:
+          'The Calendar isn\'t a separate scheduling tool — it\'s a monthly view of due dates and sprint windows you already set elsewhere, useful for seeing what\'s converging on the same week.',
+        icon: '📅',
+        roles: ['owner', 'admin', 'member', 'viewer'],
+        steps: [
+          {
+            step: 1,
+            title: 'See what\'s due',
+            description:
+              'Issue due dates show as colored chips on their due day, colored by project with a priority-colored left border. Click a chip to open that issue directly.',
+          },
+          {
+            step: 2,
+            title: 'See sprint windows',
+            description:
+              'Sprints overlapping the visible month show as a colored band above the grid, with a pulsing dot on the currently active one.',
+          },
+          {
+            step: 3,
+            title: 'Filter to one person',
+            description:
+              'Use the assignee filter pills to see only one teammate\'s due dates — useful for a 1:1 or checking someone\'s week at a glance.',
+          },
+        ],
+      },
+      {
+        id: 'changelog',
+        title: 'Changelog',
+        description: 'An automatically generated, public list of what shipped',
+        overview:
+          'This isn\'t something anyone writes — it\'s generated automatically from issues moved to Done, grouped by week and categorized by type. There\'s no manual changelog-entry tool; if it\'s not showing up here, it\'s because the issue\'s type wasn\'t set to something that maps to a category, or it isn\'t actually Done yet.',
+        icon: '📰',
+        roles: ['owner', 'admin', 'member', 'viewer'],
+        steps: [
+          {
+            step: 1,
+            title: 'Open the Changelog',
+            description:
+              'It groups completed issues by the week they were finished, newest first.',
+          },
+          {
+            step: 2,
+            title: 'Understand the categories',
+            description:
+              'Feature-type issues show as "✨ New," bugs show as "🐛 Fixed," and everything else (tasks, chores, etc.) shows as "🔧 Improved" — categorization is purely based on the issue\'s type field, nothing manual.',
+          },
+        ],
+      },
+      {
+        id: 'ask-ember',
+        title: 'Ask Ember',
+        description: 'An in-app AI assistant that answers from your own docs and wiki — nothing else',
+        overview:
+          'Ember is the ✦ button in the bottom-right corner of every page. It only answers from Forge\'s own product docs and your team\'s Spaces/Wiki content — never the open internet, and never another tenant\'s data. If it can\'t find something in those two places, it says so rather than guessing.',
+        icon: '✦',
+        roles: ['owner', 'admin', 'member', 'viewer'],
+        steps: [
+          {
+            step: 1,
+            title: 'Ask a "how do I" question',
+            description:
+              'Type a question and Ember answers grounded in the Docs Hub and your team\'s wiki, citing exactly which section or page it drew from — click the citation to verify it yourself.',
+          },
+          {
+            step: 2,
+            title: 'Use "Show me" when it\'s offered',
+            description:
+              'On a few pages, a citation includes a "▶ Show me" button that spotlights the actual UI element being described, instead of just describing it in words.',
+          },
+          {
+            step: 3,
+            title: 'Ask it to create an issue',
+            description:
+              'While you\'re on a project\'s page, ask Ember to create an issue in plain language — it drafts the request and shows a "Create issue" button, but never creates anything until you click it yourself.',
+          },
+        ],
+        commonIssues: [
+          {
+            problem: 'Ember says it couldn\'t find anything, but I know it\'s documented.',
+            fix: 'Try rephrasing with the words actually used in the docs (e.g. "sprint" not "iteration") — retrieval matches on the words present, not the underlying concept.',
+          },
+        ],
+      },
     ],
   },
   {
@@ -316,6 +495,88 @@ export const DOC_GUIDES: DocGuide[] = [
         ],
       },
       {
+        id: 'mind-map',
+        title: 'Mind Map',
+        description: 'A visual, editable tree of a project\'s epics, sprints, and issues',
+        overview:
+          'The Mind Map is a project\'s own Idea→Project→Epic→Sprint→Issue structure rendered as a diagram, not just a list — and unlike a static export, you can add real epics, sprints, and issues directly from the nodes. If the project was converted from a Think Tank idea, the idea itself is the root node, so you can see the whole lineage from "why we started this" down to today\'s open tickets in one view.',
+        icon: '🧠',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Open the Mind Map',
+            description:
+              'From a project\'s detail page, click the Mind Map tab. The tree lays out automatically left to right — you don\'t need to arrange anything to get a readable diagram.',
+          },
+          {
+            step: 2,
+            title: 'Add an epic, sprint, or issue from any node',
+            description:
+              'Hover a node and use its "+ Add" control to create the next level down — an Epic under the project, a Sprint under an epic, an Issue under a sprint. This writes to the same real data Board and Sprints use; there is no separate "mind map data" to keep in sync.',
+          },
+          {
+            step: 3,
+            title: 'Expand, collapse, and drag',
+            description:
+              'Click the ± toggle on a node to collapse its branch when the tree gets busy. Drag any node to reposition it manually — your layout is preserved across expand/collapse and adding new nodes, so you don\'t lose a layout you\'ve arranged for a stakeholder screenshot.',
+          },
+          {
+            step: 4,
+            title: 'Select multiple issues and bulk-move them',
+            description:
+              'Shift-click or drag a selection box over several issue nodes (hold Shift while dragging to select rather than pan), then use the bar at the bottom to move all of them into a different sprint at once.',
+          },
+          {
+            step: 5,
+            title: 'Present the map to a stakeholder',
+            description:
+              'Click ▶ Present in the top-right to step through every visible node in order — each click pans and zooms to the next node and dims the rest. Useful for walking someone through how a project decomposed without manually scrolling and zooming live.',
+          },
+        ],
+        commonIssues: [
+          {
+            problem: 'Two nodes are overlapping and I can\'t read either one.',
+            fix: 'Drag either node to a clear spot — the layout auto-spaces new nodes reasonably, but a busy tree can still overlap. Your manual position sticks after that.',
+          },
+        ],
+      },
+      {
+        id: 'whiteboards',
+        title: 'Whiteboards',
+        description: 'Freeform diagramming and brainstorming canvas, separate from the Mind Map',
+        overview:
+          'Whiteboards are unstructured — draw, add sticky notes, diagram anything — unlike the Mind Map, which is a structured Epic/Sprint/Issue tree. Use a Whiteboard when you need to sketch out an idea or process that doesn\'t map cleanly to that hierarchy; use the Mind Map when you\'re actually managing the project\'s real structure.',
+        icon: '🎨',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Create a whiteboard',
+            description:
+              'From a project\'s detail page, open the Whiteboards tab and click "+ New whiteboard." Give it a name — you can rename it later by clicking the title inline once it\'s open.',
+          },
+          {
+            step: 2,
+            title: 'Draw and diagram',
+            description:
+              'The canvas is a full drawing tool (shapes, sticky notes, freehand, text) — changes autosave a few seconds after you stop editing, so there\'s no explicit save button to remember.',
+          },
+          {
+            step: 3,
+            title: 'Link a real issue onto the board',
+            description:
+              'Use "Link issue" to search and attach an existing issue as a badge on the canvas — clicking that badge later jumps straight to the real issue. This is the one place a Whiteboard connects back to real project data; everything else on the canvas is just drawing.',
+          },
+          {
+            step: 4,
+            title: 'Cluster sticky notes with AI',
+            description:
+              'If you\'ve got a wall of sticky notes from a brainstorm, "Cluster stickies" groups related ones together automatically — a starting point to tidy up a busy board, not a final answer.',
+          },
+        ],
+      },
+      {
         id: 'pr-risk-gates',
         title: 'PR Risk Gates',
         description: 'Review and approve AI-flagged high-risk changes before they reach Done',
@@ -390,6 +651,181 @@ export const DOC_GUIDES: DocGuide[] = [
           {
             problem: 'A project looks Red but the team feels like it\'s actually fine.',
             fix: 'Check for any issue with status "blocked" — a single stale blocked ticket that should have been resolved or unblocked will flip the whole project Red. Clean that up rather than looking for a way to override the color.',
+          },
+        ],
+      },
+      {
+        id: 'time-reports',
+        title: 'Time Reports',
+        description: 'Where logged time rolls up across your team and projects',
+        overview:
+          'Every hour logged on an issue or from a personal timesheet feeds this same reporting view — there\'s nothing separate to configure. Use it to see where time is actually going, not just where it was estimated to go, and to pull billable-hours data for client invoicing if you track that.',
+        icon: '⏱️',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Pick your time window',
+            description:
+              'Reports → Time. Choose Sprint, This Week, This Month, or a Custom date range. Sprint mode lets you pick any sprint, not just the active one, so you can go back and see how a past sprint\'s time actually broke down.',
+          },
+          {
+            step: 2,
+            title: 'By User — who logged what',
+            description:
+              'A bar per team member, sized by total hours, with a "% billable" figure. Click a name to expand their per-project breakdown, or "View logs" to filter the detail table below to just their entries.',
+          },
+          {
+            step: 3,
+            title: 'By Project — where the hours went',
+            description:
+              'Same bar-chart idea, one bar per project instead of per person. Useful for a quick "which project ate this week" check without cross-referencing By User yourself.',
+          },
+          {
+            step: 4,
+            title: 'By Sprint — a per-sprint rollup',
+            description:
+              'A table of sprint / project / date range / total hours / top contributor — the fastest way to see whether time logged roughly matched what a sprint was supposed to cost, across sprints, without opening each one individually.',
+          },
+          {
+            step: 5,
+            title: 'Export what you need as CSV',
+            description:
+              'Each tab has its own "↓ CSV" export scoped to what you\'re currently looking at (summary by user, summary by project, the sprint rollup table, or the full log detail with date/member/issue/project/minutes/billable/tag/note). Export the log detail view when you need the raw entries, not just the rollup.',
+          },
+        ],
+      },
+      {
+        id: 'reports-hub',
+        title: 'Reports Hub',
+        description: 'Burndown, Cycle Time, Issue Aging, Sprint Retro, Capacity, and a custom builder',
+        overview:
+          'Beyond the Velocity chart, Reports has a full set of purpose-built views plus a Custom Builder for anything they don\'t cover. A few (Cycle Time, Issue Aging, Scheduled Reports) are marked "pro" — gated to the Premium plan tier, not something a workspace setting turns on separately.',
+        icon: '📊',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Sprint-focused reports',
+            description:
+              'Burndown (ideal vs. actual remaining points per day, with an on-track/behind indicator), Overcommitment (who\'s over their weekly capacity across active sprints, not just this one), and Estimate Accuracy (how close estimates land to actual logged time, with a plain-language auto-generated insight sentence).',
+          },
+          {
+            step: 2,
+            title: 'AI Sprint Retro',
+            description:
+              'Pick a completed sprint and click "Generate AI Summary" — Grok reviews what shipped, what slipped and why, and three focus items for next sprint, based on the sprint\'s actual issues and time logs. The summary is saved on the sprint and shows a "Generated {date}" stamp until you regenerate it.',
+          },
+          {
+            step: 3,
+            title: 'Capacity',
+            description:
+              'A gauge of overall committed hours vs. team capacity for the active sprint, plus a per-member breakdown — the fastest sanity check before locking sprint scope at planning.',
+          },
+          {
+            step: 4,
+            title: 'Cycle Time & Issue Aging (Premium)',
+            description:
+              'Cycle Time shows how long issues actually take to close, broken down by priority/type/assignee. Issue Aging flags what\'s gone stale in the backlog (90+ days open). Both require the Premium plan tier — this is unrelated to the Board\'s own "🔥 Aging" toggle, which is just a visual cue on cards, not this report.',
+          },
+          {
+            step: 5,
+            title: 'Custom Builder',
+            description:
+              'Build your own report: pick a Group By (status, priority, type, assignee, label, sprint, project, phase, or environment), a metric (issue count, story points, or time logged), and a date range. Save configurations for reuse, and export as CSV, Excel, or PDF.',
+          },
+          {
+            step: 6,
+            title: 'Scheduled Reports (Premium)',
+            description:
+              'Set a report to email itself to a recipient list on a daily/weekly/biweekly/monthly cadence, delivered as a PDF at 8am on the scheduled day. Only Admins can create or pause a schedule; anyone can view existing ones.',
+          },
+        ],
+      },
+      {
+        id: 'okrs',
+        title: 'OKRs',
+        description: 'Objectives and key results, with AI-scored alignment from Think Tank ideas',
+        overview:
+          'An OKR here is a title (the Objective) plus a free-text notes field for key results — there\'s no separate structured KR sub-record, just one text box where you\'d typically write "KR1: ..., KR2: ...". The real value is linking ideas to OKRs and letting AI score how well they actually align.',
+        icon: '🎯',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Create an objective',
+            description:
+              'Admin → Products → OKRs → "+ Add OKR." Set the objective title, key-results notes, quarter, status (draft/active/achieved/missed), and a progress percentage.',
+          },
+          {
+            step: 2,
+            title: 'Link an idea to an OKR',
+            description:
+              'From an idea\'s detail page in Think Tank, use "+ Link OKR" to attach it to any active objective.',
+          },
+          {
+            step: 3,
+            title: 'Score the alignment',
+            description:
+              '"AI Score" (or "Re-score" once scored) asks Grok to rate 1-5 how well the idea actually supports that objective, with a short justification — a sanity check against ideas that sound aligned but aren\'t really moving the objective.',
+          },
+        ],
+      },
+      {
+        id: 'customers',
+        title: 'Customers',
+        description: 'A lightweight CRM for tracking accounts and tying them to issues',
+        overview:
+          'This is intentionally minimal — company name, domain, tier, ARR, and notes — not a full CRM. Its real value is linking issues to the customer account affected, so you can see which issues matter to which accounts.',
+        icon: '🏢',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Add a customer',
+            description:
+              'Customers → "+ Add customer" (Admin/Owner only). Set company name, domain, tier (Enterprise/Mid-Market/SMB/Startup/Free), and ARR.',
+          },
+          {
+            step: 2,
+            title: 'Link an issue to a customer',
+            description:
+              'From an issue, link it to the affected customer account — useful for seeing which open issues are tied to your highest-ARR accounts at a glance.',
+          },
+        ],
+        commonIssues: [
+          {
+            problem: 'A Member can see the customer list but can\'t add or edit one.',
+            fix: 'Adding, editing, and deleting customer records is Admin/Owner-only by design — Members and Viewers get read-only access to the list.',
+          },
+        ],
+      },
+      {
+        id: 'workload-capacity',
+        title: 'Workload & Capacity',
+        description: 'Two different views — forward-looking planning vs. this-week snapshot',
+        overview:
+          'There are two workload views and they answer different questions: the personal/team heatmap (Workload in the sidebar) is a forward-looking, multi-week view based on issue due dates and estimates — a planning tool. The admin capacity view (Admin → Team → Workload) is a current-sprint snapshot of logged vs. estimated vs. available hours per person — a management tool. Don\'t confuse one for the other.',
+        icon: '📈',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Use the heatmap to plan ahead',
+            description:
+              'The Workload heatmap shows 16 weeks at a glance, color-coded by how loaded each person is that week based on their assigned issues\' estimates and due dates. Click any cell to see exactly which issues are contributing to that week\'s load.',
+          },
+          {
+            step: 2,
+            title: 'Use Admin Workload to check right now',
+            description:
+              'Admin → Team → Workload shows this week/this sprint: available capacity, hours logged, and hours estimated in the active sprint, per person — flagging anyone at or over capacity.',
+          },
+          {
+            step: 3,
+            title: 'Export or drill into one person',
+            description:
+              'From the admin view, click a member\'s card for a capacity breakdown and a direct link to their issues on the board, or use "Export Report" / "Export Team Report" for a printable summary.',
           },
         ],
       },
@@ -482,6 +918,94 @@ export const DOC_GUIDES: DocGuide[] = [
             title: 'Track approved ideas',
             description:
               'When a PM approves an idea, they click Link to Issue. As the submitter you will receive an Inbox notification and can follow the implementation by watching the linked issue.',
+          },
+        ],
+      },
+      {
+        id: 'idea-canvas',
+        title: 'Idea Canvas',
+        description: 'A freeform brainstorm board for one idea, with AI critique built in',
+        overview:
+          'Before an idea has any real structure, the Canvas gives you a blank corkboard to work out Problems, Features, Risks, and Questions as loose cards — not the strict Epic/Sprint/Issue tree the Mind Map uses once there\'s a real project. Any non-viewer can edit it, since it\'s meant as shared scratch space, not the idea\'s official record (title/description editing is still creator/admin-only).',
+        icon: '✨',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Open the Canvas',
+            description:
+              'From an idea\'s detail page, click the ✨ Canvas button next to Export.',
+          },
+          {
+            step: 2,
+            title: 'Add cards and connect them',
+            description:
+              'Use the "Add a thought" panel to drop Problem/Feature/Risk/Question cards anywhere on the board. Drag from a card\'s edge to connect it to another if the relationship matters.',
+          },
+          {
+            step: 3,
+            title: 'Test the shape with AI',
+            description:
+              'Click "Test with AI" to send everything currently on the canvas to Grok for a critique — feasibility, gaps, and what a first sprint should scope in or defer. The response comes back as new dashed "AI suggestion" cards you can add to the board, not just chat text that disappears.',
+          },
+          {
+            step: 4,
+            title: 'Convert when it\'s ready',
+            description:
+              'The canvas doesn\'t auto-convert itself — use the idea\'s normal Convert flow once you\'re happy with the shape. The canvas stays attached to the idea afterward as historical context.',
+          },
+        ],
+      },
+      {
+        id: 'ai-idea-tools',
+        title: 'AI-Powered Idea Tools',
+        description: 'Sounding Board chat, consensus synthesis, AI-drafted PRDs, and a devil\'s advocate critique',
+        overview:
+          'An idea in Think Tank has several distinct AI tools, not one combined "AI button" — each does something different and lives in its own card on the idea\'s detail page. All of them are Grok-backed, all show a disclosure before first use, and all are blocked for Viewers.',
+        icon: '🤖',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Sounding Board — a conversation, not a one-shot answer',
+            description:
+              'Pick a lens (Devil\'s Advocate, Market Fit, Technical Feasibility, Risk Assessment, User Impact, Prioritization, Competitive Landscape, Next Steps — multi-select), optionally add your own text, and click "Ask AI." It\'s rate-limited to 20 calls/tenant/hour, shown right in the header so you know how much room you have left.',
+          },
+          {
+            step: 2,
+            title: 'Consensus Builder — once discussion is happening',
+            description:
+              'Once an idea has at least 3 comments, "Build consensus" summarizes the discussion into what people agree on, what\'s still unresolved, and a recommended next step — useful before a decision meeting instead of re-reading every comment yourself.',
+          },
+          {
+            step: 3,
+            title: 'Draft PRD — turn an idea into a structured document',
+            description:
+              '"Draft PRD ✨" generates Problem Statement, Goals, Success Metrics, User Stories, In/Out of Scope, Technical Notes, Open Questions, and Risks. "Copy as Markdown" gets it into whatever document tool you actually write in.',
+          },
+          {
+            step: 4,
+            title: 'Devil\'s Advocate — a standalone challenge',
+            description:
+              '"🔥 Challenge This Idea" runs the same Devil\'s Advocate lens as the Sounding Board, but as a one-click shortcut with no need to type anything — and it\'s repeatable, not one-time, so you can re-run it after the idea changes.',
+          },
+          {
+            step: 5,
+            title: 'Impact/Effort Matrix — score and place ideas visually',
+            description:
+              'On the Think Tank listing page, click any idea chip to score its Impact (1-5) and Effort (1-5) — it drops into one of four quadrants (Quick Wins, Big Bets, Fill-ins, Money Pits) automatically. Useful for a prioritization conversation across many ideas at once, not just one.',
+          },
+          {
+            step: 6,
+            title: 'Import ideas from a competitor\'s page',
+            description:
+              'Paste a competitor\'s feature page, changelog, or product copy into "📥 Import from competitor" and AI extracts a list of candidate ideas — review the checkboxes, then import the ones actually worth adding as real ideas.',
+          },
+        ],
+        commonIssues: [
+          {
+            problem: 'The Sounding Board says a rate limit was hit.',
+            fix: 'It\'s 20 calls per tenant per hour, shared across everyone using it — wait for the hour to roll over, or check with your team about spacing out AI-heavy sessions.',
           },
         ],
       },
@@ -603,6 +1127,93 @@ export const DOC_GUIDES: DocGuide[] = [
             title: 'Re-run after fixes',
             description:
               'Click Re-analyse at any time. Each run creates a new system comment with the updated result and updates the badge on the ticket. If the new result is Medium or Low on a previously gated issue, the gate lifts automatically — no manual PM step needed.',
+          },
+        ],
+      },
+      {
+        id: 'ai-actions-on-issue',
+        title: 'AI Actions on an Issue',
+        description: 'Triage suggestions, an embedded spec/PRD, and formal sign-offs',
+        overview:
+          'Beyond PR Impact (its own section) and Decompose (covered under PR Overview & Blockers), an issue has a couple more AI and process tools worth knowing about: an AI-suggested triage you can accept or dismiss, and an embedded mini-spec you write yourself.',
+        icon: '📋',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'Run Triage for a suggested priority and category',
+            description:
+              '"Triage Issue" reads the title/description and suggests a Priority, Category, a reasoning paragraph, and any likely duplicates it spotted (with a one-click "Mark dup" per candidate). "Accept" applies the suggestion and logs it as an activity comment; "Dismiss" just hides the card.',
+          },
+          {
+            step: 2,
+            title: 'Write a spec or mini-PRD directly on the issue',
+            description:
+              'The Spec / PRD card is a plain Markdown editor — write acceptance criteria or requirements right where the work is being tracked, instead of a separate document that goes stale. Viewers see it read-only.',
+          },
+          {
+            step: 3,
+            title: 'Request sign-offs before calling it done',
+            description:
+              'Admins add named approval roles (e.g. "Design," "Engineering," "Product" — whatever your team needs, not a fixed list) via "+ Add role." Each role gets Approved/Revoke controls, and the card shows "✓ All approved" once every role has signed.',
+          },
+        ],
+      },
+      {
+        id: 'pr-overview-blockers',
+        title: 'PR Overview & Blockers',
+        description: 'Linked PRs/commits, blocking relationships, sub-issues, and duplicate merging',
+        overview:
+          'An issue accumulates real relationships beyond its own status: PRs and commits attached automatically from GitHub, other issues it blocks or is blocked by, sub-issues under it, and duplicates merged into it. These live in a few different cards on the issue detail page rather than one combined panel — worth knowing so you look in the right place.',
+        icon: '🔗',
+        roles: ['owner', 'admin', 'member'],
+        steps: [
+          {
+            step: 1,
+            title: 'PRs and commits are automatic, not manual',
+            description:
+              'The Git card shows Pull Requests and Commits in separate sections, each with a status badge (Merged/Open/Closed for PRs) and an AI-generated summary line where available. These populate entirely from your GitHub webhook — there is no button to manually attach a PR or commit to an issue. If nothing shows up here, check your GitHub integration setup rather than looking for a manual-link option.',
+          },
+          {
+            step: 2,
+            title: 'Link a blocking or duplicate relationship',
+            description:
+              'In the Linked Issues card, click "+ Link issue," choose Duplicate or Blocks, then search by title or key. There is no third manual option in this picker — "relates to" links can only appear if created elsewhere, not chosen here.',
+          },
+          {
+            step: 3,
+            title: 'Understand the 🚫 Blocked badge',
+            description:
+              'This badge is computed live from open "Blocks" links, not a status you set — it appears automatically when any linked blocker isn\'t done yet, and disappears automatically once all blockers are resolved. The issue\'s own status field is untouched either way; you still change status yourself when the work is actually done.',
+            tip: 'A red border on the Linked Issues card is the same signal as the badge — either one means something upstream needs to close first.',
+          },
+          {
+            step: 4,
+            title: 'Sub-issues are a separate hierarchy from links',
+            description:
+              'The Sub-issues card is parent/child, not "blocks" — use "+ New" to create a fresh sub-issue under this one, or "Link existing" to attach an issue that already exists. Removing a sub-issue just detaches it (sets its parent back to none); it does not delete the issue.',
+          },
+          {
+            step: 5,
+            title: 'Merge a duplicate',
+            description:
+              '"🔁 Mark as duplicate of…" searches for the original, then — after you confirm — merges the duplicate\'s top-level comments and watchers into the original and closes the duplicate automatically. This is one-way and immediate once confirmed, so make sure you\'ve got the right original before confirming.',
+          },
+          {
+            step: 6,
+            title: 'AI Decompose creates real sub-issues',
+            description:
+              'The Decompose button asks Grok to break the issue into 3-6 draft sub-tasks, which you review and select before creating — accepted drafts become real sub-issues using the exact same parent/child mechanism as "+ New" above, not a separate AI-only structure.',
+          },
+        ],
+        commonIssues: [
+          {
+            problem: 'A blocking issue was completed but the 🚫 Blocked badge is still showing.',
+            fix: 'This badge is derived on page load, not cached — refresh the issue. If it still shows after refresh, confirm the blocking issue\'s status is actually "done," not just "in review."',
+          },
+          {
+            problem: 'Cross-project dependencies aren\'t showing up on the Roadmap.',
+            fix: 'Roadmap arcs only come from issue-level "Blocks" links between issues in two different projects — a same-project block, or a "Duplicate"/sub-issue relationship, never produces a roadmap arc, by design.',
           },
         ],
       },
@@ -842,6 +1453,12 @@ export const DOC_GUIDES: DocGuide[] = [
             description:
               'Admin → Overview → Audit Log records member changes, role changes, deletions, and API key activity, each with a timestamp and actor. Use this as your source of truth in a post-mortem or compliance review — it is the one place that shows what actually happened, not what someone remembers happening.',
           },
+          {
+            step: 6,
+            title: 'Set up SCIM provisioning',
+            description:
+              'On the same SSO/SAML page, the SCIM card generates a bearer token for your identity provider to automatically create and deactivate accounts as people join or leave your IdP directory. The token is shown once — copy it immediately. Revoking it stops your IdP from provisioning or deprovisioning until you generate a new one.',
+          },
         ],
       },
       {
@@ -880,6 +1497,52 @@ export const DOC_GUIDES: DocGuide[] = [
         ],
       },
       {
+        id: 'wiki-insights',
+        title: 'Wiki Insights',
+        description: 'Find the gaps in your team wiki by seeing what people searched for and didn\'t find',
+        overview:
+          'Despite the name, this isn\'t page-view analytics or a stale-content report — it\'s specifically a log of zero-result searches on your Spaces/Wiki content, which is arguably more useful for finding what\'s actually missing than a popularity chart would be.',
+        icon: '🔍',
+        roles: ['owner', 'admin'],
+        steps: [
+          {
+            step: 1,
+            title: 'Read it as a content gap list',
+            description:
+              'Each row is a search term that returned nothing, with how many times it was searched and when it was last tried. A term searched 5+ times and still returning nothing is a real, recurring gap worth writing a page for.',
+          },
+        ],
+      },
+      {
+        id: 'billing-plan',
+        title: 'Billing & Plan',
+        description: 'Current plan, seats, and how to upgrade',
+        overview:
+          'Only Owners can change the billing plan — Admins and everyone else see this page read-only. Upgrading doesn\'t always go through live Stripe checkout yet; if Stripe isn\'t fully configured for your workspace, the request is logged and Forge follows up directly instead.',
+        icon: '💳',
+        roles: ['owner', 'admin'],
+        steps: [
+          {
+            step: 1,
+            title: 'Check your current plan and seat count',
+            description:
+              'The summary strip shows your current tier, status, and active seats. If you\'re on a trial, a banner counts down the days remaining and turns red as it gets close to expiring.',
+          },
+          {
+            step: 2,
+            title: 'Change your seat count and upgrade',
+            description:
+              'Use the seat stepper to set how many seats you need, pick a tier (Basic or Premium are self-serve; Pro and Enterprise are "Coming Soon" — email in instead), and click Activate. You\'ll either land in real Stripe Checkout or get a confirmation that your request was logged and someone will follow up within a business day.',
+          },
+        ],
+        commonIssues: [
+          {
+            problem: 'A trial expired and features disappeared.',
+            fix: 'Nothing is lost — the workspace drops to Basic plan features until you upgrade. Reactivating restores Premium features immediately, using the same data that was already there.',
+          },
+        ],
+      },
+      {
         id: 'support',
         title: 'Getting Help from Forge',
         description: 'How to reach the Forge platform team when something needs a human',
@@ -905,6 +1568,140 @@ export const DOC_GUIDES: DocGuide[] = [
             title: 'What to expect',
             description:
               'There is no self-service escalation button today — if a ticket feels stuck, the right move is to reply on the ticket itself with any new context (e.g. "this is now blocking our sprint") rather than looking for an Escalate control, since none exists yet.',
+          },
+        ],
+      },
+      {
+        id: 'timesheets-time-off-rates',
+        title: 'Timesheets, Time Off & Rates',
+        description: 'Approve submitted timesheets, review time-off requests, and configure billing/cost rates',
+        overview:
+          'These three admin tools all sit behind the Premium tier of time tracking (`ops_layer_premium`) — a separate gate from the base time-tracking feature that lets members log time at all. If a member can already log time on issues but you can\'t reach these pages, that\'s expected: base logging and these admin tools are gated independently.',
+        icon: '💰',
+        roles: ['owner', 'admin'],
+        steps: [
+          {
+            step: 1,
+            title: 'Approve or reject submitted timesheets',
+            description:
+              'Admin → Team → Timesheets shows each member\'s submitted week with a status pill (submitted/approved/rejected). Approve directly, or Reject with a required note explaining what needs correcting.',
+          },
+          {
+            step: 2,
+            title: 'Review time-off requests',
+            description:
+              'Admin → Team → Time Off lists PTO/Sick/Holiday/Other requests filtered by status. Approve or Reject each — this is independent of the timesheet approval flag above.',
+          },
+          {
+            step: 3,
+            title: 'Configure billing and cost rates',
+            description:
+              'Admin → Team → Rates has two separate tabs: Billing Rates (external, used for client invoicing — can be scoped to a specific project) and Internal Cost Rates (used for margin/profitability tracking, no project scoping). Each rate can apply per-person, per-role, or workspace-wide (Global), with an hourly amount, currency, and an effective-from date.',
+          },
+        ],
+        commonIssues: [
+          {
+            problem: 'These three pages all show a Premium-plan upsell message instead of the actual tool.',
+            fix: 'That\'s the ops_layer_premium flag being off for this workspace — it\'s a separate tier from base time tracking. Upgrading the plan (or asking Forge to enable it) unlocks all three at once.',
+          },
+        ],
+      },
+      {
+        id: 'recurring-issues',
+        title: 'Recurring Issues',
+        description: 'Auto-create the same issue every sprint, or every N sprints',
+        overview:
+          'Useful for the work that repeats on a schedule regardless of what else is planned — a deploy checklist, a security review, a standing audit. Templates seed real issues automatically the moment a sprint starts; there\'s no separate step to "run" them.',
+        icon: '🔁',
+        roles: ['owner', 'admin'],
+        steps: [
+          {
+            step: 1,
+            title: 'Create a template',
+            description:
+              'Admin → Automation → Recurring Issues → "+ New." Set a title, project, schedule (Every sprint, or Every N sprints with N from 2-12), type, priority, and an optional description.',
+          },
+          {
+            step: 2,
+            title: 'Pause or resume without deleting',
+            description:
+              'Toggle a template Active/Paused instead of deleting it if you need to skip a stretch of sprints — paused templates are skipped when a sprint starts, but the template itself stays configured for later.',
+          },
+        ],
+      },
+      {
+        id: 'integrations',
+        title: 'Integrations',
+        description: 'GitHub, Slack/Teams/Discord notifications, outbound webhooks, and the SDK/embed options',
+        overview:
+          'These are four independent integrations, not one combined settings page — worth knowing so you configure the right one for what you actually want (GitHub for PR/commit links on issues, Chat for team notifications, Webhooks for your own systems, SDK/Embed for capturing errors or emailing-in issues from outside Forge entirely).',
+        icon: '🔌',
+        roles: ['owner', 'admin'],
+        steps: [
+          {
+            step: 1,
+            title: 'Connect GitHub',
+            description:
+              'Admin → Integrations → GitHub generates a webhook secret and shows you a URL to paste into your GitHub repo\'s own webhook settings (subscribed to Pull Request and Push events) — the connection is inbound from GitHub, not an OAuth/PAT flow on Forge\'s side. Mention an issue key like FORGE-123 in a PR title or body to link it; use "closes FORGE-123" to auto-close on merge.',
+          },
+          {
+            step: 2,
+            title: 'Connect Slack, Teams, or Discord',
+            description:
+              'Admin → Integrations → Chat — paste an incoming webhook URL per provider to get notifications on issue creation, new comments, and priority-changed-to-Urgent. Separately, a Slack Bot card enables inbound issue creation from Slack itself (a `/forge [title]` slash command and a 🐛 emoji reaction) if you provide a bot token, signing secret, and workspace ID.',
+          },
+          {
+            step: 3,
+            title: 'Set up outbound webhooks',
+            description:
+              'Admin → Integrations → Webhooks lets you register your own endpoint for issue.created, issue.updated, issue.deleted, and comment.created events. Each request is signed (HMAC-SHA256, header `X-Forge-Signature`) so you can verify it actually came from Forge. Use "Send test" before relying on it.',
+          },
+          {
+            step: 4,
+            title: 'SDK & Embed — three ways to get data in without the UI',
+            description:
+              'Admin → Integrations → SDK & Embed covers server-side API calls (create an issues:write API key), a drop-in browser script for automatic error capture (`ForgeSDK.init(...)`), and email-to-issue (an inbound email address per project that turns the subject into a title and the body into a description).',
+          },
+        ],
+      },
+      {
+        id: 'admin-tools-data',
+        title: 'Admin Tools & Data',
+        description: 'Engineering Health, AI Usage, Release Notes, and Import/Export',
+        overview:
+          'A handful of admin-only pages that don\'t fit neatly under Team or Security — a health dashboard, an AI-usage view scoped to Think Tank, an AI release-notes generator, and the two data-movement tools (CSV import, CSV export).',
+        icon: '🛠',
+        roles: ['owner', 'admin'],
+        steps: [
+          {
+            step: 1,
+            title: 'Engineering Health',
+            description:
+              'A dashboard of WIP count, blocked/unowned urgent issues, average cycle time, and weekly throughput, with a plain-language banner ("Board looks healthy" / "WIP is high" / etc.) summarizing overall state.',
+          },
+          {
+            step: 2,
+            title: 'AI Usage',
+            description:
+              'Shows Think Tank Sounding Board activity specifically (calls, input/output tokens this month) broken down by provider and by user — this does not cover every AI feature in Forge, just Sounding Board usage.',
+          },
+          {
+            step: 3,
+            title: 'Release Notes generator',
+            description:
+              'Pick a date range and optional project filter, click "✨ Generate release notes," and Grok categorizes completed issues into New Features / Bug Fixes / Improvements / Breaking Changes with a summary — "Copy as Markdown" to paste it wherever you actually publish release notes.',
+          },
+          {
+            step: 4,
+            title: 'Import issues from CSV',
+            description:
+              'Admin → AI & Data → Import Issues is a 3-step wizard: upload the CSV, map its columns to Forge fields (title is required), then review a preview — including any new categories it detected — before confirming. Rows that already exist (matched by an external ID) are skipped, not duplicated.',
+          },
+          {
+            step: 5,
+            title: 'Export data',
+            description:
+              'Admin → AI & Data → Export Data offers three fixed CSV downloads: Issues, Sprint Report, and Time Logs. For anything beyond these three, use the Custom Report Builder\'s export instead, which supports CSV, Excel, and PDF.',
           },
         ],
       },
