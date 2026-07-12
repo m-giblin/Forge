@@ -275,7 +275,7 @@ export default function ReportBugButton() {
       <div id="forge-bug-widget">
         <button
           onClick={openModal}
-          className="fixed bottom-5 right-5 z-40 rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-neutral-800"
+          className="fixed bottom-5 left-5 z-40 rounded-full bg-neutral-900 px-4 py-2.5 text-sm font-medium text-white shadow-lg hover:bg-neutral-800"
         >
           🐛 Report a bug
         </button>
