@@ -38,6 +38,11 @@ export function DocSectionCard({ section, defaultOpen = false }: Props) {
 
       {open && (
         <div className="border-t border-gray-100 px-5 py-4 space-y-5">
+          {section.overview && (
+            <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 border border-gray-100 rounded-lg px-4 py-3">
+              {section.overview}
+            </p>
+          )}
           {section.steps.map((step) => (
             <div key={step.step} className="flex gap-4">
               <div className="shrink-0 w-7 h-7 rounded-full bg-gray-900 text-white text-xs font-bold flex items-center justify-center mt-0.5">
@@ -57,6 +62,19 @@ export function DocSectionCard({ section, defaultOpen = false }: Props) {
               </div>
             </div>
           ))}
+          {section.commonIssues && section.commonIssues.length > 0 && (
+            <div className="pt-2 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Common issues</p>
+              <div className="space-y-2">
+                {section.commonIssues.map((ci, i) => (
+                  <div key={i} className="bg-rose-50 border border-rose-100 rounded-lg px-3 py-2">
+                    <p className="text-xs font-semibold text-rose-800">{ci.problem}</p>
+                    <p className="text-xs text-rose-700 mt-0.5">{ci.fix}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
