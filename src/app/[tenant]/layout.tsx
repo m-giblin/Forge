@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import Link from "next/link";
 import { headers } from "next/headers";
 import { getTenantContext } from "@/lib/auth";
@@ -282,7 +283,9 @@ export default async function TenantLayout({
       <GlobalKeys slug={slug} />
       <AiDisclosureBanner />
       <SessionTimeoutGuard timeoutMinutes={isNaN(sessionTimeoutMinutes) ? 30 : sessionTimeoutMinutes} />
-      <EmberWidget slug={slug} />
+      <Suspense fallback={null}>
+        <EmberWidget slug={slug} />
+      </Suspense>
     </div>
   );
 }

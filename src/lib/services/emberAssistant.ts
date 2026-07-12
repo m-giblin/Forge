@@ -9,10 +9,26 @@ export type EmberSource =
   | { kind: "doc"; guideTitle: string; sectionId: string; sectionTitle: string }
   | { kind: "wiki"; spaceId: string; pageId: string; pageTitle: string };
 
+/**
+ * Tier 2 (agentic, confirm-first). Ember can DRAFT this — never commit it —
+ * the client shows a confirm control, and only a separate, server-validated
+ * confirm action actually creates anything. Scoped to issue creation only for
+ * v1; deliberately not epics/sprints/anything destructive.
+ */
+export type ProposedAction = {
+  kind: "create_issue";
+  projectId: string;
+  projectKey: string;
+  title: string;
+};
+
 export type EmberAnswer = {
   answer: string;
   sources: EmberSource[];
+  proposedAction?: ProposedAction;
 };
+
+export type ProjectContext = { id: string; key: string; name: string };
 
 const STOPWORDS = new Set([
   "the", "a", "an", "to", "in", "on", "of", "for", "and", "or", "is", "are", "how", "do", "i", "can",
@@ -151,19 +167,83 @@ function formatWikiForPrompt(page: WikiCandidate): string {
   return `### [Team wiki] ${page.title}\n${page.text}`;
 }
 
+const CREATE_VERBS = ["create", "add", "make", "file", "open", "log", "start"];
+const ISSUE_NOUNS = ["issue", "bug", "ticket", "task"];
+
+/** Cheap pre-filter so the (slower, costs a real LLM call) intent-detection
+ * step only runs when the message plausibly asks for something to be made —
+ * most questions are Q&A and shouldn't pay for an extra round-trip. */
+function looksLikeCreateIssueRequest(question: string): boolean {
+  const words = tokenize(question);
+  const hasVerb = words.some((w) => CREATE_VERBS.includes(w));
+  const hasNoun = words.some((w) => ISSUE_NOUNS.includes(w));
+  return hasVerb && hasNoun;
+}
+
+type CreateIssueIntent = { isCreateRequest: boolean; title: string; confirmMessage: string };
+
+/**
+ * Confirms whether the message really is a create-issue request (not just a
+ * question that happens to contain "create" and "issue") and extracts a
+ * clean title. Returns null on any parse failure or low-confidence result —
+ * silently falling back to normal Q&A is safer than a wrong confirm button.
+ */
+async function detectCreateIssueIntent(
+  tenantId: string,
+  question: string,
+  project: ProjectContext
+): Promise<CreateIssueIntent | null> {
+  const prompt = `The user is on the "${project.name}" (${project.key}) project page in Forge, a project-management tool. Decide if their message is a request to CREATE A NEW ISSUE (not a question about how to do something, not a request about an existing issue).
+
+Message: "${question}"
+
+Respond with ONLY minified JSON, no markdown, no explanation: {"isCreateRequest": boolean, "title": string, "confirmMessage": string}
+- "title": a clean, short issue title extracted from the message (empty string if isCreateRequest is false).
+- "confirmMessage": one short friendly sentence confirming what you'd create and asking them to confirm (empty string if isCreateRequest is false).`;
+
+  try {
+    const raw = await grokComplete(tenantId, prompt, { feature: "ember_intent_detect", temperature: 0, maxTokens: 200 });
+    const parsed = JSON.parse(raw.trim()) as Partial<CreateIssueIntent>;
+    if (typeof parsed.isCreateRequest !== "boolean") return null;
+    if (!parsed.isCreateRequest) return { isCreateRequest: false, title: "", confirmMessage: "" };
+    if (typeof parsed.title !== "string" || !parsed.title.trim()) return null;
+    if (typeof parsed.confirmMessage !== "string" || !parsed.confirmMessage.trim()) return null;
+    return parsed as CreateIssueIntent;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Answers a question grounded in the Docs Hub (Forge's own product docs) and
  * this tenant's Spaces/Wiki content (the team's own process knowledge) —
  * never anything from another tenant, and never a Wiki page the asking user
- * couldn't already open themselves. No write access yet (Phase 3).
+ * couldn't already open themselves.
+ *
+ * If `projectContext` is provided (the user is on that project's page) and
+ * the message looks like a request to create an issue, this drafts a
+ * ProposedAction instead of a normal answer — the caller must still route it
+ * through a separately-validated confirm action before anything is written.
  */
 export async function askEmber(
   supabase: SupabaseClient,
   tenantId: string,
   userId: string,
   question: string,
-  role: EmberRole
+  role: EmberRole,
+  projectContext?: ProjectContext | null
 ): Promise<EmberAnswer> {
+  if (projectContext && looksLikeCreateIssueRequest(question)) {
+    const intent = await detectCreateIssueIntent(tenantId, question, projectContext);
+    if (intent?.isCreateRequest) {
+      return {
+        answer: intent.confirmMessage,
+        sources: [],
+        proposedAction: { kind: "create_issue", projectId: projectContext.id, projectKey: projectContext.key, title: intent.title },
+      };
+    }
+  }
+
   const [sections, wikiPages] = await Promise.all([
     Promise.resolve(retrieveRelevantSections(question, role)),
     retrieveRelevantWikiPages(supabase, tenantId, userId, question),
