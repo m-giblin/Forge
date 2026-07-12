@@ -4,7 +4,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getRateLimiter } from "@/lib/providers/rate-limiter";
 
-// Max inbound email issues per tenant per minute to prevent DoS via the shared webhook secret.
+// Abuse/spam design (FORGE-149): tenant-level, not per-sender. The webhook secret is
+// shared across an entire tenant's inbound address, so the DoS surface being defended
+// against is a compromised or malicious sender hammering one tenant's address, not
+// distinguishing good senders from bad ones within a tenant. 60/minute is generous
+// enough to never affect a real support inbox's legitimate volume while still capping
+// worst-case cost. Known tradeoff: because this is tenant-level, one abusive sender can
+// exhaust a tenant's whole budget and crowd out legitimate mail for that same minute.
+// Deliberately NOT adding per-sender sub-limiting yet — this is a P2/low-priority
+// feature with no reported abuse, and per-sender limiting would be speculative
+// engineering ahead of a real signal. Revisit as a fast-follow if abuse is observed.
 const EMAIL_INBOUND_LIMIT = 60;
 const EMAIL_INBOUND_WINDOW_MS = 60_000;
 
@@ -33,7 +42,7 @@ export const runtime = "nodejs";
  */
 
 function extractEnvelope(body: Record<string, unknown>): {
-  subject: string; text: string; from: string; to: string;
+  subject: string; text: string; from: string; to: string; messageId: string | null;
 } | null {
   if (typeof body.Subject === "string") {
     return {
@@ -43,6 +52,10 @@ function extractEnvelope(body: Record<string, unknown>): {
       to: Array.isArray(body.ToFull)
         ? ((body.ToFull as Array<{ Email: string }>)[0]?.Email ?? (body.To as string) ?? "")
         : ((body.To as string) ?? ""),
+      // Postmark's own per-delivery id — the correct idempotency key for retried
+      // webhook deliveries. NOT the sender address: the same person legitimately
+      // emails support more than once, so that can never be a uniqueness key.
+      messageId: typeof body.MessageID === "string" ? body.MessageID : null,
     };
   }
   if (typeof body.subject === "string") {
@@ -51,6 +64,10 @@ function extractEnvelope(body: Record<string, unknown>): {
       text: ((body.text ?? body.html ?? "") as string).trim(),
       from: (body.from as string) ?? "",
       to: (body.to as string) ?? "",
+      messageId:
+        typeof body.messageId === "string" ? body.messageId
+        : typeof body.message_id === "string" ? body.message_id
+        : null,
     };
   }
   return null;
@@ -131,7 +148,11 @@ export async function POST(req: NextRequest) {
 
   const title = (envelope.subject.slice(0, 255) || "(No subject)").replace(/^(Re|Fwd?):\s*/i, "").trim();
   const rawBody = envelope.text.startsWith("<") ? stripHtml(envelope.text) : envelope.text;
-  const description = rawBody.slice(0, 5000) || null;
+  // Sender goes in the description, not external_id — external_id is the
+  // idempotency key (unique per tenant) and the same person legitimately
+  // emails support more than once, so it can never hold the sender address.
+  const senderLine = envelope.from ? `Reported via email from: ${envelope.from}\n\n` : "";
+  const description = (senderLine + rawBody).slice(0, 5000) || null;
 
   const { data: numData, error: numError } = await svc.rpc("next_issue_number", {
     p_tenant_id: tenant.id,
@@ -150,9 +171,18 @@ export async function POST(req: NextRequest) {
     status: "backlog",
     priority: "medium",
     source: "email",
-    external_id: envelope.from,
+    external_id: envelope.messageId,
   }).select("id, number").single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // A provider retrying the same delivery (same messageId) lands here —
+    // treat it as an already-processed success rather than a hard failure.
+    if (error.code === "23505") {
+      const { data: existing } = await svc.from("issues").select("id, number")
+        .eq("tenant_id", tenant.id).eq("external_id", envelope.messageId).maybeSingle();
+      if (existing) return NextResponse.json({ ok: true, issueId: existing.id, number: existing.number });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, issueId: issue.id, number: issue.number });
 }

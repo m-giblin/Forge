@@ -8,11 +8,14 @@ export function IssueSpecPanel({
   issueId,
   initialSpec,
   readOnly,
+  hideLabel,
 }: {
   slug: string;
   issueId: string;
   initialSpec: string | null;
   readOnly: boolean;
+  /** Suppress the "Spec / PRD" label — used when an outer collapsible section already shows it. */
+  hideLabel?: boolean;
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(initialSpec ?? "");
@@ -36,7 +39,7 @@ export function IssueSpecPanel({
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Spec / PRD</p>
+        {!hideLabel && <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Spec / PRD</p>}
         {!readOnly && !editing && (
           <button
             onClick={() => setEditing(true)}

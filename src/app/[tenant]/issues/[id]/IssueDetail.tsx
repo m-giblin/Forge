@@ -262,6 +262,12 @@ export default function IssueDetail({
   const [replyToId, setReplyToId] = useState<string | null>(null);
   const [replyToLabel, setReplyToLabel] = useState<string | null>(null);
   const [commenting, startComment] = useTransition();
+  // Spec/PRD and Sign-offs are process-gate sections that stay empty on most
+  // routine tickets — start collapsed unless there's already content, so
+  // Activity (what someone working the ticket actually checks) isn't pushed
+  // down by two empty sections.
+  const [specOpen, setSpecOpen] = useState(!!issue.spec_md);
+  const [signoffsOpen, setSignoffsOpen] = useState((signoffs ?? []).length > 0);
   const canMarkDecision = userRole === "owner" || userRole === "admin";
 
   const orderedStatuses = [...statuses].sort((a, b) => a.position - b.position);
@@ -682,6 +688,16 @@ export default function IssueDetail({
             />
           </div>
 
+          {/* ─ Attachments — right under the description, where people actually look ─ */}
+          <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
+            <IssueAttachments
+              slug={slug}
+              issueId={issue.id}
+              initialAttachments={initialAttachments}
+              readOnly={readOnly}
+            />
+          </div>
+
           {error && <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">{error}</div>}
 
           {!readOnly && (
@@ -696,28 +712,6 @@ export default function IssueDetail({
               )}
             </div>
           )}
-
-          {/* ─ Spec / PRD section ─ */}
-          <div className="bg-white rounded-xl border border-neutral-200 p-6">
-            <IssueSpecPanel
-              slug={slug}
-              issueId={issue.id}
-              initialSpec={issue.spec_md ?? null}
-              readOnly={readOnly}
-            />
-          </div>
-
-          {/* ─ Sign-offs section ─ */}
-          <div className="bg-white rounded-xl border border-neutral-200 p-6">
-            <IssueSignoffsPanel
-              slug={slug}
-              issueId={issue.id}
-              signoffs={signoffs ?? []}
-              readOnly={readOnly}
-              userRole={userRole}
-              currentUserId={currentUserId}
-            />
-          </div>
 
           {/* ─ Activity section ─ */}
           <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
@@ -868,6 +862,60 @@ export default function IssueDetail({
                     {commenting ? "Posting…" : replyToId ? "Post reply" : commentType === "decision" ? "Post Decision" : "Post comment"}
                   </button>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* ─ Spec / PRD section — collapsed by default when empty ─ */}
+          <div className="bg-white rounded-xl border border-neutral-200 p-6">
+            <button
+              type="button"
+              onClick={() => setSpecOpen((v) => !v)}
+              className="flex w-full items-center gap-2 text-left"
+            >
+              <p className="flex-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                Spec / PRD
+                {!issue.spec_md && <span className="ml-2 normal-case font-normal text-neutral-300">(empty)</span>}
+              </p>
+              <span className={`text-neutral-400 transition-transform duration-200 ${specOpen ? "rotate-180" : ""}`}>▼</span>
+            </button>
+            {specOpen && (
+              <div className="mt-3">
+                <IssueSpecPanel
+                  slug={slug}
+                  issueId={issue.id}
+                  initialSpec={issue.spec_md ?? null}
+                  readOnly={readOnly}
+                  hideLabel
+                />
+              </div>
+            )}
+          </div>
+
+          {/* ─ Sign-offs section — collapsed by default when empty ─ */}
+          <div className="bg-white rounded-xl border border-neutral-200 p-6">
+            <button
+              type="button"
+              onClick={() => setSignoffsOpen((v) => !v)}
+              className="flex w-full items-center gap-2 text-left"
+            >
+              <p className="flex-1 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+                Sign-offs
+                {(signoffs ?? []).length === 0 && <span className="ml-2 normal-case font-normal text-neutral-300">(empty)</span>}
+              </p>
+              <span className={`text-neutral-400 transition-transform duration-200 ${signoffsOpen ? "rotate-180" : ""}`}>▼</span>
+            </button>
+            {signoffsOpen && (
+              <div className="mt-3">
+                <IssueSignoffsPanel
+                  slug={slug}
+                  issueId={issue.id}
+                  signoffs={signoffs ?? []}
+                  readOnly={readOnly}
+                  userRole={userRole}
+                  currentUserId={currentUserId}
+                  hideLabel
+                />
               </div>
             )}
           </div>
@@ -1198,14 +1246,6 @@ export default function IssueDetail({
                 </div>
               );
             })()}
-            <div className="border-t border-neutral-200 pt-3">
-              <IssueAttachments
-                slug={slug}
-                issueId={issue.id}
-                initialAttachments={initialAttachments}
-                readOnly={readOnly}
-              />
-            </div>
           </div>
         </aside>
       </div>

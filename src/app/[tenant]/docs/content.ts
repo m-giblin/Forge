@@ -1264,6 +1264,48 @@ export const DOC_GUIDES: DocGuide[] = [
             language: 'bash',
             code: 'curl -s -X POST "https://acme.forgeapp.com/api/v1/issues/<issue-id>/comments" \\\n  -H "Authorization: Bearer $FORGE_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"body": "Deploy #482 fixed this — verifying in staging.", "author_label": "CI Bot"}\'',
           },
+          { type: 'heading', level: 3, text: 'Attachments — a two-call flow, not one' },
+          {
+            type: 'warning',
+            title: 'Creating an issue does NOT attach a file',
+            text: 'This is the single most common integration mistake: sending a screenshot or file as part of the issue-create payload. `POST /api/v1/issues` only ever accepts JSON — it has no file field. Attaching a file to an issue is always a **second, separate call**, made after the issue already exists. An integration that skips this second call will create issues that look like they should have an attachment (the description might even say "see attached screenshot") but silently have nothing — Forge has no way to know a file was expected if it was never sent.',
+          },
+          {
+            type: 'steps',
+            items: [
+              {
+                title: 'Create the issue first',
+                detail: 'POST /api/v1/issues as usual (see "Issues: create" above). Take the `id` from the response — you need it for the next call.',
+              },
+              {
+                title: 'Upload the file as its own request',
+                detail: 'POST /api/v1/issues/{id}/attachments with a multipart/form-data body, a single field named `file`. This is a completely separate HTTP request from the one that created the issue — most HTTP client libraries and multipart helpers cannot combine a JSON body and a file upload in one call, which is exactly why the API is split this way.',
+                tip: 'If your integration captures a screenshot at the same time it creates the issue (e.g. an in-app bug reporter), sequence the two calls: create the issue, get its id back, then immediately upload the file to that id. Don\'t fire them in parallel — the attachment call needs the issue to already exist.',
+              },
+            ],
+          },
+          {
+            type: 'field-list',
+            items: [
+              { field: 'file', type: 'binary, multipart field (required)', description: 'The file itself. Allowed types: PNG, JPEG, GIF, WEBP, PDF, Word (.doc/.docx), Excel (.xls/.xlsx). Max 10 MB per file, 100 MB total per tenant per month.' },
+            ],
+          },
+          {
+            type: 'code',
+            label: 'Step 1 — create the issue, capture its id',
+            language: 'bash',
+            code: 'RESPONSE=$(curl -s -X POST "https://acme.forgeapp.com/api/v1/issues" \\\n  -H "Authorization: Bearer $FORGE_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"project": "FORGE", "title": "Checkout button unresponsive", "type": "bug"}\')\nISSUE_ID=$(echo "$RESPONSE" | jq -r \'.data.id\')',
+          },
+          {
+            type: 'code',
+            label: 'Step 2 — upload the screenshot to that issue (separate call)',
+            language: 'bash',
+            code: 'curl -s -X POST "https://acme.forgeapp.com/api/v1/issues/$ISSUE_ID/attachments" \\\n  -H "Authorization: Bearer $FORGE_API_KEY" \\\n  -F "file=@/path/to/screenshot.png"',
+          },
+          {
+            type: 'paragraph',
+            text: '`GET /api/v1/issues/{id}/attachments` lists an issue\'s attachment metadata (filename, content type, size, upload date) — it returns pointers, not the file bytes. Download URLs are short-lived signed URLs fetched separately; the list response tells you an attachment exists, not how to display it inline.',
+          },
           { type: 'heading', level: 3, text: 'Time tracking: log, list, edit, and delete time' },
           {
             type: 'paragraph',

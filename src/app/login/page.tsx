@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -81,6 +81,15 @@ function LoginForm() {
   const [pendingFactorId, setPendingFactorId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const totpInputRef = useRef<HTMLInputElement>(null);
+
+  // The plain `autoFocus` prop is unreliable here — this is a state-driven
+  // screen swap within the same mounted component, not a fresh page load, and
+  // some browsers silently skip autofocus in that case. Focus explicitly once
+  // the totp screen becomes visible so the code can be typed immediately.
+  useEffect(() => {
+    if (screen === "totp") totpInputRef.current?.focus();
+  }, [screen]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -152,6 +161,7 @@ function LoginForm() {
             <div>
               <label className="mb-1 block text-sm font-medium text-neutral-700">Authentication code</label>
               <input
+                ref={totpInputRef}
                 type="text"
                 inputMode="numeric"
                 maxLength={6}

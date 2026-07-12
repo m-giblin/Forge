@@ -68,6 +68,8 @@ export async function updateSession(
     path.startsWith("/api/auth/") ||
     path.startsWith("/api/signup") ||
     path.startsWith("/api/cron/") ||
+    path.startsWith("/api/email/inbound") ||
+    path.startsWith("/api/webhooks/") ||
     path.startsWith("/auth/") ||
     path.startsWith("/shared") ||
     path.startsWith("/legal") ||

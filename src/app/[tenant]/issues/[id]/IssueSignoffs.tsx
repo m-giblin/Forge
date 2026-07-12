@@ -18,6 +18,7 @@ export function IssueSignoffsPanel({
   readOnly,
   userRole,
   currentUserId,
+  hideLabel,
 }: {
   slug: string;
   issueId: string;
@@ -25,6 +26,8 @@ export function IssueSignoffsPanel({
   readOnly: boolean;
   userRole: string;
   currentUserId: string;
+  /** Suppress the "Sign-offs" label — used when an outer collapsible section already shows it. */
+  hideLabel?: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   const [newRole, setNewRole] = useState("");
@@ -66,7 +69,7 @@ export function IssueSignoffsPanel({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400 flex items-center gap-2">
-          Sign-offs
+          {!hideLabel && "Sign-offs"}
           {signoffs.length > 0 && (
             <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold border ${
               allSigned

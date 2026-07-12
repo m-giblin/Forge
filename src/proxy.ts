@@ -79,7 +79,7 @@ export async function proxy(request: NextRequest) {
   // NOTE: /api/v1/ is excluded from the IP allowlist because machine API clients authenticate
   // via API keys which have their own rate limiting and scopes. Tenant admins configuring
   // an IP allowlist should be aware it does not restrict API key access.
-  const ALWAYS_SKIP = ["/api/v1/", "/api/scim/", "/api/auth/", "/api/cron/", "/api/signup", "/api/internal/", "/login", "/signup", "/preview-landing", "/join", "/shared", "/legal", "/feedback", "/auth/", "/design", "/_next"];
+  const ALWAYS_SKIP = ["/api/v1/", "/api/scim/", "/api/auth/", "/api/cron/", "/api/signup", "/api/internal/", "/api/email/inbound", "/api/webhooks/", "/login", "/signup", "/preview-landing", "/join", "/shared", "/legal", "/feedback", "/auth/", "/design", "/_next"];
   const alwaysSkip = ALWAYS_SKIP.some((p) => path.startsWith(p));
 
   if (!alwaysSkip) {
