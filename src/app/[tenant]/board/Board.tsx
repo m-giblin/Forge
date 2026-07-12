@@ -301,6 +301,7 @@ export default function Board({
           )}
           {canEdit && (
             <button
+              data-ember-tour="board-new-issue"
               onClick={() => setShowForm((s) => !s)}
               className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
             >
@@ -411,7 +412,7 @@ export default function Board({
         />
       )}
 
-      <div className="flex gap-3 overflow-x-auto pb-4">
+      <div data-ember-tour="board-columns" className="flex gap-3 overflow-x-auto pb-4">
         {groupBy === "priority" ? (() => {
           const orderedPriorities = [...priorities].sort((a, b) => a.position - b.position);
           return orderedPriorities.map((p) => {

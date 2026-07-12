@@ -5,6 +5,18 @@ import { usePathname, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { askEmberAction, confirmEmberCreateIssueAction } from "@/app/[tenant]/ember/actions";
 import type { EmberSource, ProposedAction } from "@/lib/services/emberAssistant";
+import { EMBER_TOURS } from "@/lib/emberTours";
+import "driver.js/dist/driver.css";
+
+async function runTour(sectionId: string) {
+  const tour = EMBER_TOURS[sectionId];
+  if (!tour) return;
+  const { driver } = await import("driver.js");
+  driver({
+    showProgress: true,
+    steps: tour.steps.map((s) => ({ element: s.selector, popover: { title: s.title, description: s.description } })),
+  }).drive();
+}
 
 type ActionState = { status: "pending" } | { status: "created"; issueKey: string; issueId: string } | { status: "error"; message: string };
 
@@ -136,13 +148,23 @@ export default function EmberWidget({ slug }: { slug: string }) {
                       <div className="mt-2 flex flex-wrap gap-1.5 border-t border-neutral-200 pt-2">
                         {t.sources.map((s) =>
                           s.kind === "doc" ? (
-                            <Link
-                              key={`doc-${s.sectionId}`}
-                              href={`/${slug}/docs#${s.sectionId}`}
-                              className="rounded-full bg-white border border-violet-200 px-2 py-0.5 text-[11px] font-medium text-violet-700 hover:bg-violet-50"
-                            >
-                              📄 {s.sectionTitle} →
-                            </Link>
+                            <span key={`doc-${s.sectionId}`} className="inline-flex items-center gap-1">
+                              <Link
+                                href={`/${slug}/docs#${s.sectionId}`}
+                                className="rounded-full bg-white border border-violet-200 px-2 py-0.5 text-[11px] font-medium text-violet-700 hover:bg-violet-50"
+                              >
+                                📄 {s.sectionTitle} →
+                              </Link>
+                              {EMBER_TOURS[s.sectionId] && pathname.startsWith(EMBER_TOURS[s.sectionId].pathPrefix) && (
+                                <button
+                                  type="button"
+                                  onClick={() => runTour(s.sectionId)}
+                                  className="rounded-full bg-white border border-indigo-200 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-50"
+                                >
+                                  ▶ Show me
+                                </button>
+                              )}
+                            </span>
                           ) : (
                             <Link
                               key={`wiki-${s.pageId}`}

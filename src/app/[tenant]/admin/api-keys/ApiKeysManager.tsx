@@ -161,7 +161,7 @@ export default function ApiKeysManager({
       {!readOnly && (
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <div className="flex flex-wrap items-end gap-3">
-            <div className="flex-1 min-w-[180px]">
+            <div data-ember-tour="admin-api-keys-name" className="flex-1 min-w-[180px]">
               <label className="mb-1 block text-xs font-medium text-neutral-600">Key name</label>
               <input
                 value={name}
@@ -170,7 +170,7 @@ export default function ApiKeysManager({
                 className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
               />
             </div>
-            <div>
+            <div data-ember-tour="admin-api-keys-scopes">
               <span className="mb-1 block text-xs font-medium text-neutral-600">Permissions</span>
               <div className="flex gap-3">
                 {SCOPE_OPTIONS.map((o) => (
@@ -194,6 +194,7 @@ export default function ApiKeysManager({
               </select>
             </div>
             <button
+              data-ember-tour="admin-api-keys-create"
               onClick={create}
               disabled={pending || !name.trim() || scopes.length === 0}
               className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"

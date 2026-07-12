@@ -307,7 +307,7 @@ export default function MembersManager({
           )}
         </div>
         {!readOnly && (
-          <button onClick={() => setShowInviteModal(true)}
+          <button data-ember-tour="admin-members-invite" onClick={() => setShowInviteModal(true)}
             className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700">
             + Invite member
           </button>
