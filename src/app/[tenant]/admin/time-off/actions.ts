@@ -15,6 +15,7 @@ export type TimeOffRow = {
   daysCount: number;
   status: string;
   notes: string | null;
+  reviewNotes: string | null;
   createdAt: string;
 };
 
@@ -28,7 +29,7 @@ export async function getAdminTimeOffAction(
 
   let q = svc
     .from("time_off_requests")
-    .select("id, user_id, type, start_date, end_date, days_count, status, notes, created_at, users!inner(name, email)")
+    .select("id, user_id, type, start_date, end_date, days_count, status, notes, review_notes, created_at, users!inner(name, email)")
     .eq("tenant_id", ctx.tenant.id)
     .order("created_at", { ascending: false })
     .limit(100);
@@ -48,6 +49,7 @@ export async function getAdminTimeOffAction(
       daysCount: r.days_count as number,
       status: r.status as string,
       notes: r.notes as string | null,
+      reviewNotes: r.review_notes as string | null,
       createdAt: r.created_at as string,
     };
   });
@@ -57,6 +59,7 @@ export async function reviewTimeOffAction(
   slug: string,
   requestId: string,
   action: "approved" | "rejected",
+  reviewNotes?: string,
 ): Promise<{ ok: boolean; error?: string }> {
   const ctx = await getTenantContext(slug);
   if (!ctx || (ctx.role !== "owner" && ctx.role !== "admin")) return { ok: false, error: "Not authorized" };
@@ -67,6 +70,7 @@ export async function reviewTimeOffAction(
       status: action,
       reviewed_by: ctx.appUserId,
       reviewed_at: new Date().toISOString(),
+      review_notes: reviewNotes?.trim() || null,
     })
     .eq("tenant_id", ctx.tenant.id)
     .eq("id", requestId);

@@ -60,10 +60,11 @@ export default function TimeOffClient({ slug, initial }: { slug: string; initial
   }
 
   function review(id: string, action: "approved" | "rejected") {
+    const notes = action === "rejected" ? rejectNotes[id] : undefined;
     setRows((prev) => prev.map((r) => r.id === id ? { ...r, status: action } : r));
     setShowRejectFor(null);
     startAction(async () => {
-      const res = await reviewTimeOffAction(slug, id, action);
+      const res = await reviewTimeOffAction(slug, id, action, notes);
       if (!res.ok) {
         reload();
       } else {
@@ -125,6 +126,12 @@ export default function TimeOffClient({ slug, initial }: { slug: string; initial
                   </p>
                   {r.notes && (
                     <p className="mt-1 text-xs text-neutral-400 italic">&ldquo;{r.notes}&rdquo;</p>
+                  )}
+                  {r.status === "rejected" && r.reviewNotes && (
+                    <p className="mt-1 text-xs text-red-500">
+                      <span className="font-semibold">Reason: </span>
+                      {r.reviewNotes}
+                    </p>
                   )}
                 </div>
                 {r.status === "pending" && (
