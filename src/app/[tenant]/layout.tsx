@@ -18,6 +18,7 @@ import SessionTimeoutGuard from "@/components/SessionTimeoutGuard";
 import GlobalKeys from "@/components/GlobalKeys";
 import AiDisclosureBanner from "@/components/AiDisclosureBanner";
 import MobileSidebar from "@/components/MobileSidebar";
+import EmberWidget from "@/components/EmberWidget";
 import { getTenantSetting } from "@/lib/tenantSettings";
 
 function trialDaysRemaining(trialEndsAt: string | null): number | null {
@@ -281,6 +282,7 @@ export default async function TenantLayout({
       <GlobalKeys slug={slug} />
       <AiDisclosureBanner />
       <SessionTimeoutGuard timeoutMinutes={isNaN(sessionTimeoutMinutes) ? 30 : sessionTimeoutMinutes} />
+      <EmberWidget slug={slug} />
     </div>
   );
 }
