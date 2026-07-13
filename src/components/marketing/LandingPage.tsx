@@ -6,14 +6,6 @@ const FAQS = [
     a: "One seat = one active user who can log in and interact with issues. Stakeholders who only receive scheduled PDF/email reports don't need a seat.",
   },
   {
-    q: "Do I need a credit card for the trial?",
-    a: "No. Start your 14-day Premium trial with just your work email. You'll only need a card when you decide to keep going.",
-  },
-  {
-    q: "What happens when the trial ends?",
-    a: "Your workspace automatically moves to the Basic tier. No data is lost — your issues, sprints, and history stay intact. Premium features are locked until you upgrade.",
-  },
-  {
     q: "Can I import from Jira?",
     a: "Jira CSV export is on our roadmap. In the meantime, our team can help you migrate your issues and history manually — reach out at hello@forge-worx.com and we'll get you set up.",
   },
@@ -95,10 +87,6 @@ export default function LandingPage() {
             </a>
           </div>
 
-          {/* Social proof strip */}
-          <p className="mt-8 text-sm text-slate-500">
-            14-day free Premium trial &nbsp;·&nbsp; Single workspace &nbsp;·&nbsp; Cancel anytime &nbsp;·&nbsp; Your data, always
-          </p>
         </div>
       </section>
 
