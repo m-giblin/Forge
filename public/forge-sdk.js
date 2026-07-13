@@ -31,6 +31,21 @@
 (function (global) {
   "use strict";
 
+  // Guard against this file executing more than once on the same page. In an
+  // SPA, a <script src="forge-sdk.js"> placed anywhere other than the true
+  // root layout can get re-inserted on client-side route changes — each
+  // re-execution of this IIFE would otherwise silently reset every
+  // module-scope variable (replayBuffer, queue, cfg) and start a brand-new
+  // rrweb.record() session, discarding whatever had already been captured.
+  // Real symptom seen in production: 30+ seconds of real user interaction
+  // across several page navigations, but the attached replay showed only a
+  // fraction of a second — because the buffer had been silently reset by a
+  // reload of this script moments before the bug was reported. First
+  // execution wins; every later one is a no-op so the original recording
+  // session (and its accumulated buffer) keeps running undisturbed.
+  if (global.__forgeSdkInstalled) return;
+  global.__forgeSdkInstalled = true;
+
   // NOTE: two third-party CDN dead ends before landing here. (1) jsDelivr's
   // "rrweb.min.js" auto-resolves to the ESM build (`export {...}`), which
   // can't run in a plain <script> tag and never defines window.rrweb, with no
