@@ -15,8 +15,8 @@ const TIERS = [
       "5 GB storage",
       "Email support",
     ],
-    cta: "Get started free",
-    href: "/signup",
+    cta: "Coming Soon",
+    href: null,
     highlight: false,
     badge: null,
   },
@@ -35,9 +35,9 @@ const TIERS = [
       "Priority support",
       "Unlimited storage",
     ],
-    cta: "Start 14-day free trial",
-    href: "/signup",
-    highlight: true,
+    cta: "Coming Soon",
+    href: null,
+    highlight: false,
     badge: "Most Popular",
   },
   {
@@ -126,12 +126,9 @@ export default function LandingPage() {
             >
               Sign In
             </Link>
-            <Link
-              href="/signup"
-              className="rounded-lg bg-indigo-500 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-400 transition-colors"
-            >
-              Start Free Trial
-            </Link>
+            <span className="cursor-not-allowed rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-400">
+              Coming Soon
+            </span>
           </div>
         </div>
       </header>
@@ -166,12 +163,9 @@ export default function LandingPage() {
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link
-              href="/signup"
-              className="w-full sm:w-auto rounded-xl bg-indigo-500 px-8 py-3.5 text-base font-bold text-white hover:bg-indigo-400 transition-all shadow-lg shadow-indigo-500/25"
-            >
-              Start 14-Day Free Trial — No CC Required
-            </Link>
+            <span className="w-full sm:w-auto cursor-not-allowed rounded-xl border border-slate-600 px-8 py-3.5 text-center text-base font-bold text-slate-400">
+              Coming Soon
+            </span>
             <a
               href="#features"
               className="w-full sm:w-auto rounded-xl border border-slate-700 px-8 py-3.5 text-base font-semibold text-slate-300 hover:border-slate-500 hover:text-white transition-all"
@@ -467,18 +461,24 @@ export default function LandingPage() {
                   ))}
                 </ul>
 
-                <a
-                  href={tier.href}
-                  className={`block w-full rounded-xl py-2.5 text-center text-sm font-bold transition-colors ${
-                    tier.highlight
-                      ? "bg-indigo-500 text-white hover:bg-indigo-400"
-                      : tier.badge === "Coming Soon"
-                      ? "border border-slate-600 text-slate-400 hover:border-slate-400 hover:text-slate-300"
-                      : "border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white"
-                  }`}
-                >
-                  {tier.cta}
-                </a>
+                {tier.href ? (
+                  <a
+                    href={tier.href}
+                    className={`block w-full rounded-xl py-2.5 text-center text-sm font-bold transition-colors ${
+                      tier.highlight
+                        ? "bg-indigo-500 text-white hover:bg-indigo-400"
+                        : tier.badge === "Coming Soon"
+                        ? "border border-slate-600 text-slate-400 hover:border-slate-400 hover:text-slate-300"
+                        : "border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white"
+                    }`}
+                  >
+                    {tier.cta}
+                  </a>
+                ) : (
+                  <span className="block w-full cursor-not-allowed rounded-xl border border-slate-700 py-2.5 text-center text-sm font-bold text-slate-500">
+                    {tier.cta}
+                  </span>
+                )}
               </div>
             ))}
           </div>
@@ -567,15 +567,14 @@ export default function LandingPage() {
             Ship better. Report smarter.<br />Win more trust.
           </h2>
           <p className="text-indigo-200 text-lg mb-8 max-w-xl mx-auto">
-            14 days free. Full Premium. One workspace. No credit card.
-            Cancel any time — but most teams don&rsquo;t.
+            Self-serve signup opens soon. Want early access?{" "}
+            <a href="mailto:hello@forge-worx.com?subject=Early%20Access" className="underline underline-offset-2 hover:no-underline">
+              Reach out
+            </a>.
           </p>
-          <Link
-            href="/signup"
-            className="inline-block rounded-xl bg-white px-10 py-4 text-base font-bold text-indigo-700 hover:bg-indigo-50 transition-colors shadow-xl shadow-indigo-900/30"
-          >
-            Start your free trial today →
-          </Link>
+          <span className="inline-block cursor-not-allowed rounded-xl bg-white/60 px-10 py-4 text-base font-bold text-indigo-700/70 shadow-xl shadow-indigo-900/30">
+            Coming Soon
+          </span>
           <p className="mt-4 text-indigo-300 text-sm">
             Already a customer?{" "}
             <Link href="/login" className="text-white underline underline-offset-2 hover:no-underline">
@@ -599,7 +598,7 @@ export default function LandingPage() {
             </div>
 
             <nav className="grid grid-cols-2 gap-x-16 gap-y-2 text-sm text-slate-400">
-              <Link href="/signup" className="hover:text-white transition-colors">Start Free Trial</Link>
+              <span className="text-slate-600">Coming Soon</span>
               <Link href="/login" className="hover:text-white transition-colors">Sign In</Link>
               <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
               <a href="#features" className="hover:text-white transition-colors">Features</a>
