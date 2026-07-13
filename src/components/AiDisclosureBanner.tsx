@@ -10,14 +10,14 @@ export default function AiDisclosureBanner() {
 
   useEffect(() => {
     try {
-      if (!sessionStorage.getItem(STORAGE_KEY)) setVisible(true);
+      if (!localStorage.getItem(STORAGE_KEY)) setVisible(true);
     } catch {
-      // sessionStorage unavailable
+      // localStorage unavailable
     }
   }, []);
 
   function dismiss() {
-    try { sessionStorage.setItem(STORAGE_KEY, "1"); } catch { /* */ }
+    try { localStorage.setItem(STORAGE_KEY, "1"); } catch { /* */ }
     setVisible(false);
   }
 
