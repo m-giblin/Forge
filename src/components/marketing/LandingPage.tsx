@@ -1,83 +1,5 @@
 import Link from "next/link";
 
-// ─── Pricing tier definitions ──────────────────────────────────────────────
-const TIERS = [
-  {
-    name: "Basic",
-    price: "$9",
-    unit: "/seat/mo",
-    description: "For small teams that need a better board.",
-    features: [
-      "Unlimited issues & projects",
-      "Kanban + List views",
-      "Sprint planning",
-      "Burndown & Velocity charts",
-      "5 GB storage",
-      "Email support",
-    ],
-    cta: "Coming Soon",
-    href: null,
-    highlight: false,
-    badge: null,
-  },
-  {
-    name: "Premium",
-    price: "$19",
-    unit: "/seat/mo",
-    description: "For teams that need intelligence, not just tracking.",
-    features: [
-      "Everything in Basic",
-      "Cycle Time & Issue Aging analytics",
-      "Custom Report Builder (9 dimensions)",
-      "Stakeholder PDF/Excel exports",
-      "Scheduled automated reports",
-      "AI Sprint Intelligence",
-      "Priority support",
-      "Unlimited storage",
-    ],
-    cta: "Coming Soon",
-    href: null,
-    highlight: false,
-    badge: "Most Popular",
-  },
-  {
-    name: "Pro",
-    price: null,
-    unit: "",
-    description: "SSO, advanced AI, custom integrations — coming soon.",
-    features: [
-      "Everything in Premium",
-      "SSO / SAML authentication",
-      "Advanced AI assistant",
-      "Custom integrations & webhooks",
-      "Dedicated customer success",
-      "99.9% uptime SLA",
-    ],
-    cta: "Join waitlist",
-    href: "mailto:hello@forge-worx.com?subject=Pro%20Waitlist",
-    highlight: false,
-    badge: "Coming Soon",
-  },
-  {
-    name: "Enterprise",
-    price: null,
-    unit: "",
-    description: "On-premise, custom models, white-glove onboarding.",
-    features: [
-      "Everything in Pro",
-      "On-premise deployment option",
-      "Custom AI fine-tuning",
-      "Volume seat pricing",
-      "Executive business review",
-      "Custom SLA & contracts",
-    ],
-    cta: "Contact us",
-    href: "mailto:hello@forge-worx.com?subject=Enterprise%20Inquiry",
-    highlight: false,
-    badge: "Coming Soon",
-  },
-];
-
 const FAQS = [
   {
     q: "What counts as a seat?",
@@ -115,7 +37,6 @@ export default function LandingPage() {
           <nav className="hidden md:flex items-center gap-6 text-base text-slate-300">
             <a href="#features" className="hover:text-white transition-colors font-medium">Features</a>
             <a href="#how-it-works" className="hover:text-white transition-colors font-medium">How It Works</a>
-            <a href="#pricing" className="hover:text-white transition-colors font-medium">Pricing</a>
             <a href="#faq" className="hover:text-white transition-colors font-medium">FAQ</a>
           </nav>
 
@@ -405,139 +326,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── PRICING ──────────────────────────────────────────── */}
-      <section id="pricing" className="bg-slate-950 py-20">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="text-center mb-14">
-            <p className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-3">Pricing</p>
-            <h2 className="text-3xl md:text-4xl font-black text-white">
-              Per seat. Billed monthly. No surprises.
-            </h2>
-            <p className="mt-4 text-slate-400">Start your 14-day Premium trial free. Upgrade when you&rsquo;re ready.</p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5">
-            {TIERS.map((tier) => (
-              <div
-                key={tier.name}
-                className={`relative flex flex-col rounded-2xl border p-6 ${
-                  tier.highlight
-                    ? "border-indigo-500 bg-indigo-950 ring-1 ring-indigo-500/50"
-                    : "border-slate-700 bg-slate-900"
-                }`}
-              >
-                {tier.badge && (
-                  <div className={`absolute -top-3 left-1/2 -translate-x-1/2 rounded-full px-3 py-1 text-xs font-bold ${
-                    tier.highlight
-                      ? "bg-indigo-500 text-white"
-                      : "bg-slate-700 text-slate-300"
-                  }`}>
-                    {tier.badge}
-                  </div>
-                )}
-
-                <div className="mb-4">
-                  <h3 className="text-base font-bold text-white mb-1">{tier.name}</h3>
-                  <p className="text-xs text-slate-400 leading-relaxed">{tier.description}</p>
-                </div>
-
-                <div className="mb-6">
-                  {tier.price ? (
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-black text-white">{tier.price}</span>
-                      <span className="text-sm text-slate-400">{tier.unit}</span>
-                    </div>
-                  ) : (
-                    <span className="text-2xl font-black text-slate-400">Custom</span>
-                  )}
-                </div>
-
-                <ul className="space-y-2 flex-1 mb-6">
-                  {tier.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-xs text-slate-300">
-                      <span className="mt-0.5 shrink-0 text-indigo-400">✓</span>
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-
-                {tier.href ? (
-                  <a
-                    href={tier.href}
-                    className={`block w-full rounded-xl py-2.5 text-center text-sm font-bold transition-colors ${
-                      tier.highlight
-                        ? "bg-indigo-500 text-white hover:bg-indigo-400"
-                        : tier.badge === "Coming Soon"
-                        ? "border border-slate-600 text-slate-400 hover:border-slate-400 hover:text-slate-300"
-                        : "border border-slate-600 text-slate-300 hover:border-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {tier.cta}
-                  </a>
-                ) : (
-                  <span className="block w-full cursor-not-allowed rounded-xl border border-slate-700 py-2.5 text-center text-sm font-bold text-slate-500">
-                    {tier.cta}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <p className="mt-8 text-center text-xs text-slate-500">
-            All plans billed per active seat per month. Annual billing available — contact us for a quote.
-            Premium trial = full Premium features, 1 workspace, 14 days.
-          </p>
-        </div>
-      </section>
-
-      {/* ── WHY NOT JIRA ─────────────────────────────────────── */}
-      <section className="bg-neutral-950 py-20 border-y border-slate-800">
-        <div className="mx-auto max-w-4xl px-6">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-black text-white">
-              &ldquo;We already have Jira / Linear / Asana.&rdquo;
-            </h2>
-            <p className="mt-4 text-slate-400 max-w-xl mx-auto">
-              We hear this every week. Here&rsquo;s the honest comparison:
-            </p>
-          </div>
-
-          <div className="overflow-hidden rounded-2xl border border-slate-700">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-700 bg-slate-900">
-                  <th className="px-5 py-3 text-left text-slate-400 font-semibold">Feature</th>
-                  <th className="px-5 py-3 text-center text-slate-400 font-semibold">Jira</th>
-                  <th className="px-5 py-3 text-center text-slate-400 font-semibold">Linear</th>
-                  <th className="px-5 py-3 text-center text-indigo-300 font-bold">Forge-Worx</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[
-                  ["Clean, fast UI", "⚠️ Complex", "✅ Fast", "✅ Fast"],
-                  ["Sprint burndown", "✅ Plugin", "⚠️ Basic", "✅ Built-in"],
-                  ["Cycle time analytics", "⚠️ Plugin $$$", "❌", "✅ Built-in"],
-                  ["Stakeholder PDF reports", "⚠️ Plugin $$$", "❌", "✅ Built-in"],
-                  ["Custom report builder", "⚠️ Eazybi $$$", "❌", "✅ Built-in"],
-                  ["Scheduled email reports", "⚠️ Plugin", "❌", "✅ Built-in"],
-                  ["Issue aging tracking", "⚠️ Manual", "❌", "✅ Built-in"],
-                  ["AI-powered insights", "⚠️ Add-on", "⚠️ Limited", "✅ Built-in"],
-                  ["Setup time", "😰 Weeks", "✅ Days", "✅ < 30 min"],
-                  ["Price", "$$$ + plugins", "$$", "$"],
-                ].map(([feature, jira, linear, forge]) => (
-                  <tr key={feature} className="border-b border-slate-800 last:border-0 bg-slate-900/50 hover:bg-slate-900 transition-colors">
-                    <td className="px-5 py-3 text-slate-300 font-medium">{feature}</td>
-                    <td className="px-5 py-3 text-center text-slate-400">{jira}</td>
-                    <td className="px-5 py-3 text-center text-slate-400">{linear}</td>
-                    <td className="px-5 py-3 text-center text-indigo-300 font-semibold">{forge}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </section>
-
       {/* ── FAQ ──────────────────────────────────────────────── */}
       <section id="faq" className="bg-white py-20">
         <div className="mx-auto max-w-3xl px-6">
@@ -600,7 +388,6 @@ export default function LandingPage() {
             <nav className="grid grid-cols-2 gap-x-16 gap-y-2 text-sm text-slate-400">
               <span className="text-slate-600">Coming Soon</span>
               <Link href="/login" className="hover:text-white transition-colors">Sign In</Link>
-              <a href="#pricing" className="hover:text-white transition-colors">Pricing</a>
               <a href="#features" className="hover:text-white transition-colors">Features</a>
               <a href="mailto:hello@forge-worx.com" className="hover:text-white transition-colors">Contact</a>
               <Link href="/legal/privacy" className="hover:text-white transition-colors">Privacy</Link>
