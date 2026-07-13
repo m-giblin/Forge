@@ -18,9 +18,10 @@ export type Project = {
   budget_alert_threshold_pct: number | null;
   archived_at?: string | null;
   created_at?: string;
+  is_system_fallback?: boolean;
 };
 
-const COLS = "id, key, name, description, status, lead_user_id, start_date, target_go_live, linked_idea_id, budget_cents, budget_alert_threshold_pct, archived_at, created_at";
+const COLS = "id, key, name, description, status, lead_user_id, start_date, target_go_live, linked_idea_id, budget_cents, budget_alert_threshold_pct, archived_at, created_at, is_system_fallback";
 
 export type CreateProjectInput = {
   tenant_id: string;
@@ -33,9 +34,57 @@ export type CreateProjectInput = {
   target_go_live?: string | null;
 };
 
+const FALLBACK_PROJECT_KEY = "UNROUTED";
+
 /** Project data access. Always tenant-scoped. The only layer touching the DB. */
 export function projectsRepo(supabase: SupabaseClient) {
   return {
+    /**
+     * The tenant's system fallback project — where an issue lands when its
+     * real target (an archived/closed project, or a suspended tenant's
+     * default) shouldn't silently swallow it. Lazily created on first use,
+     * never surfaced in normal project pickers (see listByTenant/listForMember).
+     */
+    async getOrCreateFallbackProject(tenantId: string): Promise<Project> {
+      const { data: existing, error: findErr } = await supabase
+        .from("projects")
+        .select(COLS)
+        .eq("tenant_id", tenantId)
+        .eq("is_system_fallback", true)
+        .maybeSingle();
+      if (findErr) throw findErr;
+      if (existing) return existing as Project;
+
+      const { data: created, error: createErr } = await supabase
+        .from("projects")
+        .insert({
+          tenant_id: tenantId,
+          key: FALLBACK_PROJECT_KEY,
+          name: "Unrouted Issues",
+          description: "Issues automatically routed here because their real target project was inactive, or the tenant is suspended. Nothing lands here silently — check this project if a customer reports something missing.",
+          status: "active",
+          is_system_fallback: true,
+        })
+        .select(COLS)
+        .single();
+      if (createErr) {
+        // Race: another concurrent request created it first (unique partial
+        // index on tenant_id where is_system_fallback) — fetch the winner.
+        if ((createErr as { code?: string }).code === "23505") {
+          const { data: winner, error: refetchErr } = await supabase
+            .from("projects")
+            .select(COLS)
+            .eq("tenant_id", tenantId)
+            .eq("is_system_fallback", true)
+            .single();
+          if (refetchErr) throw refetchErr;
+          return winner as Project;
+        }
+        throw createErr;
+      }
+      return created as Project;
+    },
+
     async getByKey(tenantId: string, key: string): Promise<Project | null> {
       const { data, error } = await supabase
         .from("projects")
@@ -71,26 +120,28 @@ export function projectsRepo(supabase: SupabaseClient) {
       return (data as Project) ?? null;
     },
 
-    /** Every project in the tenant. Pass statuses to filter; omit for all non-archived. */
+    /** Every project in the tenant. Pass statuses to filter; omit for all non-archived. Hides the system fallback project — it's an implementation detail, not something admins pick. */
     async listByTenant(tenantId: string, statuses?: ProjectStatus[]): Promise<Project[]> {
       const filter = statuses ?? (["active", "on_hold", "closed"] as ProjectStatus[]);
       const { data, error } = await supabase
         .from("projects")
         .select(COLS)
         .eq("tenant_id", tenantId)
+        .eq("is_system_fallback", false)
         .in("status", filter)
         .order("key");
       if (error) throw error;
       return (data ?? []) as Project[];
     },
 
-    /** Projects a specific user is a team member of (non-admin landing view). Excludes archived. */
+    /** Projects a specific user is a team member of (non-admin landing view). Excludes archived and the system fallback project. */
     async listForMember(tenantId: string, userId: string): Promise<Project[]> {
       const { data, error } = await supabase
         .from("projects")
         .select(`${COLS}, project_members!inner(user_id)`)
         .eq("tenant_id", tenantId)
         .eq("project_members.user_id", userId)
+        .eq("is_system_fallback", false)
         .neq("status", "archived")
         .order("key");
       if (error) throw error;

@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { listTenants } from "@/lib/services/platform";
+import { getSdkSuspensionWindows } from "@/lib/services/sdkFallbackAlerts";
 import { adminStyles as S } from "../page";
 import AdminProvisionForm from "./AdminProvisionForm";
+import SdkSuspensionWindowsSetting from "./SdkSuspensionWindowsSetting";
 
 function healthScore(t: { member_count: number; issue_count: number; status: string }) {
   let score = 0;
@@ -16,7 +18,7 @@ function healthScore(t: { member_count: number; issue_count: number; status: str
 }
 
 export default async function TenantsPage() {
-  const tenants = await listTenants();
+  const [tenants, sdkSuspensionWindows] = await Promise.all([listTenants(), getSdkSuspensionWindows()]);
   const scored = tenants.map((t) => ({ ...t, health: healthScore(t) }));
 
   return (
@@ -34,6 +36,16 @@ export default async function TenantsPage() {
         </div>
         <div style={{ padding: "14px 16px" }}>
           <AdminProvisionForm />
+        </div>
+      </div>
+
+      {/* SDK suspension grace period */}
+      <div style={{ ...S.card, marginBottom: 18 }}>
+        <div style={S.cardHeader}>
+          <span style={S.cardTitle}>SDK Intake After Suspension</span>
+        </div>
+        <div style={{ padding: "14px 16px" }}>
+          <SdkSuspensionWindowsSetting notifyDays={sdkSuspensionWindows.notifyDays} graceDays={sdkSuspensionWindows.graceDays} />
         </div>
       </div>
 

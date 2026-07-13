@@ -180,7 +180,13 @@
       keepalive: true,
     })
       .then(function (res) {
-        if (!res.ok) return null;
+        if (!res.ok) {
+          // Previously swallowed silently — a rejected/suspended-past-grace
+          // response was invisible to the host app's own dev team unless
+          // they happened to be watching the console at that exact moment.
+          console.warn("[ForgeSDK] Issue was not created (status " + res.status + "). It was not filed anywhere.");
+          return null;
+        }
         return res.json();
       })
       .then(function (json) {

@@ -3,6 +3,7 @@ import { apiError } from "@/lib/api/response";
 import { getRateLimiter } from "@/lib/providers/rate-limiter";
 import { isIpAllowed } from "@/lib/services/ipAllowlist";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { getSdkSuspensionWindows } from "@/lib/services/sdkFallbackAlerts";
 import type { Scope } from "@/lib/api/scopes";
 import type { NextResponse } from "next/server";
 
@@ -13,7 +14,19 @@ const WINDOW_MS = 60_000;
 // Throttle FAILED auth attempts per IP to blunt API-key brute-forcing (review #2).
 const AUTH_FAIL_LIMIT = 10;
 
-type Authed = Extract<ApiAuthResult, { ok: true }>;
+/**
+ * Graduated grace period after a tenant is suspended: the API keeps
+ * authenticating (never checked tenants.status before this) rather than a
+ * hard cutoff the instant status flips, so a suspended-but-not-yet-past-grace
+ * customer's SDK still works — the issues route decides what to do with that
+ * (route to the fallback project + alert). Only once truly past the grace
+ * period does the gate itself start rejecting.
+ */
+export type TenantSuspension =
+  | { suspended: false }
+  | { suspended: true; daysSinceSuspended: number; notifyDays: number; graceDays: number };
+
+type Authed = Extract<ApiAuthResult, { ok: true }> & { tenantSuspension: TenantSuspension };
 
 function clientIp(req: Request): string {
   // x-real-ip is set by Vercel/trusted proxies and cannot be spoofed by clients.
@@ -48,6 +61,35 @@ export async function enforce(
     return { error: apiError("forbidden", `This key is missing the "${scope}" scope.`) };
   }
 
+  // Graduated suspension check — see TenantSuspension doc comment above.
+  let tenantSuspension: TenantSuspension = { suspended: false };
+  try {
+    const svc = createSupabaseServiceClient();
+    const { data: tenant } = await svc
+      .from("tenants")
+      .select("status, suspended_at")
+      .eq("id", auth.tenantId)
+      .maybeSingle();
+    if (tenant?.status === "suspended") {
+      const { notifyDays, graceDays } = await getSdkSuspensionWindows();
+      const daysSinceSuspended = tenant.suspended_at
+        ? Math.floor((Date.now() - new Date(tenant.suspended_at).getTime()) / 86_400_000)
+        : 0;
+      if (daysSinceSuspended > graceDays) {
+        return {
+          error: apiError(
+            "forbidden",
+            `This workspace has been suspended for over ${graceDays} days. Issue intake has been disabled — reactivate the workspace to resume.`
+          ),
+        };
+      }
+      tenantSuspension = { suspended: true, daysSinceSuspended, notifyDays, graceDays };
+    }
+  } catch {
+    // Fail open — don't block legitimate API traffic if this check itself errors.
+    console.error("[gate] tenant suspension check failed for tenant", auth.tenantId);
+  }
+
   // IP allowlist: apply tenant's allowlist to API key callers too (not just browser sessions).
   // Fail open when the allowlist cannot be read to avoid locking out API integrations.
   try {
@@ -78,5 +120,5 @@ export async function enforce(
   if (!k.allowed || !t.allowed) {
     return { error: apiError("rate_limited", "Rate limit exceeded. Slow down.") };
   }
-  return { auth };
+  return { auth: { ...auth, tenantSuspension } };
 }

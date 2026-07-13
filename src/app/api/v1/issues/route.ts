@@ -6,8 +6,9 @@ import { enforce } from "@/lib/api/gate";
 import { resolveFieldValues } from "@/lib/api/validateFields";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issuesRepo } from "@/lib/repositories/issues";
-import { projectsRepo } from "@/lib/repositories/projects";
+import { projectsRepo, type Project } from "@/lib/repositories/projects";
 import { logger } from "@/lib/logger";
+import { alertAdminsOfFallbackRouting, appendFallbackNote, type FallbackReason } from "@/lib/services/sdkFallbackAlerts";
 
 // node:crypto in the auth layer requires the Node runtime.
 export const runtime = "nodejs";
@@ -84,14 +85,32 @@ export async function POST(req: Request) {
   }
 
   // Resolve project early so fingerprint dedup and create both use same project.
-  const project = input.projectKey
+  const resolvedProject = input.projectKey
     ? await projectsRepo(supabase).getByKey(tenantId, input.projectKey)
     : await projectsRepo(supabase).getDefault(tenantId);
-  if (!project) {
+  if (!resolvedProject) {
     return apiError(
       "invalid_request",
       input.projectKey ? `No project with key "${input.projectKey}".` : "Tenant has no project to file into."
     );
+  }
+
+  // Route to the tenant's fallback project instead of silently filing into an
+  // inactive project, or (within the suspension grace period) a suspended
+  // tenant's project — never a black hole, always somewhere an admin sees it.
+  let fallbackReason: FallbackReason | null = null;
+  if (resolvedProject.status !== "active") {
+    fallbackReason = { kind: "inactive_project", projectKey: resolvedProject.key, projectStatus: resolvedProject.status };
+  } else if (gate.auth.tenantSuspension.suspended) {
+    const { daysSinceSuspended, notifyDays, graceDays } = gate.auth.tenantSuspension;
+    fallbackReason = daysSinceSuspended <= notifyDays
+      ? { kind: "suspended_full_alert", daysSinceSuspended }
+      : { kind: "suspended_warning", daysSinceSuspended, graceDays };
+  }
+
+  let project: Project = resolvedProject;
+  if (fallbackReason) {
+    project = await projectsRepo(supabase).getOrCreateFallbackProject(tenantId);
   }
 
   try {
@@ -115,11 +134,15 @@ export async function POST(req: Request) {
       }
     }
 
+    const description = fallbackReason
+      ? appendFallbackNote(input.description ?? null, fallbackReason)
+      : input.description ?? null;
+
     const issue = await repo.create({
       tenant_id: tenantId,
       project_id: project.id,
       title: input.title,
-      description: input.description ?? null,
+      description,
       status: input.status ?? fields.defaults.status,
       priority: input.priority ?? fields.defaults.priority,
       type: input.type ?? fields.defaults.type,
@@ -138,6 +161,32 @@ export async function POST(req: Request) {
       external_id: idempotencyKey,
       fingerprint: input.fingerprint ?? null,
     });
+
+    if (fallbackReason) {
+      // Best-effort — a failed alert must never block the issue itself from
+      // being returned to the caller (the ticket already exists either way).
+      try {
+        const { data: tenant } = await supabase
+          .from("tenants")
+          .select("name, slug, billing_email")
+          .eq("id", tenantId)
+          .single();
+        if (tenant) {
+          await alertAdminsOfFallbackRouting(supabase, {
+            tenantId,
+            tenantSlug: tenant.slug,
+            tenantName: tenant.name,
+            billingEmail: tenant.billing_email,
+            issueId: issue.id,
+            issueKey: `${project.key}-${issue.number}`,
+            reason: fallbackReason,
+          });
+        }
+      } catch (e) {
+        logger.error("Fallback-routing admin alert failed", { issueId: issue.id, error: e instanceof Error ? e.message : String(e) });
+      }
+    }
+
     return ok201or200(issue, project.key, 201);
   } catch (e) {
     // Race: a concurrent retry inserted the same Idempotency-Key first.

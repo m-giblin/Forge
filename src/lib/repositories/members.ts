@@ -44,6 +44,17 @@ export function membersRepo(supabase: SupabaseClient) {
       });
     },
 
+    /** owner + admin user ids for a tenant — the fan-out list for urgent platform alerts. */
+    async listAdminUserIds(tenantId: string): Promise<string[]> {
+      const { data, error } = await supabase
+        .from("memberships")
+        .select("user_id")
+        .eq("tenant_id", tenantId)
+        .in("role", ["owner", "admin"]);
+      if (error) throw error;
+      return (data ?? []).map((m) => m.user_id as string);
+    },
+
     async countOwners(tenantId: string): Promise<number> {
       const { count, error } = await supabase
         .from("memberships")

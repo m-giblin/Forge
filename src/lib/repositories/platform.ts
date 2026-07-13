@@ -48,7 +48,12 @@ export function platformRepo(supabase: SupabaseClient) {
     },
 
     async setStatus(id: string, status: "active" | "suspended"): Promise<void> {
-      const { error } = await supabase.from("tenants").update({ status }).eq("id", id);
+      // suspended_at is the clock the SDK-intake grace period counts from —
+      // stamp it on suspend, clear it on reactivate so a later suspension starts fresh.
+      const { error } = await supabase
+        .from("tenants")
+        .update({ status, suspended_at: status === "suspended" ? new Date().toISOString() : null })
+        .eq("id", id);
       if (error) throw error;
     },
 
