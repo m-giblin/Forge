@@ -41,7 +41,9 @@ export function issueAttachmentsRepo(supabase: SupabaseClient) {
       contentType: string;
       sizeBytes: number;
       storagePath: string;
-      uploadedBy: string;
+      /** null for API-key uploads — uploaded_by references public.users(id), and
+       * an API key has no corresponding user row. */
+      uploadedBy: string | null;
     }): Promise<IssueAttachment> {
       const { data, error } = await supabase
         .from("issue_attachments")

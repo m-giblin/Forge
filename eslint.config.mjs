@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Static assets served as-is (embeddable SDKs, vendored third-party
+    // bundles like the self-hosted rrweb recorder) are not app source.
+    "public/**",
   ]),
   // SEC-10: warn when app-layer code imports the service-role client directly.
   // All DB queries in src/app/ should go through repos in src/lib/repositories/.

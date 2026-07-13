@@ -12,6 +12,9 @@ import { IssueSpecPanel } from "./IssueSpec";
 import { IssueSignoffsPanel, type IssueSignoff } from "./IssueSignoffs";
 import IssueAttachments from "./IssueAttachments";
 import type { IssueAttachment } from "@/lib/repositories/issueAttachments";
+import { SessionReplayCard } from "./SessionReplayCard";
+
+const REPLAY_CONTENT_TYPE = "application/x-forge-replay+json";
 import { SubIssuesCard, LinkedIssuesCard } from "./IssueHierarchy";
 import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 import TriageCard from "./TriageCard";
@@ -268,6 +271,16 @@ export default function IssueDetail({
   // down by two empty sections.
   const [specOpen, setSpecOpen] = useState(!!issue.spec_md);
   const [signoffsOpen, setSignoffsOpen] = useState((signoffs ?? []).length > 0);
+  // FORGE-71: pull the session replay out of the plain-file attachment list so
+  // it can get its own prominent card instead of hiding in with screenshots/PDFs.
+  const replayAttachment = useMemo(
+    () => initialAttachments.find((a) => a.contentType === REPLAY_CONTENT_TYPE) ?? null,
+    [initialAttachments]
+  );
+  const fileAttachments = useMemo(
+    () => initialAttachments.filter((a) => a.contentType !== REPLAY_CONTENT_TYPE),
+    [initialAttachments]
+  );
   const canMarkDecision = userRole === "owner" || userRole === "admin";
 
   const orderedStatuses = [...statuses].sort((a, b) => a.position - b.position);
@@ -674,6 +687,17 @@ export default function IssueDetail({
             )}
           </div>
 
+          {/* ─ Session Replay — FORGE-71, deliberately the most prominent thing on
+              the page (not nested in Attachments) when one exists ─ */}
+          {replayAttachment && (
+            <SessionReplayCard
+              slug={slug}
+              issueId={issue.id}
+              storagePath={replayAttachment.storagePath}
+              onCommentAdded={(c) => setComments((prev) => [...prev, c])}
+            />
+          )}
+
           {/* ─ Description section ─ */}
           <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
             <p className="mb-3 text-xs font-semibold uppercase tracking-wider text-neutral-600">Description</p>
@@ -693,7 +717,7 @@ export default function IssueDetail({
             <IssueAttachments
               slug={slug}
               issueId={issue.id}
-              initialAttachments={initialAttachments}
+              initialAttachments={fileAttachments}
               readOnly={readOnly}
             />
           </div>

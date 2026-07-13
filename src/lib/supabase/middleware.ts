@@ -70,6 +70,12 @@ export async function updateSession(
     path.startsWith("/api/cron/") ||
     path.startsWith("/api/email/inbound") ||
     path.startsWith("/api/webhooks/") ||
+    // forge-sdk.js (and the rrweb recorder it self-hosts for session replay)
+    // are public embeddable scripts meant to run on a customer's own website
+    // — real end users there have never logged into Forge, so these must
+    // never require a session or they can't load at all.
+    path === "/forge-sdk.js" ||
+    path === "/rrweb-recorder.min.js" ||
     path.startsWith("/auth/") ||
     path.startsWith("/shared") ||
     path.startsWith("/legal") ||

@@ -16,15 +16,42 @@
  *       projectKey: "WEB",          // optional, defaults to your workspace default
  *       environment: "production",  // optional
  *       ignoreErrors: [/ResizeObserver/, /ChunkLoadError/],  // optional
+ *       sessionReplay: true,        // optional, opt-in (FORGE-71) — see below
  *     });
  *   </script>
+ *
+ * Session replay (opt-in): when enabled, the SDK loads rrweb from a CDN and
+ * keeps a silent, in-memory rolling buffer of the last ~45s of DOM events.
+ * Nothing is ever sent anywhere unless an issue is actually filed — same
+ * privacy model as Marker.io. All input fields are masked by default
+ * (rrweb's maskAllInputs). On a captured error, the buffered events are
+ * uploaded as an attachment on the new issue, and a note is appended to the
+ * issue description pointing at it.
  */
 (function (global) {
   "use strict";
 
+  // NOTE: two third-party CDN dead ends before landing here. (1) jsDelivr's
+  // "rrweb.min.js" auto-resolves to the ESM build (`export {...}`), which
+  // can't run in a plain <script> tag and never defines window.rrweb, with no
+  // load error to catch. (2) jsDelivr serves the real UMD build
+  // (rrweb.umd.min.cjs) with Content-Type: application/node because of the
+  // .cjs extension — browsers refuse to execute that under strict MIME
+  // checking, even though the content is valid JS. Rather than depend on any
+  // CDN's file-serving quirks (or a customer's CSP allowing a third-party
+  // domain at all), the recorder is self-hosted alongside this script and
+  // resolved relative to wherever this script itself was loaded from.
+  var SDK_SRC = (document.currentScript && document.currentScript.src) || "";
+  var RRWEB_SRC = SDK_SRC ? SDK_SRC.replace(/forge-sdk\.js(\?.*)?$/, "rrweb-recorder.min.js") : "";
+  var REPLAY_WINDOW_MS = 45000;
+  var REPLAY_CONTENT_TYPE = "application/x-forge-replay+json";
+
   var cfg = null;
   var queue = [];
   var sending = false;
+
+  var replayBuffer = [];
+  var replayReady = false;
 
   function fingerprint(type, message, frame) {
     return btoa(unescape(encodeURIComponent([type, message, frame].join("|")))).slice(0, 128);
@@ -48,6 +75,70 @@
     }
     return false;
   }
+
+  // --- Session replay (FORGE-71) -------------------------------------------
+
+  function trimReplayBuffer() {
+    var cutoff = Date.now() - REPLAY_WINDOW_MS;
+    while (replayBuffer.length && replayBuffer[0].timestamp < cutoff) replayBuffer.shift();
+  }
+
+  function startReplayCapture() {
+    if (!global.rrweb || replayReady) return;
+    replayReady = true;
+    global.rrweb.record({
+      emit: function (event) {
+        replayBuffer.push(event);
+        trimReplayBuffer();
+      },
+      maskAllInputs: true,
+      checkoutEveryNms: 15000,
+    });
+  }
+
+  function loadReplayScript() {
+    if (global.rrweb) { startReplayCapture(); return; }
+    if (!RRWEB_SRC) {
+      console.warn("[ForgeSDK] Session replay enabled but couldn't resolve forge-sdk.js's own URL (document.currentScript unavailable) — continuing without it.");
+      return;
+    }
+    var s = document.createElement("script");
+    s.src = RRWEB_SRC;
+    s.async = true;
+    s.onload = startReplayCapture;
+    s.onerror = function () {
+      console.warn("[ForgeSDK] Session replay enabled but rrweb failed to load — continuing without it.");
+    };
+    document.head.appendChild(s);
+  }
+
+  /** Upload the buffered replay events as an attachment, then note it on the issue description. */
+  function attachReplay(issueId, issueKey, originalDescription, events) {
+    if (!events || events.length === 0) return;
+    var blob = new Blob([JSON.stringify(events)], { type: REPLAY_CONTENT_TYPE });
+    var form = new FormData();
+    form.append("file", blob, "session-replay.json");
+
+    var attachmentsUrl = cfg.endpoint.replace(/\/$/, "") + "/" + issueId + "/attachments";
+    fetch(attachmentsUrl, {
+      method: "POST",
+      headers: { Authorization: "Bearer " + cfg.apiKey },
+      body: form,
+      keepalive: true,
+    })
+      .then(function () {
+        var note = "\n\n📹 A session replay is attached — see the Session Replay card above, showing what the user did in the ~45s before this was reported.";
+        return fetch(cfg.endpoint.replace(/\/$/, "") + "/" + issueId, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: "Bearer " + cfg.apiKey },
+          body: JSON.stringify({ description: (originalDescription || "") + note }),
+          keepalive: true,
+        });
+      })
+      .catch(function () {});
+  }
+
+  // --- Error capture + issue creation --------------------------------------
 
   function flush() {
     if (sending || queue.length === 0 || !cfg) return;
@@ -73,6 +164,16 @@
       body: JSON.stringify(body),
       keepalive: true,
     })
+      .then(function (res) {
+        if (!res.ok) return null;
+        return res.json();
+      })
+      .then(function (json) {
+        var issue = json && json.data;
+        if (issue && item.replayEvents) {
+          attachReplay(issue.id, issue.key, body.description, item.replayEvents);
+        }
+      })
       .catch(function () {})
       .finally(function () {
         sending = false;
@@ -84,17 +185,29 @@
     if (!cfg) return;
     if (shouldIgnore(message)) return;
     var fp = fingerprint(type, message, firstFrame(stack));
-    queue.push({
+    var item = {
       fingerprint: fp,
       title: (type ? type + ": " : "") + (message || "Unknown error").slice(0, 250),
       description:
         "**Message:** " + (message || "") + "\n\n**Stack:**\n```\n" + (stack || "").slice(0, 4000) + "\n```",
-    });
+    };
+    if (cfg.sessionReplay) {
+      trimReplayBuffer();
+      item.replayEvents = replayBuffer.slice();
+    }
+    queue.push(item);
     if (queue.length > 20) queue.length = 20; // cap to avoid runaway queues
     flush();
   }
 
   function onError(event) {
+    // The listener is registered with capture:true so it also sees DOM
+    // resource-load failures bubbling up (a broken <img>, a blocked <script>,
+    // a missing favicon) — those fire as plain Events with no .message or
+    // .error, and previously got filed as a useless "Error: [object Event]"
+    // bug. Real JS errors always come through as ErrorEvent with a message;
+    // skip anything that isn't one.
+    if (!(event instanceof ErrorEvent) && typeof event.message !== "string") return;
     var err = event.error;
     capture(
       err && err.name ? err.name : "Error",
@@ -121,6 +234,7 @@
       cfg = options;
       global.addEventListener("error", onError, true);
       global.addEventListener("unhandledrejection", onUnhandledRejection, true);
+      if (cfg.sessionReplay) loadReplayScript();
     },
 
     /** Manually capture an error (e.g. from a try/catch block). */

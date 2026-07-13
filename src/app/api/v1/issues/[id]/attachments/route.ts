@@ -12,12 +12,18 @@ export const runtime = "nodejs";
 const BUCKET = "issue-attachments";
 const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
 const QUOTA_BYTES = 100 * 1024 * 1024; // 100 MB / month
+// FORGE-71: session replay events, uploaded as a regular attachment rather than
+// new storage infra. Kept a distinct content type so the UI can pull it out of
+// the plain-file list and render it as its own prominent "Session Replay" card.
+export const REPLAY_CONTENT_TYPE = "application/x-forge-replay+json";
+
 const ALLOWED_TYPES = new Set([
   "image/png", "image/jpeg", "image/gif", "image/webp",
   "application/pdf",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
   "application/msword", "application/vnd.ms-excel",
+  REPLAY_CONTENT_TYPE,
 ]);
 
 /**
@@ -99,7 +105,10 @@ export async function POST(
     contentType: file.type,
     sizeBytes: file.size,
     storagePath,
-    uploadedBy: gate.auth.keyId,
+    // API-key uploads have no associated user row — uploaded_by is nullable
+    // and FKs to public.users(id), so gate.auth.keyId (an api_keys id) would
+    // violate that FK. This previously 500'd on every single API upload.
+    uploadedBy: null,
   });
 
   return apiOk(attachment, 201);

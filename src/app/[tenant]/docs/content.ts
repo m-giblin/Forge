@@ -1306,6 +1306,37 @@ export const DOC_GUIDES: DocGuide[] = [
             type: 'paragraph',
             text: '`GET /api/v1/issues/{id}/attachments` lists an issue\'s attachment metadata (filename, content type, size, upload date) — it returns pointers, not the file bytes. Download URLs are short-lived signed URLs fetched separately; the list response tells you an attachment exists, not how to display it inline.',
           },
+          { type: 'heading', level: 3, text: 'Session Replay (FORGE-71) — no extra endpoint, one specific detail' },
+          {
+            type: 'paragraph',
+            text: 'Forge can show a short replay of what a user did in the seconds before they hit a bug — a rewind, not a screen recording. This is not a third API call and not a separate upload mechanism: it is the exact same two-call attachment flow described above (create the issue, then POST the file to /api/v1/issues/{id}/attachments). The only thing that makes a replay different from any other attachment is the Content-Type on the uploaded file.',
+          },
+          {
+            type: 'callout',
+            variant: 'info',
+            title: 'The one thing to get right: Content-Type',
+            text: 'Upload the serialized replay events with content type `application/x-forge-replay+json`. That exact content type is what tells Forge to pull the file out of the plain attachment list and render it as its own prominent "🎥 Session Replay" card at the top of the issue — instead of just another file a reviewer has to go looking for. Any other content type on the same file (e.g. text/plain or application/json) would upload fine but display as a generic attachment, not a replay.',
+          },
+          {
+            type: 'paragraph',
+            text: 'If your app already uses Forge\'s browser SDK (public/forge-sdk.js), you don\'t need to build any of this yourself — pass `sessionReplay: true` to `ForgeSDK.init(...)` and the SDK handles the entire lifecycle automatically: it silently buffers the last ~45 seconds of DOM events in memory (nothing is ever sent anywhere unless an issue is actually filed), uploads the buffer as an attachment the moment an error is captured, and appends a note to the issue description pointing at it. All input fields are masked by default.',
+          },
+          {
+            type: 'callout',
+            variant: 'warning',
+            title: 'Server-side-only integrations get no video, by construction',
+            text: 'If your app files issues from your backend — e.g. a "Report a bug" button that POSTs to your own API, which then calls Forge\'s REST API server-side — there is no DOM event capture happening anywhere, because nothing running in the user\'s actual browser ever recorded it. That is a browser-only capability: some script has to be executing on the page, watching clicks/inputs/mutations, before an issue is ever filed. Posting to /api/v1/issues from a server has no way to retroactively produce that recording. If you want replay video, the browser SDK (or your own client-side rrweb integration) has to be loaded on the page — a server-only REST integration cannot get you there no matter what content type you upload.',
+          },
+          {
+            type: 'paragraph',
+            text: 'If you\'re integrating directly against the API instead of using the SDK — a custom capture pipeline, a mobile app, your own error boundary — you own three things the SDK would otherwise do for you: capturing the events (rrweb is what Forge itself uses, and is a reasonable default), setting that exact content type on upload, and — if you want reviewers to see why it\'s there — appending your own note to the issue description via a PATCH, the same way the SDK does.',
+          },
+          {
+            type: 'example',
+            label: 'Custom integration uploading a replay',
+            scenario: 'A team building their own error-capture pipeline (not using forge-sdk.js) wants replays to show up the same prominent way the SDK\'s do.',
+            outcome: 'Same two calls as any attachment — POST /api/v1/issues to create it, then POST the serialized event JSON to /api/v1/issues/{id}/attachments as a file named e.g. session-replay.json with Content-Type: application/x-forge-replay+json. That content type alone is what triggers the dedicated Session Replay card instead of a plain file row.',
+          },
           { type: 'heading', level: 3, text: 'Time tracking: log, list, edit, and delete time' },
           {
             type: 'paragraph',
