@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import type { BoardHealthDigest, BoardAlert } from "@/lib/services/boardMonitor";
+import { timeAgo } from "@/lib/formatRelativeTime";
 
 function levelColors(level: BoardAlert["level"]) {
   if (level === "critical")
@@ -9,16 +10,6 @@ function levelColors(level: BoardAlert["level"]) {
   if (level === "warning")
     return { dot: "bg-amber-500", badge: "bg-amber-50 border-amber-200 text-amber-700", icon: "⚠️" };
   return { dot: "bg-blue-500", badge: "bg-blue-50 border-blue-200 text-blue-700", icon: "ℹ️" };
-}
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 2) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
 }
 
 export default function BoardHealthWidget({

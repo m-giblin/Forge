@@ -55,7 +55,7 @@ export default async function IdeaPage({
 
   // Fetch creator/assignee names
   const userIds = [rawIdea.created_by, rawIdea.assigned_to].filter(Boolean) as string[];
-  const userMap = await usersRepo(supabase).getDisplayNames(userIds);
+  const userMap = await usersRepo(supabase).getDisplayNames(ctx.tenant.id, userIds);
   const creatorName = rawIdea.created_by ? (userMap.get(rawIdea.created_by) ?? null) : null;
   const assigneeName = rawIdea.assigned_to ? (userMap.get(rawIdea.assigned_to) ?? null) : null;
 

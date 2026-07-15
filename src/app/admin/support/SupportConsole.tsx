@@ -9,6 +9,7 @@ import {
   loadPlatformTicketCommentsAction,
   savePlatformStalledThresholdAction,
 } from "./actions";
+import { timeAgo } from "@/lib/formatRelativeTime";
 
 type Ticket = {
   id: string;
@@ -50,15 +51,6 @@ const PRIORITY_BADGE: Record<string, React.CSSProperties> = {
   low:    { background: "#f1f5f9", color: "#64748b" },
 };
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 function isStalled(ticket: Ticket, stalledDays: number): boolean {
   if (ticket.status === "resolved" || ticket.status === "closed") return false;

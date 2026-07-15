@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { setSuspendedAction, deleteTenantAction } from "../../actions";
 import { startImpersonationAction } from "@/app/impersonation-actions";
 import { setTenantOverrideAction } from "../../flags/actions";
+import { timeAgo } from "@/lib/formatRelativeTime";
 
 type Tab = "overview" | "features" | "members" | "audit";
 
@@ -40,15 +41,6 @@ const FEATURE_LABELS: Record<string, string> = {
   sso:          "SSO / SAML",
 };
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 export default function TenantDetailClient({
   tenant, health, members, overrides, globalFlags, audit,

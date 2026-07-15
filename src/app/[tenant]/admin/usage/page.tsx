@@ -42,7 +42,7 @@ export default async function AIUsagePage({
 
   // Fetch display names for users that appeared in this month's usage
   const userIds = summary.byUser.map((u) => u.userId).filter(Boolean) as string[];
-  const userMap = await usersRepo(svc).getDisplayNames(userIds);
+  const userMap = await usersRepo(svc).getDisplayNames(ctx.tenant.id, userIds);
 
   const totalTokens = summary.totalTokensInput + summary.totalTokensOutput;
 

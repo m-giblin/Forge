@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import type { StandupDigest, StandupEntry } from "@/lib/services/standupDigest";
 import { AiBadge, AiDisclosureFooter } from "@/components/AiBadge";
+import { timeAgo } from "@/lib/formatRelativeTime";
 
 const SECTION_META: Record<StandupEntry["section"], { emoji: string; label: string; color: string }> = {
   shipped: { emoji: "✅", label: "Shipped", color: "text-green-700 bg-green-50 border-green-200" },
@@ -10,16 +11,6 @@ const SECTION_META: Record<StandupEntry["section"], { emoji: string; label: stri
   blocked: { emoji: "🚨", label: "Blocked", color: "text-red-700 bg-red-50 border-red-200" },
   needs_triage: { emoji: "⚠️", label: "Needs Triage", color: "text-amber-700 bg-amber-50 border-amber-200" },
 };
-
-function timeAgo(iso: string) {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 2) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 export default function StandupWidget({
   digest: initialDigest,

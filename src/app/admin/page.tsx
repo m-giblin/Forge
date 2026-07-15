@@ -3,16 +3,7 @@ import { listTenants } from "@/lib/services/platform";
 import { listPlatformAudit } from "@/lib/services/audit";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
+import { timeAgo } from "@/lib/formatRelativeTime";
 
 function healthScore(t: { member_count: number; issue_count: number; status: string }) {
   let score = 0;

@@ -9,6 +9,7 @@ import {
   loadTicketCommentsAction,
   type AttachmentInput,
 } from "./actions";
+import { timeAgo } from "@/lib/formatRelativeTime";
 
 const STATUS_STYLES: Record<string, string> = {
   open: "bg-blue-500/15 text-blue-400",
@@ -47,15 +48,6 @@ function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
 
 // ── Thread modal ──────────────────────────────────────────────────────────────
 function ThreadModal({
