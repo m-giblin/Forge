@@ -104,7 +104,10 @@ export async function handleGithubWebhook(
         }
       }
     } else if (eventType === "push") {
-      const commits: Array<{ id: string; message: string; url: string; author?: { name: string } }> = payload.commits ?? [];
+      const commits: Array<{
+        id: string; message: string; url: string; author?: { name: string };
+        added?: string[]; removed?: string[]; modified?: string[];
+      }> = payload.commits ?? [];
       const repoFullName: string = payload.repository?.full_name ?? "";
       const branch: string = (payload.ref ?? "").replace("refs/heads/", "");
 
@@ -166,7 +169,9 @@ Message: ${(commit.message ?? "").slice(0, 500)}`,
                   .eq("commit_sha", commit.id ?? "")
                   .maybeSingle();
 
+                let linkId: string | null = null;
                 if (existing) {
+                  linkId = existing.id;
                   await svc.from("issue_code_links").update({
                     ai_summary: row.ai_summary,
                     pr_title: row.pr_title,
@@ -174,7 +179,16 @@ Message: ${(commit.message ?? "").slice(0, 500)}`,
                     updated_at: new Date().toISOString(),
                   }).eq("id", existing.id);
                 } else {
-                  await svc.from("issue_code_links").insert(row);
+                  const { data: inserted } = await svc.from("issue_code_links").insert(row).select("id").single();
+                  linkId = inserted?.id ?? null;
+                }
+
+                // File-path-to-bug-history correlation (FORGE-71 fast-follow):
+                // record which files this commit touched, from the webhook
+                // payload itself — no separate GitHub API call needed.
+                if (linkId) {
+                  const filePaths = [...(commit.added ?? []), ...(commit.removed ?? []), ...(commit.modified ?? [])];
+                  await repo.addCodeLinkFiles(tenantId, linkId, issue.id, filePaths);
                 }
               }
             } catch (e) {

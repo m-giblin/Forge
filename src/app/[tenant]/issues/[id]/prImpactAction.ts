@@ -7,7 +7,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issueRiskGatesRepo } from "@/lib/repositories/issueRiskGates";
 import { issueActivityRepo } from "@/lib/repositories/issueActivity";
+import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
 import { grokComplete } from "@/lib/services/grokAi";
+
+// Matches the constant in IssueDetail.tsx / the attachments route — not
+// imported from either to avoid pulling a route module or client component
+// into this server action's bundle.
+const REPLAY_CONTENT_TYPE = "application/x-forge-replay+json";
 
 export interface PrImpactPrediction {
   risk: "low" | "medium" | "high" | "critical";
@@ -48,6 +54,32 @@ export async function predictPrImpactAction(
     ? links.map((l) => `- PR #${l.pr_number}: "${l.pr_title}" (${l.pr_state}) in ${l.repo_full_name}`).join("\n")
     : "No pull requests linked yet.";
 
+  // File-path-to-bug-history correlation (FORGE-71 fast-follow): does this
+  // change touch files with a track record of bugs? Built entirely from data
+  // already flowing in over the existing push-webhook handler (commit
+  // added/removed/modified file lists) — no separate GitHub API call.
+  const gitRepo = gitIntegrationRepo(svc);
+  const touchedFiles = await gitRepo.getFilePathsForIssue(ctx.tenant.id, issueId);
+  const fileHistoryContext = await (async () => {
+    if (touchedFiles.length === 0) return "No file history available yet (no commits linked to this issue).";
+    const correlated = await gitRepo.findIssuesTouchingFiles(ctx.tenant.id, touchedFiles, issueId, 8);
+    if (correlated.length === 0) return `Touches ${touchedFiles.length} file(s); no prior bugs found on record for these paths.`;
+
+    const correlatedIssueIds = [...new Set(correlated.map((c) => c.issueId))];
+    const [{ data: pastIssues }, { data: replayAttachments }] = await Promise.all([
+      svc.from("issues").select("id, title, projects!inner(key), number").in("id", correlatedIssueIds),
+      svc.from("issue_attachments").select("issue_id").in("issue_id", correlatedIssueIds).eq("content_type", REPLAY_CONTENT_TYPE),
+    ]);
+    const replayIssueIds = new Set((replayAttachments ?? []).map((a) => a.issue_id as string));
+    const lines = (pastIssues ?? []).slice(0, 6).map((pi) => {
+      const key = `${(pi.projects as unknown as { key: string }).key}-${pi.number}`;
+      const filePath = correlated.find((c) => c.issueId === pi.id)?.filePath ?? "";
+      const replayNote = replayIssueIds.has(pi.id as string) ? " (had a session replay — likely a real user-facing repro, not just a code smell)" : "";
+      return `- ${key}: "${(pi.title as string).slice(0, 100)}" touched ${filePath}${replayNote}`;
+    });
+    return `Touches ${touchedFiles.length} file(s) with prior bug history — ${correlatedIssueIds.length} past issue(s) touched the same files:\n${lines.join("\n")}`;
+  })();
+
   const prompt = `You are a senior software engineer reviewing a pull request before it merges. Assess the risk and impact.
 
 Issue: "${(issue.title as string).slice(0, 200)}"
@@ -56,6 +88,9 @@ Description: ${issue.description ? (issue.description as string).slice(0, 500) :
 
 Linked PRs:
 ${prContext}
+
+File-path bug history:
+${fileHistoryContext}
 
 Return a JSON object with:
 - risk: "low" | "medium" | "high" | "critical"

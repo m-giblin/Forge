@@ -177,6 +177,61 @@ export function gitIntegrationRepo(supabase: SupabaseClient) {
       }));
     },
 
+    /** Record which files a commit/PR linked to an issue touched — the raw material for file-path-to-bug-history correlation. */
+    async addCodeLinkFiles(tenantId: string, codeLinkId: string, issueId: string, filePaths: string[]): Promise<void> {
+      if (filePaths.length === 0) return;
+      const rows = [...new Set(filePaths)].map((filePath) => ({
+        tenant_id: tenantId,
+        code_link_id: codeLinkId,
+        issue_id: issueId,
+        file_path: filePath,
+      }));
+      await supabase.from("issue_code_link_files").upsert(rows, { onConflict: "code_link_id,file_path", ignoreDuplicates: true });
+    },
+
+    /** File paths this issue's own linked commits/PRs have touched. */
+    async getFilePathsForIssue(tenantId: string, issueId: string): Promise<string[]> {
+      const { data } = await supabase
+        .from("issue_code_link_files")
+        .select("file_path")
+        .eq("tenant_id", tenantId)
+        .eq("issue_id", issueId);
+      return [...new Set((data ?? []).map((r) => r.file_path as string))];
+    },
+
+    /**
+     * Given a set of file paths, find OTHER issues (excluding excludeIssueId)
+     * whose linked commits/PRs touched any of the same paths, most recent
+     * first. This is the actual correlation: "has this file been part of a
+     * bug fix before?"
+     */
+    async findIssuesTouchingFiles(
+      tenantId: string,
+      filePaths: string[],
+      excludeIssueId: string,
+      limit = 8
+    ): Promise<Array<{ issueId: string; filePath: string }>> {
+      if (filePaths.length === 0) return [];
+      const { data } = await supabase
+        .from("issue_code_link_files")
+        .select("issue_id, file_path")
+        .eq("tenant_id", tenantId)
+        .in("file_path", filePaths)
+        .neq("issue_id", excludeIssueId)
+        .order("created_at", { ascending: false })
+        .limit(limit * 4); // over-fetch since multiple rows can share an issue; dedup below
+      const seen = new Set<string>();
+      const results: Array<{ issueId: string; filePath: string }> = [];
+      for (const row of data ?? []) {
+        const key = row.issue_id as string;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        results.push({ issueId: row.issue_id as string, filePath: row.file_path as string });
+        if (results.length >= limit) break;
+      }
+      return results;
+    },
+
     async insertCodeEvent(event: {
       tenantId: string; connectionId: string; repoFullName: string;
       kind: string; externalId: string; prNumber: number | null; sha: string | null;
