@@ -15,12 +15,21 @@ const COLS = "id, ticket_id, tenant_id, author_id, author_label, body, is_intern
 
 export function ticketCommentsRepo(supabase: SupabaseClient) {
   return {
-    async listByTicket(ticketId: string, includeInternal = true): Promise<TicketComment[]> {
+    /**
+     * tenantId is optional ONLY because the platform (super-admin) support
+     * console legitimately reads across every tenant's tickets — every
+     * tenant-scoped caller MUST pass it. Omitting it for a tenant-admin
+     * caller was exactly how a cross-tenant IDOR happened here before: any
+     * tenant admin could read another tenant's ticket_id and see its full
+     * comment thread, internal notes included.
+     */
+    async listByTicket(ticketId: string, includeInternal = true, tenantId?: string): Promise<TicketComment[]> {
       let q = supabase
         .from("ticket_comments")
         .select(COLS)
         .eq("ticket_id", ticketId)
         .order("created_at", { ascending: true });
+      if (tenantId) q = q.eq("tenant_id", tenantId);
       if (!includeInternal) q = q.eq("is_internal", false);
       const { data, error } = await q;
       if (error) throw error;

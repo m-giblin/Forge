@@ -55,11 +55,6 @@ async function resolveGrokKey(tenantId: string): Promise<{ apiKey: string; keySo
   return { apiKey: platformKey, keySource: "platform" };
 }
 
-/** @deprecated Use grokComplete(), which resolves the key internally and meters usage. Kept only for call sites not yet migrated. */
-export async function getGrokApiKey(tenantId: string): Promise<string> {
-  return (await resolveGrokKey(tenantId)).apiKey;
-}
-
 // $ per 1M tokens (input, output). Only grok-3-mini is used in Forge today;
 // keyed by model so a future model change doesn't silently mis-price history.
 const GROK_PRICING: Record<string, { inputPerM: number; outputPerM: number }> = {

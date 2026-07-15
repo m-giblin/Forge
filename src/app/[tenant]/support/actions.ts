@@ -172,5 +172,5 @@ export async function loadTicketCommentsAction(
 
   if (!ticket || ticket.submitted_by !== ctx.appUserId) return [];
 
-  return ticketCommentsRepo(svc).listByTicket(ticketId, false);
+  return ticketCommentsRepo(svc).listByTicket(ticketId, false, ctx.tenant.id);
 }

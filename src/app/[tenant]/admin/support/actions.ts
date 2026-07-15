@@ -117,7 +117,7 @@ export async function loadAdminTicketCommentsAction(
   if (ctx.role !== "owner" && ctx.role !== "admin") return [];
 
   const svc = createSupabaseServiceClient();
-  return ticketCommentsRepo(svc).listByTicket(ticketId, true); // include internal
+  return ticketCommentsRepo(svc).listByTicket(ticketId, true, ctx.tenant.id); // include internal, scoped to caller's tenant
 }
 
 /** Admin submits a platform ticket to the Forge team. */
