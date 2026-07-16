@@ -8,6 +8,7 @@ import { safeListCustomFields } from "@/lib/services/fieldConfig";
 import { issueActivityRepo, type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
 import { sendAssignedEmail, notifyIssueComment, notifyIssueAssigned } from "@/lib/services/notifications";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
+import { issueAssigneesRepo } from "@/lib/repositories/issueAssignees";
 import { fireWebhook } from "@/lib/services/webhooks";
 import { triageIssue } from "@/lib/services/triage";
 import { runAutomations } from "@/lib/services/automation";
@@ -220,6 +221,17 @@ export async function updateIssue(
   if (patch.customValues !== undefined) dbPatch.custom_values = { ...before.custom_values, ...patch.customValues };
 
   const updated = await repo.update(tenantId, id, dbPatch);
+
+  // Keep the assignee SET (0087) consistent with the primary: setting a non-null
+  // primary guarantees they're also in issue_assignees. Previous assignees are
+  // kept — changing the DRI doesn't silently unassign anyone. Best-effort.
+  if (patch.assigneeId !== undefined && patch.assigneeId) {
+    try {
+      await issueAssigneesRepo(supabase).add(tenantId, id, patch.assigneeId);
+    } catch (e) {
+      console.error("issue_assignees primary-sync failed", e);
+    }
+  }
 
   // Append-only history. Best-effort: never let logging fail the edit itself.
   if (actor) {

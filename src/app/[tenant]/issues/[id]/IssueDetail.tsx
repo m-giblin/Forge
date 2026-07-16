@@ -16,6 +16,7 @@ import { SubIssuesCard, LinkedIssuesCard } from "./IssueHierarchy";
 import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 import TriageCard from "./TriageCard";
 import GitLinksCard from "./GitLinksCard";
+import IssueAssigneesCard from "./IssueAssigneesCard";
 import MarkDuplicateButton from "./MarkDuplicateButton";
 import IssueTimePanel from "./IssueTimePanel";
 import type { TimeLog } from "./timeActions";
@@ -130,6 +131,7 @@ export default function IssueDetail({
   canDelete,
   userRole,
   watchers: initialWatchers,
+  initialAssigneeIds = [],
   currentUserId,
   parentIssue,
   subIssues = [],
@@ -158,6 +160,7 @@ export default function IssueDetail({
   canDelete: boolean;
   userRole: string;
   watchers: string[];
+  initialAssigneeIds?: string[];
   currentUserId: string;
   parentIssue?: { id: string; number: number; title: string; projects: { key: string } };
   subIssues?: { id: string; number: number; title: string; status: string; priority: string }[];
@@ -931,12 +934,23 @@ export default function IssueDetail({
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
             <SideGroupLabel color="text-blue-500">👥 People</SideGroupLabel>
             <div>
-              <p className={sideLabel}>Assignee</p>
+              <p className={sideLabel}>
+                Primary assignee
+                <InfoTooltip text="The directly-responsible individual (DRI). Removing them promotes the next assignee. Add more people under Assignees below." />
+              </p>
               <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); saveField({ assigneeId: e.target.value || null }); }} className={sidebarSelect}>
                 <option value="">Unassigned</option>
                 {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
               </select>
             </div>
+            <IssueAssigneesCard
+              slug={slug}
+              issueId={issue.id}
+              members={members}
+              primaryId={assigneeId || null}
+              initialAssigneeIds={initialAssigneeIds}
+              readOnly={readOnly}
+            />
             <div>
               <div className="flex items-center justify-between mb-1">
                 <p className={sideLabel} style={{ marginBottom: 0 }}>
