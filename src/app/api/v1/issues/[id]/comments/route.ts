@@ -14,6 +14,43 @@ const commentSchema = z.object({
   author_label: z.string().max(200).optional(),
 });
 
+/** GET /api/v1/issues/{id}/comments — list comments, oldest first (scope: issues:read). */
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  try {
+    const gate = await enforce(req, SCOPES.ISSUES_READ);
+    if (gate.error) return gate.error;
+    const { id } = await params;
+    const { tenantId } = gate.auth;
+
+    const supabase = createSupabaseServiceClient();
+
+    const issue = await issuesRepo(supabase).get(tenantId, id);
+    if (!issue) return apiError("not_found", "Issue not found.");
+
+    const comments = await issueActivityRepo(supabase).listComments(tenantId, id);
+
+    return apiOk({
+      comments: comments.map((c) => ({
+        id: c.id,
+        author_id: c.authorId,
+        author_label: c.authorLabel,
+        body: c.body,
+        parent_id: c.parentId,
+        comment_type: c.commentType,
+        created_at: c.createdAt,
+      })),
+    });
+  } catch (e) {
+    const requestId = crypto.randomUUID();
+    logger.error("GET /api/v1/issues/[id]/comments unhandled exception", {
+      requestId,
+      error: e instanceof Error ? e.message : String(e),
+      stack: e instanceof Error ? e.stack : undefined,
+    });
+    return apiError("internal", "An unexpected error occurred.", undefined, requestId);
+  }
+}
+
 /** POST /api/v1/issues/{id}/comments — add a comment (scope: issues:write). */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
