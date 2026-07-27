@@ -126,6 +126,43 @@ export default async function IntegrationPage({ params }: { params: Promise<{ te
           </p>
         </div>
       </div>
+
+      {/* ── Comments & time tracking ──────────────────────────────────────── */}
+      <div>
+        <h2 className="text-base font-semibold text-neutral-900">Comments &amp; time tracking</h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          Read an issue&rsquo;s comment thread, or log/read time against it, from outside Forge — useful for a
+          sync integration, a billing system, or a CI pipeline leaving status updates.
+        </p>
+        <div className="mt-4 rounded-xl border border-neutral-200 bg-white p-4 space-y-4 text-sm text-neutral-700">
+          <div>
+            <p className="font-medium text-neutral-900">Comments</p>
+            <p className="mt-1 text-xs text-neutral-500">
+              <code className="rounded bg-neutral-100 px-1">issues:read</code> to list, <code className="rounded bg-neutral-100 px-1">issues:write</code> to post.
+            </p>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-neutral-950 p-3 text-xs text-neutral-100">{`GET  ${baseUrl}/api/v1/issues/{id}/comments
+POST ${baseUrl}/api/v1/issues/{id}/comments`}</pre>
+          </div>
+          <div>
+            <p className="font-medium text-neutral-900">Time logs</p>
+            <p className="mt-1 text-xs text-neutral-500">
+              <code className="rounded bg-neutral-100 px-1">issues:read</code> to list, <code className="rounded bg-neutral-100 px-1">issues:write</code> for the rest.
+              <code className="rounded bg-neutral-100 px-1 ml-1">user_id</code> must be an existing member of this workspace, not an email.
+            </p>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-neutral-950 p-3 text-xs text-neutral-100">{`GET    ${baseUrl}/api/v1/issues/{id}/time-logs
+POST   ${baseUrl}/api/v1/issues/{id}/time-logs
+PATCH  ${baseUrl}/api/v1/issues/{id}/time-logs/{logId}
+DELETE ${baseUrl}/api/v1/issues/{id}/time-logs/{logId}`}</pre>
+          </div>
+          <p className="text-xs text-neutral-500">
+            Full request/response examples and field reference: see{" "}
+            <Link href={`/${slug}/docs`} className="font-medium text-neutral-900 underline">
+              API docs
+            </Link>{" "}
+            → API reference → Comments / Time tracking.
+          </p>
+        </div>
+      </div>
     </section>
   );
 }

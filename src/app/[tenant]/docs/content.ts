@@ -1264,6 +1264,22 @@ export const DOC_GUIDES: DocGuide[] = [
             language: 'bash',
             code: 'curl -s -X POST "https://acme.forgeapp.com/api/v1/issues/<issue-id>/comments" \\\n  -H "Authorization: Bearer $FORGE_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{"body": "Deploy #482 fixed this — verifying in staging.", "author_label": "CI Bot"}\'',
           },
+          {
+            type: 'paragraph',
+            text: '`GET /api/v1/issues/{id}/comments` reads the comment thread back, oldest first — the same data the issue page\'s Activity feed shows, including both human comments and any decisions. Requires only `issues:read`, so a reporting or sync integration doesn\'t need write access just to display history.',
+          },
+          {
+            type: 'code',
+            label: 'Read the comment thread',
+            language: 'bash',
+            code: 'curl -s "https://acme.forgeapp.com/api/v1/issues/<issue-id>/comments" \\\n  -H "Authorization: Bearer $FORGE_API_KEY"',
+          },
+          {
+            type: 'code',
+            label: 'Response shape',
+            language: 'json',
+            code: '{\n  "data": {\n    "comments": [\n      {\n        "id": "...",\n        "author_id": null,\n        "author_label": "CI Bot",\n        "body": "Deploy #482 fixed this — verifying in staging.",\n        "parent_id": null,\n        "comment_type": "comment",\n        "created_at": "2026-07-27T01:16:19.038Z"\n      }\n    ]\n  }\n}',
+          },
           { type: 'heading', level: 3, text: 'Attachments — a two-call flow, not one' },
           {
             type: 'warning',
@@ -1365,9 +1381,27 @@ export const DOC_GUIDES: DocGuide[] = [
           },
           {
             type: 'code',
+            label: 'List time logs on an issue',
+            language: 'bash',
+            code: 'curl -s "https://acme.forgeapp.com/api/v1/issues/<issue-id>/time-logs" \\\n  -H "Authorization: Bearer $FORGE_API_KEY"',
+          },
+          {
+            type: 'code',
+            label: 'Response shape — note user_name is resolved for you',
+            language: 'json',
+            code: '{\n  "data": {\n    "time_logs": [\n      {\n        "id": "...",\n        "user_id": "b3f1c2a0-....",\n        "user_name": "Jane Doe",\n        "minutes": 90,\n        "note": "Investigated Safari checkout failure, wrote repro test.",\n        "billable": true,\n        "tag": "bugfix",\n        "logged_at": "2026-07-27T01:32:48.786Z",\n        "created_at": "2026-07-27T01:32:48.786Z"\n      }\n    ]\n  }\n}',
+          },
+          {
+            type: 'code',
             label: 'Log 90 minutes of billable work',
             language: 'bash',
             code: 'curl -s -X POST "https://acme.forgeapp.com/api/v1/issues/<issue-id>/time-logs" \\\n  -H "Authorization: Bearer $FORGE_API_KEY" \\\n  -H "Content-Type: application/json" \\\n  -d \'{\n    "minutes": 90,\n    "user_id": "b3f1c2a0-....-....-....-............",\n    "note": "Investigated Safari checkout failure, wrote repro test.",\n    "billable": true,\n    "tag": "bugfix"\n  }\'',
+          },
+          {
+            type: 'code',
+            label: 'Response shape (201 Created)',
+            language: 'json',
+            code: '{\n  "data": {\n    "time_log": {\n      "id": "...",\n      "user_id": "b3f1c2a0-....",\n      "minutes": 90,\n      "note": "Investigated Safari checkout failure, wrote repro test.",\n      "billable": true,\n      "tag": "bugfix",\n      "logged_at": "2026-07-27T01:32:48.786Z",\n      "created_at": "2026-07-27T01:32:48.786Z"\n    }\n  }\n}',
           },
           {
             type: 'code',
