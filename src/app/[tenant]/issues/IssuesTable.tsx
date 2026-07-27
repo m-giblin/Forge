@@ -6,15 +6,20 @@ import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type CustomField } from "@/lib/repositories/fieldConfig";
 import { type SavedView } from "@/lib/repositories/savedViews";
 import { bulkUpdateIssuesAction, bulkDeleteIssuesAction } from "./actions";
+import { updateIssueAction } from "./[id]/actions";
 import { createSavedViewAction, deleteSavedViewAction } from "./savedViewActions";
+import { EditableSelectCell, EditableTextCell } from "./EditableCell";
 
 type Project = { id: string; key: string; name: string };
 type Member = { userId: string; label: string };
 
-function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-}
+const PHASE_OPTIONS = [
+  { key: "discovery", label: "Discovery" },
+  { key: "design", label: "Design" },
+  { key: "development", label: "Development" },
+  { key: "testing", label: "Testing" },
+  { key: "deployment", label: "Deployment" },
+];
 
 function dueBadge(iso: string | null): "overdue" | "soon" | "ok" | null {
   if (!iso) return null;
@@ -36,6 +41,7 @@ export default function IssuesTable({
   members = [],
   customFields = [],
   canDelete = false,
+  readOnly = false,
   savedViews = [],
   currentProjectId = null,
 }: {
@@ -48,6 +54,7 @@ export default function IssuesTable({
   members?: Member[];
   customFields?: CustomField[];
   canDelete?: boolean;
+  readOnly?: boolean;
   savedViews?: SavedView[];
   currentProjectId?: string | null;
 }) {
@@ -245,6 +252,12 @@ export default function IssuesTable({
         console.error("delete view failed", e);
       }
     });
+  }
+
+  // Inline single-cell edit. Reuses updateIssueAction so risk-gate/blocker
+  // business logic (e.g. blocking a "done" transition) applies here too.
+  function saveCell(issueId: string, patch: Parameters<typeof updateIssueAction>[2]) {
+    return updateIssueAction(slug, issueId, patch).then(() => router.refresh());
   }
 
   const myViews = savedViews.filter((v) => !v.isShared);
@@ -486,43 +499,81 @@ export default function IssuesTable({
                   <td className="cursor-pointer px-4 py-2.5 text-neutral-800" onClick={() => router.push(`/${slug}/issues/${i.id}`)}>
                     {i.title}
                   </td>
-                  <td className="px-4 py-2.5 text-neutral-600">
-                    <span style={{ color: ty?.color ?? undefined }}>{ty?.label ?? i.type}</span>
+                  <td className="px-4 py-2.5 text-neutral-600" onClick={(e) => e.stopPropagation()}>
+                    <EditableSelectCell
+                      value={i.type}
+                      options={types}
+                      disabled={readOnly}
+                      onSave={(v) => saveCell(i.id, { type: v })}
+                    />
                   </td>
-                  <td className="px-4 py-2.5">
-                    <span className="inline-flex items-center gap-1.5 text-neutral-600">
-                      <span className="h-2 w-2 rounded-full" style={{ backgroundColor: pr?.color ?? "#9CA3AF" }} />
-                      {pr?.label ?? i.priority}
+                  <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                    <EditableSelectCell
+                      value={i.priority}
+                      options={priorities}
+                      disabled={readOnly}
+                      onSave={(v) => saveCell(i.id, { priority: v })}
+                    />
+                  </td>
+                  <td className="px-4 py-2.5 text-neutral-600" onClick={(e) => e.stopPropagation()}>
+                    <EditableSelectCell
+                      value={i.assignee_id ?? ""}
+                      options={members.map((m) => ({ key: m.userId, label: m.label }))}
+                      placeholder="Unassigned"
+                      disabled={readOnly}
+                      onSave={(v) => saveCell(i.id, { assigneeId: v || null })}
+                    />
+                  </td>
+                  <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                    <EditableSelectCell
+                      value={i.phase ?? ""}
+                      options={PHASE_OPTIONS}
+                      placeholder="—"
+                      disabled={readOnly}
+                      onSave={(v) => saveCell(i.id, { phase: v || null })}
+                    />
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                    <span className={
+                      badge === "overdue" ? "font-medium text-red-600" :
+                      badge === "soon"    ? "font-medium text-amber-600" :
+                      ""
+                    }>
+                      <EditableTextCell
+                        type="date"
+                        value={i.due_date ? i.due_date.slice(0, 10) : ""}
+                        disabled={readOnly}
+                        onSave={(v) => saveCell(i.id, { dueDate: v || null })}
+                      />
+                      {badge === "overdue" && <span className="ml-1 text-xs">⚠</span>}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-neutral-600">{memberLabel(i.assignee_id)}</td>
-                  <td className="px-4 py-2.5">
-                    {i.phase ? (
-                      <span className="inline-flex rounded bg-purple-50 px-1.5 py-0.5 text-[10px] font-medium text-purple-600">
-                        {i.phase.charAt(0).toUpperCase() + i.phase.slice(1)}
-                      </span>
-                    ) : (
-                      <span className="text-neutral-300">—</span>
-                    )}
+                  <td className="px-4 py-2.5 text-neutral-600" onClick={(e) => e.stopPropagation()}>
+                    <EditableSelectCell
+                      value={i.status}
+                      options={[...statuses].sort((a, b) => a.position - b.position)}
+                      disabled={readOnly}
+                      onSave={(v) => saveCell(i.id, { status: v })}
+                    />
                   </td>
-                  <td className="whitespace-nowrap px-4 py-2.5">
-                    {i.due_date ? (
-                      <span className={
-                        badge === "overdue" ? "font-medium text-red-600" :
-                        badge === "soon"    ? "font-medium text-amber-600" :
-                        "text-neutral-600"
-                      }>
-                        {formatDate(i.due_date)}
-                        {badge === "overdue" && <span className="ml-1 text-xs">⚠</span>}
-                      </span>
-                    ) : (
-                      <span className="text-neutral-300">—</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-2.5 text-neutral-600">{statusLabel(i.status)}</td>
                   {customFields.map((f) => (
-                    <td key={f.id} className="px-4 py-2.5 text-neutral-600">
-                      {String((i.custom_values ?? {})[f.key] ?? "")}
+                    <td key={f.id} className="px-4 py-2.5 text-neutral-600" onClick={(e) => e.stopPropagation()}>
+                      {f.type === "select" ? (
+                        <EditableSelectCell
+                          value={String((i.custom_values ?? {})[f.key] ?? "")}
+                          options={(f.options ?? []).map((o) => ({ key: o, label: o }))}
+                          placeholder="—"
+                          disabled={readOnly}
+                          onSave={(v) => saveCell(i.id, { customValues: { [f.key]: v || null } })}
+                        />
+                      ) : (
+                        <EditableTextCell
+                          type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
+                          value={String((i.custom_values ?? {})[f.key] ?? "")}
+                          disabled={readOnly}
+                          onSave={(v) => saveCell(i.id, { customValues: { [f.key]: v || null } })}
+                        />
+                      )}
                     </td>
                   ))}
                 </tr>

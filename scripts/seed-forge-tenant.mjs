@@ -5,13 +5,16 @@
  * Run:  node --env-file=.env.local scripts/seed-forge-tenant.mjs
  */
 import { createClient } from "@supabase/supabase-js";
-import { createHash, randomBytes } from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const PEPPER = process.env.API_KEY_HASH_SECRET;
 if (!URL || !SERVICE) { console.error("Missing env."); process.exit(1); }
+if (!PEPPER) { console.error("Missing API_KEY_HASH_SECRET env var — must match src/lib/api/keys.ts."); process.exit(1); }
 const a = createClient(URL, SERVICE, { auth: { persistSession: false } });
-const hashKey = (raw) => createHash("sha256").update(raw).digest("hex");
+// Must match src/lib/api/keys.ts hashKey() exactly — HMAC-SHA256 with the same pepper.
+const hashKey = (raw) => createHmac("sha256", PEPPER).update(raw).digest("hex");
 
 const OWNER_EMAIL = "founder@forge.dev";
 const BACKLOG = [

@@ -17,7 +17,7 @@ const logTimeSchema = z.object({
   logged_at: z.string().datetime().optional(),
 });
 
-/** GET /api/v1/issues/{id}/time-logs — list time logs on an issue (scope: issues:read). */
+/** GET /api/v1/issues/{id}/time-logs — list time logs, newest first (scope: issues:read). */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const gate = await enforce(req, SCOPES.ISSUES_READ);
@@ -31,14 +31,26 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     const { data, error } = await supabase
       .from("issue_time_logs")
-      .select("id, user_id, minutes, note, billable, tag, logged_at, created_at")
+      .select("id, user_id, minutes, note, billable, tag, logged_at, created_at, users(name)")
       .eq("tenant_id", tenantId)
       .eq("issue_id", id)
       .order("logged_at", { ascending: false })
       .limit(200);
     if (error) throw error;
 
-    return apiOk(data ?? []);
+    return apiOk({
+      time_logs: (data ?? []).map((r) => ({
+        id: r.id,
+        user_id: r.user_id,
+        user_name: (Array.isArray(r.users) ? r.users[0]?.name : (r.users as { name: string | null } | null)?.name) ?? null,
+        minutes: r.minutes,
+        note: r.note,
+        billable: r.billable,
+        tag: r.tag,
+        logged_at: r.logged_at,
+        created_at: r.created_at,
+      })),
+    });
   } catch (e) {
     const requestId = crypto.randomUUID();
     logger.error("GET /api/v1/issues/[id]/time-logs unhandled exception", {
@@ -50,7 +62,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 }
 
-/** POST /api/v1/issues/{id}/time-logs — log time on an issue (scope: issues:write). */
+/** POST /api/v1/issues/{id}/time-logs — log time against an issue (scope: issues:write). */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const gate = await enforce(req, SCOPES.ISSUES_WRITE);
@@ -77,16 +89,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const issue = await issuesRepo(supabase).get(tenantId, id);
     if (!issue) return apiError("not_found", "Issue not found.");
 
-    // user_id must be a real member of THIS tenant — never trust it blindly,
-    // it's the one place this endpoint could otherwise attribute time to an
-    // arbitrary user id from another workspace.
+    // Isolation: issue_time_logs.user_id is NOT NULL + FK'd — the attributed
+    // user must be a real member of THIS tenant, never trusted blindly (same
+    // check used for assignees). It's the one place this endpoint could
+    // otherwise attribute time to an arbitrary user id from another workspace.
     const { data: membership } = await supabase
       .from("memberships")
       .select("user_id")
       .eq("tenant_id", tenantId)
       .eq("user_id", input.user_id)
       .maybeSingle();
-    if (!membership) return apiError("invalid_request", "user_id is not a member of this workspace.");
+    if (!membership) {
+      return apiError("invalid_request", "user_id is not a member of this workspace.");
+    }
 
     const { data: log, error } = await supabase
       .from("issue_time_logs")
@@ -95,7 +110,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
         issue_id: id,
         user_id: input.user_id,
         minutes: input.minutes,
-        note: input.note ?? null,
+        note: input.note?.trim() || null,
         billable: input.billable ?? false,
         tag: input.tag ?? null,
         ...(input.logged_at ? { logged_at: input.logged_at } : {}),
@@ -104,7 +119,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .single();
     if (error) throw error;
 
-    return apiOk(log, 201);
+    return apiOk({ time_log: log }, 201);
   } catch (e) {
     const requestId = crypto.randomUUID();
     logger.error("POST /api/v1/issues/[id]/time-logs unhandled exception", {

@@ -10,6 +10,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
+import { issueAssigneesRepo } from "@/lib/repositories/issueAssignees";
 import { issueLinksRepo } from "@/lib/repositories/issueLinks";
 import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
 import { slaPoliciesRepo } from "@/lib/repositories/slaPolicies";
@@ -41,6 +42,12 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
     issueAttachmentsRepo(client).list(ctx.tenant.id, issue.id),
     issueWatchersRepo(svcClient).list(ctx.tenant.id, issue.id),
   ]);
+
+  // Full assignee set (0087). Guarded: graceful if the migration isn't applied yet.
+  const assigneeSet = await issueAssigneesRepo(svcClient)
+    .listForIssue(ctx.tenant.id, issue.id)
+    .catch(() => []);
+  const initialAssigneeIds = assigneeSet.map((a) => a.userId);
 
   // Migration 0044 guard — graceful if not run yet
   const linksRepo = issueLinksRepo(svcClient);
@@ -100,6 +107,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         canDelete={canDelete}
         userRole={ctx.role}
         watchers={watchers.map((w) => w.userId)}
+        initialAssigneeIds={initialAssigneeIds}
         currentUserId={ctx.appUserId}
         parentIssue={parentIssue ?? undefined}
         subIssues={subIssues}

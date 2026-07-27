@@ -124,6 +124,7 @@ export default function MissionControl({ slug, data, members = [] }: {
           {stats.open > 0 && (
             <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-indigo-700">
               {stats.inProgress > 0 && <span>🏃 {stats.inProgress} in progress</span>}
+              {stats.overdue > 0 && <span>🔥 {stats.overdue} overdue</span>}
               {stats.doneThisWeek > 0 && <span>✅ {stats.doneThisWeek} shipped this week</span>}
               {stats.unassigned > 0 && <span>⚠️ {stats.unassigned} unassigned</span>}
             </div>
@@ -132,9 +133,10 @@ export default function MissionControl({ slug, data, members = [] }: {
       </div>
 
       {/* Headline stats (real counts) — each tile links to filtered issues */}
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-5 gap-3">
         <StatTile label="Open" value={stats.open} hint={scope === "mine" ? "assigned to you" : "across your team"} href={`/${slug}/issues?status=todo,in_progress,in_review,backlog`} />
         <StatTile label="In progress" value={stats.inProgress} hint="being worked now" href={`/${slug}/issues?status=in_progress`} />
+        <StatTile label="Overdue" value={stats.overdue} hint="past due date" tone={stats.overdue > 0 ? "warn" : "default"} href={`/${slug}/issues?sort=due&dir=asc`} />
         <StatTile label="Shipped this week" value={stats.doneThisWeek} hint="moved to done" tone="good" href={`/${slug}/issues?status=done`} />
         <StatTile label="Unassigned" value={stats.unassigned} hint="need an owner" tone={stats.unassigned > 0 ? "warn" : "default"} href={`/${slug}/issues?assignee=none`} />
       </div>
