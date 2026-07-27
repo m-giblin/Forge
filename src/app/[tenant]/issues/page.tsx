@@ -21,6 +21,7 @@ export default async function IssuesPage({ params }: { params: Promise<{ tenant:
 
   const { issues, projects, statuses, priorities, types, customFields } = board;
   const canDelete = ctx.role === "owner" || ctx.role === "admin";
+  const readOnly = ctx.role === "viewer";
 
   return (
     <main className="w-full px-3 py-4 sm:px-6 sm:py-6">
@@ -35,6 +36,7 @@ export default async function IssuesPage({ params }: { params: Promise<{ tenant:
         members={members.map((m) => ({ userId: m.userId, label: m.name || m.email }))}
         customFields={customFields}
         canDelete={canDelete}
+        readOnly={readOnly}
         savedViews={savedViews}
       />
       </Suspense>
