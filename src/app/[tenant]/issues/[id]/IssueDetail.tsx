@@ -16,29 +16,22 @@ import { SubIssuesCard, LinkedIssuesCard } from "./IssueHierarchy";
 import type { IssueLinkWithKey } from "@/lib/repositories/issueLinks";
 import TriageCard from "./TriageCard";
 import GitLinksCard from "./GitLinksCard";
-import IssueAssigneesCard from "./IssueAssigneesCard";
 import MarkDuplicateButton from "./MarkDuplicateButton";
+import { Icon, relTime, SideGroupLabel } from "./IssueDetailUI";
+import IssueStatusPipeline from "./IssueStatusPipeline";
+import IssuePeoplePanel from "./IssuePeoplePanel";
+import IssueClassificationPanel from "./IssueClassificationPanel";
+import IssuePlanningPanel from "./IssuePlanningPanel";
+import IssueActivityFeed from "./IssueActivityFeed";
 import IssueTimePanel from "./IssueTimePanel";
 import type { TimeLog } from "./timeActions";
 import { startIssueTimerAction, stopIssueTimerAction } from "./timeActions";
 import type { IssueCodeLink } from "@/lib/repositories/gitIntegration";
 import DecomposeButton from "./DecomposeButton";
 import PrImpactButton from "./PrImpactButton";
-import SlaChip from "@/components/SlaChip";
 import type { SlaTimer } from "@/lib/services/sla";
 
 type Member = { userId: string; label: string };
-
-function relTime(iso: string): string {
-  const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
-  if (s < 60) return "just now";
-  const m = Math.round(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.round(h / 24);
-  return `${d}d ago`;
-}
 
 function ageSince(iso: string): string {
   return durMin(Date.now() - new Date(iso).getTime());
@@ -50,67 +43,6 @@ function durMin(ms: number): string {
   const h = Math.floor(m / 60);
   if (h < 24) return `${h}h`;
   return `${Math.floor(h / 24)}d ${h % 24}h`;
-}
-
-// ── Inline SVG icons ──
-const ICON_PATHS: Record<string, React.ReactNode> = {
-  check: <polyline points="20 6 9 17 4 12" />,
-  play: <polygon points="6 4 20 12 6 20" fill="currentColor" stroke="none" />,
-  inbox: <><path d="M22 12h-6l-2 3h-4l-2-3H2" /><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z" /></>,
-  circle: <circle cx="12" cy="12" r="9" />,
-  eye: <><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" /></>,
-  circleCheck: <><circle cx="12" cy="12" r="9" /><path d="m8.5 12 2.5 2.5 4.5-5" /></>,
-  arrowLeft: <><path d="M19 12H5" /><path d="m12 19-7-7 7-7" /></>,
-  arrowRight: <><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></>,
-  chevronLeft: <path d="m15 18-6-6 6-6" />,
-  bug: <><path d="M9 9V8a3 3 0 0 1 6 0v1" /><path d="M8 9h8a5 5 0 0 1 1 3v2a5 5 0 0 1-10 0v-2a5 5 0 0 1 1-3" /><path d="M3 13h4" /><path d="M17 13h4" /><path d="M12 20v-6" /><path d="m4 19 3-2" /><path d="m20 19-3-2" /><path d="m4 8 3 1.5" /><path d="m20 8-3 1.5" /></>,
-  flame: <path d="M12 12c2-3 0-7-1-8 0 3-1.8 4.7-3 6s-2 3.2-2 5a6 6 0 1 0 12 0c0-1.5-1-3.9-2-5-1.8 3-2.8 3-4 2Z" />,
-};
-
-function Icon({ name, size = 16, className, strokeWidth = 2 }: { name: string; size?: number; className?: string; strokeWidth?: number }) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={strokeWidth}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden="true"
-    >
-      {ICON_PATHS[name]}
-    </svg>
-  );
-}
-
-function InfoTooltip({ text }: { text: string }) {
-  return (
-    <span className="relative inline-flex group/tip ml-1 align-middle">
-      <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-neutral-200 text-neutral-500 text-[9px] font-bold cursor-default select-none leading-none group-hover/tip:bg-neutral-300">
-        i
-      </span>
-      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-52 rounded-lg bg-neutral-900 px-3 py-2 text-[11px] text-white leading-relaxed shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
-        {text}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900" />
-      </span>
-    </span>
-  );
-}
-
-function SideGroupLabel({ color, children }: { color: string; children: React.ReactNode }) {
-  return <p className={`text-xs font-semibold uppercase tracking-wide mb-1 ${color}`}>{children}</p>;
-}
-
-function statusIconName(key: string): string {
-  const k = key.toLowerCase();
-  if (k.includes("backlog")) return "inbox";
-  if (k.includes("progress") || k === "doing") return "play";
-  if (k.includes("review")) return "eye";
-  if (k.includes("done") || k.includes("closed") || k.includes("complete") || k.includes("resolved")) return "circleCheck";
-  return "circle";
 }
 
 export default function IssueDetail({
@@ -412,20 +344,6 @@ export default function IssueDetail({
     setReplyToLabel(null);
   }
 
-  function avatarInitials(label: string | null): string {
-    if (!label) return "?";
-    const parts = label.trim().split(/\s+/);
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return label.slice(0, 2).toUpperCase();
-  }
-
-  function avatarColor(label: string | null): string {
-    const colors = ["bg-blue-500","bg-violet-500","bg-emerald-500","bg-amber-500","bg-rose-500","bg-cyan-500","bg-indigo-500","bg-pink-500"];
-    if (!label) return colors[0];
-    const idx = [...label].reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % colors.length;
-    return colors[idx];
-  }
-
   // Merge comments + events into one sorted timeline
   type TimelineItem =
     | { kind: "comment"; data: IssueComment }
@@ -583,93 +501,15 @@ export default function IssueDetail({
           </div>
 
           {/* ─ Status pipeline ─ */}
-          <div className="rounded-xl border border-neutral-200 bg-white p-6">
-            {/* Track */}
-            <div className="relative">
-              {/* Full grey rail */}
-              <div className="absolute left-0 right-0 top-[13px] h-[2px] bg-neutral-200" />
-              {/* Blue fill up to current node */}
-              {statusIdx > 0 && (
-                <div
-                  className="absolute left-0 top-[13px] h-[2px] bg-blue-500 transition-all duration-300"
-                  style={{ width: `${(statusIdx / (orderedStatuses.length - 1)) * 100}%` }}
-                />
-              )}
-
-              {/* Nodes row */}
-              <div className="relative flex justify-between">
-                {orderedStatuses.map((s, i) => {
-                  const isDone    = i < statusIdx;
-                  const isCurrent = i === statusIdx;
-                  const isJumpable = !readOnly && !pending && !isCurrent;
-
-                  return (
-                    <div key={s.key} className="flex flex-col items-center">
-                      {/* Node button */}
-                      <button
-                        type="button"
-                        disabled={!isJumpable}
-                        onClick={() => isJumpable && moveStatus(s.key)}
-                        title={isJumpable ? `Jump to ${s.label}` : s.label}
-                        className={[
-                          "relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 transition-all duration-150",
-                          isCurrent
-                            ? "border-blue-600 bg-blue-600 shadow-[0_0_0_4px_rgba(59,130,246,0.15)] cursor-default"
-                            : isDone
-                            ? "border-blue-500 bg-blue-500 hover:scale-110 cursor-pointer"
-                            : isJumpable
-                            ? "border-neutral-300 bg-white hover:border-blue-400 hover:bg-blue-50 cursor-pointer"
-                            : "border-neutral-200 bg-neutral-50 cursor-default",
-                        ].join(" ")}
-                      >
-                        {isDone ? (
-                          <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        ) : isCurrent ? (
-                          <span className="h-2.5 w-2.5 rounded-full bg-white" />
-                        ) : (
-                          <span className="h-2 w-2 rounded-full bg-neutral-300" />
-                        )}
-                      </button>
-
-                      {/* Label */}
-                      <span className={[
-                        "mt-2.5 max-w-[72px] text-center text-[11px] font-semibold leading-tight tracking-wide",
-                        isCurrent ? "text-blue-700" : isDone ? "text-blue-500" : "text-neutral-400",
-                      ].join(" ")}>
-                        {s.label}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Advance / revert row */}
-            {!readOnly && (
-              <div className="mt-6 flex items-center justify-between">
-                <button
-                  type="button"
-                  disabled={!statusPrev || pending}
-                  onClick={() => statusPrev && moveStatus(statusPrev.key)}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3.5 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 disabled:cursor-not-allowed disabled:opacity-35 transition"
-                >
-                  <Icon name="arrowLeft" size={12} />
-                  Revert to {statusPrev?.label ?? "…"}
-                </button>
-                <button
-                  type="button"
-                  disabled={!statusNext || pending}
-                  onClick={() => statusNext && moveStatus(statusNext.key)}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-35 transition shadow-sm"
-                >
-                  Move to {statusNext?.label ?? "…"}
-                  <Icon name="arrowRight" size={12} />
-                </button>
-              </div>
-            )}
-          </div>
+          <IssueStatusPipeline
+            orderedStatuses={orderedStatuses}
+            statusIdx={statusIdx}
+            statusPrev={statusPrev}
+            statusNext={statusNext}
+            readOnly={readOnly}
+            pending={pending}
+            onMoveStatus={moveStatus}
+          />
 
           {/* ─ Description section ─ */}
           <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
@@ -723,157 +563,29 @@ export default function IssueDetail({
           </div>
 
           {/* ─ Activity section ─ */}
-          <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
-            <div className="mb-4 flex items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600 flex-1">
-                Activity
-                {comments.length > 0 && (
-                  <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-neutral-600">{comments.length}</span>
-                )}
-              </p>
-              {!readOnly && (
-                <button
-                  type="button"
-                  disabled={timerPending}
-                  onClick={sharedTimerAt ? handleInlineStop : handleInlineStart}
-                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${
-                    sharedTimerAt
-                      ? "bg-amber-100 text-amber-700 hover:bg-amber-200 border border-amber-200"
-                      : "bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-200"
-                  }`}
-                >
-                  {sharedTimerAt ? (
-                    <><span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />⏹ Stop Timer</>
-                  ) : (
-                    <>▶ Start Timer</>
-                  )}
-                </button>
-              )}
-            </div>
-            {inlineTimerError && (
-              <p className="mb-2 text-xs text-red-600 bg-red-50 rounded px-2 py-1">{inlineTimerError}</p>
-            )}
-
-            <div className="space-y-3">
-              {timeline.length === 0 && (
-                <p className="text-xs text-neutral-500">No activity yet.</p>
-              )}
-
-              {timeline.map((item) => {
-                if (item.kind === "event") {
-                  const e = item.data;
-                  return (
-                    <div key={e.id} className="flex items-start gap-2.5 text-xs text-neutral-500">
-                      <div className="mt-0.5 h-5 w-5 shrink-0 rounded-full bg-neutral-200 flex items-center justify-center">
-                        <span className="text-[9px] font-bold text-neutral-500">⚙</span>
-                      </div>
-                      <div className="pt-0.5">
-                        <span className="font-medium text-neutral-700">{e.actorLabel ?? "Someone"}</span>{" "}
-                        {e.field === "details" ? "edited the details" : (
-                          <>changed <span className="font-medium text-neutral-700">{e.field}</span> from{" "}
-                          <span className="text-neutral-700">{eventValue(e.field, e.oldValue)}</span> to{" "}
-                          <span className="font-medium text-neutral-700">{eventValue(e.field, e.newValue)}</span></>
-                        )}{" "}
-                        <span title={new Date(e.createdAt).toLocaleString()} className="text-neutral-400">· {relTime(e.createdAt)}</span>
-                      </div>
-                    </div>
-                  );
-                }
-
-                const c = item.data;
-                const replies = repliesByParent.get(c.id) ?? [];
-                return (
-                  <div key={c.id}>
-                    {/* Top-level comment */}
-                    <div className={`rounded-lg border p-3.5 ${c.commentType === "decision" ? "border-amber-300 bg-amber-50" : "border-neutral-200 bg-white"}`}>
-                      <div className="mb-2 flex items-center gap-2">
-                        <div className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center text-[10px] font-bold text-white ${avatarColor(c.authorLabel)}`}>
-                          {avatarInitials(c.authorLabel)}
-                        </div>
-                        <span className="text-xs font-semibold text-neutral-800">{c.authorLabel ?? "Someone"}</span>
-                        <span className="text-xs text-neutral-400" title={new Date(c.createdAt).toLocaleString()}>· {relTime(c.createdAt)}</span>
-                        {c.commentType === "decision" && (
-                          <span className="ml-auto rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-800">💡 Decision</span>
-                        )}
-                      </div>
-                      <p className="whitespace-pre-wrap text-sm text-neutral-700">{c.body}</p>
-                      {!readOnly && (
-                        <button
-                          onClick={() => startReply(c.id, c.authorLabel)}
-                          className="mt-2 text-xs text-neutral-400 hover:text-blue-600 transition"
-                        >
-                          Reply
-                        </button>
-                      )}
-                    </div>
-
-                    {/* Threaded replies */}
-                    {replies.length > 0 && (
-                      <div className="ml-6 mt-1.5 space-y-1.5 border-l-2 border-neutral-200 pl-3">
-                        {replies.map((r) => (
-                          <div key={r.id} className="rounded-lg border border-neutral-100 bg-white p-3">
-                            <div className="mb-1.5 flex items-center gap-2">
-                              <div className={`h-5 w-5 shrink-0 rounded-full flex items-center justify-center text-[9px] font-bold text-white ${avatarColor(r.authorLabel)}`}>
-                                {avatarInitials(r.authorLabel)}
-                              </div>
-                              <span className="text-xs font-semibold text-neutral-800">{r.authorLabel ?? "Someone"}</span>
-                              <span className="text-xs text-neutral-400" title={new Date(r.createdAt).toLocaleString()}>· {relTime(r.createdAt)}</span>
-                            </div>
-                            <p className="whitespace-pre-wrap text-sm text-neutral-700">{r.body}</p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {!readOnly && (
-              <div className="mt-5">
-                {replyToId && (
-                  <div className="mb-2 flex items-center gap-2 rounded-md bg-blue-50 px-3 py-1.5 text-xs text-blue-700">
-                    <span>Replying to <span className="font-semibold">{replyToLabel ?? "comment"}</span></span>
-                    <button onClick={cancelReply} className="ml-auto text-blue-400 hover:text-blue-700">✕</button>
-                  </div>
-                )}
-                {canMarkDecision && !replyToId && (
-                  <div className="mb-2 flex rounded-lg border border-neutral-200 bg-neutral-50 p-0.5 w-fit gap-0.5">
-                    <button
-                      onClick={() => setCommentType("comment")}
-                      className={`rounded-md px-3 py-1 text-xs font-medium transition ${commentType === "comment" ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-500 hover:text-neutral-700"}`}
-                    >
-                      Comment
-                    </button>
-                    <button
-                      onClick={() => setCommentType("decision")}
-                      className={`rounded-md px-3 py-1 text-xs font-medium transition ${commentType === "decision" ? "bg-amber-100 text-amber-800 shadow-sm" : "text-neutral-500 hover:text-neutral-700"}`}
-                    >
-                      💡 Decision
-                    </button>
-                  </div>
-                )}
-                <textarea
-                  value={commentBody}
-                  onChange={(e) => setCommentBody(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) postComment(); }}
-                  rows={2}
-                  placeholder={commentType === "decision" ? "Record an official decision…" : replyToId ? "Write a reply…" : "Add a comment… (Cmd+Enter to post)"}
-                  className={`w-full rounded-lg border px-3.5 py-2.5 text-sm outline-none focus:ring-1 ${commentType === "decision" ? "border-amber-300 bg-amber-50 focus:border-amber-400 focus:ring-amber-100" : "border-neutral-200 focus:border-blue-400 focus:ring-blue-100"}`}
-                />
-                <div className="mt-2.5 flex items-center justify-between">
-                  <span className="text-xs text-neutral-400">Cmd+Enter to post</span>
-                  <button
-                    onClick={postComment}
-                    disabled={commenting || !commentBody.trim()}
-                    className={`rounded-lg px-4 py-2 text-xs font-medium text-white transition disabled:bg-neutral-300 disabled:cursor-not-allowed ${commentType === "decision" ? "bg-amber-600 hover:bg-amber-700" : "bg-blue-600 hover:bg-blue-700"}`}
-                  >
-                    {commenting ? "Posting…" : replyToId ? "Post reply" : commentType === "decision" ? "Post Decision" : "Post comment"}
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <IssueActivityFeed
+            comments={comments}
+            timeline={timeline}
+            repliesByParent={repliesByParent}
+            readOnly={readOnly}
+            timerPending={timerPending}
+            sharedTimerAt={sharedTimerAt}
+            onInlineStart={handleInlineStart}
+            onInlineStop={handleInlineStop}
+            inlineTimerError={inlineTimerError}
+            canMarkDecision={canMarkDecision}
+            commentType={commentType}
+            setCommentType={setCommentType}
+            commentBody={commentBody}
+            setCommentBody={setCommentBody}
+            postComment={postComment}
+            commenting={commenting}
+            replyToId={replyToId}
+            replyToLabel={replyToLabel}
+            startReply={startReply}
+            cancelReply={cancelReply}
+            eventValue={eventValue}
+          />
         </div>
 
         {/* ── RIGHT: sidebar — sticky so it stays in view as left scrolls ── */}
@@ -931,184 +643,53 @@ export default function IssueDetail({
           )}
 
           {/* ── 👥 People ── */}
-          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 space-y-3">
-            <SideGroupLabel color="text-blue-500">👥 People</SideGroupLabel>
-            <div>
-              <p className={sideLabel}>
-                Primary assignee
-                <InfoTooltip text="The directly-responsible individual (DRI). Removing them promotes the next assignee. Add more people under Assignees below." />
-              </p>
-              <select value={assigneeId} disabled={readOnly} onChange={(e) => { setAssigneeId(e.target.value); saveField({ assigneeId: e.target.value || null }); }} className={sidebarSelect}>
-                <option value="">Unassigned</option>
-                {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
-              </select>
-            </div>
-            <IssueAssigneesCard
-              slug={slug}
-              issueId={issue.id}
-              members={members}
-              primaryId={assigneeId || null}
-              initialAssigneeIds={initialAssigneeIds}
-              readOnly={readOnly}
-            />
-            <div>
-              <div className="flex items-center justify-between mb-1">
-                <p className={sideLabel} style={{ marginBottom: 0 }}>
-                  Watchers ({watchers.length})
-                  <InfoTooltip text="Team members who receive notifications whenever this issue is updated, commented on, or changes status." />
-                </p>
-                <button
-                  onClick={toggleWatch}
-                  disabled={watchPending}
-                  className={`text-xs font-medium px-2 py-0.5 rounded-full border transition-colors ${
-                    isWatching
-                      ? "border-blue-300 bg-blue-100 text-blue-700 hover:bg-blue-200"
-                      : "border-neutral-300 bg-white text-neutral-600 hover:bg-neutral-50"
-                  }`}
-                >
-                  {isWatching ? "Watching" : "Watch"}
-                </button>
-              </div>
-              {watchers.length === 0 ? (
-                <p className="text-xs text-neutral-400">No watchers yet</p>
-              ) : (
-                <div className="flex flex-wrap gap-1">
-                  {watchers.map((uid) => {
-                    const m = members.find((x) => x.userId === uid);
-                    const label = m?.label ?? "Unknown";
-                    return (
-                      <span key={uid} title={label} className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-[10px] font-semibold text-white ${avatarColor(label)}`}>
-                        {avatarInitials(label)}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
+          <IssuePeoplePanel
+            slug={slug}
+            issueId={issue.id}
+            members={members}
+            assigneeId={assigneeId}
+            initialAssigneeIds={initialAssigneeIds}
+            readOnly={readOnly}
+            watchers={watchers}
+            watchPending={watchPending}
+            isWatching={isWatching}
+            setAssigneeId={setAssigneeId}
+            saveField={saveField}
+            toggleWatch={toggleWatch}
+          />
 
           {/* ── 🏷 Classification ── */}
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
-            <SideGroupLabel color="text-amber-600">🏷 Classification</SideGroupLabel>
-            <div>
-              <p className={sideLabel}>
-                Priority
-                <InfoTooltip text="How urgently this issue needs to be resolved. Urgent = blocking production now. High = must ship this sprint. Medium = important but not blocking. Low = nice to have." />
-              </p>
-              <select value={priority} disabled={readOnly} onChange={(e) => { setPriority(e.target.value); saveField({ priority: e.target.value }); }} className={sidebarSelect}>
-                {priorities.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <p className={sideLabel}>
-                Type
-                <InfoTooltip text="What kind of work this is. Bug = something broken. Feature = new functionality. Task = operational work. Chore = maintenance with no user impact." />
-              </p>
-              <select value={type} disabled={readOnly} onChange={(e) => { setType(e.target.value); saveField({ type: e.target.value }); }} className={sidebarSelect}>
-                {types.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
-              </select>
-            </div>
-            {catOptions.length > 0 && (
-              <div>
-                <p className={sideLabel}>
-                  Category
-                  <InfoTooltip text="A custom label your team uses to group related issues — e.g. Auth, Billing, Performance. Set by your project admin." />
-                </p>
-                <select value={categoryId} disabled={readOnly} onChange={(e) => { setCategoryId(e.target.value); saveField({ categoryId: e.target.value || null }); }} className={sidebarSelect}>
-                  <option value="">None</option>
-                  {catOptions.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-                </select>
-              </div>
-            )}
-            {customFields.map((f) => (
-              <div key={f.key}>
-                <p className={sideLabel}>
-                  {f.label}
-                  {f.key === "severity" && (
-                    <InfoTooltip text="How severely this impacts end users. Critical = data loss or outage. High = major feature broken. Medium = degraded experience. Low = cosmetic or minor." />
-                  )}
-                  {f.required && <span className="text-red-500"> *</span>}
-                </p>
-                {f.type === "select" ? (
-                  <select
-                    value={customValues[f.key] ?? ""}
-                    disabled={readOnly}
-                    onChange={(e) => { const v = e.target.value; setCustomValues((cv) => ({ ...cv, [f.key]: v })); saveField({ customValues: { ...customValues, [f.key]: v } }); }}
-                    className={sidebarSelect}
-                  >
-                    <option value="">—</option>
-                    {f.options.map((o) => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                ) : (
-                  <input
-                    type={f.type === "number" ? "number" : f.type === "date" ? "date" : "text"}
-                    value={customValues[f.key] ?? ""}
-                    disabled={readOnly}
-                    onChange={(e) => setCustomValues((cv) => ({ ...cv, [f.key]: e.target.value }))}
-                    onBlur={(e) => saveField({ customValues: { ...customValues, [f.key]: e.target.value } })}
-                    className={sidebarSelect}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
+          <IssueClassificationPanel
+            priority={priority}
+            type={type}
+            categoryId={categoryId}
+            priorities={priorities}
+            types={types}
+            catOptions={catOptions}
+            customFields={customFields}
+            customValues={customValues}
+            readOnly={readOnly}
+            setPriority={setPriority}
+            setType={setType}
+            setCategoryId={setCategoryId}
+            setCustomValues={setCustomValues}
+            saveField={saveField}
+          />
 
           {/* ── 📅 Planning ── */}
-          <div className="rounded-xl border border-green-200 bg-green-50 p-4 space-y-3">
-            <SideGroupLabel color="text-green-600">📅 Planning</SideGroupLabel>
-            <div>
-              <p className={sideLabel}>Start date</p>
-              <input type="date" value={startDate} disabled={readOnly} onChange={(e) => { setStartDate(e.target.value); saveField({ startDate: e.target.value || null }); }} className={sidebarSelect} />
-            </div>
-            <div>
-              <p className={sideLabel}>Due date</p>
-              <input type="date" value={dueDate} disabled={readOnly} onChange={(e) => { setDueDate(e.target.value); saveField({ dueDate: e.target.value || null }); }} className={sidebarSelect} />
-            </div>
-            <div>
-              <p className={sideLabel}>Phase</p>
-              <select value={phase} disabled={readOnly} onChange={(e) => { setPhase(e.target.value); saveField({ phase: e.target.value || null }); }} className={sidebarSelect}>
-                <option value="">— None —</option>
-                <option value="discovery">Discovery</option>
-                <option value="design">Design</option>
-                <option value="development">Development</option>
-                <option value="testing">Testing</option>
-                <option value="deployment">Deployment</option>
-              </select>
-            </div>
-            <div>
-              <p className={sideLabel}>
-                Story Points
-                <InfoTooltip text="An estimate of effort using the Fibonacci scale. 1 = trivial (under an hour). 3 = small (a day). 5 = medium (2–3 days). 8 = large (a week). 13+ = break it down first." />
-              </p>
-              <div className="flex items-center gap-1.5">
-                {[1, 2, 3, 5, 8, 13, 21].map((pt) => (
-                  <button
-                    key={pt}
-                    disabled={readOnly}
-                    onClick={() => { const v = storyPoints === String(pt) ? "" : String(pt); setStoryPoints(v); saveField({ storyPoints: v ? Number(v) : null }); }}
-                    className={`h-7 w-7 rounded-md text-xs font-semibold border transition-colors ${
-                      storyPoints === String(pt)
-                        ? "bg-green-600 border-green-600 text-white"
-                        : "border-neutral-200 bg-white text-neutral-600 hover:border-green-400 hover:text-green-700"
-                    } disabled:opacity-40 disabled:cursor-not-allowed`}
-                  >
-                    {pt}
-                  </button>
-                ))}
-                <input
-                  type="number"
-                  min="1"
-                  value={storyPoints}
-                  disabled={readOnly}
-                  onBlur={(e) => saveField({ storyPoints: e.target.value ? Number(e.target.value) : null })}
-                  onChange={(e) => setStoryPoints(e.target.value)}
-                  placeholder="?"
-                  className="w-10 rounded-md border border-neutral-200 bg-white px-1.5 py-1 text-xs text-center outline-none focus:border-green-400 disabled:opacity-40"
-                />
-              </div>
-            </div>
-            {slaTimer && <SlaChip timer={slaTimer} />}
-          </div>
+          <IssuePlanningPanel
+            startDate={startDate}
+            dueDate={dueDate}
+            phase={phase}
+            storyPoints={storyPoints}
+            readOnly={readOnly}
+            slaTimer={slaTimer}
+            setStartDate={setStartDate}
+            setDueDate={setDueDate}
+            setPhase={setPhase}
+            setStoryPoints={setStoryPoints}
+            saveField={saveField}
+          />
 
           {/* ── 🔗 Relationships ── */}
           <div className="rounded-xl border border-purple-200 bg-purple-50 p-4 space-y-3">
