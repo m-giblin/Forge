@@ -49,7 +49,7 @@ export type MissionControlData = {
   greetingName: string;
   scope: ScopeKey;
   canSeeTeam: boolean;
-  stats: { open: number; inProgress: number; doneThisWeek: number; unassigned: number };
+  stats: { open: number; inProgress: number; doneThisWeek: number; unassigned: number; overdue: number };
   narrative: string;
   attention: AttentionItem[];
   portfolio: PortfolioProject[];
@@ -76,6 +76,7 @@ type LeanIssue = {
   labels: string[] | null;
   created_at: string;
   updated_at: string;
+  due_date: string | null;
 };
 
 type LeanEvent = {
@@ -135,7 +136,7 @@ export async function loadMissionControl(input: {
   const [issuesRes, eventsRes, projects, nameRes] = await Promise.all([
     supabase
       .from("issues")
-      .select("id, project_id, number, title, status, priority, type, assignee_id, reporter_id, labels, created_at, updated_at")
+      .select("id, project_id, number, title, status, priority, type, assignee_id, reporter_id, labels, created_at, updated_at, due_date")
       .eq("tenant_id", input.tenantId)
       .order("updated_at", { ascending: false })
       .limit(2000),
@@ -183,6 +184,8 @@ export async function loadMissionControl(input: {
   const open = scoped.filter((i) => i.status !== DONE).length;
   const inProgress = scoped.filter((i) => i.status === IN_PROGRESS).length;
   const unassigned = teamIssues.filter((i) => !i.assignee_id && i.status !== DONE).length;
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const overdue = scoped.filter((i) => i.status !== DONE && i.due_date && i.due_date.slice(0, 10) < todayIso).length;
 
   const scopedIds = new Set(scoped.map((i) => i.id));
   let doneThisWeek = 0;
@@ -313,7 +316,7 @@ export async function loadMissionControl(input: {
     greetingName: firstName,
     scope,
     canSeeTeam,
-    stats: { open, inProgress, doneThisWeek, unassigned },
+    stats: { open, inProgress, doneThisWeek, unassigned, overdue },
     narrative,
     attention: attentionTop,
     portfolio,
