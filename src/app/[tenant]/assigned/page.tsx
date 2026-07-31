@@ -78,23 +78,36 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
   const openCount = issues.filter((i) => i.status === "todo").length;
   const inProgressCount = issues.filter((i) => i.status === "in_progress").length;
 
-  // Group by priority
-  const grouped = new Map<string, AssignedIssue[]>();
-  for (const p of PRIORITY_ORDER) grouped.set(p, []);
-  grouped.set("none", []);
-  for (const issue of issues) {
-    const key = issue.priority && PRIORITY_ORDER.includes(issue.priority) ? issue.priority : "none";
-    grouped.get(key)!.push(issue);
-  }
-
   const today = new Date();
   today.setHours(0, 0, 0, 0);
+
+  // Bucket by urgency (an issue can land in Overdue AND Blocked at once — each
+  // filter is independent; Upcoming is only what's left over from the rest).
+  const overdueIssues = issues.filter((i) => i.due_date && new Date(i.due_date) < today);
+  const blockedIssues = issues.filter((i) => i.status === "blocked");
+  const inProgressIssues = issues.filter((i) => i.status === "in_progress" || i.status === "in_review");
+  const upcomingIssues = issues.filter(
+    (i) => !overdueIssues.includes(i) && !blockedIssues.includes(i) && !inProgressIssues.includes(i)
+  );
+
+  const priorityRank = (i: AssignedIssue) => {
+    const idx = i.priority ? PRIORITY_ORDER.indexOf(i.priority) : -1;
+    return idx === -1 ? PRIORITY_ORDER.length : idx;
+  };
+  const byPriority = (a: AssignedIssue, b: AssignedIssue) => priorityRank(a) - priorityRank(b);
+
+  const buckets: { key: string; label: string; accent: string; issues: AssignedIssue[] }[] = [
+    { key: "overdue", label: "Overdue", accent: "text-red-600", issues: [...overdueIssues].sort(byPriority) },
+    { key: "blocked", label: "Blocked", accent: "text-red-600", issues: [...blockedIssues].sort(byPriority) },
+    { key: "inprogress", label: "In progress / review", accent: "text-orange-600", issues: [...inProgressIssues].sort(byPriority) },
+    { key: "upcoming", label: "Upcoming", accent: "text-blue-600", issues: [...upcomingIssues].sort(byPriority) },
+  ];
 
   return (
     <main className="w-full px-3 py-4 sm:px-6 sm:py-6">
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-neutral-900">Assigned to Me</h1>
-        <p className="mt-1 text-sm text-neutral-500">Your open issues across all projects.</p>
+        <h1 className="text-xl font-semibold text-neutral-900">My Work</h1>
+        <p className="mt-1 text-sm text-neutral-500">Everything assigned to you, across every project — {issues.length} issue{issues.length === 1 ? "" : "s"}.</p>
       </div>
 
       {/* Stats bar */}
@@ -114,27 +127,20 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
 
       {issues.length === 0 ? (
         <div className="rounded-xl border border-neutral-200 bg-white px-6 py-16 text-center">
-          <p className="text-sm text-neutral-500">No open issues assigned to you. 🎉</p>
+          <p className="text-sm text-neutral-500">Nothing assigned to you right now. 🎉</p>
         </div>
       ) : (
         <div className="space-y-6">
-          {[...PRIORITY_ORDER, "none"].map((priority) => {
-            const group = grouped.get(priority) ?? [];
-            if (group.length === 0) return null;
-            const label = priority === "none" ? "No Priority" : priority.charAt(0).toUpperCase() + priority.slice(1);
+          {buckets.map((bucket) => {
+            if (bucket.issues.length === 0) return null;
             return (
-              <section key={priority}>
-                <h2 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                  {priority !== "none" && (
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${PRIORITY_COLORS[priority] ?? "bg-neutral-100 text-neutral-600"}`}>
-                      {label}
-                    </span>
-                  )}
-                  {priority === "none" && label}
-                  <span className="font-normal">({group.length})</span>
+              <section key={bucket.key}>
+                <h2 className={`mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ${bucket.accent}`}>
+                  {bucket.label}
+                  <span className="font-normal text-neutral-400">({bucket.issues.length})</span>
                 </h2>
                 <div className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white">
-                  {group.map((issue) => {
+                  {bucket.issues.map((issue) => {
                     const dueDate = issue.due_date ? new Date(issue.due_date) : null;
                     const isOverdue = dueDate && dueDate < today;
                     return (
@@ -156,6 +162,11 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
                             <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_COLORS[issue.status] ?? "bg-neutral-100 text-neutral-600"}`}>
                               {statusLabel(issue.status)}
                             </span>
+                            {issue.priority && (
+                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${PRIORITY_COLORS[issue.priority] ?? "bg-neutral-100 text-neutral-600"}`}>
+                                {issue.priority.charAt(0).toUpperCase() + issue.priority.slice(1)}
+                              </span>
+                            )}
                             {issue.project && (
                               <span className="text-neutral-400">{issue.project.name}</span>
                             )}

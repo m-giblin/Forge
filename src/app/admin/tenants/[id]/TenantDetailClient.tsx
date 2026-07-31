@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { setSuspendedAction, deleteTenantAction } from "../../actions";
 import { startImpersonationAction } from "@/app/impersonation-actions";
 import { setTenantOverrideAction } from "../../flags/actions";
@@ -52,6 +53,7 @@ export default function TenantDetailClient({
   globalFlags: Record<string, boolean>;
   audit: AuditEntry[];
 }) {
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>("overview");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -118,8 +120,16 @@ export default function TenantDetailClient({
           </button>
           <button
             onClick={() => {
-              if (confirm(`Permanently delete ${tenant.name} and ALL its data? This cannot be undone.`))
-                run(() => deleteTenantAction(tenant.id));
+              if (!confirm(`Permanently delete ${tenant.name} and ALL its data? This cannot be undone.`)) return;
+              setError(null);
+              startTransition(async () => {
+                try {
+                  await deleteTenantAction(tenant.id);
+                  router.push(`/admin/tenants?deleted=${encodeURIComponent(tenant.name)}`);
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Action failed");
+                }
+              });
             }}
             disabled={pending}
             style={{ padding: "6px 12px", borderRadius: 7, border: "1px solid #fecaca", background: "#fef2f2", color: "#dc2626", fontSize: 11, fontWeight: 600, cursor: "pointer" }}

@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { type Issue } from "@/lib/repositories/issues";
 import { type Sprint } from "@/lib/repositories/sprints";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
+import { type IssueTemplate } from "@/lib/repositories/issueTemplates";
 import { createIssueAction, draftIssueFromDescriptionAction } from "./actions";
 
 type Project = { id: string; key: string; name: string };
@@ -20,6 +21,7 @@ export default function NewIssueForm({
   types,
   categories,
   customFields,
+  templates,
   sprints,
   members,
   onCreated,
@@ -30,6 +32,7 @@ export default function NewIssueForm({
   types: FieldOption[];
   categories: Category[];
   customFields: CustomField[];
+  templates: IssueTemplate[];
   sprints: Sprint[];
   members: Member[];
   onCreated: (issue: Issue) => void;
@@ -127,31 +130,29 @@ export default function NewIssueForm({
       {showTemplates && (
         <div className="mb-3 pb-3 border-b border-neutral-100">
           <p className="text-xs font-semibold text-neutral-500 mb-2">Quick templates</p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { label: "🐛 Bug report", title: "[Bug] ", type: "bug", priority: "high" },
-              { label: "✨ Feature request", title: "[Feature] ", type: "feature", priority: "medium" },
-              { label: "⚙️ Tech debt", title: "[Debt] ", type: "task", priority: "low" },
-              { label: "🔒 Security issue", title: "[Security] ", type: "bug", priority: "urgent" },
-              { label: "📋 Task", title: "", type: "task", priority: "medium" },
-            ].map((t) => (
-              <button
-                key={t.label}
-                type="button"
-                onClick={() => {
-                  setTitle(t.title);
-                  const matchType = types.find((x) => x.key === t.type);
-                  if (matchType) setType(matchType.key);
-                  const matchPri = priorities.find((x) => x.key === t.priority);
-                  if (matchPri) setPriority(matchPri.key);
-                  setShowTemplates(false);
-                }}
-                className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+          {templates.length === 0 ? (
+            <p className="text-xs text-neutral-400">No templates configured for this workspace yet — add some under Admin → Fields & categories.</p>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {templates.map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => {
+                    setTitle(t.title_prefix);
+                    const matchType = types.find((x) => x.key === t.type);
+                    if (matchType) setType(matchType.key);
+                    const matchPri = priorities.find((x) => x.key === t.priority);
+                    if (matchPri) setPriority(matchPri.key);
+                    setShowTemplates(false);
+                  }}
+                  className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+                >
+                  {t.name}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
       {aiMode ? (

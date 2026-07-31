@@ -17,8 +17,12 @@ function healthScore(t: { member_count: number; issue_count: number; status: str
   return Math.min(score, 100);
 }
 
-export default async function TenantsPage() {
-  const [tenants, sdkSuspensionWindows] = await Promise.all([listTenants(), getSdkSuspensionWindows()]);
+export default async function TenantsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ deleted?: string }>;
+}) {
+  const [tenants, sdkSuspensionWindows, sp] = await Promise.all([listTenants(), getSdkSuspensionWindows(), searchParams]);
   const scored = tenants.map((t) => ({ ...t, health: healthScore(t) }));
 
   return (
@@ -28,6 +32,16 @@ export default async function TenantsPage() {
         <h1 style={S.pageTitle}>Tenants</h1>
         <p style={S.pageSub}>Every workspace on the platform. Provision, manage, or suspend access.</p>
       </div>
+
+      {sp.deleted && (
+        <div style={{
+          marginBottom: 18, padding: "10px 14px", borderRadius: 8,
+          background: "#f0fdf4", border: "1px solid #bbf7d0",
+          fontSize: 12.5, color: "#059669", fontWeight: 600,
+        }}>
+          ✓ {sp.deleted} was permanently deleted.
+        </div>
+      )}
 
       {/* Provision */}
       <div style={{ ...S.card, marginBottom: 18 }}>

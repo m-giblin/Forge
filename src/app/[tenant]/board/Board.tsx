@@ -6,6 +6,7 @@ import Link from "next/link";
 import { type Issue } from "@/lib/repositories/issues";
 import { type Sprint } from "@/lib/repositories/sprints";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
+import { type IssueTemplate } from "@/lib/repositories/issueTemplates";
 import { isUnassignedOverdue } from "@/lib/sla";
 import { avatarColor, initials } from "@/lib/ui/avatar";
 import { moveIssueAction, loadMoreForStatusAction } from "./actions";
@@ -33,6 +34,7 @@ export default function Board({
   types,
   categories,
   customFields,
+  templates,
   members,
   sprints,
   currentSprint,
@@ -52,6 +54,7 @@ export default function Board({
   types: FieldOption[];
   categories: Category[];
   customFields: CustomField[];
+  templates: IssueTemplate[];
   members: Member[];
   sprints: Sprint[];
   currentSprint: Sprint | null;
@@ -403,6 +406,7 @@ export default function Board({
           types={types}
           categories={categories}
           customFields={customFields}
+          templates={templates}
           sprints={sprints}
           members={members}
           onCreated={(issue) => {

@@ -37,10 +37,10 @@ export function platformRepo(supabase: SupabaseClient) {
       return (data ?? []) as TenantStat[];
     },
 
-    async insertTenant(name: string, slug: string): Promise<{ id: string; slug: string }> {
+    async insertTenant(name: string, slug: string, phoneNumber?: string): Promise<{ id: string; slug: string }> {
       const { data, error } = await supabase
         .from("tenants")
-        .insert({ name, slug })
+        .insert({ name, slug, phone_number: phoneNumber ?? null })
         .select("id, slug")
         .single();
       if (error) throw error;

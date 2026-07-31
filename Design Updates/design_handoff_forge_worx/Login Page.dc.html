@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; }
+    a { color:#b7452f; text-decoration:none; }
+    a:hover { color:#8c4632; }
+    .fw-grunge { position: relative; }
+    .fw-grunge::before {
+      content: "";
+      position: absolute; inset: 0;
+      pointer-events: none;
+      opacity: 0.5;
+      mix-blend-mode: overlay;
+      background-image:
+        radial-gradient(circle at 20% 25%, rgba(255,255,255,0.05) 0, transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(0,0,0,0.35) 0, transparent 45%),
+        repeating-linear-gradient(115deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 2px, transparent 5px),
+        repeating-linear-gradient(25deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 3px, transparent 7px);
+    }
+    .fw-input:focus { border-color:#b7452f !important; }
+    .fw-submit { transition: filter 0.15s ease; }
+    .fw-submit:hover { filter: brightness(1.08); }
+    .fw-oauth:hover { background:#eae6da !important; }
+  </style>
+</helmet>
+
+<div style="display:flex; min-height:100vh; width:100%; font-family:'Inter',-apple-system,sans-serif; color:#20201d;">
+
+  <!-- LEFT: BRAND PANEL -->
+  <div class="fw-grunge" style="flex:1; background:#20221f; background-image:linear-gradient(165deg,#26281f 0%,#181a16 55%,#131412 100%); position:relative; min-width:0;">
+    <div style="position:absolute; top:44px; left:44px; display:flex; align-items:center; gap:10px;">
+      <svg width="22" height="14" viewBox="0 0 64 40"><path d="M3,19 L17,11 L17,8 L50,8 L50,15 L41,15 L37,22 L46,22 L48,32 L35,32 Q31,27 27,32 L13,32 L15,22 L24,22 L20,15 L20,11 Z" fill="#b7452f"/></svg>
+      <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:15px; letter-spacing:0.03em; color:#e5e0d1; text-transform:uppercase;">Forge<span style="color:#b7452f;">-Worx</span></div>
+    </div>
+
+    <div style="display:flex; align-items:center; height:100%; padding:44px;">
+      <div style="max-width:420px;">
+        <div style="display:flex; justify-content:center; margin-bottom:36px;">
+          <img src="assets/forge-worx-badge-transparent.png" style="width:270px; height:auto; display:block;" alt="Forge-Worx" />
+        </div>
+        <div style="font-family:'Manrope',sans-serif; font-size:30px; font-weight:800; line-height:1.25; color:#f2eee2; margin-bottom:16px;">Deliver faster without the enterprise overhead.</div>
+        <div style="font-size:14px; line-height:1.65; color:#a39d89;">Sprint boards, backlog, roadmap and reporting — built for teams who'd rather be delivering than configuring.</div>
+      </div>
+    </div>
+
+    <div style="position:absolute; bottom:44px; left:44px; font-size:12px; color:#5c594c;">© 2026 Forge-Worx. All rights reserved.</div>
+  </div>
+
+  <!-- RIGHT: FORM PANEL -->
+  <div style="flex:1; background:#f4f2eb; display:flex; align-items:center; justify-content:center; padding:44px; min-width:0;">
+    <div style="width:100%; max-width:380px;">
+      <div style="font-family:'Manrope',sans-serif; font-size:23px; font-weight:800; color:#20201d; margin-bottom:6px;">{{ headline }}</div>
+      <div style="font-size:13.5px; color:#726e60; margin-bottom:28px;">{{ subheadline }} <a href="#" onclick="{{ toggleMode }}">{{ toggleLabel }}</a></div>
+
+      <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:22px;">
+        <div class="fw-oauth" style="display:flex; align-items:center; justify-content:center; gap:9px; border:1px solid #ddd8c9; background:#fff; border-radius:6px; padding:11px; font-size:13.5px; font-weight:600; cursor:pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.4h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.7z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.3 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.4 14.4c-.2-.7-.4-1.5-.4-2.4s.1-1.6.4-2.4V6.5H1.4C.5 8.2 0 10 0 12s.5 3.8 1.4 5.5l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.7 0 3.3.6 4.5 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.7 1.4 6.5l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
+          Continue with Google
+        </div>
+        <div class="fw-oauth" style="display:flex; align-items:center; justify-content:center; gap:9px; border:1px solid #ddd8c9; background:#fff; border-radius:6px; padding:11px; font-size:13.5px; font-weight:600; cursor:pointer;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="#20201d"><path d="M12 2C6.5 2 2 6.6 2 12.2c0 4.5 2.9 8.3 6.8 9.6.5.1.7-.2.7-.5v-1.7c-2.8.6-3.4-1.4-3.4-1.4-.4-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 .1 1.5 1 1.5 1 .9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.6-1.4-2.3-.3-4.6-1.1-4.6-5 0-1.1.4-2 1-2.7-.1-.3-.5-1.3.1-2.7 0 0 .9-.3 2.9 1a10 10 0 0 1 5.2 0c2-1.3 2.9-1 2.9-1 .6 1.4.2 2.4.1 2.7.6.7 1 1.6 1 2.7 0 3.9-2.3 4.7-4.6 5 .4.3.7 1 .7 2v2.9c0 .3.2.6.7.5 3.9-1.3 6.8-5.1 6.8-9.6C22 6.6 17.5 2 12 2z"/></svg>
+          Continue with GitHub
+        </div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:22px;">
+        <div style="flex:1; height:1px; background:#ddd8c9;"></div>
+        <div style="font-size:11.5px; color:#a19d90; font-weight:600;">OR</div>
+        <div style="flex:1; height:1px; background:#ddd8c9;"></div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:14px; margin-bottom:6px;">
+        <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ false }}">
+          <div>
+            <div style="font-size:11.5px; font-weight:700; color:#4a473e; margin-bottom:6px;">Full name</div>
+            <input class="fw-input" value="{{ name }}" onchange="{{ setName }}" placeholder="Jamie Diaz" style="width:100%; border:1px solid #ddd8c9; background:#fff; border-radius:6px; padding:10px 12px; font-size:13.5px; font-family:inherit; outline:none;" />
+          </div>
+        </sc-if>
+        <div>
+          <div style="font-size:11.5px; font-weight:700; color:#4a473e; margin-bottom:6px;">Work email</div>
+          <input class="fw-input" value="{{ email }}" onchange="{{ setEmail }}" placeholder="jamie@company.com" style="width:100%; border:1px solid #ddd8c9; background:#fff; border-radius:6px; padding:10px 12px; font-size:13.5px; font-family:inherit; outline:none;" />
+        </div>
+        <div>
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
+            <div style="font-size:11.5px; font-weight:700; color:#4a473e;">Password</div>
+            <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ true }}">
+              <div style="font-size:11.5px; font-weight:600; color:#b7452f; cursor:pointer;">Forgot?</div>
+            </sc-if>
+          </div>
+          <input class="fw-input" type="password" value="{{ password }}" onchange="{{ setPassword }}" placeholder="••••••••" style="width:100%; border:1px solid #ddd8c9; background:#fff; border-radius:6px; padding:10px 12px; font-size:13.5px; font-family:inherit; outline:none;" />
+        </div>
+      </div>
+
+      <div style="height:8px;"></div>
+      <button onclick="{{ submit }}" class="fw-submit" style="width:100%; background:#8c4632; background-image:linear-gradient(160deg,#9a5138,#6e3324); color:#f2e9d8; border:1px solid #5e2c1f; border-radius:6px; padding:12px; font-size:14px; font-weight:700; cursor:pointer; font-family:inherit;">{{ submitLabel }}</button>
+
+      <div style="font-size:11.5px; color:#a19d90; text-align:center; margin-top:18px; line-height:1.6;">By continuing you agree to Forge-Worx's <a href="#">Terms</a> and <a href="#">Privacy Policy</a>.</div>
+    </div>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = { mode: "login", email: "", password: "", name: "" };
+
+  renderVals() {
+    const isLogin = this.state.mode === "login";
+    const isSignup = !isLogin;
+    return {
+      isLogin, isSignup,
+      headline: isLogin ? "Welcome back" : "Create your account",
+      subheadline: isLogin ? "New to Forge-Worx?" : "Already have an account?",
+      toggleLabel: isLogin ? "Start a free trial" : "Log in",
+      toggleMode: (e) => { e.preventDefault(); this.setState((s) => ({ mode: s.mode === "login" ? "signup" : "login" })); },
+      submitLabel: isLogin ? "Log in" : "Create account",
+      email: this.state.email,
+      password: this.state.password,
+      name: this.state.name,
+      setEmail: (e) => this.setState({ email: e.target.value }),
+      setPassword: (e) => this.setState({ password: e.target.value }),
+      setName: (e) => this.setState({ name: e.target.value }),
+      submit: () => {},
+    };
+  }
+}
+
+</script>
+</body>
+</html>

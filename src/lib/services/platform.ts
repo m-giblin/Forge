@@ -24,6 +24,7 @@ export async function provisionTenant(input: {
   name: string;
   slug: string;
   ownerEmail: string;
+  phoneNumber: string;
 }): Promise<{ slug: string; ownerInviteToken: string }> {
   const sa = await requireSuperAdmin();
   if (!sa) throw new Error("Forbidden");
@@ -31,14 +32,16 @@ export async function provisionTenant(input: {
   const name = input.name.trim();
   const slug = input.slug.trim().toLowerCase();
   const ownerEmail = input.ownerEmail.trim().toLowerCase();
+  const phoneNumber = input.phoneNumber.trim();
   if (!name) throw new Error("Workspace name is required.");
   if (!SLUG_RE.test(slug)) throw new Error("Slug must be lowercase letters, numbers, and hyphens.");
   if (!ownerEmail) throw new Error("Owner email is required.");
+  if (!phoneNumber) throw new Error("Phone number is required.");
 
   const svc = createSupabaseServiceClient();
   const repo = platformRepo(svc);
 
-  const tenant = await repo.insertTenant(name, slug);
+  const tenant = await repo.insertTenant(name, slug, phoneNumber);
 
   // Seed example SLA policies (disabled) so new tenants can see what's possible
   // and enable/tweak without starting from a blank form.

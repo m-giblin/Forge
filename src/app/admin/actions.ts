@@ -17,7 +17,7 @@ export async function saveSdkSuspensionWindowsAction(notifyDays: number, graceDa
   revalidatePath("/admin/tenants");
 }
 
-export async function provisionTenantAction(input: { name: string; slug: string; ownerEmail: string }) {
+export async function provisionTenantAction(input: { name: string; slug: string; ownerEmail: string; phoneNumber: string }) {
   const result = await provisionTenant(input);
   revalidatePath("/admin");
   return result; // { slug, ownerInviteToken }

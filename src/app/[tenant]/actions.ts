@@ -2,12 +2,23 @@
 
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createProject } from "@/lib/services/projects";
 import { updateIssue } from "@/lib/services/issues";
 import { recordAudit } from "@/lib/audit";
 // eslint-disable-next-line no-restricted-imports -- service-role: template seeding writes bypass user-JWT RLS
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getTemplate, type TemplateKey } from "@/lib/projectTemplates";
+
+/** Persists the "AI features active" banner dismissal on the user's own row — a cross-tenant account preference, not a tenant setting, so one dismissal covers every workspace they're in. */
+export async function dismissAiDisclosureAction(slug: string): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  const supabase = await createSupabaseServerClient();
+  try {
+    await supabase.from("users").update({ ai_disclosure_dismissed_at: new Date().toISOString() }).eq("id", ctx.appUserId);
+  } catch { /* ignore — column may not exist pre-migration */ }
+}
 
 export async function quickAssignAction(slug: string, issueId: string, assigneeId: string): Promise<void> {
   const ctx = await getTenantContext(slug);
@@ -83,16 +94,21 @@ export async function applyProjectTemplateAction(
     .maybeSingle();
   if (!project) throw new Error("Project not found");
 
-  // Seed categories
+  // Seed categories, scoped to this project. tenant_categories has a
+  // project_id column (live schema — not represented in any tracked
+  // migration, a real gap flagged separately) that fieldConfigRepo's own
+  // listCategories/addCategory already read and write; the project's
+  // Categories tab filters by it. No `color` column exists (never did —
+  // that field in the template data is unused by the UI anyway).
   if (template.categories.length) {
-    await svc.from("issue_categories").insert(
+    const { error } = await svc.from("tenant_categories").insert(
       template.categories.map((c) => ({
         tenant_id: ctx.tenant.id,
         project_id: project.id,
         name: c.name,
-        color: c.color,
       })),
     );
+    if (error) throw new Error(error.message);
   }
 
   // Seed issues (number them starting from 1 within project)
@@ -108,7 +124,7 @@ export async function applyProjectTemplateAction(
     let nextNum = (maxRow?.number ?? 0) + 1;
 
     for (const iss of template.issues) {
-      await svc.from("issues").insert({
+      const { error } = await svc.from("issues").insert({
         tenant_id: ctx.tenant.id,
         project_id: project.id,
         title: iss.title,
@@ -116,20 +132,24 @@ export async function applyProjectTemplateAction(
         priority: iss.priority,
         status: iss.status,
         number: nextNum++,
-        source: "template",
+        // No "template" value in the issue_source enum ('web' | 'api' | 'email') —
+        // template-seeded issues aren't a distinct source, just let it default to 'web'.
       });
+      if (error) throw new Error(error.message);
     }
   }
 
   // Seed a sprint if template has one
   if (template.sprintName) {
-    await svc.from("sprints").insert({
+    const { error } = await svc.from("sprints").insert({
       tenant_id: ctx.tenant.id,
       project_id: project.id,
       name: template.sprintName,
       goal: template.sprintGoal ?? null,
-      status: "planning",
+      // sprints.status check constraint only allows 'planned' | 'active' | 'completed' — not "planning".
+      status: "planned",
     });
+    if (error) throw new Error(error.message);
   }
 
   revalidatePath(`/${slug}`);

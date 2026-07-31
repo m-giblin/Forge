@@ -252,6 +252,19 @@ function MindMapInner({
   // router.refresh() the App Router re-renders this component with fresh
   // server props, so a local copy would just be redundant derived state.
   const tree = initialTree;
+
+  // The declarative `fitView` prop on <ReactFlow> only fits based on the
+  // container's size at the very first paint — on this page that container's
+  // height is a `calc(100vh-...)` value that isn't always settled yet at that
+  // exact moment, so the initial fit can end up positioning every node
+  // outside the visible viewport (canvas looks completely empty until you
+  // manually click the fit-view control). Re-fit once more on mount, after
+  // layout has actually settled, as a safety net.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => fitView({ duration: 0 }));
+    return () => cancelAnimationFrame(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   // Dagre recomputes every node's position on each layout(); a dragged node's
   // position is stored here and overlaid on top so a drag survives expand/

@@ -16,6 +16,7 @@ export default function BurndownClient({
   const [result, setResult] = useState<BurndownResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<"burndown" | "burnup">("burndown");
 
   const projectMap = new Map(projects.map((p) => [p.id, p.name]));
 
@@ -57,7 +58,29 @@ export default function BurndownClient({
     return { idealPath, actualPath, areaPath, gridLines, x, y };
   }
 
+  // Burnup: completed-so-far (total - remaining) rising against total scope.
+  // Scope is drawn as a flat line at the current total — this codebase doesn't
+  // track *when* an issue was added to a sprint (no sprint_id change history in
+  // issue_events), so a true "scope crept up on day N" line isn't something the
+  // data can honestly support yet. Labeled "current total," not implying history.
+  function buildBurnupChart(points: BurndownResult["points"], total: number) {
+    if (points.length < 2) return null;
+    const maxY = total;
+    const xStep = chartW / (points.length - 1);
+    const y = (v: number) => PAD.t + chartH - (v / Math.max(1, maxY)) * chartH;
+    const x = (i: number) => PAD.l + i * xStep;
+
+    const scopePath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i)} ${y(total)}`).join(" ");
+    const completedPath = points.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i)} ${y(total - p.actual)}`).join(" ");
+    const areaPath = `${completedPath} L ${x(points.length - 1)} ${y(0)} L ${x(0)} ${y(0)} Z`;
+
+    const gridLines = [0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(maxY * f));
+
+    return { scopePath, completedPath, areaPath, gridLines, x, y };
+  }
+
   const chart = result ? buildChart(result.points, result.totalPoints) : null;
+  const burnupChart = result ? buildBurnupChart(result.points, result.totalPoints) : null;
   const velocityPct = result && result.totalPoints > 0 ? Math.round((result.completedPoints / result.totalPoints) * 100) : 0;
   const onTrack = result && result.points.length > 1 ? result.points[result.points.length - 1].actual <= result.points[result.points.length - 1].ideal : null;
 
@@ -66,8 +89,22 @@ export default function BurndownClient({
       {/* Header + sprint picker */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-neutral-900">Sprint Burndown</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Ideal vs actual remaining story points per day</p>
+          <h1 className="text-xl font-bold text-neutral-900">Sprint {view === "burndown" ? "Burndown" : "Burnup"}</h1>
+          <p className="text-sm text-neutral-500 mt-0.5">
+            {view === "burndown" ? "Ideal vs actual remaining story points per day" : "Completed work rising against total scope"}
+          </p>
+        </div>
+        <div className="flex rounded-lg border border-neutral-200 bg-white p-0.5">
+          {(["burndown", "burnup"] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => setView(v)}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition ${view === v ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-700"}`}
+            >
+              {v}
+            </button>
+          ))}
         </div>
         <select
           value={sprintId}
@@ -124,55 +161,102 @@ export default function BurndownClient({
           )}
 
           {/* Chart */}
-          {chart && result.points.length > 1 ? (
-            <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm mb-6">
-              <div className="mb-3 flex items-center justify-between">
-                <p className="text-sm font-semibold text-neutral-800">Story Points Remaining</p>
-                <div className="flex items-center gap-4 text-xs text-neutral-500">
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-0.5 w-6 border-t-2 border-dashed border-neutral-400" />Ideal
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-0.5 w-6 bg-indigo-500 rounded" />Actual
-                  </span>
+          {view === "burndown" ? (
+            chart && result.points.length > 1 ? (
+              <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm mb-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-neutral-800">Story Points Remaining</p>
+                  <div className="flex items-center gap-4 text-xs text-neutral-500">
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-0.5 w-6 border-t-2 border-dashed border-neutral-400" />Ideal
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-0.5 w-6 bg-indigo-500 rounded" />Actual
+                    </span>
+                  </div>
                 </div>
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+                  {/* Grid */}
+                  {chart.gridLines.map((v) => (
+                    <g key={v}>
+                      <line x1={PAD.l} y1={chart.y(v)} x2={W - PAD.r} y2={chart.y(v)} stroke="#f1f5f9" strokeWidth="1" />
+                      <text x={PAD.l - 4} y={chart.y(v) + 3} textAnchor="end" fontSize="9" fill="#94a3b8">{v}</text>
+                    </g>
+                  ))}
+                  {/* Actual area fill */}
+                  <path d={chart.areaPath} fill="#6366f1" opacity="0.08" />
+                  {/* Ideal dashed line */}
+                  <path d={chart.idealPath} fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="5 3" />
+                  {/* Actual line */}
+                  <path d={chart.actualPath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  {/* Date labels — every N points */}
+                  {result.points.filter((_, i) => i % Math.max(1, Math.floor(result.points.length / 6)) === 0).map((p, idx, arr) => {
+                    const origIdx = result.points.indexOf(p);
+                    return (
+                      <text key={idx} x={chart.x(origIdx)} y={H - 4} textAnchor="middle" fontSize="8" fill="#94a3b8">
+                        {p.date.slice(5)}
+                      </text>
+                    );
+                  })}
+                  {/* Today marker if sprint active */}
+                  {sprint?.status === "active" && (() => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const todayIdx = result.points.findIndex((p) => p.date === today);
+                    if (todayIdx < 0) return null;
+                    return <line x1={chart.x(todayIdx)} y1={PAD.t} x2={chart.x(todayIdx)} y2={H - PAD.b} stroke="#ef4444" strokeWidth="1" strokeDasharray="3 2" opacity="0.6" />;
+                  })()}
+                </svg>
               </div>
-              <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-                {/* Grid */}
-                {chart.gridLines.map((v) => (
-                  <g key={v}>
-                    <line x1={PAD.l} y1={chart.y(v)} x2={W - PAD.r} y2={chart.y(v)} stroke="#f1f5f9" strokeWidth="1" />
-                    <text x={PAD.l - 4} y={chart.y(v) + 3} textAnchor="end" fontSize="9" fill="#94a3b8">{v}</text>
-                  </g>
-                ))}
-                {/* Actual area fill */}
-                <path d={chart.areaPath} fill="#6366f1" opacity="0.08" />
-                {/* Ideal dashed line */}
-                <path d={chart.idealPath} fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="5 3" />
-                {/* Actual line */}
-                <path d={chart.actualPath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-                {/* Date labels — every N points */}
-                {result.points.filter((_, i) => i % Math.max(1, Math.floor(result.points.length / 6)) === 0).map((p, idx, arr) => {
-                  const origIdx = result.points.indexOf(p);
-                  return (
-                    <text key={idx} x={chart.x(origIdx)} y={H - 4} textAnchor="middle" fontSize="8" fill="#94a3b8">
-                      {p.date.slice(5)}
-                    </text>
-                  );
-                })}
-                {/* Today marker if sprint active */}
-                {sprint?.status === "active" && (() => {
-                  const today = new Date().toISOString().slice(0, 10);
-                  const todayIdx = result.points.findIndex((p) => p.date === today);
-                  if (todayIdx < 0) return null;
-                  return <line x1={chart.x(todayIdx)} y1={PAD.t} x2={chart.x(todayIdx)} y2={H - PAD.b} stroke="#ef4444" strokeWidth="1" strokeDasharray="3 2" opacity="0.6" />;
-                })()}
-              </svg>
-            </div>
+            ) : (
+              <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400 mb-6">
+                Not enough data to draw burndown chart. Story points needed on sprint issues.
+              </div>
+            )
           ) : (
-            <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400 mb-6">
-              Not enough data to draw burndown chart. Story points needed on sprint issues.
-            </div>
+            burnupChart && result.points.length > 1 ? (
+              <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm mb-6">
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-sm font-semibold text-neutral-800">Completed vs Scope</p>
+                  <div className="flex items-center gap-4 text-xs text-neutral-500">
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-0.5 w-6 border-t-2 border-dashed border-neutral-400" />Scope (current total)
+                    </span>
+                    <span className="flex items-center gap-1.5">
+                      <span className="inline-block h-0.5 w-6 bg-emerald-500 rounded" />Completed
+                    </span>
+                  </div>
+                </div>
+                <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+                  {burnupChart.gridLines.map((v) => (
+                    <g key={v}>
+                      <line x1={PAD.l} y1={burnupChart.y(v)} x2={W - PAD.r} y2={burnupChart.y(v)} stroke="#f1f5f9" strokeWidth="1" />
+                      <text x={PAD.l - 4} y={burnupChart.y(v) + 3} textAnchor="end" fontSize="9" fill="#94a3b8">{v}</text>
+                    </g>
+                  ))}
+                  <path d={burnupChart.areaPath} fill="#10b981" opacity="0.08" />
+                  <path d={burnupChart.scopePath} fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="5 3" />
+                  <path d={burnupChart.completedPath} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  {result.points.filter((_, i) => i % Math.max(1, Math.floor(result.points.length / 6)) === 0).map((p, idx) => {
+                    const origIdx = result.points.indexOf(p);
+                    return (
+                      <text key={idx} x={burnupChart.x(origIdx)} y={H - 4} textAnchor="middle" fontSize="8" fill="#94a3b8">
+                        {p.date.slice(5)}
+                      </text>
+                    );
+                  })}
+                  {sprint?.status === "active" && (() => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    const todayIdx = result.points.findIndex((p) => p.date === today);
+                    if (todayIdx < 0) return null;
+                    return <line x1={burnupChart.x(todayIdx)} y1={PAD.t} x2={burnupChart.x(todayIdx)} y2={H - PAD.b} stroke="#ef4444" strokeWidth="1" strokeDasharray="3 2" opacity="0.6" />;
+                  })()}
+                </svg>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400 mb-6">
+                Not enough data to draw a burnup chart. Story points needed on sprint issues.
+              </div>
+            )
           )}
 
           {/* Date range */}

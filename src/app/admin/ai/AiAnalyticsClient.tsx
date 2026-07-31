@@ -345,8 +345,8 @@ export default function AiAnalyticsClient({
               label: "AI Kill Switch",
               desc: "Globally disables all AI features across every tenant",
               status: aiDisabled ? "ACTIVE" : "off",
-              statusBg: aiDisabled ? "#fef2f2" : "#f0fdf4",
-              statusColor: aiDisabled ? "#dc2626" : "#16a34a",
+              statusBg: aiDisabled ? "#fef2f2" : "#f8fafc",
+              statusColor: aiDisabled ? "#dc2626" : "#94a3b8",
             },
             {
               label: "Think Tank (AI Sounding Board)",

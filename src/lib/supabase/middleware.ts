@@ -78,6 +78,15 @@ export async function updateSession(
     path === "/rrweb-recorder.min.js" ||
     path.startsWith("/auth/") ||
     path.startsWith("/shared") ||
+    // The Spaces guest-access flow (magic-link request/verify) is called by an
+    // anonymous visitor with no session — without this, the fetch() calls in
+    // GuestPageClient.tsx get redirected to /login and receive HTML instead
+    // of JSON, breaking guest sign-in entirely.
+    path.startsWith("/api/spaces/guest") ||
+    // Public intake-form submission page — anonymous, no session. The Server
+    // Action it calls (submitIntakeAction) posts to this same URL, so this
+    // one allowlist entry covers both the page load and the submission.
+    path.startsWith("/intake") ||
     path.startsWith("/legal") ||
     path.startsWith("/design");
 

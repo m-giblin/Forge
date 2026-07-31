@@ -1,27 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
+import { dismissAiDisclosureAction } from "@/app/[tenant]/actions";
 
-const STORAGE_KEY = "forge:ai-disclosure-dismissed";
-
-export default function AiDisclosureBanner() {
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    try {
-      if (!localStorage.getItem(STORAGE_KEY)) setVisible(true);
-    } catch {
-      // localStorage unavailable
-    }
-  }, []);
+export default function AiDisclosureBanner({ slug, initiallyDismissed }: { slug: string; initiallyDismissed: boolean }) {
+  const [dismissed, setDismissed] = useState(initiallyDismissed);
+  const [, startTransition] = useTransition();
 
   function dismiss() {
-    try { localStorage.setItem(STORAGE_KEY, "1"); } catch { /* */ }
-    setVisible(false);
+    setDismissed(true); // optimistic — don't make the user wait on a round trip to lose the banner
+    startTransition(() => {
+      dismissAiDisclosureAction(slug).catch(() => { /* best-effort; worst case it reappears next session */ });
+    });
   }
 
-  if (!visible) return null;
+  if (dismissed) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-lg">

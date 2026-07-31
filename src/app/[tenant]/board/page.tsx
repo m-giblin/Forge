@@ -32,7 +32,7 @@ export default async function BoardPage({
   if (!current) redirect(`/${slug}/projects`);
 
   const svc = createSupabaseServiceClient();
-  const [{ issues, total, projects, statuses, priorities, types, categories, customFields }, members, allSprints] =
+  const [{ issues, total, projects, statuses, priorities, types, categories, customFields, templates }, members, allSprints] =
     await Promise.all([
       loadBoard(ctx.tenant.id, ctx.impersonating, current.id),
       listMembers(ctx.tenant.id, ctx.impersonating),
@@ -107,6 +107,7 @@ export default async function BoardPage({
         types={types}
         categories={categories}
         customFields={customFields}
+        templates={templates}
         members={members.map((m) => ({ userId: m.userId, label: m.name || m.email }))}
         meUserId={ctx.appUserId}
       />

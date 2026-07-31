@@ -776,7 +776,21 @@ export default function TimelineClient({
     const dueDate = toIso(addDays(toUTCDate(windowStartIso), 4));
     setPopover({ issueId: id, x: 200, y: HEADER_H, above: false });
     setIssues((prev) => prev.map((i) => i.id === id ? { ...i, startDate, dueDate } : i));
-    fetch(`/api/issues/${id}/schedule`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, start_date: startDate, due_date: dueDate }) }).catch(console.error);
+    fetch(`/api/issues/${id}/schedule`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ slug, start_date: startDate, due_date: dueDate }) })
+      .then((res) => {
+        // fetch() only rejects on network failure — a non-2xx response (e.g. the
+        // issue not resolving under this tenant) resolves fine and was previously
+        // never checked, so the optimistic update above silently stuck around even
+        // when the save never actually happened.
+        if (!res.ok) {
+          setIssues((prev) => prev.map((i) => i.id === id ? { ...i, startDate: null, dueDate: null } : i));
+          alert("Could not schedule this issue — please try again.");
+        }
+      })
+      .catch(() => {
+        setIssues((prev) => prev.map((i) => i.id === id ? { ...i, startDate: null, dueDate: null } : i));
+        alert("Could not schedule this issue — please try again.");
+      });
   }, [slug, windowStartIso]);
 
   useEffect(() => {

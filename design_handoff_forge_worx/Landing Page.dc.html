@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body { margin:0; }
+    a { color:#b7452f; text-decoration:none; }
+    a:hover { color:#8c4632; }
+    .fw-grunge { position: relative; }
+    .fw-grunge::before {
+      content: "";
+      position: absolute; inset: 0;
+      pointer-events: none;
+      opacity: 0.5;
+      mix-blend-mode: overlay;
+      background-image:
+        radial-gradient(circle at 15% 20%, rgba(255,255,255,0.05) 0, transparent 40%),
+        radial-gradient(circle at 85% 75%, rgba(0,0,0,0.35) 0, transparent 45%),
+        repeating-linear-gradient(115deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 2px, transparent 5px),
+        repeating-linear-gradient(25deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 3px, transparent 7px);
+    }
+    .fw-nav-link { font-size:13.5px; font-weight:600; color:#d8d3c2; cursor:pointer; }
+    .fw-nav-link:hover { color:#e5b7a3; }
+    .fw-feat-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .fw-feat-card:hover { transform: translateY(-3px); box-shadow: 0 14px 28px rgba(20,18,14,0.12); }
+    .fw-cta-primary { transition: filter 0.15s ease; }
+    .fw-cta-primary:hover { filter: brightness(1.08); }
+  </style>
+</helmet>
+
+<div style="font-family:'Inter',-apple-system,sans-serif; color:#20201d; background:#f4f2eb; width:100%;">
+
+  <!-- NAV -->
+  <div class="fw-grunge" style="position:sticky; top:0; z-index:40; background:#20221f; background-image:linear-gradient(170deg,#26281f 0%,#181a16 100%); border-bottom:1px solid #100f0d;">
+    <div style="max-width:1180px; margin:0 auto; display:flex; align-items:center; gap:36px; padding:16px 32px;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <svg width="24" height="15" viewBox="0 0 64 40"><path d="M3,19 L17,11 L17,8 L50,8 L50,15 L41,15 L37,22 L46,22 L48,32 L35,32 Q31,27 27,32 L13,32 L15,22 L24,22 L20,15 L20,11 Z" fill="#b7452f"/></svg>
+        <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:16px; letter-spacing:0.03em; color:#e5e0d1; text-transform:uppercase;">Forge<span style="color:#b7452f;">-Worx</span></div>
+      </div>
+      <div style="display:flex; gap:26px; flex:1;">
+        <div class="fw-nav-link">Product</div>
+        <div class="fw-nav-link">Pricing</div>
+        <div class="fw-nav-link">Customers</div>
+        <div class="fw-nav-link">Docs</div>
+      </div>
+      <a class="fw-nav-link" href="Login Page.dc.html" style="color:#d8d3c2;">Log in</a>
+      <a href="Login Page.dc.html" class="fw-cta-primary" style="background:#8c4632; background-image:linear-gradient(160deg,#9a5138,#6e3324); color:#f2e9d8; border:1px solid #5e2c1f; border-radius:5px; padding:9px 16px; font-size:13px; font-weight:700;">Start free trial</a>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="fw-grunge" style="background:#20221f; background-image:linear-gradient(165deg,#26281f 0%,#181a16 55%,#131412 100%); padding:88px 32px 100px; text-align:center;">
+    <div style="max-width:760px; margin:0 auto;">
+      <div style="display:flex; justify-content:center; margin-bottom:28px;">
+        <img src="assets/forge-worx-badge-transparent.png" style="width:290px; height:auto; display:block;" alt="Forge-Worx" />
+      </div>
+      <div style="display:inline-flex; align-items:center; gap:8px; background:rgba(183,69,47,0.14); border:1px solid rgba(183,69,47,0.35); color:#e29a7e; font-size:12px; font-weight:700; padding:6px 14px; border-radius:999px; margin-bottom:22px;">Built for growing teams, not enterprise sprawl</div>
+      <div style="font-family:'Manrope',sans-serif; font-size:46px; font-weight:800; line-height:1.12; letter-spacing:-0.02em; color:#f2eee2; margin-bottom:18px;">Project management with the polish of the giants — <span style="color:#c0603f;">none of the bloat.</span></div>
+      <div style="font-size:16.5px; line-height:1.6; color:#a39d89; margin-bottom:36px;">Sprints, backlog, roadmap and reporting in one fast, no-nonsense tool built for SMB teams who need to deliver — not configure a workflow engine for three weeks.</div>
+      <div style="display:flex; gap:14px; justify-content:center; margin-bottom:18px;">
+        <a href="Login Page.dc.html" class="fw-cta-primary" style="background:#8c4632; background-image:linear-gradient(160deg,#9a5138,#6e3324); color:#f2e9d8; border:1px solid #5e2c1f; border-radius:6px; padding:13px 26px; font-size:14.5px; font-weight:700;">Start free trial</a>
+        <a href="Forge-Worx App.dc.html" style="background:transparent; color:#e5e0d1; border:1px solid #3a382f; border-radius:6px; padding:13px 26px; font-size:14.5px; font-weight:700;">See it in action →</a>
+      </div>
+      <div style="font-size:12px; color:#736e5c;">No credit card required · 14-day trial · Cancel anytime</div>
+    </div>
+  </div>
+
+  <!-- PRODUCT SHOT -->
+  <div style="max-width:1080px; margin:-56px auto 0; padding:0 32px; position:relative; z-index:5;">
+    <div style="background:#eeece4; border:1px solid #ddd8c9; border-radius:10px; box-shadow:0 30px 70px rgba(20,18,14,0.25); overflow:hidden;">
+      <div style="display:flex; align-items:center; gap:8px; padding:11px 16px; background:#26241f; border-bottom:1px solid #100f0d;">
+        <span style="width:9px; height:9px; border-radius:50%; background:#c0392b;"></span>
+        <span style="width:9px; height:9px; border-radius:50%; background:#c9791d;"></span>
+        <span style="width:9px; height:9px; border-radius:50%; background:#3f7d4c;"></span>
+        <div style="flex:1; text-align:center; font-size:11.5px; color:#736e5c;">app.forge-worx.com/board</div>
+      </div>
+      <div style="display:flex; gap:14px; padding:22px 24px; background:#eeece4;">
+        <div style="width:150px; flex-shrink:0; display:flex; flex-direction:column; gap:8px;">
+          <div style="height:11px; width:70%; background:#dcd7c8; border-radius:3px;"></div>
+          <div style="height:8px; width:90%; background:#e3ded0; border-radius:3px; margin-top:6px;"></div>
+          <div style="height:8px; width:80%; background:#e3ded0; border-radius:3px;"></div>
+          <div style="height:8px; width:85%; background:#e3ded0; border-radius:3px;"></div>
+          <div style="height:8px; width:60%; background:#e3ded0; border-radius:3px;"></div>
+        </div>
+        <div style="flex:1; display:grid; grid-template-columns:repeat(4,1fr); gap:12px;">
+          <sc-for list="{{ boardPreviewCols }}" as="col" hint-placeholder-count="4">
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                <span style="width:7px; height:7px; border-radius:50%; background:{{ col.color }}; display:inline-block;"></span>
+                <div style="height:8px; width:50px; background:#dcd7c8; border-radius:3px;"></div>
+              </div>
+              <sc-for list="{{ col.cards }}" as="c" hint-placeholder-count="2">
+                <div style="background:#f4f2eb; border:1px solid #ddd8c9; border-radius:5px; padding:10px;">
+                  <div style="height:7px; width:40%; background:#d3cdbc; border-radius:2px; margin-bottom:7px;"></div>
+                  <div style="height:8px; width:{{ c.w }}; background:#e3ded0; border-radius:2px; margin-bottom:9px;"></div>
+                  <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span style="width:14px; height:14px; border-radius:3px; background:{{ c.tag }};"></span>
+                    <span style="width:18px; height:18px; border-radius:50%; background:{{ c.avatar }};"></span>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGO STRIP -->
+  <div style="max-width:1080px; margin:0 auto; padding:76px 32px 40px; text-align:center;">
+    <div style="font-size:11.5px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase; color:#a19d90; margin-bottom:22px;">Trusted by SMB teams delivering fast</div>
+    <div style="display:flex; justify-content:center; gap:48px; flex-wrap:wrap; opacity:0.55;">
+      <sc-for list="{{ trustLogos }}" as="t" hint-placeholder-count="5">
+        <div style="font-family:'Manrope',sans-serif; font-weight:800; font-size:16px; color:#4a473e; letter-spacing:0.02em;">{{ t }}</div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- FEATURES -->
+  <div style="max-width:1180px; margin:0 auto; padding:44px 32px 20px;">
+    <div style="text-align:center; max-width:640px; margin:0 auto 44px;">
+      <div style="font-family:'Manrope',sans-serif; font-size:30px; font-weight:800; letter-spacing:-0.01em; margin-bottom:12px;">Everything the big tools have — sized for a team that delivers weekly.</div>
+      <div style="font-size:14.5px; color:#726e60; line-height:1.6;">Sprint boards, backlog grooming, roadmaps and reporting, without a three-week onboarding.</div>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:18px;">
+      <sc-for list="{{ features }}" as="f" hint-placeholder-count="6">
+        <div class="fw-feat-card" style="background:#fff; border:1px solid #ddd8c9; border-radius:8px; padding:24px;">
+          <div style="width:38px; height:38px; border-radius:8px; background:{{ f.iconBg }}; display:flex; align-items:center; justify-content:center; margin-bottom:16px;" dangerouslySetInnerHTML="{{ f.iconHtml }}"></div>
+          <div style="font-family:'Manrope',sans-serif; font-size:15.5px; font-weight:800; margin-bottom:8px; color:#20201d;">{{ f.title }}</div>
+          <div style="font-size:13px; line-height:1.55; color:#726e60;">{{ f.desc }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+
+  <!-- PRICING -->
+  <div style="background:#eae6da; padding:70px 32px;">
+    <div style="max-width:1000px; margin:0 auto;">
+      <div style="text-align:center; margin-bottom:40px;">
+        <div style="font-family:'Manrope',sans-serif; font-size:28px; font-weight:800; margin-bottom:10px;">Simple pricing, built for small teams</div>
+        <div style="font-size:14px; color:#726e60;">No per-seat surprises. Switch plans anytime.</div>
+      </div>
+      <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:16px;">
+        <sc-for list="{{ plans }}" as="p" hint-placeholder-count="3">
+          <div style="{{ p.cardStyle }}">
+            <div style="font-size:13px; font-weight:700; color:{{ p.accentColor }}; margin-bottom:8px;">{{ p.name }}</div>
+            <div style="display:flex; align-items:baseline; gap:5px; margin-bottom:6px;">
+              <div style="font-family:'Manrope',sans-serif; font-size:34px; font-weight:800; color:{{ p.priceColor }};">{{ p.price }}</div>
+              <div style="font-size:12.5px; color:{{ p.subColor }};">/ month</div>
+            </div>
+            <div style="font-size:12.5px; color:{{ p.subColor }}; margin-bottom:20px;">{{ p.subtitle }}</div>
+            <div style="display:flex; flex-direction:column; gap:10px; margin-bottom:24px;">
+              <sc-for list="{{ p.features }}" as="pf" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:{{ p.itemColor }};">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="{{ p.accentColor }}" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg>
+                  {{ pf }}
+                </div>
+              </sc-for>
+            </div>
+            <a href="Login Page.dc.html" style="{{ p.btnStyle }}">{{ p.btnLabel }}</a>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+
+  <!-- FINAL CTA -->
+  <div class="fw-grunge" style="background:#20221f; background-image:linear-gradient(170deg,#26281f,#131412); padding:70px 32px; text-align:center;">
+    <div style="font-family:'Manrope',sans-serif; font-size:28px; font-weight:800; color:#f2eee2; margin-bottom:14px;">Ready to forge your next sprint?</div>
+    <div style="font-size:14px; color:#a39d89; margin-bottom:28px;">Start free. Invite your team in minutes.</div>
+    <a href="Login Page.dc.html" class="fw-cta-primary" style="background:#8c4632; background-image:linear-gradient(160deg,#9a5138,#6e3324); color:#f2e9d8; border:1px solid #5e2c1f; border-radius:6px; padding:13px 30px; font-size:14.5px; font-weight:700; display:inline-block;">Start free trial</a>
+  </div>
+
+  <!-- FOOTER -->
+  <div style="background:#181a16; padding:36px 32px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;">
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="18" height="11" viewBox="0 0 64 40"><path d="M3,19 L17,11 L17,8 L50,8 L50,15 L41,15 L37,22 L46,22 L48,32 L35,32 Q31,27 27,32 L13,32 L15,22 L24,22 L20,15 L20,11 Z" fill="#736e5c"/></svg>
+      <div style="font-size:12.5px; color:#5c594c;">© 2026 Forge-Worx. All rights reserved.</div>
+    </div>
+    <div style="display:flex; gap:22px;">
+      <span style="font-size:12.5px; color:#8b8570; cursor:pointer;">Privacy</span>
+      <span style="font-size:12.5px; color:#8b8570; cursor:pointer;">Terms</span>
+      <span style="font-size:12.5px; color:#8b8570; cursor:pointer;">Contact</span>
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const boardPreviewCols = [
+      { color: "#3a6ea8", cards: [{ w: "80%", tag: "#eaf1f8", avatar: "#5c6a9e" }, { w: "60%", tag: "#f1efe9", avatar: "#3f7d4c" }] },
+      { color: "#c9791d", cards: [{ w: "70%", tag: "#fdf1de", avatar: "#b0567c" }, { w: "85%", tag: "#eaf1f8", avatar: "#c9791d" }] },
+      { color: "#7a4fa0", cards: [{ w: "65%", tag: "#f4ecfa", avatar: "#7a4fa0" }] },
+      { color: "#3f7d4c", cards: [{ w: "75%", tag: "#e9f3ea", avatar: "#3a8a94" }, { w: "50%", tag: "#f1efe9", avatar: "#5c6a9e" }] },
+    ];
+
+    const trustLogos = ["G4 CORE", "TRAVLI", "BOOSTSE", "KOGNOS"];
+
+    const icon = (paths, color) => ({ __html: `<svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>` });
+    const features = [
+      { title: "Sprint boards that stay out of your way", desc: "Drag-and-drop columns, WIP-friendly, no admin required to reconfigure a workflow.", iconBg: "#fbeae8", iconHtml: icon('<rect x="3" y="4" width="7" height="16" rx="1.5"/><rect x="14" y="4" width="7" height="9" rx="1.5"/>', "#b7452f") },
+      { title: "Backlog grooming in minutes", desc: "Group by epic or status, filter by priority, and keep the noise out of your sprint.", iconBg: "#eaf1f8", iconHtml: icon('<path d="M4 6h16M4 12h16M4 18h10"/>', "#3a6ea8") },
+      { title: "Roadmaps clients actually understand", desc: "Quarter-by-quarter epic timelines that update automatically as work moves.", iconBg: "#fdf1de", iconHtml: icon('<path d="M3 12h4l3-8 4 16 3-8h4"/>', "#c9791d") },
+      { title: "Reporting without a BI degree", desc: "Velocity, cycle time, and aging issues — the three numbers that actually matter for SMB teams.", iconBg: "#e9f3ea", iconHtml: icon('<path d="M4 20V10M11 20V4M18 20v-7"/>', "#3f7d4c") },
+      { title: "Team workload at a glance", desc: "See who's overloaded before it becomes a fire — not after.", iconBg: "#f4ecfa", iconHtml: icon('<circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-4 3-6.2 6.5-6.2S15.5 16 15.5 20"/>', "#7a4fa0") },
+      { title: "Fast enough to never break flow", desc: "Keyboard shortcuts, instant search, and zero enterprise-grade lag.", iconBg: "#f1efe9", iconHtml: icon('<path d="M13 2L4 14h6l-1 8 9-12h-6l1-8z"/>', "#5c6a52") },
+    ];
+
+    const plans = [
+      {
+        name: "Starter", price: "$0", subtitle: "Up to 5 users",
+        features: ["Sprint board & backlog", "1 project", "Basic reporting"],
+        cardStyle: "background:#fff; border:1px solid #ddd8c9; border-radius:10px; padding:26px 24px;",
+        accentColor: "#5c6a52", priceColor: "#20201d", subColor: "#a19d90", itemColor: "#4a473e",
+        btnStyle: "display:block; text-align:center; background:transparent; border:1px solid #ddd8c9; border-radius:5px; padding:11px; font-size:13px; font-weight:700; color:#20201d;",
+        btnLabel: "Get started",
+      },
+      {
+        name: "Team", price: "$12", subtitle: "Per user / month",
+        features: ["Everything in Starter", "Unlimited projects", "Roadmap & reports", "Priority support"],
+        cardStyle: "background:#20221f; background-image:linear-gradient(165deg,#26281f,#181a16); border:1px solid #100f0d; border-radius:10px; padding:26px 24px; position:relative; box-shadow:0 20px 40px rgba(20,18,14,0.2);",
+        accentColor: "#e29a7e", priceColor: "#f2eee2", subColor: "#a39d89", itemColor: "#d8d3c2",
+        btnStyle: "display:block; text-align:center; background:#8c4632; background-image:linear-gradient(160deg,#9a5138,#6e3324); border:1px solid #5e2c1f; border-radius:5px; padding:11px; font-size:13px; font-weight:700; color:#f2e9d8;",
+        btnLabel: "Start free trial",
+      },
+      {
+        name: "Scale", price: "$24", subtitle: "Per user / month",
+        features: ["Everything in Team", "SSO & advanced permissions", "Audit log", "Dedicated onboarding"],
+        cardStyle: "background:#fff; border:1px solid #ddd8c9; border-radius:10px; padding:26px 24px;",
+        accentColor: "#3a6ea8", priceColor: "#20201d", subColor: "#a19d90", itemColor: "#4a473e",
+        btnStyle: "display:block; text-align:center; background:transparent; border:1px solid #ddd8c9; border-radius:5px; padding:11px; font-size:13px; font-weight:700; color:#20201d;",
+        btnLabel: "Talk to sales",
+      },
+    ];
+
+    return { boardPreviewCols, trustLogos, features, plans };
+  }
+}
+
+</script>
+</body>
+</html>

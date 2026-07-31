@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { relTime, avatarColor, avatarInitials } from "./IssueDetailUI";
 import type { IssueComment, IssueEvent } from "@/lib/repositories/issueActivity";
 
@@ -52,15 +53,30 @@ export default function IssueActivityFeed({
   cancelReply: () => void;
   eventValue: (field: string, raw: string | null) => string;
 }) {
+  const [tab, setTab] = useState<"comments" | "updates">("comments");
+  const eventItems = timeline.filter((t) => t.kind === "event");
+  const visibleItems = tab === "comments" ? timeline.filter((t) => t.kind === "comment") : eventItems;
+
   return (
     <div className="bg-neutral-50 rounded-xl border border-neutral-200 p-6">
       <div className="mb-4 flex items-center gap-2">
-        <p className="text-xs font-semibold uppercase tracking-wider text-neutral-600 flex-1">
-          Activity
-          {comments.length > 0 && (
-            <span className="ml-2 rounded-full bg-neutral-200 px-2 py-0.5 text-neutral-600">{comments.length}</span>
-          )}
-        </p>
+        <div className="flex rounded-lg border border-neutral-200 bg-white p-0.5 w-fit gap-0.5">
+          <button
+            type="button"
+            onClick={() => setTab("comments")}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition ${tab === "comments" ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-700"}`}
+          >
+            Comments{comments.length > 0 && ` (${comments.length})`}
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("updates")}
+            className={`rounded-md px-3 py-1 text-xs font-medium transition ${tab === "updates" ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-700"}`}
+          >
+            Updates{eventItems.length > 0 && ` (${eventItems.length})`}
+          </button>
+        </div>
+        <div className="flex-1" />
         {!readOnly && (
           <button
             type="button"
@@ -85,11 +101,11 @@ export default function IssueActivityFeed({
       )}
 
       <div className="space-y-3">
-        {timeline.length === 0 && (
-          <p className="text-xs text-neutral-500">No activity yet.</p>
+        {visibleItems.length === 0 && (
+          <p className="text-xs text-neutral-500">{tab === "comments" ? "No comments yet." : "No status/field changes yet."}</p>
         )}
 
-        {timeline.map((item) => {
+        {visibleItems.map((item) => {
           if (item.kind === "event") {
             const e = item.data;
             return (
@@ -159,7 +175,7 @@ export default function IssueActivityFeed({
         })}
       </div>
 
-      {!readOnly && (
+      {!readOnly && tab === "comments" && (
         <div className="mt-5">
           {replyToId && (
             <div className="mb-2 flex items-center gap-2 rounded-md bg-blue-50 px-3 py-1.5 text-xs text-blue-700">

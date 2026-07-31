@@ -144,11 +144,12 @@ function IssueSearchPicker({
 
 // ── Link type selector ─────────────────────────────────────────────────────────
 
-type LinkType = "duplicates" | "blocks";
+type LinkType = "duplicates" | "blocks" | "relates_to";
 
 const LINK_TYPES: { value: LinkType; label: string; desc: string }[] = [
   { value: "duplicates", label: "Duplicate",  desc: "Same problem as another issue" },
   { value: "blocks",     label: "Blocks",     desc: "This must be resolved first" },
+  { value: "relates_to", label: "Relates to", desc: "Connected, but not blocking" },
 ];
 
 // ── LinkedIssuesCard ──────────────────────────────────────────────────────────

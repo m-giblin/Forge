@@ -8,6 +8,7 @@ export default function AdminProvisionForm() {
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [ownerEmail, setOwnerEmail] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -16,10 +17,10 @@ export default function AdminProvisionForm() {
     setError(null);
     startTransition(async () => {
       try {
-        const { ownerInviteToken } = await provisionTenantAction({ name, slug, ownerEmail });
+        const { ownerInviteToken } = await provisionTenantAction({ name, slug, ownerEmail, phoneNumber });
         setInviteLink(`${window.location.origin}/join/${ownerInviteToken}`);
         setCopied(false);
-        setName(""); setSlug(""); setOwnerEmail("");
+        setName(""); setSlug(""); setOwnerEmail(""); setPhoneNumber("");
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to provision");
       }
@@ -56,13 +57,17 @@ export default function AdminProvisionForm() {
           <label style={labelStyle}>Owner Email</label>
           <input style={inputStyle} type="email" value={ownerEmail} onChange={(e) => setOwnerEmail(e.target.value)} placeholder="owner@acme.com" />
         </div>
+        <div style={{ flex: 1, minWidth: 140 }}>
+          <label style={labelStyle}>Phone Number</label>
+          <input style={inputStyle} type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="(555) 123-4567" />
+        </div>
         <button
           onClick={provision}
-          disabled={pending || !name || !slug || !ownerEmail}
+          disabled={pending || !name || !slug || !ownerEmail || !phoneNumber}
           style={{
             padding: "8px 18px", borderRadius: 7, border: "none",
             background: "#4f46e5", color: "#fff", fontSize: 12, fontWeight: 600,
-            cursor: "pointer", opacity: pending || !name || !slug || !ownerEmail ? .5 : 1,
+            cursor: "pointer", opacity: pending || !name || !slug || !ownerEmail || !phoneNumber ? .5 : 1,
             whiteSpace: "nowrap",
           }}
         >

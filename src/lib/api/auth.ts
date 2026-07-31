@@ -1,4 +1,5 @@
 import "server-only";
+import { after } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { hashKey, parseBearer } from "@/lib/api/keys";
 
@@ -33,8 +34,17 @@ export async function authenticateApiKey(req: Request): Promise<ApiAuthResult> {
     return { ok: false, code: "unauthorized", message: "API key has expired. Rotate your key in Settings → API Keys." };
   }
 
-  // Best-effort last-used timestamp; never block the request on it.
-  void supabase.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
+  // Best-effort last-used timestamp + call log; scheduled via after() so it isn't
+  // dropped once the response is sent (bare fire-and-forget promises aren't
+  // guaranteed to run to completion post-response — see next/server's after()).
+  const keyId = data.id;
+  const tenantId = data.tenant_id;
+  after(async () => {
+    await Promise.allSettled([
+      supabase.from("api_keys").update({ last_used_at: new Date().toISOString() }).eq("id", keyId),
+      supabase.from("api_call_events").insert({ tenant_id: tenantId, key_id: keyId }),
+    ]);
+  });
 
   return { ok: true, tenantId: data.tenant_id, keyId: data.id, scopes: data.scopes ?? [] };
 }

@@ -10,6 +10,8 @@ import { PROJECT_TEMPLATES, type TemplateKey } from "@/lib/projectTemplates";
 
 type OwnerOption = { userId: string; label: string };
 
+export type ProjectStats = { total: number; done: number; blocked: number; members: number };
+
 /** Go-live status chip — "dates trigger everything", so surface it up front. */
 function goLiveChip(target: string | null) {
   if (!target) return { text: "No go-live date", cls: "bg-neutral-100 text-neutral-500" };
@@ -33,9 +35,17 @@ const FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "all",     label: "All" },
 ];
 
-function ProjectCard({ slug, p }: { slug: string; p: Project }) {
+/** Blocked-count health signal, alongside (not replacing) the go-live date chip. */
+function issueHealth(blocked: number) {
+  if (blocked > 2) return { label: "At risk", dot: "bg-red-500", text: "text-red-700" };
+  if (blocked > 0) return { label: "Needs attention", dot: "bg-amber-500", text: "text-amber-700" };
+  return { label: "Healthy", dot: "bg-emerald-500", text: "text-emerald-700" };
+}
+
+function ProjectCard({ slug, p, stats }: { slug: string; p: Project; stats?: ProjectStats }) {
   const chip = goLiveChip(p.target_go_live);
   const statusMeta = STATUS_META[p.status];
+  const health = stats ? issueHealth(stats.blocked) : null;
   return (
     <Link
       href={`/${slug}/projects/${p.key}`}
@@ -52,6 +62,17 @@ function ProjectCard({ slug, p }: { slug: string; p: Project }) {
       <p className="mt-2 text-xs text-neutral-400">
         Start {fmtDate(p.start_date)} · Go-live {fmtDate(p.target_go_live)}
       </p>
+      {stats && health && (
+        <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3">
+          <div className="flex items-center gap-1.5">
+            <span className={`h-1.5 w-1.5 rounded-full ${health.dot}`} />
+            <span className={`text-xs font-medium ${health.text}`}>{health.label}</span>
+          </div>
+          <span className="text-xs text-neutral-400">
+            {stats.total} issue{stats.total === 1 ? "" : "s"} · {stats.done} done · {stats.blocked} blocked · {stats.members} member{stats.members === 1 ? "" : "s"}
+          </span>
+        </div>
+      )}
     </Link>
   );
 }
@@ -64,6 +85,7 @@ export default function ProjectsLanding({
   projects,
   archivedProjects = [],
   members,
+  stats = {},
 }: {
   slug: string;
   tenantName: string;
@@ -72,6 +94,7 @@ export default function ProjectsLanding({
   projects: Project[];
   archivedProjects?: Project[];
   members: OwnerOption[];
+  stats?: Record<string, ProjectStats>;
 }) {
   const router = useRouter();
   const [showForm, setShowForm] = useState(false);
@@ -148,7 +171,7 @@ export default function ProjectsLanding({
         <ul className="mt-4 grid gap-3 sm:grid-cols-2">
           {visible.map((p) => (
             <li key={p.id}>
-              <ProjectCard slug={slug} p={p} />
+              <ProjectCard slug={slug} p={p} stats={stats[p.id]} />
             </li>
           ))}
         </ul>
