@@ -65,8 +65,8 @@ export default function JoinClient({
   }
 
   const intro = (
-    <p className="mb-4 text-center text-sm text-neutral-600">
-      You&rsquo;ve been invited to join <span className="font-semibold text-neutral-900">{tenantName}</span> as{" "}
+    <p className="mb-4 text-center text-sm text-[#726e60]">
+      You&rsquo;ve been invited to join <span className="font-semibold text-[#20201d]">{tenantName}</span> as{" "}
       <span className="font-semibold capitalize">{role}</span>.
     </p>
   );
@@ -75,9 +75,9 @@ export default function JoinClient({
   if (currentEmail) {
     const mismatch = boundEmail && boundEmail.toLowerCase() !== currentEmail.toLowerCase();
     return (
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+      <div className="rounded-xl border border-[var(--fw-cream-border)] bg-white p-6 shadow-sm">
         {intro}
-        <p className="mb-4 text-center text-xs text-neutral-400">Signed in as {currentEmail}</p>
+        <p className="mb-4 text-center text-xs text-[#a19d90]">Signed in as {currentEmail}</p>
         {mismatch ? (
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
             This invite is for {boundEmail}. Sign in with that address to accept.
@@ -86,7 +86,8 @@ export default function JoinClient({
           <button
             onClick={accept}
             disabled={pending}
-            className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+            className="w-full rounded-lg border border-[var(--fw-rust-border)] px-4 py-2 text-sm font-medium text-[#f2e9d8] transition disabled:opacity-50"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
           >
             {pending ? "Joining…" : `Accept & join ${tenantName}`}
           </button>
@@ -98,7 +99,7 @@ export default function JoinClient({
 
   // Signed out → create account or sign in
   return (
-    <form onSubmit={authThenRefresh} className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
+    <form onSubmit={authThenRefresh} className="rounded-xl border border-[var(--fw-cream-border)] bg-white p-6 shadow-sm">
       {intro}
       <div className="space-y-3">
         <input
@@ -108,7 +109,7 @@ export default function JoinClient({
           onChange={(e) => setEmail(e.target.value)}
           readOnly={!!boundEmail}
           placeholder="you@example.com"
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 read-only:bg-neutral-50"
+          className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-sm outline-none focus:border-[var(--fw-rust)] focus:ring-1 focus:ring-[var(--fw-rust)] read-only:bg-[var(--fw-cream-bg)]"
         />
         <input
           type="password"
@@ -117,11 +118,12 @@ export default function JoinClient({
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder={mode === "signup" ? "Choose a password" : "Password"}
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+          className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-sm outline-none focus:border-[var(--fw-rust)] focus:ring-1 focus:ring-[var(--fw-rust)]"
         />
         <button
           type="submit"
-          className="w-full rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+          className="w-full rounded-lg border border-[var(--fw-rust-border)] px-4 py-2 text-sm font-medium text-[#f2e9d8] transition"
+          style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
         >
           {mode === "signup" ? "Create account & continue" : "Sign in & continue"}
         </button>
@@ -130,7 +132,7 @@ export default function JoinClient({
       <button
         type="button"
         onClick={() => setMode((m) => (m === "signup" ? "signin" : "signup"))}
-        className="mt-3 w-full text-center text-xs text-neutral-500 hover:text-neutral-700"
+        className="mt-3 w-full text-center text-xs text-[#a19d90] hover:text-[#726e60]"
       >
         {mode === "signup" ? "Already have an account? Sign in" : "New here? Create an account"}
       </button>

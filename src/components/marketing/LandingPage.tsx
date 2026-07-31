@@ -17,29 +17,29 @@ const FAQS = [
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-white text-neutral-900 antialiased">
+    <div className="min-h-screen bg-[var(--fw-cream)] text-[#20201d] antialiased font-[family-name:var(--font-inter)]">
 
       {/* ── NAV ─────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/90 backdrop-blur-md">
+      <header className="fw-grunge sticky top-0 z-50 border-b border-[var(--fw-sidebar-border)] bg-[var(--fw-sidebar-3)]/95 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5">
           <div className="flex items-center gap-2">
             <img src="/forge-logo.svg" alt="Forge-Worx" className="h-24 w-24 object-contain drop-shadow-md" />
           </div>
 
-          <nav className="hidden md:flex items-center gap-6 text-base text-slate-300">
-            <a href="#features" className="hover:text-white transition-colors font-medium">Features</a>
-            <a href="#how-it-works" className="hover:text-white transition-colors font-medium">How It Works</a>
-            <a href="#faq" className="hover:text-white transition-colors font-medium">FAQ</a>
+          <nav className="hidden md:flex items-center gap-6 text-base text-[var(--fw-text-dim)]">
+            <a href="#features" className="hover:text-[var(--fw-text-bright)] transition-colors font-medium">Features</a>
+            <a href="#how-it-works" className="hover:text-[var(--fw-text-bright)] transition-colors font-medium">How It Works</a>
+            <a href="#faq" className="hover:text-[var(--fw-text-bright)] transition-colors font-medium">FAQ</a>
           </nav>
 
           <div className="flex items-center gap-3">
             <Link
               href="/login"
-              className="text-sm font-medium text-slate-300 hover:text-white transition-colors"
+              className="text-sm font-medium text-[var(--fw-text-dim)] hover:text-[var(--fw-text-bright)] transition-colors"
             >
               Sign In
             </Link>
-            <span className="cursor-not-allowed rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold text-slate-400">
+            <span className="cursor-not-allowed rounded-lg border border-[var(--fw-sidebar-border)] px-4 py-2 text-sm font-semibold text-[var(--fw-text-dimmer)]">
               Coming Soon
             </span>
           </div>
@@ -47,41 +47,44 @@ export default function LandingPage() {
       </header>
 
       {/* ── HERO ────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-slate-950 pt-20 pb-24">
+      <section
+        className="fw-grunge relative overflow-hidden pt-20 pb-24"
+        style={{ background: "linear-gradient(165deg, var(--fw-sidebar-1) 0%, var(--fw-sidebar-2) 55%, var(--fw-sidebar-3) 100%)" }}
+      >
         {/* Background gradient */}
         <div className="pointer-events-none absolute inset-0">
-          <div className="absolute left-1/2 top-0 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-indigo-600/20 blur-[120px]" />
-          <div className="absolute right-0 bottom-0 h-[300px] w-[500px] rounded-full bg-violet-600/15 blur-[100px]" />
+          <div className="absolute left-1/2 top-0 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-[var(--fw-rust)]/20 blur-[120px]" />
+          <div className="absolute right-0 bottom-0 h-[300px] w-[500px] rounded-full bg-[var(--fw-rust-dark)]/15 blur-[100px]" />
         </div>
 
         <div className="relative mx-auto max-w-5xl px-6 text-center">
           {/* Eyebrow */}
-          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-indigo-300 uppercase mb-8">
-            <span className="h-1.5 w-1.5 rounded-full bg-indigo-400 animate-pulse" />
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--fw-rust)]/30 bg-[var(--fw-rust)]/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-[#e29a7e] uppercase mb-8">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#e29a7e] animate-pulse" />
             Built for engineering-led product teams
           </div>
 
           {/* Headline — Challenger reframe starts here */}
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-white leading-[1.05] mb-6">
+          <h1 className="font-[family-name:var(--font-manrope)] text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-[var(--fw-text-bright)] leading-[1.05] mb-6">
             Your team ships code.<br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-violet-400 to-indigo-300">
+            <span className="text-[#c0603f]">
               Does your board know why it matters?
             </span>
           </h1>
 
-          <p className="mx-auto max-w-2xl text-lg md:text-xl text-slate-300 leading-relaxed mb-10">
+          <p className="mx-auto max-w-2xl text-lg md:text-xl text-[var(--fw-text-dim)] leading-relaxed mb-10">
             Forge-Worx turns sprint execution into executive intelligence — automatically.
             Stop losing Fridays to manual status reports. Stop defending your team&apos;s output
             with gut feel. Start showing the data that wins trust.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <span className="w-full sm:w-auto cursor-not-allowed rounded-xl border border-slate-600 px-8 py-3.5 text-center text-base font-bold text-slate-400">
+            <span className="w-full sm:w-auto cursor-not-allowed rounded-xl border border-[var(--fw-sidebar-border)] px-8 py-3.5 text-center text-base font-bold text-[var(--fw-text-dimmer)]">
               Coming Soon
             </span>
             <a
               href="#features"
-              className="w-full sm:w-auto rounded-xl border border-slate-700 px-8 py-3.5 text-base font-semibold text-slate-300 hover:border-slate-500 hover:text-white transition-all"
+              className="w-full sm:w-auto rounded-xl border border-[#3a382f] px-8 py-3.5 text-base font-semibold text-[var(--fw-text-dim)] hover:border-[var(--fw-text-dimmer)] hover:text-[var(--fw-text-bright)] transition-all"
             >
               See what&rsquo;s inside →
             </a>
@@ -91,14 +94,14 @@ export default function LandingPage() {
       </section>
 
       {/* ── THE CHALLENGER REFRAME ───────────────────────────── */}
-      <section className="bg-slate-900 py-20">
+      <section className="bg-[var(--fw-sidebar-2)] py-20">
         <div className="mx-auto max-w-5xl px-6">
           <div className="text-center mb-14">
-            <p className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-3">The uncomfortable truth</p>
-            <h2 className="text-3xl md:text-4xl font-black text-white">
+            <p className="text-xs font-bold uppercase tracking-widest text-[#e29a7e] mb-3">The uncomfortable truth</p>
+            <h2 className="font-[family-name:var(--font-manrope)] text-3xl md:text-4xl font-extrabold text-[var(--fw-text-bright)]">
               You&rsquo;re measuring the wrong thing.
             </h2>
-            <p className="mt-4 max-w-xl mx-auto text-slate-400 text-lg">
+            <p className="mt-4 max-w-xl mx-auto text-[var(--fw-text-dim)] text-lg">
               Most teams count issues closed. High-performing teams measure <em>flow</em>.
               That gap — between ticket velocity and delivery intelligence — is where trust gets won or lost.
             </p>
@@ -125,10 +128,10 @@ export default function LandingPage() {
                 color: "text-orange-400",
               },
             ].map((s) => (
-              <div key={s.stat} className="rounded-2xl border border-slate-700/60 bg-slate-800/50 p-8">
-                <p className={`text-5xl font-black mb-2 ${s.color}`}>{s.stat}</p>
-                <p className="text-white font-semibold mb-2">{s.label}</p>
-                <p className="text-sm text-slate-400">{s.sub}</p>
+              <div key={s.stat} className="rounded-2xl border border-[#3a382f] bg-[var(--fw-sidebar-1)]/50 p-8">
+                <p className={`font-[family-name:var(--font-manrope)] text-5xl font-extrabold mb-2 ${s.color}`}>{s.stat}</p>
+                <p className="text-[var(--fw-text-bright)] font-semibold mb-2">{s.label}</p>
+                <p className="text-sm text-[var(--fw-text-dim)]">{s.sub}</p>
               </div>
             ))}
           </div>
@@ -136,11 +139,11 @@ export default function LandingPage() {
       </section>
 
       {/* ── COMMERCIAL TEACHING SECTION ─────────────────────── */}
-      <section className="bg-white py-20">
+      <section className="bg-[var(--fw-cream)] py-20">
         <div className="mx-auto max-w-5xl px-6">
           <div className="text-center mb-14">
-            <p className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-3">What top teams do differently</p>
-            <h2 className="text-3xl md:text-4xl font-black text-neutral-900">
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--fw-rust-dark)] mb-3">What top teams do differently</p>
+            <h2 className="font-[family-name:var(--font-manrope)] text-3xl md:text-4xl font-extrabold text-[#20201d]">
               The shift from tracking to intelligence
             </h2>
           </div>
@@ -168,17 +171,17 @@ export default function LandingPage() {
                 icon: "⏱️",
               },
             ].map((row, i) => (
-              <div key={i} className="grid md:grid-cols-2 gap-0 overflow-hidden rounded-2xl border border-neutral-200">
-                <div className="bg-neutral-50 p-6 border-b md:border-b-0 md:border-r border-neutral-200">
-                  <p className="text-xs font-bold uppercase tracking-wider text-neutral-400 mb-3">Before</p>
-                  <p className="text-neutral-700 leading-relaxed">{row.before}</p>
+              <div key={i} className="grid md:grid-cols-2 gap-0 overflow-hidden rounded-2xl border border-[var(--fw-cream-border)]">
+                <div className="bg-[var(--fw-cream-bg)] p-6 border-b md:border-b-0 md:border-r border-[var(--fw-cream-border)]">
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#a19d90] mb-3">Before</p>
+                  <p className="text-[#4a473e] leading-relaxed">{row.before}</p>
                 </div>
-                <div className="bg-indigo-50 p-6">
+                <div className="bg-[#fbeee9] p-6">
                   <div className="flex items-start gap-3">
                     <span className="text-2xl mt-0.5 shrink-0">{row.icon}</span>
                     <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-indigo-600 mb-3">With Forge-Worx</p>
-                      <p className="text-neutral-800 font-medium leading-relaxed">{row.after}</p>
+                      <p className="text-xs font-bold uppercase tracking-wider text-[var(--fw-rust-dark)] mb-3">With Forge-Worx</p>
+                      <p className="text-[#20201d] font-medium leading-relaxed">{row.after}</p>
                     </div>
                   </div>
                 </div>
@@ -189,11 +192,11 @@ export default function LandingPage() {
       </section>
 
       {/* ── FEATURES ─────────────────────────────────────────── */}
-      <section id="features" className="bg-slate-950 py-20">
+      <section id="features" className="bg-[var(--fw-sidebar-3)] py-20">
         <div className="mx-auto max-w-6xl px-6">
           <div className="text-center mb-14">
-            <p className="text-xs font-bold uppercase tracking-widest text-indigo-400 mb-3">What you get</p>
-            <h2 className="text-3xl md:text-4xl font-black text-white">
+            <p className="text-xs font-bold uppercase tracking-widest text-[#e29a7e] mb-3">What you get</p>
+            <h2 className="font-[family-name:var(--font-manrope)] text-3xl md:text-4xl font-extrabold text-[var(--fw-text-bright)]">
               Everything your team needs. Nothing they don&rsquo;t.
             </h2>
           </div>
@@ -255,21 +258,21 @@ export default function LandingPage() {
                 badge: null,
               },
             ].map((f) => (
-              <div key={f.title} className="group rounded-2xl border border-slate-800 bg-slate-900 p-6 hover:border-indigo-700/60 transition-colors">
+              <div key={f.title} className="group rounded-2xl border border-[#2a2820] bg-[var(--fw-sidebar-2)] p-6 hover:border-[var(--fw-rust)]/60 transition-colors">
                 <div className="flex items-start justify-between mb-4">
                   <span className="text-3xl">{f.icon}</span>
                   {f.badge && (
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${
                       f.badge === "PRO"
-                        ? "bg-indigo-500/20 text-indigo-300"
+                        ? "bg-[var(--fw-rust)]/20 text-[#e29a7e]"
                         : "bg-amber-500/20 text-amber-300"
                     }`}>
                       {f.badge}
                     </span>
                   )}
                 </div>
-                <h3 className="text-base font-bold text-white mb-2">{f.title}</h3>
-                <p className="text-sm text-slate-400 leading-relaxed">{f.desc}</p>
+                <h3 className="text-base font-bold text-[var(--fw-text-bright)] mb-2">{f.title}</h3>
+                <p className="text-sm text-[var(--fw-text-dim)] leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
@@ -277,11 +280,11 @@ export default function LandingPage() {
       </section>
 
       {/* ── HOW IT WORKS ─────────────────────────────────────── */}
-      <section id="how-it-works" className="bg-white py-20">
+      <section id="how-it-works" className="bg-[var(--fw-cream)] py-20">
         <div className="mx-auto max-w-4xl px-6">
           <div className="text-center mb-14">
-            <p className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-3">Dead simple to start</p>
-            <h2 className="text-3xl md:text-4xl font-black text-neutral-900">
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--fw-rust-dark)] mb-3">Dead simple to start</p>
+            <h2 className="font-[family-name:var(--font-manrope)] text-3xl md:text-4xl font-extrabold text-[#20201d]">
               From signup to first sprint report in under 30 minutes
             </h2>
           </div>
@@ -305,9 +308,9 @@ export default function LandingPage() {
               },
             ].map((s) => (
               <div key={s.step} className="relative">
-                <div className="mb-4 text-5xl font-black text-indigo-100 leading-none">{s.step}</div>
-                <h3 className="text-lg font-bold text-neutral-900 mb-2">{s.title}</h3>
-                <p className="text-neutral-500 text-sm leading-relaxed">{s.desc}</p>
+                <div className="font-[family-name:var(--font-manrope)] mb-4 text-5xl font-extrabold text-[#e8d2c8] leading-none">{s.step}</div>
+                <h3 className="text-lg font-bold text-[#20201d] mb-2">{s.title}</h3>
+                <p className="text-[#726e60] text-sm leading-relaxed">{s.desc}</p>
               </div>
             ))}
           </div>
@@ -315,21 +318,21 @@ export default function LandingPage() {
       </section>
 
       {/* ── FAQ ──────────────────────────────────────────────── */}
-      <section id="faq" className="bg-white py-20">
+      <section id="faq" className="bg-[var(--fw-cream)] py-20">
         <div className="mx-auto max-w-3xl px-6">
           <div className="text-center mb-14">
-            <p className="text-xs font-bold uppercase tracking-widest text-indigo-600 mb-3">FAQ</p>
-            <h2 className="text-3xl font-black text-neutral-900">Questions we get every week</h2>
+            <p className="text-xs font-bold uppercase tracking-widest text-[var(--fw-rust-dark)] mb-3">FAQ</p>
+            <h2 className="font-[family-name:var(--font-manrope)] text-3xl font-extrabold text-[#20201d]">Questions we get every week</h2>
           </div>
 
-          <div className="divide-y divide-neutral-200">
+          <div className="divide-y divide-[var(--fw-cream-border)]">
             {FAQS.map((faq) => (
               <details key={faq.q} className="group py-5 cursor-pointer">
-                <summary className="flex items-center justify-between text-base font-semibold text-neutral-900 list-none">
+                <summary className="flex items-center justify-between text-base font-semibold text-[#20201d] list-none">
                   {faq.q}
-                  <span className="ml-4 shrink-0 text-neutral-400 group-open:rotate-180 transition-transform text-xl leading-none">↓</span>
+                  <span className="ml-4 shrink-0 text-[#a19d90] group-open:rotate-180 transition-transform text-xl leading-none">↓</span>
                 </summary>
-                <p className="mt-3 text-neutral-500 leading-relaxed text-sm">{faq.a}</p>
+                <p className="mt-3 text-[#726e60] leading-relaxed text-sm">{faq.a}</p>
               </details>
             ))}
           </div>
@@ -337,21 +340,24 @@ export default function LandingPage() {
       </section>
 
       {/* ── FINAL CTA ────────────────────────────────────────── */}
-      <section className="bg-indigo-600 py-20">
+      <section
+        className="py-20"
+        style={{ background: "linear-gradient(160deg, #9a5138, #6e3324)" }}
+      >
         <div className="mx-auto max-w-3xl px-6 text-center">
-          <h2 className="text-4xl md:text-5xl font-black text-white mb-4">
+          <h2 className="font-[family-name:var(--font-manrope)] text-4xl md:text-5xl font-extrabold text-[#f2e9d8] mb-4">
             Ship better. Report smarter.<br />Win more trust.
           </h2>
-          <p className="text-indigo-200 text-lg mb-8 max-w-xl mx-auto">
+          <p className="text-[#e8d2c8] text-lg mb-8 max-w-xl mx-auto">
             Self-serve signup opens soon. Want early access?{" "}
             <a href="mailto:hello@forge-worx.com?subject=Early%20Access" className="underline underline-offset-2 hover:no-underline">
               Reach out
             </a>.
           </p>
-          <span className="inline-block cursor-not-allowed rounded-xl bg-white/60 px-10 py-4 text-base font-bold text-indigo-700/70 shadow-xl shadow-indigo-900/30">
+          <span className="inline-block cursor-not-allowed rounded-xl bg-white/60 px-10 py-4 text-base font-bold text-[#6e3324]/70 shadow-xl shadow-black/20">
             Coming Soon
           </span>
-          <p className="mt-4 text-indigo-300 text-sm">
+          <p className="mt-4 text-[#e8d2c8] text-sm">
             Already a customer?{" "}
             <Link href="/login" className="text-white underline underline-offset-2 hover:no-underline">
               Sign in here
@@ -361,30 +367,30 @@ export default function LandingPage() {
       </section>
 
       {/* ── FOOTER ───────────────────────────────────────────── */}
-      <footer className="bg-slate-950 border-t border-slate-800 py-12">
+      <footer className="bg-[var(--fw-sidebar-3)] border-t border-[#2a2820] py-12">
         <div className="mx-auto max-w-6xl px-6">
           <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-8">
             <div>
               <div className="mb-3">
                 <img src="/forge-logo.svg" alt="Forge-Worx" className="h-16 w-16 object-contain drop-shadow-md" />
               </div>
-              <p className="text-sm text-slate-500 max-w-xs">
+              <p className="text-sm text-[var(--fw-text-dimmer)] max-w-xs">
                 Sprint intelligence for engineering-led product teams. Ship. Report. Win.
               </p>
             </div>
 
-            <nav className="grid grid-cols-2 gap-x-16 gap-y-2 text-sm text-slate-400">
-              <span className="text-slate-600">Coming Soon</span>
-              <Link href="/login" className="hover:text-white transition-colors">Sign In</Link>
-              <a href="#features" className="hover:text-white transition-colors">Features</a>
-              <a href="mailto:hello@forge-worx.com" className="hover:text-white transition-colors">Contact</a>
-              <Link href="/legal/privacy" className="hover:text-white transition-colors">Privacy</Link>
+            <nav className="grid grid-cols-2 gap-x-16 gap-y-2 text-sm text-[var(--fw-text-dim)]">
+              <span className="text-[var(--fw-text-dimmer)]">Coming Soon</span>
+              <Link href="/login" className="hover:text-[var(--fw-text-bright)] transition-colors">Sign In</Link>
+              <a href="#features" className="hover:text-[var(--fw-text-bright)] transition-colors">Features</a>
+              <a href="mailto:hello@forge-worx.com" className="hover:text-[var(--fw-text-bright)] transition-colors">Contact</a>
+              <Link href="/legal/privacy" className="hover:text-[var(--fw-text-bright)] transition-colors">Privacy</Link>
             </nav>
           </div>
 
-          <div className="mt-10 border-t border-slate-800 pt-6 flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-slate-600">
+          <div className="mt-10 border-t border-[#2a2820] pt-6 flex flex-col md:flex-row items-center justify-between gap-2 text-xs text-[var(--fw-text-dimmer)]">
             <p>© 2026 Forge-Worx. All rights reserved.</p>
-            <p>Forge-Worx is a product of <span className="text-slate-500">Forge Labs, Inc.</span></p>
+            <p>Forge-Worx is a product of <span className="text-[var(--fw-text-dim)]">Forge Labs, Inc.</span></p>
           </div>
         </div>
       </footer>

@@ -12,13 +12,14 @@ export default async function JoinPage({ params }: { params: Promise<{ token: st
   } = await supabase.auth.getUser();
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-neutral-50 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-[var(--fw-cream)] px-4 font-[family-name:var(--font-inter)]">
       <div className="w-full max-w-sm">
         <div className="mb-6 text-center">
-          <h1 className="text-2xl font-bold tracking-tight text-neutral-900">Forge</h1>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/forge-logo.svg" alt="Forge-Worx" className="mx-auto h-16 w-16 object-contain drop-shadow-md" />
         </div>
         {!desc.valid ? (
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 text-center text-sm text-neutral-600 shadow-sm">
+          <div className="rounded-xl border border-[var(--fw-cream-border)] bg-white p-6 text-center text-sm text-[#726e60] shadow-sm">
             {desc.reason}
           </div>
         ) : (

@@ -19,6 +19,43 @@
   }
 }
 
+/* ── Ember Rust brand tokens (Forge-Worx redesign) ──────────────
+   Scoped as plain CSS vars (not @theme) so they're opt-in via
+   Tailwind arbitrary values (e.g. bg-[var(--fw-rust)]) without
+   touching the rest of the app's existing indigo/neutral palette. */
+:root {
+  --fw-sidebar-1: #26281f;
+  --fw-sidebar-2: #181a16;
+  --fw-sidebar-3: #131412;
+  --fw-sidebar-border: #100f0d;
+  --fw-text-bright: #e5e0d1;
+  --fw-text-dim: #a39d89;
+  --fw-text-dimmer: #736e5c;
+  --fw-text-inactive: #8b8570;
+  --fw-rust: #b7452f;
+  --fw-rust-dark: #8c4632;
+  --fw-rust-border: #5e2c1f;
+  --fw-cream: #f4f2eb;
+  --fw-cream-bg: #eeece4;
+  --fw-cream-border: #ddd8c9;
+}
+
+/* Subtle noise/grunge texture overlay used on dark Ember Rust sections
+   (marketing/auth pages) — matches the original design bundle exactly. */
+.fw-grunge { position: relative; }
+.fw-grunge::before {
+  content: "";
+  position: absolute; inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: overlay;
+  background-image:
+    radial-gradient(circle at 20% 25%, rgba(255,255,255,0.05) 0, transparent 40%),
+    radial-gradient(circle at 80% 80%, rgba(0,0,0,0.35) 0, transparent 45%),
+    repeating-linear-gradient(115deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 1px, transparent 2px, transparent 5px),
+    repeating-linear-gradient(25deg, rgba(255,255,255,0.03) 0px, rgba(255,255,255,0.03) 1px, transparent 3px, transparent 7px);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);

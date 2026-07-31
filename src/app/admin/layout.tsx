@@ -25,7 +25,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     .eq("status", "open");
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc", fontFamily: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc", fontFamily: "var(--font-inter), -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" }}>
       <AdminSidebar openTickets={openTickets ?? 0} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "auto", minWidth: 0 }}>
         {children}

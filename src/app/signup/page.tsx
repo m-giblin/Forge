@@ -19,6 +19,7 @@ export default function SignupPage() {
   const [checkedSlug, setCheckedSlug] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [tosAccepted, setTosAccepted] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Debounced slug availability check
@@ -69,6 +70,10 @@ export default function SignupPage() {
       setError("That workspace name is already taken. Please choose a different name.");
       return;
     }
+    if (!tosAccepted) {
+      setError("You must agree to the Terms of Service and Privacy Policy.");
+      return;
+    }
 
     setLoading(true);
 
@@ -76,12 +81,13 @@ export default function SignupPage() {
     const name = (form.elements.namedItem("name") as HTMLInputElement).value.trim();
     const email = (form.elements.namedItem("email") as HTMLInputElement).value.trim().toLowerCase();
     const password = (form.elements.namedItem("password") as HTMLInputElement).value;
+    const phone = (form.elements.namedItem("phone") as HTMLInputElement).value.trim();
 
     // Step 1: Create user + tenant
     const res = await fetch("/api/signup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, workspaceName: workspaceName.trim(), email, password }),
+      body: JSON.stringify({ name, workspaceName: workspaceName.trim(), email, password, phone, tosAccepted }),
     });
 
     const data = await res.json().catch(() => ({}));
@@ -112,24 +118,24 @@ export default function SignupPage() {
     if (slugState === "idle" || !workspaceName.trim()) return null;
     if (slugState === "too_short") {
       return (
-        <p className="mt-1.5 text-xs text-slate-500">
-          Workspace URL: <span className="text-slate-400">/{checkedSlug}</span>
+        <p className="mt-1.5 text-xs text-[var(--fw-text-dimmer)]">
+          Workspace URL: <span className="text-[var(--fw-text-dim)]">/{checkedSlug}</span>
         </p>
       );
     }
     if (slugState === "checking") {
       return (
-        <p className="mt-1.5 text-xs text-slate-400">
-          Checking <span className="text-slate-300">/{checkedSlug}</span>&hellip;
+        <p className="mt-1.5 text-xs text-[var(--fw-text-dim)]">
+          Checking <span className="text-[var(--fw-text-bright)]">/{checkedSlug}</span>&hellip;
         </p>
       );
     }
     if (slugState === "available") {
       return (
         <p className="mt-1.5 text-xs">
-          <span className="text-green-400 font-semibold">✓ Available</span>
-          <span className="text-slate-400"> — your workspace: </span>
-          <span className="text-indigo-400 font-medium">/{checkedSlug}</span>
+          <span className="text-emerald-400 font-semibold">✓ Available</span>
+          <span className="text-[var(--fw-text-dim)]"> — your workspace: </span>
+          <span className="text-[#e29a7e] font-medium">/{checkedSlug}</span>
         </p>
       );
     }
@@ -137,25 +143,29 @@ export default function SignupPage() {
       return (
         <p className="mt-1.5 text-xs">
           <span className="text-red-400 font-semibold">✗ Already taken</span>
-          <span className="text-slate-500"> — try a different name, e.g. &ldquo;{workspaceName.trim()} Team&rdquo;</span>
+          <span className="text-[var(--fw-text-dimmer)]"> — try a different name, e.g. &ldquo;{workspaceName.trim()} Team&rdquo;</span>
         </p>
       );
     }
     return null;
   };
 
-  const canSubmit = !loading && slugState !== "taken" && slugState !== "checking";
+  const canSubmit = !loading && slugState !== "taken" && slugState !== "checking" && tosAccepted;
+  const fieldClass = "w-full rounded-xl border border-[#3a382f] bg-[var(--fw-sidebar-2)] px-4 py-3 text-sm text-[var(--fw-text-bright)] placeholder-[var(--fw-text-dimmer)] focus:border-[var(--fw-rust)] focus:outline-none focus:ring-1 focus:ring-[var(--fw-rust)] transition";
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col">
+    <div
+      className="fw-grunge min-h-screen flex flex-col font-[family-name:var(--font-inter)]"
+      style={{ background: "linear-gradient(165deg,#26281f 0%,#181a16 55%,#131412 100%)" }}
+    >
       {/* Minimal nav */}
-      <header className="border-b border-slate-800 px-6 py-3.5 flex items-center justify-between">
+      <header className="border-b border-[var(--fw-sidebar-border)] px-6 py-3.5 flex items-center justify-between">
         <Link href="/" className="flex items-center">
           <img src="/forge-logo.svg" alt="Forge-Worx" className="h-10 w-10 object-contain drop-shadow-md" />
         </Link>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-[var(--fw-text-dim)]">
           Already a customer?{" "}
-          <Link href="/login" className="text-indigo-400 hover:text-indigo-300 font-medium">
+          <Link href="/login" className="text-[#e29a7e] hover:text-[#f0b39a] font-medium">
             Sign in
           </Link>
         </p>
@@ -165,11 +175,11 @@ export default function SignupPage() {
         <div className="w-full max-w-md">
           {/* Heading */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-indigo-300 uppercase mb-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--fw-rust)]/30 bg-[var(--fw-rust)]/10 px-4 py-1.5 text-xs font-semibold tracking-wide text-[#e29a7e] uppercase mb-5">
               14-day free Premium trial
             </div>
-            <h1 className="text-3xl font-black text-white mb-2">Create your workspace</h1>
-            <p className="text-slate-400 text-sm">
+            <h1 className="font-[family-name:var(--font-manrope)] text-3xl font-extrabold text-[var(--fw-text-bright)] mb-2">Create your workspace</h1>
+            <p className="text-[var(--fw-text-dim)] text-sm">
               Full Premium. Single workspace. No credit card required.
             </p>
           </div>
@@ -177,31 +187,43 @@ export default function SignupPage() {
           {/* Form */}
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Your full name</label>
+              <label className="block text-xs font-semibold text-[var(--fw-text-dim)] mb-1.5">Your full name</label>
               <input
                 name="name"
                 type="text"
                 required
                 autoComplete="name"
                 placeholder="Jane Smith"
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                className={fieldClass}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Work email</label>
+              <label className="block text-xs font-semibold text-[var(--fw-text-dim)] mb-1.5">Work email</label>
               <input
                 name="email"
                 type="email"
                 required
                 autoComplete="email"
                 placeholder="jane@company.com"
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                className={fieldClass}
               />
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Workspace name</label>
+              <label className="block text-xs font-semibold text-[var(--fw-text-dim)] mb-1.5">Phone number</label>
+              <input
+                name="phone"
+                type="tel"
+                required
+                autoComplete="tel"
+                placeholder="(555) 123-4567"
+                className={fieldClass}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-[var(--fw-text-dim)] mb-1.5">Workspace name</label>
               <input
                 name="workspaceName"
                 type="text"
@@ -209,19 +231,19 @@ export default function SignupPage() {
                 placeholder="Acme Engineering"
                 value={workspaceName}
                 onChange={(e) => setWorkspaceName(e.target.value)}
-                className={`w-full rounded-xl border px-4 py-3 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-1 transition bg-slate-900 ${
+                className={`w-full rounded-xl border px-4 py-3 text-sm text-[var(--fw-text-bright)] placeholder-[var(--fw-text-dimmer)] focus:outline-none focus:ring-1 transition bg-[var(--fw-sidebar-2)] ${
                   slugState === "taken"
                     ? "border-red-500/60 focus:border-red-500 focus:ring-red-500/40"
                     : slugState === "available"
-                    ? "border-green-500/60 focus:border-green-500 focus:ring-green-500/40"
-                    : "border-slate-700 focus:border-indigo-500 focus:ring-indigo-500"
+                    ? "border-emerald-500/60 focus:border-emerald-500 focus:ring-emerald-500/40"
+                    : "border-[#3a382f] focus:border-[var(--fw-rust)] focus:ring-[var(--fw-rust)]"
                 }`}
               />
               {slugHint()}
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1.5">Password</label>
+              <label className="block text-xs font-semibold text-[var(--fw-text-dim)] mb-1.5">Password</label>
               <input
                 name="password"
                 type="password"
@@ -229,7 +251,7 @@ export default function SignupPage() {
                 minLength={8}
                 autoComplete="new-password"
                 placeholder="8+ characters"
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 transition"
+                className={fieldClass}
               />
             </div>
 
@@ -239,10 +261,27 @@ export default function SignupPage() {
               </div>
             )}
 
+            <label className="flex items-start gap-2.5 text-xs text-[var(--fw-text-dimmer)] cursor-pointer">
+              <input
+                type="checkbox"
+                required
+                checked={tosAccepted}
+                onChange={(e) => setTosAccepted(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-[var(--fw-rust)]"
+              />
+              <span>
+                I agree to the{" "}
+                <Link href="/legal/terms" target="_blank" className="text-[var(--fw-text-dim)] hover:text-[var(--fw-text-bright)] underline">Terms of Service</Link>{" "}
+                and{" "}
+                <Link href="/legal/privacy" target="_blank" className="text-[var(--fw-text-dim)] hover:text-[var(--fw-text-bright)] underline">Privacy Policy</Link>.
+              </span>
+            </label>
+
             <button
               type="submit"
               disabled={!canSubmit}
-              className="w-full rounded-xl bg-indigo-500 py-3 text-sm font-bold text-white hover:bg-indigo-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="w-full rounded-xl border border-[var(--fw-rust-border)] py-3 text-sm font-bold text-[#f2e9d8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
             >
               {loading
                 ? "Creating your workspace…"
@@ -253,27 +292,20 @@ export default function SignupPage() {
           </form>
 
           {/* Trust signals */}
-          <div className="mt-6 grid grid-cols-3 gap-3 text-center text-xs text-slate-500">
-            <div className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-2.5">
+          <div className="mt-6 grid grid-cols-3 gap-3 text-center text-xs text-[var(--fw-text-dimmer)]">
+            <div className="rounded-lg border border-[#2a2820] bg-[var(--fw-sidebar-2)] px-2 py-2.5">
               <div className="text-base mb-1">🔒</div>
               No credit card
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-2.5">
+            <div className="rounded-lg border border-[#2a2820] bg-[var(--fw-sidebar-2)] px-2 py-2.5">
               <div className="text-base mb-1">⚡</div>
               Live in 2 minutes
             </div>
-            <div className="rounded-lg border border-slate-800 bg-slate-900 px-2 py-2.5">
+            <div className="rounded-lg border border-[#2a2820] bg-[var(--fw-sidebar-2)] px-2 py-2.5">
               <div className="text-base mb-1">📊</div>
               Full Premium
             </div>
           </div>
-
-          <p className="mt-6 text-center text-xs text-slate-600">
-            By signing up you agree to our{" "}
-            <Link href="/legal/terms" className="text-slate-500 hover:text-slate-400 underline">Terms of Service</Link>{" "}
-            and{" "}
-            <Link href="/legal/privacy" className="text-slate-500 hover:text-slate-400 underline">Privacy Policy</Link>.
-          </p>
         </div>
       </main>
     </div>

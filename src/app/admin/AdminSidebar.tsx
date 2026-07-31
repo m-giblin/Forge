@@ -39,22 +39,23 @@ export default function AdminSidebar({ openTickets }: { openTickets?: number }) 
   return (
     <aside style={{
       width: 220,
-      background: "#fff",
-      borderRight: "1px solid #e5e7eb",
+      background: "linear-gradient(165deg, var(--fw-sidebar-1) 0%, var(--fw-sidebar-2) 55%, var(--fw-sidebar-3) 100%)",
+      borderRight: "1px solid var(--fw-sidebar-border)",
       display: "flex",
       flexDirection: "column",
       flexShrink: 0,
       height: "100vh",
       position: "sticky",
       top: 0,
+      fontFamily: "var(--font-inter), -apple-system, sans-serif",
     }}>
       {/* Brand */}
-      <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid #f1f5f9" }}>
+      <div style={{ padding: "14px 16px 12px", borderBottom: "1px solid var(--fw-sidebar-border)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <Image src="/logo-64.png" alt="Forge Worx" width={36} height={36} style={{ borderRadius: 8, flexShrink: 0 }} />
           <div>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#111827", lineHeight: 1.2 }}>Forge Worx</div>
-            <div style={{ fontSize: 10, color: "#94a3b8", marginTop: 1 }}>Platform Admin</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "var(--fw-text-bright)", lineHeight: 1.2, fontFamily: "var(--font-manrope), sans-serif" }}>Forge Worx</div>
+            <div style={{ fontSize: 10, color: "var(--fw-text-dimmer)", marginTop: 1 }}>Platform Admin</div>
           </div>
         </div>
       </div>
@@ -64,7 +65,7 @@ export default function AdminSidebar({ openTickets }: { openTickets?: number }) 
         {NAV.map((group) => (
           <div key={group.section} style={{ marginBottom: 4 }}>
             <div style={{
-              fontSize: 9, fontWeight: 700, color: "#cbd5e1",
+              fontSize: 9, fontWeight: 700, color: "var(--fw-text-dimmer)",
               letterSpacing: ".1em", textTransform: "uppercase",
               padding: "10px 10px 3px",
             }}>
@@ -81,8 +82,9 @@ export default function AdminSidebar({ openTickets }: { openTickets?: number }) 
                   style={{
                     display: "flex", alignItems: "center", gap: 8,
                     padding: "7px 10px", borderRadius: 7,
-                    color: active ? "#4f46e5" : "#6b7280",
-                    background: active ? "#ede9fe" : "transparent",
+                    color: active ? "var(--fw-text-bright)" : "var(--fw-text-dim)",
+                    background: active ? "var(--fw-sidebar-2)" : "transparent",
+                    borderLeft: `2px solid ${active ? "var(--fw-rust)" : "transparent"}`,
                     fontWeight: active ? 600 : 500,
                     fontSize: 12,
                     textDecoration: "none",
@@ -94,7 +96,7 @@ export default function AdminSidebar({ openTickets }: { openTickets?: number }) 
                   <span style={{ flex: 1 }}>{item.label}</span>
                   {item.badge && openTickets && openTickets > 0 && (
                     <span style={{
-                      background: "#ef4444", color: "#fff",
+                      background: "var(--fw-rust)", color: "#fff",
                       fontSize: 9, fontWeight: 700,
                       padding: "1px 5px", borderRadius: 9,
                     }}>{openTickets}</span>
@@ -107,12 +109,12 @@ export default function AdminSidebar({ openTickets }: { openTickets?: number }) 
       </nav>
 
       {/* Footer */}
-      <div style={{ padding: "10px 8px", borderTop: "1px solid #f1f5f9" }}>
+      <div style={{ padding: "10px 8px", borderTop: "1px solid var(--fw-sidebar-border)" }}>
         <Link
           href="/"
           style={{
             display: "block", padding: "7px 10px", borderRadius: 7,
-            fontSize: 11, color: "#6b7280", textDecoration: "none",
+            fontSize: 11, color: "var(--fw-text-dimmer)", textDecoration: "none",
             fontWeight: 500,
           }}
         >

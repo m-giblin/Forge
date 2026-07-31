@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import SidebarNavItem from "./SidebarNavItem";
+import GearMenu from "./GearMenu";
 
 type TenantFlags = Record<string, boolean>;
 
@@ -15,45 +17,9 @@ interface Props {
   visibleProjects: number;
   initials: string;
   email: string;
-}
-
-function NavLink({
-  href,
-  icon,
-  label,
-  badge,
-  badgeColor = "red",
-  onClick,
-}: {
-  href: string;
-  icon: string;
-  label: string;
-  badge?: number;
-  badgeColor?: "red" | "indigo";
-  onClick: () => void;
-}) {
-  const pathname = usePathname();
-  const isActive = pathname === href || (href !== `/${href.split("/")[1]}` && pathname.startsWith(href));
-  const badgeCls = badgeColor === "indigo" ? "bg-indigo-600" : "bg-red-500";
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
-        isActive
-          ? "bg-indigo-50 font-medium text-indigo-700"
-          : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
-      }`}
-    >
-      <span className="text-base leading-none w-5 text-center">{icon}</span>
-      <span className="flex-1 truncate">{label}</span>
-      {badge != null && (
-        <span className={`flex h-4 min-w-4 items-center justify-center rounded-full ${badgeCls} px-1 text-[10px] font-bold text-white`}>
-          {badge > 9 ? "9+" : badge}
-        </span>
-      )}
-    </Link>
-  );
+  isAdmin?: boolean;
+  isSuperAdmin?: boolean;
+  figmaUrl?: string | null;
 }
 
 export default function MobileSidebar({
@@ -65,6 +31,9 @@ export default function MobileSidebar({
   visibleProjects,
   initials,
   email,
+  isAdmin = false,
+  isSuperAdmin = false,
+  figmaUrl = null,
 }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
@@ -85,11 +54,18 @@ export default function MobileSidebar({
   return (
     <>
       {/* ── Mobile Top Bar ── */}
-      <header className="fixed top-0 left-0 right-0 z-30 flex h-14 items-center gap-3 border-b border-neutral-200 bg-white px-4 md:hidden" style={{ paddingTop: "env(safe-area-inset-top)", height: "calc(3.5rem + env(safe-area-inset-top))" }}>
+      <header
+        className="fixed top-0 left-0 right-0 z-30 flex h-14 items-center gap-3 border-b border-[var(--fw-sidebar-border)] px-4 md:hidden font-[family-name:var(--font-inter)]"
+        style={{
+          paddingTop: "env(safe-area-inset-top)",
+          height: "calc(3.5rem + env(safe-area-inset-top))",
+          background: `linear-gradient(170deg, var(--fw-sidebar-1) 0%, var(--fw-sidebar-2) 100%)`,
+        }}
+      >
         <button
           onClick={() => setIsOpen(true)}
           aria-label="Open navigation"
-          className="flex h-11 w-11 items-center justify-center rounded-lg text-neutral-600 hover:bg-neutral-100 transition-colors"
+          className="flex h-11 w-11 items-center justify-center rounded-lg text-[var(--fw-text-dim)] hover:bg-[var(--fw-sidebar-2)] transition-colors"
         >
           <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
             <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -97,10 +73,10 @@ export default function MobileSidebar({
         </button>
 
         <div className="flex items-center gap-2 min-w-0">
-          <div className="h-6 w-6 rounded-md bg-neutral-900 overflow-hidden flex-shrink-0">
+          <div className="h-6 w-6 rounded-md bg-[var(--fw-sidebar-3)] overflow-hidden flex-shrink-0">
             <img src="/logo-28.png" alt="Forge" className="h-6 w-6 object-cover" />
           </div>
-          <p className="truncate text-sm font-semibold text-neutral-900">{tenantName}</p>
+          <p className="truncate text-sm font-semibold text-[var(--fw-text-bright)] font-[family-name:var(--font-manrope)]">{tenantName}</p>
         </div>
 
         {unreadCount > 0 && (
@@ -114,7 +90,7 @@ export default function MobileSidebar({
         {unreadCount === 0 && (
           <Link
             href={`/${slug}/inbox`}
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-neutral-500 hover:bg-neutral-100 transition-colors"
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-lg text-[var(--fw-text-dim)] hover:bg-[var(--fw-sidebar-2)] transition-colors"
             aria-label="Inbox"
           >
             <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
@@ -138,24 +114,27 @@ export default function MobileSidebar({
 
       {/* ── Slide-in Drawer ── */}
       <div
-        className={`fixed left-0 top-0 z-50 flex h-full w-72 flex-col border-r border-neutral-200 bg-white transition-transform duration-250 ease-out md:hidden ${
+        className={`fixed left-0 top-0 z-50 flex h-full w-72 flex-col border-r border-[var(--fw-sidebar-border)] transition-transform duration-250 ease-out md:hidden font-[family-name:var(--font-inter)] ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
+        style={{
+          background: `linear-gradient(165deg, var(--fw-sidebar-1) 0%, var(--fw-sidebar-2) 55%, var(--fw-sidebar-3) 100%)`,
+        }}
         aria-label="Navigation drawer"
       >
         {/* Drawer header */}
-        <div className="flex items-center gap-2.5 border-b border-neutral-100 px-4 py-4 shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-neutral-900 overflow-hidden shrink-0">
+        <div className="flex items-center gap-2.5 border-b border-[var(--fw-sidebar-border)] px-4 py-4 shrink-0">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--fw-sidebar-3)] overflow-hidden shrink-0">
             <img src="/logo-28.png" alt="Forge" className="h-7 w-7 object-cover" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-neutral-900">{tenantName}</p>
-            <p className="text-[11px] text-neutral-400 capitalize">{role}</p>
+            <p className="truncate text-sm font-semibold text-[var(--fw-text-bright)] font-[family-name:var(--font-manrope)]">{tenantName}</p>
+            <p className="text-[11px] text-[var(--fw-text-dimmer)] capitalize">{role}</p>
           </div>
           <button
             onClick={close}
             aria-label="Close navigation"
-            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700 transition-colors"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--fw-text-dimmer)] hover:bg-[var(--fw-sidebar-2)] hover:text-[var(--fw-text-bright)] transition-colors"
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
               <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
@@ -164,70 +143,85 @@ export default function MobileSidebar({
         </div>
 
         {/* Nav links */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-5">
-
+        <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4">
           <div>
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">My Work</p>
             <div className="space-y-0.5">
-              <NavLink href={`/${slug}`} icon="🏠" label="Home" onClick={close} />
-              <NavLink href={`/${slug}/assigned`} icon="📌" label="Assigned to Me" onClick={close} />
-              <NavLink href={`/${slug}/watching`} icon="👁" label="Watching" onClick={close} />
-              <NavLink href={`/${slug}/inbox`} icon="📥" label="Inbox" badge={unreadCount > 0 ? unreadCount : undefined} onClick={close} />
+              <SidebarNavItem href={`/${slug}`} icon="🏠" label="Home" onClick={close} />
             </div>
           </div>
 
           <div>
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Workspace</p>
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--fw-text-dimmer)]">Execution</p>
             <div className="space-y-0.5">
-              <NavLink href={`/${slug}/board`} icon="🏃" label="Board" badge={visibleProjects > 1 ? visibleProjects : undefined} badgeColor="indigo" onClick={close} />
-              <NavLink href={`/${slug}/issues`} icon="🐛" label="Issues" onClick={close} />
-              <NavLink href={`/${slug}/projects`} icon="📋" label="Projects" onClick={close} />
-              <NavLink href={`/${slug}/roadmap`} icon="🗺️" label="Roadmap" onClick={close} />
-              <NavLink href={`/${slug}/timeline`} icon="📅" label="Timeline" onClick={close} />
-              <NavLink href={`/${slug}/calendar`} icon="🗓️" label="Calendar" onClick={close} />
-              <NavLink href={`/${slug}/workload`} icon="👥" label="Workload" onClick={close} />
-              {flags.ops_layer && <NavLink href={`/${slug}/time`} icon="⏱️" label="My Time" onClick={close} />}
+              <SidebarNavItem href={`/${slug}/assigned`} icon="📌" label="My Work" onClick={close} />
+              <SidebarNavItem href={`/${slug}/code-review`} icon="🔀" label="Code Review" onClick={close} />
+              <SidebarNavItem href={`/${slug}/watching`} icon="👁" label="Watching" onClick={close} />
+              <SidebarNavItem href={`/${slug}/inbox`} icon="📥" label="Inbox" badge={unreadCount > 0 ? unreadCount : undefined} onClick={close} />
+              <SidebarNavItem href={`/${slug}/me/today`} icon="🎯" label="My Day" onClick={close} />
+              <SidebarNavItem href={`/${slug}/board`} icon="🏃" label="Sprint board" badge={visibleProjects > 1 ? visibleProjects : undefined} badgeColor="rust" onClick={close} />
+              <SidebarNavItem href={`/${slug}/backlog`} icon="🧹" label="Backlog" onClick={close} />
+              <SidebarNavItem href={`/${slug}/issues`} icon="🐛" label="Table" onClick={close} />
+              <SidebarNavItem href={`/${slug}/timeline`} icon="📅" label="Timeline" onClick={close} />
+              <SidebarNavItem href={`/${slug}/calendar`} icon="🗓️" label="Calendar" onClick={close} />
+              {flags.ops_layer && <SidebarNavItem href={`/${slug}/time`} icon="⏱️" label="My Time" onClick={close} />}
             </div>
           </div>
 
           <div>
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">Intelligence</p>
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--fw-text-dimmer)]">Planning</p>
             <div className="space-y-0.5">
-              <NavLink href={`/${slug}/reports`} icon="📊" label="Reports" onClick={close} />
-              <NavLink href={`/${slug}/think-tank`} icon="💡" label="Think Tank" onClick={close} />
-              <NavLink href={`/${slug}/customers`} icon="🏢" label="Customers" onClick={close} />
-              <NavLink href={`/${slug}/stakeholder`} icon="📈" label="Stakeholder" onClick={close} />
-              <NavLink href={`/${slug}/changelog`} icon="📋" label="Changelog" onClick={close} />
+              <SidebarNavItem href={`/${slug}/projects`} icon="📋" label="Projects" onClick={close} />
+              <SidebarNavItem href={`/${slug}/roadmap`} icon="🗺️" label="Roadmap" onClick={close} />
+              <SidebarNavItem href={`/${slug}/portfolio`} icon="📦" label="Portfolio" onClick={close} />
+              <SidebarNavItem href={`/${slug}/mindmap`} icon="🧠" label="Mind Map" onClick={close} />
             </div>
           </div>
 
           <div>
-            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">You</p>
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--fw-text-dimmer)]">Insights</p>
             <div className="space-y-0.5">
-              <NavLink href={`/${slug}/settings`} icon="🔔" label="Preferences" onClick={close} />
-              <NavLink href={`/${slug}/spaces`} icon="📚" label="Spaces" onClick={close} />
-              <NavLink href={`/${slug}/docs`} icon="📖" label="Help Docs" onClick={close} />
-              <NavLink href={`/${slug}/support`} icon="🎫" label="Get Support" onClick={close} />
+              <SidebarNavItem href={`/${slug}/reports`} icon="📊" label="Reports" onClick={close} />
+              <SidebarNavItem href={`/${slug}/dashboards`} icon="🧩" label="Dashboards" onClick={close} />
             </div>
           </div>
 
-          {/* Admin and Super Admin sections intentionally omitted on mobile —
-              those pages require a desktop viewport to be usable. */}
+          <div>
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--fw-text-dimmer)]">Collaboration</p>
+            <div className="space-y-0.5">
+              <SidebarNavItem href={`/${slug}/workload`} icon="👥" label="Team" onClick={close} />
+              <SidebarNavItem href={`/${slug}/think-tank`} icon="💡" label="Think Tank" onClick={close} />
+              <SidebarNavItem href={`/${slug}/whiteboards`} icon="🖊️" label="Whiteboards" onClick={close} />
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--fw-text-dimmer)]">Relationships</p>
+            <div className="space-y-0.5">
+              <SidebarNavItem href={`/${slug}/customers`} icon="🏢" label="Customers" onClick={close} />
+              <SidebarNavItem href={`/${slug}/stakeholder`} icon="📈" label="Stakeholder" onClick={close} />
+              <SidebarNavItem href={`/${slug}/changelog`} icon="📋" label="Changelog" onClick={close} />
+            </div>
+          </div>
+
+          {/* Admin/Super Admin routes still require a desktop viewport to use,
+              but the gear menu itself (Preferences/Spaces/Docs/Support + the
+              admin entries when applicable) is reachable from the footer below. */}
         </nav>
 
         {/* User footer */}
-        <div className="shrink-0 border-t border-neutral-100 px-4 py-3">
+        <div className="shrink-0 border-t border-[var(--fw-sidebar-border)] px-4 py-3">
           <div className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-700">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--fw-rust)]/20 text-xs font-bold text-[var(--fw-text-bright)]">
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-xs font-medium text-neutral-800">{email}</p>
-              <p className="text-[11px] text-neutral-400 capitalize">{role}</p>
+              <p className="truncate text-xs font-medium text-[var(--fw-text-bright)]">{email}</p>
+              <p className="text-[11px] text-[var(--fw-text-dimmer)] capitalize">{role}</p>
             </div>
+            <GearMenu slug={slug} isAdmin={isAdmin} isSuperAdmin={isSuperAdmin} rbacEnabled={!!flags.rbac} figmaUrl={figmaUrl} />
           </div>
           <form action="/api/auth/signout" method="POST" className="mt-2">
-            <button type="submit" className="w-full rounded-lg px-3 py-1.5 text-left text-xs text-neutral-500 hover:bg-neutral-50 hover:text-neutral-800 transition">
+            <button type="submit" className="w-full rounded-lg px-3 py-1.5 text-left text-xs text-[var(--fw-text-dimmer)] hover:bg-[var(--fw-sidebar-2)] hover:text-[var(--fw-text-bright)] transition">
               Sign out
             </button>
           </form>
