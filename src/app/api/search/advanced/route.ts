@@ -2,20 +2,23 @@ import { NextRequest, NextResponse } from "next/server";
 import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role: search bypasses RLS but explicit tenant_id filter enforces isolation (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { runSearchQuery } from "@/lib/services/searchQuery";
+import { parseAql, runSearchQuery } from "@/lib/services/searchQuery";
 
 export const runtime = "nodejs";
 
+const RESULT_LIMIT = 200;
+
 /**
- * GET /api/search?slug=<tenant>&q=<query>&limit=8
- * Session-authenticated cross-tenant search for the command palette.
- * Supports query language: status:, priority:, type:, assignee:, project:
+ * GET /api/search/advanced?slug=<tenant>&q=<AQL query>
+ * The Advanced Search page's endpoint — same filtering engine as /api/search
+ * (the command palette), just a higher result cap and fuller per-result
+ * fields for a real results table, and AQL syntax (`field = "value"`)
+ * translated to the same token language before being parsed.
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const slug = searchParams.get("slug") ?? "";
   const raw = searchParams.get("q")?.trim() ?? "";
-  const limit = Math.min(parseInt(searchParams.get("limit") ?? "8", 10), 20);
 
   if (!slug) return NextResponse.json({ error: "slug required" }, { status: 400 });
 
@@ -26,11 +29,9 @@ export async function GET(req: NextRequest) {
 
   const svc = createSupabaseServiceClient();
   try {
-    const results = await runSearchQuery(ctx, svc, raw, { limit });
-    const data = results.map((r) => ({
-      id: r.id, key: r.key, title: r.title, status: r.status, priority: r.priority, type: r.type,
-    }));
-    return NextResponse.json({ data });
+    const tokens = parseAql(raw);
+    const data = await runSearchQuery(ctx, svc, tokens, { limit: RESULT_LIMIT, includeExtra: true });
+    return NextResponse.json({ data, truncated: data.length >= RESULT_LIMIT });
   } catch (e) {
     return NextResponse.json({ error: e instanceof Error ? e.message : "Search failed" }, { status: 500 });
   }
