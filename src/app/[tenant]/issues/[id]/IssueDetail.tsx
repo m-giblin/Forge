@@ -4,7 +4,7 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { type Issue } from "@/lib/repositories/issues";
-import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
+import { type FieldOption, type Category, type Component, type CustomField } from "@/lib/repositories/fieldConfig";
 import { type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
 import { isUnassignedOverdue, unassignedThresholdMs } from "@/lib/sla";
 import { updateIssueAction, deleteIssueAction, addCommentAction, watchIssueAction, unwatchIssueAction, saveIssueSpecAction, cascadeStatusToChildrenAction } from "./actions";
@@ -57,6 +57,7 @@ export default function IssueDetail({
   priorities,
   types,
   categories,
+  components,
   customFields,
   members,
   comments: initialComments,
@@ -86,6 +87,7 @@ export default function IssueDetail({
   priorities: FieldOption[];
   types: FieldOption[];
   categories: Category[];
+  components: Component[];
   customFields: CustomField[];
   members: Member[];
   comments: IssueComment[];
@@ -113,6 +115,7 @@ export default function IssueDetail({
   const [priority, setPriority] = useState(issue.priority);
   const [type, setType] = useState(issue.type);
   const [categoryId, setCategoryId] = useState(issue.category_id ?? "");
+  const [componentId, setComponentId] = useState(issue.component_id ?? "");
   const [assigneeId, setAssigneeId] = useState(issue.assignee_id ?? "");
   const [startDate, setStartDate] = useState(issue.start_date ?? "");
   const [dueDate, setDueDate] = useState(issue.due_date ?? "");
@@ -232,14 +235,16 @@ export default function IssueDetail({
     const m = new Map<string, string>();
     [...statuses, ...priorities, ...types].forEach((o) => m.set(`opt:${o.key}`, o.label));
     categories.forEach((c) => m.set(`cat:${c.id}`, c.name));
+    components.forEach((c) => m.set(`cmp:${c.id}`, c.name));
     members.forEach((u) => m.set(`usr:${u.userId}`, u.label));
     return m;
-  }, [statuses, priorities, types, categories, members]);
+  }, [statuses, priorities, types, categories, components, members]);
 
   function eventValue(field: string, raw: string | null): string {
     if (raw == null) return field === "assignee" ? "Unassigned" : "none";
     if (field === "assignee") return labelFor.get(`usr:${raw}`) ?? "someone";
     if (field === "category") return labelFor.get(`cat:${raw}`) ?? "category";
+    if (field === "component") return labelFor.get(`cmp:${raw}`) ?? "component";
     return labelFor.get(`opt:${raw}`) ?? raw;
   }
 
@@ -250,6 +255,7 @@ export default function IssueDetail({
     priority !== issue.priority ||
     type !== issue.type ||
     (categoryId || null) !== issue.category_id ||
+    (componentId || null) !== issue.component_id ||
     (assigneeId || null) !== issue.assignee_id ||
     (startDate || null) !== issue.start_date ||
     (dueDate || null) !== issue.due_date ||
@@ -270,6 +276,7 @@ export default function IssueDetail({
           priority,
           type,
           categoryId: categoryId || null,
+          componentId: componentId || null,
           assigneeId: assigneeId || null,
           startDate: startDate || null,
           dueDate: dueDate || null,
@@ -309,6 +316,7 @@ export default function IssueDetail({
           priority,
           type,
           categoryId: categoryId || null,
+          componentId: componentId || null,
           assigneeId: assigneeId || null,
           customValues,
         });
@@ -735,15 +743,18 @@ export default function IssueDetail({
             priority={priority}
             type={type}
             categoryId={categoryId}
+            componentId={componentId}
             priorities={priorities}
             types={types}
             catOptions={catOptions}
+            components={components}
             customFields={customFields}
             customValues={customValues}
             readOnly={readOnly}
             setPriority={setPriority}
             setType={setType}
             setCategoryId={setCategoryId}
+            setComponentId={setComponentId}
             setCustomValues={setCustomValues}
             saveField={saveField}
           />

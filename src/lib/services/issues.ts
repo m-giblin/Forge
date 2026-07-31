@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issuesRepo, type Issue, type IssueStatus } from "@/lib/repositories/issues";
 import { fieldConfigRepo, type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
+import { issueTemplatesRepo, type IssueTemplate } from "@/lib/repositories/issueTemplates";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { safeListCustomFields } from "@/lib/services/fieldConfig";
 import { issueActivityRepo, type IssueComment, type IssueEvent } from "@/lib/repositories/issueActivity";
@@ -29,6 +30,7 @@ export type BoardData = {
   types: FieldOption[];
   categories: Category[];
   customFields: CustomField[];
+  templates: IssueTemplate[];
 };
 
 /**
@@ -58,12 +60,13 @@ export async function loadBoard(
     .limit(BOARD_LIMIT);
   if (projectId) issueQuery = issueQuery.eq("project_id", projectId);
 
-  const [issuesRes, projects, options, categories, customFields] = await Promise.all([
+  const [issuesRes, projects, options, categories, customFields, templates] = await Promise.all([
     issueQuery,
     projectsRepo(supabase).listByTenant(tenantId),
     cfg.listOptions(tenantId),
     cfg.listCategories(tenantId),
     safeListCustomFields(supabase, tenantId),
+    issueTemplatesRepo(supabase).list(tenantId),
   ]);
 
   return {
@@ -75,6 +78,7 @@ export async function loadBoard(
     types: options.filter((o) => o.field === "type"),
     categories,
     customFields,
+    templates,
   };
 }
 
@@ -149,6 +153,31 @@ export async function createIssue(input: {
   return issue;
 }
 
+/**
+ * Enforces the tenant's "restrict status changes to adjacent workflow steps"
+ * toggle (fields admin page). No-op when the toggle is off or either status
+ * isn't a configured option (e.g. a stale/deleted value) — fail open rather
+ * than block a legitimate move on bad config.
+ */
+async function assertValidStatusTransition(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  tenantId: string,
+  fromStatus: string,
+  toStatus: string
+): Promise<void> {
+  if (fromStatus === toStatus) return;
+  const { data: tenantRow } = await supabase.from("tenants").select("restrict_status_transitions").eq("id", tenantId).maybeSingle();
+  if (!tenantRow?.restrict_status_transitions) return;
+
+  const statuses = (await fieldConfigRepo(supabase).listOptions(tenantId)).filter((o) => o.field === "status");
+  const fromIdx = statuses.findIndex((s) => s.key === fromStatus);
+  const toIdx = statuses.findIndex((s) => s.key === toStatus);
+  if (fromIdx === -1 || toIdx === -1) return;
+  if (Math.abs(toIdx - fromIdx) !== 1) {
+    throw new Error(`This workspace only allows moving between adjacent statuses. Move through "${statuses[fromIdx + (toIdx > fromIdx ? 1 : -1)]?.label}" first.`);
+  }
+}
+
 /** Move an issue to a new status column (and optional position). */
 export async function moveIssue(
   tenantId: string,
@@ -157,9 +186,12 @@ export async function moveIssue(
   position?: number
 ): Promise<Issue> {
   const supabase = await createSupabaseServerClient();
+  const repo = issuesRepo(supabase);
+  const before = await repo.get(tenantId, id);
+  if (before) await assertValidStatusTransition(supabase, tenantId, before.status, status);
   const patch: { status: IssueStatus; position?: number } = { status };
   if (typeof position === "number") patch.position = position;
-  return issuesRepo(supabase).update(tenantId, id, patch);
+  return repo.update(tenantId, id, patch);
 }
 
 /** Single issue for the detail page. `impersonating` → service-role (support view). */
@@ -175,6 +207,7 @@ export type IssuePatch = {
   priority?: string;
   type?: string;
   categoryId?: string | null;
+  componentId?: string | null;
   assigneeId?: string | null;
   startDate?: string | null;
   dueDate?: string | null;
@@ -190,6 +223,7 @@ const TRACKED: Array<{ field: string; patchKey: keyof IssuePatch; col: keyof Iss
   { field: "type", patchKey: "type", col: "type" },
   { field: "assignee", patchKey: "assigneeId", col: "assignee_id" },
   { field: "category", patchKey: "categoryId", col: "category_id" },
+  { field: "component", patchKey: "componentId", col: "component_id" },
   { field: "phase", patchKey: "phase", col: "phase" },
 ];
 
@@ -209,6 +243,8 @@ export async function updateIssue(
   const before = await repo.get(tenantId, id);
   if (!before) throw new Error("Issue not found.");
 
+  if (patch.status !== undefined) await assertValidStatusTransition(supabase, tenantId, before.status, patch.status);
+
   const dbPatch: Record<string, unknown> = {};
   if (patch.title !== undefined) dbPatch.title = patch.title;
   if (patch.description !== undefined) dbPatch.description = patch.description;
@@ -216,6 +252,7 @@ export async function updateIssue(
   if (patch.priority !== undefined) dbPatch.priority = patch.priority;
   if (patch.type !== undefined) dbPatch.type = patch.type;
   if (patch.categoryId !== undefined) dbPatch.category_id = patch.categoryId;
+  if (patch.componentId !== undefined) dbPatch.component_id = patch.componentId;
   if (patch.assigneeId !== undefined) dbPatch.assignee_id = patch.assigneeId;
   if (patch.startDate !== undefined) dbPatch.start_date = patch.startDate || null;
   if (patch.dueDate !== undefined) dbPatch.due_date = patch.dueDate || null;

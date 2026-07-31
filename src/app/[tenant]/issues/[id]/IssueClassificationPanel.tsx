@@ -1,37 +1,43 @@
 "use client";
 
 import { SideGroupLabel, InfoTooltip, sidebarSelect, sideLabel } from "./IssueDetailUI";
-import type { FieldOption, CustomField } from "@/lib/repositories/fieldConfig";
+import type { FieldOption, CustomField, Component } from "@/lib/repositories/fieldConfig";
 import type { IssuePatch } from "@/lib/services/issues";
 
 export default function IssueClassificationPanel({
   priority,
   type,
   categoryId,
+  componentId,
   priorities,
   types,
   catOptions,
+  components,
   customFields,
   customValues,
   readOnly,
   setPriority,
   setType,
   setCategoryId,
+  setComponentId,
   setCustomValues,
   saveField,
 }: {
   priority: string;
   type: string;
   categoryId: string;
+  componentId: string;
   priorities: FieldOption[];
   types: FieldOption[];
   catOptions: { id: string; label: string }[];
+  components: Component[];
   customFields: CustomField[];
   customValues: Record<string, string>;
   readOnly: boolean;
   setPriority: (v: string) => void;
   setType: (v: string) => void;
   setCategoryId: (v: string) => void;
+  setComponentId: (v: string) => void;
   setCustomValues: (fn: (cv: Record<string, string>) => Record<string, string>) => void;
   saveField: (patch: IssuePatch) => void;
 }) {
@@ -65,6 +71,18 @@ export default function IssueClassificationPanel({
           <select value={categoryId} disabled={readOnly} onChange={(e) => { setCategoryId(e.target.value); saveField({ categoryId: e.target.value || null }); }} className={sidebarSelect}>
             <option value="">None</option>
             {catOptions.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+          </select>
+        </div>
+      )}
+      {components.length > 0 && (
+        <div>
+          <p className={sideLabel}>
+            Component
+            <InfoTooltip text="The part of the product this issue touches — e.g. Auth, Billing, Mobile. Set by your workspace admin." />
+          </p>
+          <select value={componentId} disabled={readOnly} onChange={(e) => { setComponentId(e.target.value); saveField({ componentId: e.target.value || null }); }} className={sidebarSelect}>
+            <option value="">None</option>
+            {components.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
       )}

@@ -1,26 +1,44 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import {
   addOptionAction, deleteOptionAction, setDefaultAction, addCategoryAction, deleteCategoryAction,
-  addCustomFieldAction, deleteCustomFieldAction,
+  addComponentAction, deleteComponentAction,
+  addCustomFieldAction, deleteCustomFieldAction, reorderOptionsAction, setRestrictStatusTransitionsAction,
+  addIssueTemplateAction, deleteIssueTemplateAction,
 } from "./actions";
 import type { FieldName, CustomFieldType } from "@/lib/repositories/fieldConfig";
+import type { IssueTemplate } from "@/lib/repositories/issueTemplates";
 
 type Option = { id: string; field: FieldName; key: string; label: string; is_default: boolean };
 type Category = { id: string; parent_id: string | null; name: string };
+type Component = { id: string; name: string };
 type CustomField = { id: string; key: string; label: string; type: CustomFieldType; options: string[]; required: boolean };
-type Schema = { statuses: Option[]; priorities: Option[]; types: Option[]; categories: Category[]; customFields: CustomField[] };
+type Schema = {
+  statuses: Option[]; priorities: Option[]; types: Option[]; categories: Category[]; components: Component[]; customFields: CustomField[];
+  restrictStatusTransitions: boolean;
+};
 
-export default function FieldsManager({ slug, schema, readOnly = false }: { slug: string; schema: Schema; readOnly?: boolean }) {
+export default function FieldsManager({
+  slug, schema, templates, readOnly = false,
+}: {
+  slug: string; schema: Schema; templates: IssueTemplate[]; readOnly?: boolean;
+}) {
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [restrict, setRestrict] = useState(schema.restrictStatusTransitions);
 
   function run(fn: () => Promise<unknown>) {
     setError(null);
     startTransition(async () => {
       try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : "Something went wrong"); }
     });
+  }
+
+  function toggleRestrict() {
+    const next = !restrict;
+    setRestrict(next);
+    run(() => setRestrictStatusTransitionsAction(slug, next));
   }
 
   const tops = schema.categories.filter((c) => !c.parent_id);
@@ -30,9 +48,17 @@ export default function FieldsManager({ slug, schema, readOnly = false }: { slug
     <div className={`mt-6 space-y-6 ${readOnly ? "pointer-events-none opacity-70" : ""}`}>
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
 
-      <FieldSection title="Statuses" field="status" options={schema.statuses} slug={slug} run={run} pending={pending} />
-      <FieldSection title="Priorities" field="priority" options={schema.priorities} slug={slug} run={run} pending={pending} />
-      <FieldSection title="Types" field="type" options={schema.types} slug={slug} run={run} pending={pending} />
+      <FieldSection title="Statuses" field="status" options={schema.statuses} slug={slug} run={run} pending={pending} reorderable>
+        <label className="mt-3 flex items-start gap-2 rounded-lg bg-neutral-50 px-3 py-2 text-xs text-neutral-600">
+          <input type="checkbox" className="mt-0.5" checked={restrict} onChange={toggleRestrict} />
+          <span>
+            <span className="font-medium text-neutral-800">Restrict status changes to adjacent workflow steps.</span>{" "}
+            When on, an issue can only move to the status directly before or after its current one in the order above — no skipping steps.
+          </span>
+        </label>
+      </FieldSection>
+      <FieldSection title="Priorities" field="priority" options={schema.priorities} slug={slug} run={run} pending={pending} reorderable />
+      <FieldSection title="Types" field="type" options={schema.types} slug={slug} run={run} pending={pending} reorderable />
 
       {/* Categories */}
       <div className="rounded-xl border border-neutral-200 bg-white p-4">
@@ -68,7 +94,46 @@ export default function FieldsManager({ slug, schema, readOnly = false }: { slug
         </ul>
       </div>
 
+      <ComponentsSection slug={slug} components={schema.components} run={run} pending={pending} />
+
       <CustomFieldsSection slug={slug} fields={schema.customFields} run={run} pending={pending} />
+
+      <IssueTemplatesSection
+        slug={slug}
+        templates={templates}
+        types={schema.types}
+        priorities={schema.priorities}
+        run={run}
+        pending={pending}
+      />
+    </div>
+  );
+}
+
+function ComponentsSection({
+  slug, components, run, pending,
+}: {
+  slug: string; components: Component[];
+  run: (fn: () => Promise<unknown>) => void; pending: boolean;
+}) {
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold text-neutral-800">Components</h2>
+          <p className="text-xs text-neutral-500">Tag issues by the part of the product they touch — e.g. Auth, Billing, Mobile.</p>
+        </div>
+        <AddInline placeholder="New component…" onAdd={(v) => run(() => addComponentAction(slug, v))} pending={pending} />
+      </div>
+      <ul className="space-y-1.5">
+        {components.map((c) => (
+          <li key={c.id} className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-1.5 text-sm">
+            <span className="text-neutral-800">{c.name}</span>
+            <button onClick={() => run(() => deleteComponentAction(slug, c.id))} className="text-xs text-red-600 hover:underline">Delete</button>
+          </li>
+        ))}
+        {components.length === 0 && <li className="text-sm text-neutral-400">No components yet.</li>}
+      </ul>
     </div>
   );
 }
@@ -138,12 +203,83 @@ function CustomFieldsSection({
   );
 }
 
+function IssueTemplatesSection({
+  slug, templates, types, priorities, run, pending,
+}: {
+  slug: string; templates: IssueTemplate[]; types: Option[]; priorities: Option[];
+  run: (fn: () => Promise<unknown>) => void; pending: boolean;
+}) {
+  const [name, setName] = useState("");
+  const [titlePrefix, setTitlePrefix] = useState("");
+  const [type, setType] = useState(types[0]?.key ?? "");
+  const [priority, setPriority] = useState(priorities[0]?.key ?? "");
+
+  function add() {
+    if (!name.trim() || !type || !priority) return;
+    run(() => addIssueTemplateAction(slug, { name: name.trim(), titlePrefix, type, priority }));
+    setName(""); setTitlePrefix("");
+  }
+
+  const typeLabel = (key: string) => types.find((t) => t.key === key)?.label ?? key;
+  const priorityLabel = (key: string) => priorities.find((p) => p.key === key)?.label ?? key;
+
+  return (
+    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+      <h2 className="mb-1 text-sm font-semibold text-neutral-800">Issue templates</h2>
+      <p className="mb-3 text-xs text-neutral-500">One-click starting points shown on the quick-create form (title prefix + type + priority).</p>
+      <div className="mb-3 flex flex-wrap items-end gap-2">
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Template name (e.g. Bug report)"
+          className="flex-1 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+        />
+        <input
+          value={titlePrefix}
+          onChange={(e) => setTitlePrefix(e.target.value)}
+          placeholder="Title prefix (e.g. [Bug] )"
+          className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+        />
+        <select value={type} onChange={(e) => setType(e.target.value)} className="rounded-lg border border-neutral-300 px-2 py-2 text-sm">
+          {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+        </select>
+        <select value={priority} onChange={(e) => setPriority(e.target.value)} className="rounded-lg border border-neutral-300 px-2 py-2 text-sm">
+          {priorities.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+        </select>
+        <button onClick={add} disabled={pending || !name.trim()} className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40">
+          Add template
+        </button>
+      </div>
+      <ul className="space-y-1.5">
+        {templates.map((t) => (
+          <li key={t.id} className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-1.5 text-sm">
+            <span className="text-neutral-800">
+              {t.name} <span className="text-xs text-neutral-400">· {typeLabel(t.type)} · {priorityLabel(t.priority)}{t.title_prefix ? ` · "${t.title_prefix}"` : ""}</span>
+            </span>
+            <button onClick={() => run(() => deleteIssueTemplateAction(slug, t.id))} className="text-xs text-red-600 hover:underline">Delete</button>
+          </li>
+        ))}
+        {templates.length === 0 && <li className="text-sm text-neutral-400">No issue templates yet.</li>}
+      </ul>
+    </div>
+  );
+}
+
 function FieldSection({
-  title, field, options, slug, run, pending,
+  title, field, options, slug, run, pending, reorderable, children,
 }: {
   title: string; field: FieldName; options: Option[]; slug: string;
   run: (fn: () => Promise<unknown>) => void; pending: boolean;
+  reorderable?: boolean; children?: ReactNode;
 }) {
+  function move(index: number, dir: -1 | 1) {
+    const target = index + dir;
+    if (target < 0 || target >= options.length) return;
+    const reordered = [...options];
+    [reordered[index], reordered[target]] = [reordered[target], reordered[index]];
+    run(() => reorderOptionsAction(slug, field, reordered.map((o) => o.id)));
+  }
+
   return (
     <div className="rounded-xl border border-neutral-200 bg-white p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -151,9 +287,29 @@ function FieldSection({
         <AddInline placeholder={`New ${field}…`} onAdd={(v) => run(() => addOptionAction(slug, field, v))} pending={pending} />
       </div>
       <ul className="space-y-1.5">
-        {options.map((o) => (
+        {options.map((o, i) => (
           <li key={o.id} className="flex items-center justify-between rounded-lg bg-neutral-50 px-3 py-1.5 text-sm">
-            <span className="text-neutral-800">
+            <span className="flex items-center gap-2 text-neutral-800">
+              {reorderable && (
+                <span className="flex flex-col">
+                  <button
+                    onClick={() => move(i, -1)}
+                    disabled={pending || i === 0}
+                    aria-label={`Move ${o.label} up`}
+                    className="leading-none text-neutral-400 hover:text-neutral-700 disabled:opacity-30"
+                  >
+                    ▲
+                  </button>
+                  <button
+                    onClick={() => move(i, 1)}
+                    disabled={pending || i === options.length - 1}
+                    aria-label={`Move ${o.label} down`}
+                    className="leading-none text-neutral-400 hover:text-neutral-700 disabled:opacity-30"
+                  >
+                    ▼
+                  </button>
+                </span>
+              )}
               {o.label}
               {o.is_default && <span className="ml-2 rounded bg-neutral-200 px-1.5 py-0.5 text-[10px] text-neutral-600">default</span>}
             </span>
@@ -170,6 +326,7 @@ function FieldSection({
           </li>
         ))}
       </ul>
+      {children}
     </div>
   );
 }

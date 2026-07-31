@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import {
   addFieldOption, deleteFieldOption, setDefaultOption, addCategory, deleteCategory,
-  addCustomField, deleteCustomField, importCategories,
+  addComponent, deleteComponent,
+  addCustomField, deleteCustomField, importCategories, reorderFieldOptions, setRestrictStatusTransitions,
 } from "@/lib/services/fieldConfig";
+import { addIssueTemplate, deleteIssueTemplate } from "@/lib/services/issueTemplates";
 import type { CsvCategoryRow } from "@/lib/services/fieldConfig";
 import { recordAudit } from "@/lib/audit";
 import type { FieldName, CustomFieldType } from "@/lib/repositories/fieldConfig";
@@ -36,6 +38,19 @@ export async function setDefaultAction(slug: string, id: string, field: FieldNam
   revalidatePath(`/${slug}/admin/fields`);
 }
 
+export async function reorderOptionsAction(slug: string, field: FieldName, orderedIds: string[]) {
+  const ctx = await admin(slug);
+  await reorderFieldOptions(ctx.tenant.id, field, orderedIds);
+  revalidatePath(`/${slug}/admin/fields`);
+}
+
+export async function setRestrictStatusTransitionsAction(slug: string, value: boolean) {
+  const ctx = await admin(slug);
+  await setRestrictStatusTransitions(ctx.tenant.id, value);
+  await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "workflow.restrict_transitions", target: String(value) });
+  revalidatePath(`/${slug}/admin/fields`);
+}
+
 export async function addCategoryAction(slug: string, name: string, parentId: string | null, projectId?: string | null) {
   const ctx = await admin(slug);
   await addCategory(ctx.tenant.id, name, parentId, projectId);
@@ -46,6 +61,19 @@ export async function addCategoryAction(slug: string, name: string, parentId: st
 export async function deleteCategoryAction(slug: string, id: string) {
   const ctx = await admin(slug);
   await deleteCategory(ctx.tenant.id, id);
+  revalidatePath(`/${slug}/admin/fields`);
+}
+
+export async function addComponentAction(slug: string, name: string) {
+  const ctx = await admin(slug);
+  await addComponent(ctx.tenant.id, name);
+  await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "component.add", target: name });
+  revalidatePath(`/${slug}/admin/fields`);
+}
+
+export async function deleteComponentAction(slug: string, id: string) {
+  const ctx = await admin(slug);
+  await deleteComponent(ctx.tenant.id, id);
   revalidatePath(`/${slug}/admin/fields`);
 }
 
@@ -63,6 +91,24 @@ export async function deleteCustomFieldAction(slug: string, id: string) {
   const ctx = await admin(slug);
   await deleteCustomField(ctx.tenant.id, id);
   revalidatePath(`/${slug}/admin/fields`);
+}
+
+export async function addIssueTemplateAction(
+  slug: string,
+  input: { name: string; titlePrefix: string; type: string; priority: string }
+) {
+  const ctx = await admin(slug);
+  await addIssueTemplate(ctx.tenant.id, input);
+  await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "issuetemplate.add", target: input.name });
+  revalidatePath(`/${slug}/admin/fields`);
+  revalidatePath(`/${slug}/board`);
+}
+
+export async function deleteIssueTemplateAction(slug: string, id: string) {
+  const ctx = await admin(slug);
+  await deleteIssueTemplate(ctx.tenant.id, id);
+  revalidatePath(`/${slug}/admin/fields`);
+  revalidatePath(`/${slug}/board`);
 }
 
 export async function importCategoriesAction(

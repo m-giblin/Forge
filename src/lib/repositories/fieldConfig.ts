@@ -21,6 +21,12 @@ export type Category = {
   position: number;
 };
 
+export type Component = {
+  id: string;
+  name: string;
+  position: number;
+};
+
 export type CustomFieldType = "text" | "number" | "select" | "date";
 export type CustomField = {
   id: string;
@@ -93,6 +99,17 @@ export function fieldConfigRepo(supabase: SupabaseClient) {
       if (error) throw error;
     },
 
+    /** Persist a full reordering — `orderedIds` is the new top-to-bottom order for one field. */
+    async reorderOptions(tenantId: string, orderedIds: string[]): Promise<void> {
+      const results = await Promise.all(
+        orderedIds.map((id, position) =>
+          supabase.from("tenant_field_options").update({ position }).eq("tenant_id", tenantId).eq("id", id)
+        )
+      );
+      const failed = results.find((r) => r.error);
+      if (failed?.error) throw failed.error;
+    },
+
     async listCategories(tenantId: string, projectId?: string): Promise<Category[]> {
       let q = supabase
         .from("tenant_categories")
@@ -133,6 +150,31 @@ export function fieldConfigRepo(supabase: SupabaseClient) {
       // Delete both project-scoped rows AND legacy null-project rows (pre-migration 0092)
       await supabase.from("tenant_categories").delete().eq("tenant_id", tenantId).eq("project_id", projectId);
       await supabase.from("tenant_categories").delete().eq("tenant_id", tenantId).is("project_id", null);
+    },
+
+    async listComponents(tenantId: string): Promise<Component[]> {
+      const { data, error } = await supabase
+        .from("tenant_components")
+        .select("id, name, position")
+        .eq("tenant_id", tenantId)
+        .order("position");
+      if (error) throw error;
+      return (data ?? []) as Component[];
+    },
+
+    async addComponent(input: { tenant_id: string; name: string; position: number }): Promise<Component> {
+      const { data, error } = await supabase
+        .from("tenant_components")
+        .insert(input)
+        .select("id, name, position")
+        .single();
+      if (error) throw error;
+      return data as Component;
+    },
+
+    async deleteComponent(tenantId: string, id: string): Promise<void> {
+      const { error } = await supabase.from("tenant_components").delete().eq("tenant_id", tenantId).eq("id", id);
+      if (error) throw error;
     },
 
     async listCustomFields(tenantId: string): Promise<CustomField[]> {

@@ -7,6 +7,7 @@ import {
   type FieldName,
   type FieldOption,
   type Category,
+  type Component,
   type CustomField,
   type CustomFieldType,
 } from "@/lib/repositories/fieldConfig";
@@ -17,7 +18,9 @@ export type TenantSchema = {
   priorities: FieldOption[];
   types: FieldOption[];
   categories: Category[];
+  components: Component[];
   customFields: CustomField[];
+  restrictStatusTransitions: boolean;
 };
 
 function slugify(label: string): string {
@@ -41,21 +44,41 @@ export async function safeListCustomFields(supabase: SupabaseClient, tenantId: s
   }
 }
 
+/**
+ * Components are tolerant of migration 0125 not being applied yet: if the
+ * table doesn't exist, return [] so the board/Fields page keep working (no
+ * behavior change until the migration runs) — same pattern as
+ * safeListCustomFields above.
+ */
+export async function safeListComponents(supabase: SupabaseClient, tenantId: string): Promise<Component[]> {
+  try {
+    return await fieldConfigRepo(supabase).listComponents(tenantId);
+  } catch (e) {
+    const code = (e as { code?: string })?.code;
+    if (code === "PGRST205" || code === "42P01") return [];
+    throw e;
+  }
+}
+
 /** All config for a tenant, grouped. `impersonating` → service-role (support view). */
 export async function getTenantSchema(tenantId: string, impersonating = false): Promise<TenantSchema> {
   const supabase = impersonating ? createSupabaseServiceClient() : await createSupabaseServerClient();
   const repo = fieldConfigRepo(supabase);
-  const [options, categories, customFields] = await Promise.all([
+  const [options, categories, components, customFields, tenantRow] = await Promise.all([
     repo.listOptions(tenantId),
     repo.listCategories(tenantId),
+    safeListComponents(supabase, tenantId),
     safeListCustomFields(supabase, tenantId),
+    supabase.from("tenants").select("restrict_status_transitions").eq("id", tenantId).maybeSingle(),
   ]);
   return {
     statuses: options.filter((o) => o.field === "status"),
     priorities: options.filter((o) => o.field === "priority"),
     types: options.filter((o) => o.field === "type"),
     categories,
+    components,
     customFields,
+    restrictStatusTransitions: !!tenantRow.data?.restrict_status_transitions,
   };
 }
 
@@ -134,6 +157,50 @@ export async function setDefaultOption(tenantId: string, id: string, field: Fiel
   const repo = fieldConfigRepo(supabase);
   await repo.clearDefault(tenantId, field);
   await repo.setDefault(tenantId, id);
+}
+
+/** Reorder one field's options top-to-bottom. `orderedIds` must be exactly that field's option ids (any order lost otherwise). */
+export async function reorderFieldOptions(tenantId: string, field: FieldName, orderedIds: string[]): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const repo = fieldConfigRepo(supabase);
+  const existing = (await repo.listOptions(tenantId)).filter((o) => o.field === field);
+  const existingIds = new Set(existing.map((o) => o.id));
+  if (orderedIds.length !== existing.length || orderedIds.some((id) => !existingIds.has(id))) {
+    throw new Error("Reorder list doesn't match this workspace's current options.");
+  }
+  await repo.reorderOptions(tenantId, orderedIds);
+}
+
+/** Tenant-wide toggle: when on, an issue's status can only move to an adjacent workflow step (by position). */
+export async function getRestrictStatusTransitions(tenantId: string): Promise<boolean> {
+  const supabase = await createSupabaseServerClient();
+  const { data } = await supabase.from("tenants").select("restrict_status_transitions").eq("id", tenantId).maybeSingle();
+  return !!data?.restrict_status_transitions;
+}
+
+export async function setRestrictStatusTransitions(tenantId: string, value: boolean): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.from("tenants").update({ restrict_status_transitions: value }).eq("id", tenantId);
+  if (error) throw error;
+}
+
+const MAX_COMPONENTS = 50;
+
+export async function addComponent(tenantId: string, name: string): Promise<void> {
+  if (!name.trim()) throw new Error("Name is required.");
+  const supabase = await createSupabaseServerClient();
+  const repo = fieldConfigRepo(supabase);
+  const existing = await repo.listComponents(tenantId);
+  if (existing.length >= MAX_COMPONENTS) throw new Error(`Workspaces are limited to ${MAX_COMPONENTS} components.`);
+  if (existing.some((c) => c.name.toLowerCase() === name.trim().toLowerCase())) {
+    throw new Error(`A component called "${name.trim()}" already exists.`);
+  }
+  await repo.addComponent({ tenant_id: tenantId, name: name.trim(), position: existing.length });
+}
+
+export async function deleteComponent(tenantId: string, id: string): Promise<void> {
+  const supabase = await createSupabaseServerClient();
+  await fieldConfigRepo(supabase).deleteComponent(tenantId, id);
 }
 
 export async function addCategory(tenantId: string, name: string, parentId: string | null, projectId?: string | null): Promise<void> {

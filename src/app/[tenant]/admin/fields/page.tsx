@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { getTenantSchema } from "@/lib/services/fieldConfig";
+import { listIssueTemplates } from "@/lib/services/issueTemplates";
 // eslint-disable-next-line no-restricted-imports -- admin page needs project list (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
@@ -14,7 +15,11 @@ export default async function FieldsPage({ params }: { params: Promise<{ tenant:
   const readOnly = !(ctx.role === "owner" || ctx.role === "admin");
 
   const svc = createSupabaseServiceClient();
-  const projects = await projectsRepo(svc).listByTenant(ctx.tenant.id);
+  const [projects, schema, templates] = await Promise.all([
+    projectsRepo(svc).listByTenant(ctx.tenant.id),
+    getTenantSchema(ctx.tenant.id, ctx.impersonating),
+    listIssueTemplates(ctx.tenant.id),
+  ]);
 
   return (
     <section>
@@ -22,7 +27,7 @@ export default async function FieldsPage({ params }: { params: Promise<{ tenant:
       <p className="mt-1 text-sm text-neutral-500">
         Customize the statuses, priorities, types, and categories used by issues in this workspace.
       </p>
-      <FieldsManager slug={slug} schema={await getTenantSchema(ctx.tenant.id, ctx.impersonating)} readOnly={readOnly} />
+      <FieldsManager slug={slug} schema={schema} templates={templates} readOnly={readOnly} />
       {!readOnly && (
         <div className="mt-6">
           <h3 className="text-sm font-semibold text-neutral-800 mb-1">Bulk import categories</h3>

@@ -98,6 +98,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
         priorities={schema.priorities}
         types={schema.types}
         categories={schema.categories}
+        components={schema.components}
         customFields={schema.customFields}
         members={members.map((m) => ({ userId: m.userId, label: m.name || m.email }))}
         comments={activity.comments}
