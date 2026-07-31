@@ -4,9 +4,11 @@ import { useRef, useState } from "react";
 import type { IssueAttachment } from "@/lib/repositories/issueAttachments";
 import {
   requestUploadUrlAction,
+  confirmUploadAction,
   getAttachmentDownloadUrlAction,
   deleteAttachmentAction,
 } from "./actions";
+import AttachmentProofingModal from "./AttachmentProofingModal";
 
 const ALLOWED = [
   "image/png", "image/jpeg", "image/gif", "image/webp",
@@ -46,6 +48,7 @@ export default function IssueAttachments({
   const [attachments, setAttachments] = useState<IssueAttachment[]>(initialAttachments);
   const [uploading, setUploading] = useState<UploadingFile[]>([]);
   const [dragging, setDragging] = useState(false);
+  const [proofingAttachment, setProofingAttachment] = useState<IssueAttachment | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFiles(files: FileList | File[]) {
@@ -64,7 +67,7 @@ export default function IssueAttachments({
       setUploading((u) => [...u, entry]);
 
       try {
-        const { attachmentId, signedUrl } = await requestUploadUrlAction(
+        const { attachmentId, signedUrl, storagePath } = await requestUploadUrlAction(
           slug, issueId, file.name, file.type, file.size
         );
 
@@ -84,6 +87,15 @@ export default function IssueAttachments({
           xhr.send(file);
         });
 
+        // Verify the bytes that actually landed in storage match the declared
+        // type before showing this as a real attachment — a spoofed
+        // Content-Type would otherwise sail straight through.
+        const confirmed = await confirmUploadAction(slug, attachmentId);
+        if (!confirmed.ok) {
+          setUploading((u) => u.map((x) => x.name === file.name ? { ...x, error: confirmed.error } : x));
+          continue;
+        }
+
         // Add to list — the DB row was pre-inserted by the server action.
         const newAttachment: IssueAttachment = {
           id: attachmentId,
@@ -91,7 +103,7 @@ export default function IssueAttachments({
           filename: file.name,
           contentType: file.type,
           sizeBytes: file.size,
-          storagePath: `${slug}/${issueId}/${attachmentId}-${file.name}`,
+          storagePath,
           uploadedBy: null,
           createdAt: new Date().toISOString(),
         };
@@ -153,6 +165,15 @@ export default function IssueAttachments({
                 <p className="text-xs text-neutral-400">{formatBytes(a.sizeBytes)}</p>
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                {a.contentType.startsWith("image/") && (
+                  <button
+                    onClick={() => setProofingAttachment(a)}
+                    title="View & annotate"
+                    className="rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700"
+                  >
+                    📌
+                  </button>
+                )}
                 <button
                   onClick={() => download(a)}
                   title="Download"
@@ -234,6 +255,16 @@ export default function IssueAttachments({
             onChange={(e) => e.target.files && handleFiles(e.target.files)}
           />
         </>
+      )}
+
+      {proofingAttachment && (
+        <AttachmentProofingModal
+          slug={slug}
+          issueId={issueId}
+          attachment={proofingAttachment}
+          readOnly={readOnly}
+          onClose={() => setProofingAttachment(null)}
+        />
       )}
     </div>
   );

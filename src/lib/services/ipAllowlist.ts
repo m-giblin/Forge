@@ -9,12 +9,13 @@ const CONFIG_KEY = "ip_allowlist";
  */
 export async function getIpAllowlist(tenantId: string): Promise<string[]> {
   const svc = createSupabaseServiceClient();
-  const { data } = await svc
-    .from("platform_config")
+  const { data, error } = await svc
+    .from("tenant_settings")
     .select("value")
     .eq("tenant_id", tenantId)
     .eq("key", CONFIG_KEY)
     .maybeSingle();
+  if (error) throw error;
   if (!data) return [];
   try {
     const parsed = JSON.parse(data.value as string);
@@ -26,15 +27,17 @@ export async function getIpAllowlist(tenantId: string): Promise<string[]> {
 
 export async function saveIpAllowlist(tenantId: string, entries: string[]): Promise<void> {
   const svc = createSupabaseServiceClient();
-  await svc.from("platform_config").upsert(
+  const { error } = await svc.from("tenant_settings").upsert(
     { tenant_id: tenantId, key: CONFIG_KEY, value: JSON.stringify(entries) },
     { onConflict: "tenant_id,key" }
   );
+  if (error) throw error;
 }
 
 export async function clearIpAllowlist(tenantId: string): Promise<void> {
   const svc = createSupabaseServiceClient();
-  await svc.from("platform_config").delete().eq("tenant_id", tenantId).eq("key", CONFIG_KEY);
+  const { error } = await svc.from("tenant_settings").delete().eq("tenant_id", tenantId).eq("key", CONFIG_KEY);
+  if (error) throw error;
 }
 
 /**

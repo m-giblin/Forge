@@ -9,9 +9,12 @@ import { canDo } from "@/lib/permissions";
 // eslint-disable-next-line no-restricted-imports -- SEC-09: service-role required for watcher writes (no user RLS policy)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issueAttachmentsRepo } from "@/lib/repositories/issueAttachments";
+import { attachmentPinsRepo, type AttachmentPin } from "@/lib/repositories/attachmentPins";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import { issueLinksRepo } from "@/lib/repositories/issueLinks";
 import { issueRiskGatesRepo } from "@/lib/repositories/issueRiskGates";
+import { matchesFileSignature, SIGNATURE_CHECK_BYTES } from "@/lib/services/fileSignature";
+import { publicEnv, serverEnv } from "@/lib/env";
 
 const BUCKET = "issue-attachments";
 const QUOTA_BYTES = 100 * 1024 * 1024; // 100 MB / month per tenant
@@ -104,7 +107,7 @@ export async function requestUploadUrlAction(
   filename: string,
   contentType: string,
   sizeBytes: number
-): Promise<{ attachmentId: string; signedUrl: string; token: string }> {
+): Promise<{ attachmentId: string; signedUrl: string; token: string; storagePath: string }> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot upload files.");
@@ -144,7 +147,58 @@ export async function requestUploadUrlAction(
     throw new Error("Could not generate upload URL.");
   }
 
-  return { attachmentId, signedUrl: data.signedUrl, token: data.token };
+  return { attachmentId, signedUrl: data.signedUrl, token: data.token, storagePath };
+}
+
+/**
+ * Called by the client right after its direct-to-storage upload succeeds.
+ * The upload itself (client → signed URL → Supabase Storage) never passes
+ * through app code, so `requestUploadUrlAction`'s content-type check is only
+ * ever validating what the client *claims* the file is — a spoofed
+ * `Content-Type` or a renamed executable would sail right through it. This
+ * closes that gap: read back the first few real bytes of the object we now
+ * own in storage and check them against the magic number the declared type
+ * should have. A mismatch deletes both the storage object and the metadata
+ * row rather than leaving a lying attachment record behind.
+ */
+export async function confirmUploadAction(
+  slug: string,
+  attachmentId: string
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+
+  const svc = createSupabaseServiceClient();
+  const repo = issueAttachmentsRepo(svc);
+  const attachment = await repo.getById(ctx.tenant.id, attachmentId);
+  if (!attachment) throw new Error("Attachment not found.");
+
+  // The storage SDK's download() doesn't expose a Range header, so this reads
+  // just the first few bytes directly against the Storage REST API instead of
+  // pulling the whole (up to 10MB) object down just to check its magic number.
+  const { NEXT_PUBLIC_SUPABASE_URL } = publicEnv();
+  const { SUPABASE_SERVICE_ROLE_KEY } = serverEnv();
+  const objectUrl = `${NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/${BUCKET}/${attachment.storagePath}`;
+  const res = await fetch(objectUrl, {
+    headers: {
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      Range: `bytes=0-${SIGNATURE_CHECK_BYTES - 1}`,
+    },
+  });
+  if (!res.ok) {
+    // Object didn't land (e.g. the client's upload actually failed) — clean up the row.
+    await repo.delete(ctx.tenant.id, attachmentId);
+    return { ok: false, error: "Upload could not be verified. Please try again." };
+  }
+
+  const head = new Uint8Array(await res.arrayBuffer());
+  if (!matchesFileSignature(head, attachment.contentType)) {
+    await svc.storage.from(BUCKET).remove([attachment.storagePath]);
+    await repo.delete(ctx.tenant.id, attachmentId);
+    return { ok: false, error: "This file's content doesn't match its declared type and was rejected." };
+  }
+
+  return { ok: true };
 }
 
 export async function getAttachmentDownloadUrlAction(
@@ -173,6 +227,44 @@ export async function deleteAttachmentAction(
   const storagePath = await issueAttachmentsRepo(svc).delete(ctx.tenant.id, attachmentId);
   await svc.storage.from(BUCKET).remove([storagePath]);
   revalidatePath(`/${slug}/issues`);
+}
+
+// ---- Files & Proofing (pins on image attachments) ----
+
+export async function listAttachmentPinsAction(slug: string, attachmentId: string): Promise<AttachmentPin[]> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  return attachmentPinsRepo(createSupabaseServiceClient()).listForAttachment(ctx.tenant.id, attachmentId);
+}
+
+export async function addAttachmentPinAction(
+  slug: string, attachmentId: string, issueId: string, xPct: number, yPct: number, comment: string
+): Promise<AttachmentPin> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot annotate attachments.");
+  if (!comment.trim()) throw new Error("Pin needs a comment.");
+  const pin = await attachmentPinsRepo(createSupabaseServiceClient()).create({
+    tenantId: ctx.tenant.id, attachmentId, issueId, xPct, yPct, comment: comment.trim(), createdBy: ctx.appUserId,
+  });
+  revalidatePath(`/${slug}/issues/${issueId}`);
+  return pin;
+}
+
+export async function setAttachmentPinResolvedAction(slug: string, issueId: string, pinId: string, resolved: boolean): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot resolve pins.");
+  await attachmentPinsRepo(createSupabaseServiceClient()).setResolved(ctx.tenant.id, pinId, resolved, ctx.appUserId);
+  revalidatePath(`/${slug}/issues/${issueId}`);
+}
+
+export async function deleteAttachmentPinAction(slug: string, issueId: string, pinId: string): Promise<void> {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  if (ctx.role === "viewer") throw new Error("Viewers cannot delete pins.");
+  await attachmentPinsRepo(createSupabaseServiceClient()).remove(ctx.tenant.id, pinId);
+  revalidatePath(`/${slug}/issues/${issueId}`);
 }
 
 export async function watchIssueAction(slug: string, issueId: string): Promise<void> {

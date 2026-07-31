@@ -1,6 +1,6 @@
 /**
  * Board Monitor — proactive AI risk surfacing.
- * Called by the cron endpoint; result stored in platform_config as `board_health_digest`.
+ * Called by the cron endpoint; result stored in tenant_settings as `board_health_digest`.
  * Shown automatically on Mission Control without any user action.
  */
 import "server-only";
@@ -218,23 +218,25 @@ export async function runBoardMonitor(tenantId: string): Promise<BoardHealthDige
     warning_count: alerts.filter((a) => a.level === "warning").length,
   };
 
-  // Persist to platform_config
-  await svc.from("platform_config").upsert(
+  // Persist to tenant_settings
+  const { error: persistError } = await svc.from("tenant_settings").upsert(
     { tenant_id: tenantId, key: "board_health_digest", value: JSON.stringify(digest) },
     { onConflict: "tenant_id,key" }
   );
+  if (persistError) throw persistError;
 
   return digest;
 }
 
 export async function getLatestBoardHealth(tenantId: string): Promise<BoardHealthDigest | null> {
   const svc = createSupabaseServiceClient();
-  const { data } = await svc
-    .from("platform_config")
+  const { data, error } = await svc
+    .from("tenant_settings")
     .select("value")
     .eq("tenant_id", tenantId)
     .eq("key", "board_health_digest")
     .maybeSingle();
+  if (error) throw error;
 
   if (!data?.value) return null;
   try {

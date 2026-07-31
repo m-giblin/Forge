@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { randomBytes } from "node:crypto";
 import { updateSession } from "@/lib/supabase/middleware";
-import { extractClientIp, isIpAllowed } from "@/lib/services/ipAllowlist";
+import { extractClientIp, getIpAllowlist, isIpAllowed } from "@/lib/services/ipAllowlist";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 /**
@@ -46,13 +46,7 @@ async function checkIpAllowlist(slug: string, clientIp: string): Promise<boolean
     const svc = createSupabaseServiceClient();
     const { data: tenant } = await svc.from("tenants").select("id").eq("slug", slug).maybeSingle();
     if (!tenant) return true; // unknown tenant — let the app handle it
-    const { data: cfg } = await svc
-      .from("platform_config")
-      .select("value")
-      .eq("tenant_id", tenant.id)
-      .eq("key", "ip_allowlist")
-      .maybeSingle();
-    const list: string[] = cfg ? (() => { try { const p = JSON.parse(cfg.value as string); return Array.isArray(p) ? p : []; } catch { return []; } })() : [];
+    const list = await getIpAllowlist(tenant.id as string);
     _allowlistCache.set(slug, { list, at: now });
     return isIpAllowed(clientIp, list);
   } catch {

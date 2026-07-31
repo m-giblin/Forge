@@ -72,6 +72,27 @@ export function issueAttachmentsRepo(supabase: SupabaseClient) {
       };
     },
 
+    async getById(tenantId: string, id: string): Promise<IssueAttachment | null> {
+      const { data, error } = await supabase
+        .from("issue_attachments")
+        .select("id, issue_id, filename, content_type, size_bytes, storage_path, uploaded_by, created_at")
+        .eq("tenant_id", tenantId)
+        .eq("id", id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        id: data.id,
+        issueId: data.issue_id,
+        filename: data.filename,
+        contentType: data.content_type,
+        sizeBytes: data.size_bytes,
+        storagePath: data.storage_path,
+        uploadedBy: data.uploaded_by,
+        createdAt: data.created_at,
+      };
+    },
+
     async delete(tenantId: string, id: string): Promise<string> {
       const { data, error } = await supabase
         .from("issue_attachments")

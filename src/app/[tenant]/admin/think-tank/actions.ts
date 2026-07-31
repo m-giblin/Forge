@@ -104,12 +104,13 @@ export async function setBlindVotingAction(slug: string, enabled: boolean): Prom
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   requireAdmin(ctx.role);
-  // eslint-disable-next-line no-restricted-imports -- service-role needed to upsert platform_config
+  // eslint-disable-next-line no-restricted-imports -- service-role needed to upsert tenant_settings
   const { createSupabaseServiceClient } = await import("@/lib/supabase/service");
   const svc = createSupabaseServiceClient();
-  await svc.from("platform_config").upsert(
+  const { error } = await svc.from("tenant_settings").upsert(
     { tenant_id: ctx.tenant.id, key: "tt_blind_voting", value: enabled ? "true" : "false" },
     { onConflict: "tenant_id,key" }
   );
+  if (error) throw error;
   revalidatePath(`/${slug}/think-tank`);
 }

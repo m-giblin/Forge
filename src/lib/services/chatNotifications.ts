@@ -12,38 +12,42 @@ const PROVIDER_KEYS: Record<ChatProvider, string> = {
 
 async function getWebhookUrl(tenantId: string, provider: ChatProvider): Promise<string | null> {
   const svc = createSupabaseServiceClient();
-  const { data } = await svc
-    .from("platform_config")
+  const { data, error } = await svc
+    .from("tenant_settings")
     .select("value")
     .eq("tenant_id", tenantId)
     .eq("key", PROVIDER_KEYS[provider])
     .maybeSingle();
+  if (error) throw error;
   return (data?.value as string) ?? null;
 }
 
 export async function saveChatWebhook(tenantId: string, provider: ChatProvider, url: string): Promise<void> {
   const svc = createSupabaseServiceClient();
-  await svc.from("platform_config").upsert(
+  const { error } = await svc.from("tenant_settings").upsert(
     { tenant_id: tenantId, key: PROVIDER_KEYS[provider], value: url },
     { onConflict: "tenant_id,key" },
   );
+  if (error) throw error;
 }
 
 export async function removeChatWebhook(tenantId: string, provider: ChatProvider): Promise<void> {
   const svc = createSupabaseServiceClient();
-  await svc.from("platform_config")
+  const { error } = await svc.from("tenant_settings")
     .delete()
     .eq("tenant_id", tenantId)
     .eq("key", PROVIDER_KEYS[provider]);
+  if (error) throw error;
 }
 
 export async function getChatWebhooks(tenantId: string): Promise<Record<ChatProvider, string>> {
   const svc = createSupabaseServiceClient();
-  const { data } = await svc
-    .from("platform_config")
+  const { data, error } = await svc
+    .from("tenant_settings")
     .select("key, value")
     .eq("tenant_id", tenantId)
     .in("key", Object.values(PROVIDER_KEYS));
+  if (error) throw error;
 
   const result = { slack: "", teams: "", discord: "" } as Record<ChatProvider, string>;
   for (const row of data ?? []) {

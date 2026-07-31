@@ -35,7 +35,7 @@ function decodeValue(raw: string, tenantId: string): string {
   }
 }
 
-// --- Credential helpers (per-tenant, stored in platform_config) ---
+// --- Credential helpers (per-tenant, stored in tenant_settings) ---
 
 export async function getSlackConfig(tenantId: string): Promise<{
   botToken: string;
@@ -43,11 +43,12 @@ export async function getSlackConfig(tenantId: string): Promise<{
   workspaceId: string;
 } | null> {
   const svc = createSupabaseServiceClient();
-  const { data } = await svc
-    .from("platform_config")
+  const { data, error } = await svc
+    .from("tenant_settings")
     .select("key, value")
     .eq("tenant_id", tenantId)
     .in("key", ["slack_bot_token", "slack_signing_secret", "slack_workspace_id"]);
+  if (error) throw error;
 
   const map = Object.fromEntries(
     (data ?? []).map((r) => [r.key as string, decodeValue(r.value as string, tenantId)])
@@ -78,28 +79,31 @@ export async function saveSlackConfig(
   ].filter(Boolean) as { tenant_id: string; key: string; value: string }[];
 
   if (rows.length === 0) return;
-  await svc.from("platform_config").upsert(rows, { onConflict: "tenant_id,key" });
+  const { error } = await svc.from("tenant_settings").upsert(rows, { onConflict: "tenant_id,key" });
+  if (error) throw error;
 }
 
 export async function clearSlackConfig(tenantId: string): Promise<void> {
   const svc = createSupabaseServiceClient();
-  await svc
-    .from("platform_config")
+  const { error } = await svc
+    .from("tenant_settings")
     .delete()
     .eq("tenant_id", tenantId)
     .in("key", ["slack_bot_token", "slack_signing_secret", "slack_workspace_id"]);
+  if (error) throw error;
 }
 
 // --- Tenant lookup by Slack workspace ID ---
 
 export async function getTenantByWorkspaceId(workspaceId: string): Promise<string | null> {
   const svc = createSupabaseServiceClient();
-  const { data } = await svc
-    .from("platform_config")
+  const { data, error } = await svc
+    .from("tenant_settings")
     .select("tenant_id")
     .eq("key", "slack_workspace_id")
     .eq("value", workspaceId)
     .maybeSingle();
+  if (error) throw error;
   return (data?.tenant_id as string) ?? null;
 }
 

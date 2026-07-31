@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { loadThinkTankPage } from "@/lib/services/thinkTank";
-// eslint-disable-next-line no-restricted-imports -- service-role to read platform_config (tenant setting, no user JWT context needed)
+// eslint-disable-next-line no-restricted-imports -- service-role to read tenant_settings (tenant setting, no user JWT context needed)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import ThinkTankListing from "./ThinkTankListing";
 
@@ -17,8 +17,9 @@ export default async function ThinkTankPage({
   const svc = createSupabaseServiceClient();
   const [data, blindRow] = await Promise.all([
     loadThinkTankPage(ctx.tenant.id, ctx.appUserId, ctx.impersonating),
-    svc.from("platform_config").select("value").eq("tenant_id", ctx.tenant.id).eq("key", "tt_blind_voting").maybeSingle(),
+    svc.from("tenant_settings").select("value").eq("tenant_id", ctx.tenant.id).eq("key", "tt_blind_voting").maybeSingle(),
   ]);
+  if (blindRow.error) console.error("[think-tank] failed to read tt_blind_voting setting", blindRow.error);
 
   const canCreate = ctx.role === "owner" || ctx.role === "admin" || ctx.role === "member";
   const isAdmin = ctx.role === "owner" || ctx.role === "admin";

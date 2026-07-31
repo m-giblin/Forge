@@ -1,7 +1,7 @@
 /**
  * Standup Digest — daily AI-generated team brief.
  * Answers: what shipped, what's in progress, what's blocked, what needs attention.
- * Stored as platform_config key `standup_digest_latest`.
+ * Stored as tenant_settings key `standup_digest_latest`.
  * Sent to configured chat webhooks + email if configured.
  */
 import "server-only";
@@ -113,10 +113,11 @@ export async function generateStandupDigest(tenantId: string): Promise<StandupDi
     stats,
   };
 
-  await svc.from("platform_config").upsert(
+  const { error: persistError } = await svc.from("tenant_settings").upsert(
     { tenant_id: tenantId, key: "standup_digest_latest", value: JSON.stringify(digest) },
     { onConflict: "tenant_id,key" }
   );
+  if (persistError) throw persistError;
 
   return digest;
 }
@@ -139,12 +140,13 @@ async function generateAISummary(tenantId: string, entries: StandupEntry[], stat
 
 export async function sendStandupToSlack(tenantId: string, tenantSlug: string, digest: StandupDigest): Promise<void> {
   const svc = createSupabaseServiceClient();
-  const { data } = await svc
-    .from("platform_config")
+  const { data, error } = await svc
+    .from("tenant_settings")
     .select("value")
     .eq("tenant_id", tenantId)
     .eq("key", "chat_webhook_slack")
     .maybeSingle();
+  if (error) throw error;
 
   const slackUrl = data?.value as string | null;
   if (!slackUrl) return;
@@ -220,13 +222,14 @@ export async function sendStandupEmail(tenantId: string, tenantSlug: string, dig
 
   const svc = createSupabaseServiceClient();
 
-  // Get configured digest email list from platform_config
-  const { data: cfgRow } = await svc
-    .from("platform_config")
+  // Get configured digest email list from tenant_settings
+  const { data: cfgRow, error: cfgError } = await svc
+    .from("tenant_settings")
     .select("value")
     .eq("tenant_id", tenantId)
     .eq("key", "standup_email_recipients")
     .maybeSingle();
+  if (cfgError) throw cfgError;
 
   const recipientsRaw = cfgRow?.value as string | null;
   if (!recipientsRaw) return;
@@ -289,12 +292,13 @@ export async function sendStandupEmail(tenantId: string, tenantSlug: string, dig
 
 export async function getLatestStandupDigest(tenantId: string): Promise<StandupDigest | null> {
   const svc = createSupabaseServiceClient();
-  const { data } = await svc
-    .from("platform_config")
+  const { data, error } = await svc
+    .from("tenant_settings")
     .select("value")
     .eq("tenant_id", tenantId)
     .eq("key", "standup_digest_latest")
     .maybeSingle();
+  if (error) throw error;
 
   if (!data?.value) return null;
   try {

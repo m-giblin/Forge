@@ -5,10 +5,12 @@ import dynamic from "next/dynamic";
 
 const RichEditor = dynamic(() => import("@/components/spaces/RichEditor"), { ssr: false });
 
-type SharedPage = {
-  id: string; title: string; body: string; icon: string | null;
-  updated_at: string; spaces: { name: string; icon: string } | null;
+type SharedPageMeta = {
+  id: string; title: string; icon: string | null;
+  spaces: { name: string; icon: string } | null;
 } | null;
+
+type SharedPageContent = { title: string; body: string; icon: string | null; updatedAt: string; spaces: { name: string; icon: string } | null };
 
 export default function GuestPageClient({
   shareId, magicToken, allowedDomain, page,
@@ -16,12 +18,31 @@ export default function GuestPageClient({
   shareId: string;
   magicToken: string | null;
   allowedDomain: string | null;
-  page: SharedPage;
+  page: SharedPageMeta;
 }) {
   const [phase, setPhase] = useState<"loading" | "gate" | "requesting" | "check-email" | "verifying" | "view" | "error">("loading");
   const [email, setEmail] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [content, setContent] = useState<SharedPageContent | null>(null);
+
+  // The real page body is only ever fetched here, after a session token has
+  // actually passed verification — never embedded in the initial server
+  // payload (see src/app/shared/page/page.tsx for why).
+  async function loadContent(token: string) {
+    const res = await fetch("/api/spaces/guest/content", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sessionToken: token, shareId }),
+    });
+    if (!res.ok) {
+      sessionStorage.removeItem(`forge-guest-${shareId}`);
+      setErrorMsg("Your session has expired. Please request a new link.");
+      setPhase("gate");
+      return;
+    }
+    setContent(await res.json());
+    setPhase("view");
+  }
 
   useEffect(() => {
     const stored = sessionStorage.getItem(`forge-guest-${shareId}`);
@@ -35,7 +56,7 @@ export default function GuestPageClient({
           body: JSON.stringify({ sessionToken: stored, shareId }),
         });
         const json = await res.json();
-        if (json.valid) { setSessionToken(stored); setPhase("view"); return; }
+        if (json.valid) { await loadContent(stored); return; }
         sessionStorage.removeItem(`forge-guest-${shareId}`);
       }
 
@@ -50,10 +71,9 @@ export default function GuestPageClient({
         const json = await res.json();
         if (json.sessionToken) {
           sessionStorage.setItem(`forge-guest-${shareId}`, json.sessionToken);
-          setSessionToken(json.sessionToken);
           // Clean token from URL without reload
           window.history.replaceState({}, "", `/shared/page?share=${shareId}`);
-          setPhase("view");
+          await loadContent(json.sessionToken);
         } else {
           setErrorMsg(json.error ?? "This link has expired. Please request a new one.");
           setPhase("gate");
@@ -66,6 +86,7 @@ export default function GuestPageClient({
     }
 
     boot();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [magicToken, shareId]);
 
   async function requestAccess() {
@@ -166,7 +187,7 @@ export default function GuestPageClient({
   }
 
   // phase === "view"
-  if (!page) {
+  if (!content) {
     return (
       <div className="min-h-screen bg-neutral-50 flex items-center justify-center p-6">
         <p className="text-neutral-500">Page not found.</p>
@@ -184,23 +205,23 @@ export default function GuestPageClient({
       {/* Page content */}
       <div className="max-w-3xl mx-auto px-4 py-10">
         <div className="mb-6">
-          {page.spaces && (
+          {content.spaces && (
             <p className="text-sm text-neutral-400 mb-3">
-              {page.spaces.icon} {page.spaces.name}
+              {content.spaces.icon} {content.spaces.name}
             </p>
           )}
           <h1 className="text-3xl font-bold text-neutral-900 mb-2 flex items-center gap-3">
-            {page.icon && <span>{page.icon}</span>}
-            {page.title}
+            {content.icon && <span>{content.icon}</span>}
+            {content.title}
           </h1>
           <p className="text-xs text-neutral-400">
-            Last updated {new Date(page.updated_at).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+            Last updated {new Date(content.updatedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
           </p>
         </div>
 
         <div className="rounded-xl border border-neutral-200 bg-white shadow-sm overflow-hidden">
           <RichEditor
-            content={page.body}
+            content={content.body}
             onChange={() => {}}
             readOnly
           />

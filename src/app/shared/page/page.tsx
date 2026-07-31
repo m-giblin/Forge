@@ -17,10 +17,15 @@ export default async function SharedPageRoute({
 
   const svc = createSupabaseServiceClient();
 
-  // Verify share still active
+  // Verify share still active. Deliberately select only cosmetic metadata for
+  // the pre-gate screen (title/icon/space name) — NOT `body`. The real page
+  // content is fetched client-side from /api/spaces/guest/content, and only
+  // once a session token has actually passed the email-domain verification
+  // gate. Passing `body` here would embed it in the initial RSC payload sent
+  // to anyone holding the link, before they've verified anything.
   const { data: share } = await svc
     .from("page_shares")
-    .select("id, allowed_domain, page_id, space_id, is_active, pages(id, title, body, icon, updated_at, spaces(name, icon))")
+    .select("id, allowed_domain, page_id, space_id, is_active, pages(id, title, icon, spaces(name, icon))")
     .eq("id", shareId)
     .eq("is_active", true)
     .single();
@@ -31,8 +36,8 @@ export default async function SharedPageRoute({
 
   const rawPage = Array.isArray(share.pages) ? share.pages[0] : share.pages;
   const page = rawPage as unknown as {
-    id: string; title: string; body: string; icon: string | null;
-    updated_at: string; spaces: { name: string; icon: string } | null;
+    id: string; title: string; icon: string | null;
+    spaces: { name: string; icon: string } | null;
   } | null;
 
   return (

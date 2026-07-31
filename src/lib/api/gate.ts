@@ -1,7 +1,7 @@
 import { authenticateApiKey, hasScope, type ApiAuthResult } from "@/lib/api/auth";
 import { apiError } from "@/lib/api/response";
 import { getRateLimiter } from "@/lib/providers/rate-limiter";
-import { isIpAllowed } from "@/lib/services/ipAllowlist";
+import { getIpAllowlist, isIpAllowed } from "@/lib/services/ipAllowlist";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getSdkSuspensionWindows } from "@/lib/services/sdkFallbackAlerts";
 import type { Scope } from "@/lib/api/scopes";
@@ -93,20 +93,11 @@ export async function enforce(
   // IP allowlist: apply tenant's allowlist to API key callers too (not just browser sessions).
   // Fail open when the allowlist cannot be read to avoid locking out API integrations.
   try {
-    const svc = createSupabaseServiceClient();
-    const { data: cfg } = await svc
-      .from("platform_config")
-      .select("value")
-      .eq("tenant_id", auth.tenantId)
-      .eq("key", "ip_allowlist")
-      .maybeSingle();
-    if (cfg) {
-      const list: string[] = (() => { try { const p = JSON.parse(cfg.value as string); return Array.isArray(p) ? p : []; } catch { return []; } })();
-      if (list.length > 0) {
-        const ip = clientIp(req);
-        if (!isIpAllowed(ip, list)) {
-          return { error: apiError("forbidden", "Your IP address is not on the allowlist for this workspace.") };
-        }
+    const list = await getIpAllowlist(auth.tenantId);
+    if (list.length > 0) {
+      const ip = clientIp(req);
+      if (!isIpAllowed(ip, list)) {
+        return { error: apiError("forbidden", "Your IP address is not on the allowlist for this workspace.") };
       }
     }
   } catch {
