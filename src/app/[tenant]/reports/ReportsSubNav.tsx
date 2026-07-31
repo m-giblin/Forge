@@ -30,7 +30,9 @@ const GROUPS = [
     label: "Analytics",
     items: [
       { href: "/reports/cycle-time", label: "Cycle Time", icon: "⏱", pro: true },
+      { href: "/reports/control-chart", label: "Control Chart", icon: "📉", pro: true },
       { href: "/reports/aging", label: "Issue Aging", icon: "⏳", pro: true },
+      { href: "/reports/cfd", label: "Cumulative Flow", icon: "🌊", pro: true },
     ],
   },
   {

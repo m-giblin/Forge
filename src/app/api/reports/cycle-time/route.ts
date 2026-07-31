@@ -16,6 +16,14 @@ export interface CycleTimeResult {
   byType: Record<string, { avg: number; count: number }>;
   byAssignee: { name: string; avg: number; count: number }[];
   items: CycleTimeItem[];
+  /**
+   * Every completed issue in range, sorted chronologically by resolution date
+   * (capped at CHART_ITEMS_CAP for rendering) — distinct from `items` above,
+   * which is the top-50-longest list the "Slowest Issues" tab uses. This one
+   * is what the Control Chart's scatter plot needs: a time-ordered series, not
+   * a longest-first ranking.
+   */
+  allItems: CycleTimeItem[];
   from: string; to: string;
 }
 
@@ -120,12 +128,20 @@ export async function GET(req: NextRequest) {
     assigneeMap.set(name, b);
   }
 
+  // Captured before the `items.sort()` below mutates the array in place —
+  // this needs chronological order (resolution date), not longest-first.
+  const CHART_ITEMS_CAP = 500;
+  const allItems = [...items]
+    .sort((a, b) => new Date(a.resolvedAt).getTime() - new Date(b.resolvedAt).getTime())
+    .slice(-CHART_ITEMS_CAP);
+
   return NextResponse.json({
     avg, median, p90,
     byPriority: Object.fromEntries(Object.entries(byPriority).map(([k, v]) => [k, { avg: Math.round((v.sum / v.count) * 10) / 10, count: v.count }])),
     byType: Object.fromEntries(Object.entries(byType).map(([k, v]) => [k, { avg: Math.round((v.sum / v.count) * 10) / 10, count: v.count }])),
     byAssignee: Array.from(assigneeMap.entries()).map(([name, v]) => ({ name, avg: Math.round((v.sum / v.count) * 10) / 10, count: v.count })).sort((a, b) => b.avg - a.avg),
     items: items.sort((a, b) => b.cycleDays - a.cycleDays).slice(0, 50),
+    allItems,
     from: fromStr, to: toStr,
   } satisfies CycleTimeResult);
 }
