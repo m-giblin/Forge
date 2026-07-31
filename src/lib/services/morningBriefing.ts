@@ -201,10 +201,25 @@ export async function loadMorningBriefing({
   const allIssues = allIssuesRaw.data ?? [];
   const sprints   = sprintsRaw.data ?? [];
   const projects  = projectsRaw.data ?? [];
-  const members = ((membersRaw.data ?? []) as unknown) as Array<{
-    user_id: string; role: string;
-    user: { id: string; name: string | null; email: string };
-  }>;
+  // The `user:users!inner(...)` embed can come back as either a plain object
+  // or a single-element array depending on how PostgREST resolves the
+  // relationship — and, `!inner` notwithstanding, as null for a membership
+  // row whose linked user no longer resolves (e.g. orphaned data). Blindly
+  // casting this with `as unknown as` and reading `m.user.name` crashed the
+  // whole Server Component render in production the moment a tenant had one
+  // such row — no defensive check, no try/catch, just a hard TypeError deep
+  // in a render path. Normalized here instead of trusting the cast.
+  type RawMemberRow = { user_id: string; role: string; user: unknown };
+  const membersRawRows = (membersRaw.data ?? []) as unknown as RawMemberRow[];
+  const members = membersRawRows
+    .map((m) => {
+      const u = Array.isArray(m.user) ? m.user[0] : m.user;
+      if (!u || typeof u !== "object") return null;
+      const user = u as { id?: string; name?: string | null; email?: string };
+      if (!user.email) return null;
+      return { user_id: m.user_id, role: m.role, user: { id: user.id ?? m.user_id, name: user.name ?? null, email: user.email } };
+    })
+    .filter((m): m is { user_id: string; role: string; user: { id: string; name: string | null; email: string } } => m !== null);
   const unreadMentions = notifCountRaw.count ?? 0;
   const recentActivity = activityRaw.data ?? [];
 
@@ -379,7 +394,7 @@ export async function loadMorningBriefing({
 
   // ── Digest: read from cache only — generation is owned by the 6am cron ──
   // Never block a page render on an AI call. The cron at /api/cron/standup-digest
-  // pre-generates per tenant and stores in platform_config. Null here = no digest
+  // pre-generates per tenant and stores in tenant_settings. Null here = no digest
   // yet today; the banner shows a "generates at 6am" message instead.
   const digest = digestCached;
   const digestFresh = digest
