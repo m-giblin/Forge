@@ -10,6 +10,8 @@ import {
 } from "@/lib/rbac";
 import type { PermissionDefinition } from "@/lib/repositories/permissionDefinitions";
 import { createRoleAction, updateRoleAction, deleteRoleAction } from "./actions";
+import AdminList from "@/components/patterns/admin/AdminList";
+import FormGrid from "@/components/patterns/admin/FormGrid";
 
 type Props = {
   slug: string;
@@ -20,7 +22,7 @@ type Props = {
 
 function ColorPicker({ value, onChange }: { value: string; onChange: (c: string) => void }) {
   return (
-    <div className="flex gap-1.5 flex-wrap">
+    <div className="flex flex-wrap gap-1.5 py-1">
       {ROLE_COLORS.map((c) => (
         <button
           key={c}
@@ -28,7 +30,7 @@ function ColorPicker({ value, onChange }: { value: string; onChange: (c: string)
           onClick={() => onChange(c)}
           className={`h-5 w-5 rounded-full border-2 transition-transform ${
             COLOR_CLASSES[c as RoleColor].bg
-          } ${value === c ? "border-neutral-700 scale-110" : "border-transparent"}`}
+          } ${value === c ? "border-[#5e2c1f] scale-110" : "border-transparent"}`}
           title={c}
         />
       ))}
@@ -50,24 +52,24 @@ function PermissionsGrid({
   };
   const groups = Array.from(new Set(permissions.map((p) => p.groupName)));
   return (
-    <div className="space-y-4">
+    <div className="max-h-64 space-y-3 overflow-auto rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] p-2.5">
       {groups.map((group) => {
         const perms = permissions.filter((p) => p.groupName === group);
         return (
           <div key={group}>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-widest text-neutral-400">{group}</p>
-            <div className="space-y-1">
+            <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">{group}</p>
+            <div className="space-y-0.5">
               {perms.map((perm) => (
-                <label key={perm.key} className="flex cursor-pointer items-center justify-between rounded-lg px-3 py-2 hover:bg-neutral-50">
+                <label key={perm.key} className="flex cursor-pointer items-center justify-between rounded-[5px] px-2 py-1.5 hover:bg-[#eae6da]">
                   <span>
-                    <span className="text-sm font-medium text-neutral-700">{perm.label}</span>
-                    <span className="ml-2 text-xs text-neutral-400">{perm.description}</span>
+                    <span className="text-[12px] font-semibold text-[#20201d]">{perm.label}</span>
+                    <span className="ml-2 text-[11px] text-[#a19d90]">{perm.description}</span>
                   </span>
                   <input
                     type="checkbox"
                     checked={value[perm.key] ?? false}
                     onChange={() => toggle(perm.key)}
-                    className="h-4 w-4 rounded accent-indigo-600"
+                    className="h-3.5 w-3.5 accent-[#8c4632]"
                   />
                 </label>
               ))}
@@ -82,7 +84,7 @@ function PermissionsGrid({
 function RoleChip({ role }: { role: CustomRole }) {
   const cc = COLOR_CLASSES[role.color as RoleColor] ?? COLOR_CLASSES.indigo;
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${cc.bg} ${cc.text} ${cc.border}`}>
+    <span className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${cc.bg} ${cc.text} ${cc.border}`}>
       {role.name}
     </span>
   );
@@ -95,13 +97,18 @@ type FormState = {
   permissions: RbacPermissionSet;
 };
 
+const fieldClass =
+  "w-full rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12.5px] text-[#20201d] outline-none focus:border-[#b7452f]";
+
 function RoleForm({
+  title,
   initial,
   onSave,
   onCancel,
   pending,
   permissions,
 }: {
+  title: string;
   initial: FormState;
   onSave: (s: FormState) => void;
   onCancel: () => void;
@@ -110,51 +117,50 @@ function RoleForm({
 }) {
   const [form, setForm] = useState(initial);
   return (
-    <div className="space-y-4">
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-neutral-600">Role name *</label>
-          <input
-            autoFocus
-            value={form.name}
-            onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-            placeholder="e.g. Sprint Master"
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-indigo-400"
-          />
-        </div>
-        <div className="flex-1">
-          <label className="mb-1 block text-xs font-medium text-neutral-600">Description</label>
-          <input
-            value={form.description}
-            onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
-            placeholder="Optional note about this role"
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-indigo-400"
-          />
-        </div>
-      </div>
-      <div>
-        <label className="mb-1.5 block text-xs font-medium text-neutral-600">Color</label>
-        <ColorPicker value={form.color} onChange={(c) => setForm((f) => ({ ...f, color: c }))} />
-      </div>
-      <div>
-        <label className="mb-1.5 block text-xs font-medium text-neutral-600">Permissions</label>
-        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-          <PermissionsGrid value={form.permissions} onChange={(p) => setForm((f) => ({ ...f, permissions: p }))} permissions={permissions} />
-        </div>
-      </div>
-      <div className="flex justify-end gap-2">
-        <button type="button" onClick={onCancel} disabled={pending} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm hover:bg-neutral-50 disabled:opacity-50">
-          Cancel
-        </button>
-        <button
-          type="button"
-          onClick={() => { if (form.name.trim()) onSave(form); }}
-          disabled={pending || !form.name.trim()}
-          className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
-        >
-          {pending ? "Saving…" : "Save role"}
-        </button>
-      </div>
+    <div>
+      <p className="mb-2 px-0.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">{title}</p>
+      <FormGrid
+        fields={[
+          {
+            key: "name",
+            label: "Role name",
+            input: (
+              <input
+                autoFocus
+                value={form.name}
+                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                placeholder="e.g. Sprint Master"
+                className={fieldClass}
+              />
+            ),
+          },
+          {
+            key: "description",
+            label: "Description",
+            input: (
+              <input
+                value={form.description}
+                onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
+                placeholder="Optional note about this role"
+                className={fieldClass}
+              />
+            ),
+          },
+          {
+            key: "color",
+            label: "Color",
+            input: <ColorPicker value={form.color} onChange={(c) => setForm((f) => ({ ...f, color: c }))} />,
+          },
+          {
+            key: "permissions",
+            label: "Permissions",
+            input: <PermissionsGrid value={form.permissions} onChange={(p) => setForm((f) => ({ ...f, permissions: p }))} permissions={permissions} />,
+          },
+        ]}
+        onCancel={onCancel}
+        onSubmit={() => { if (form.name.trim()) onSave(form); }}
+        submitLabel={pending ? "Saving…" : "Save role"}
+      />
     </div>
   );
 }
@@ -181,108 +187,79 @@ export default function RolesManager({ slug, initialRoles, permissions }: Props)
     });
   }
 
+  const editingRole = roles.find((r) => r.id === editingId);
+  const listRoles = roles.filter((r) => r.id !== editingId);
+
   return (
     <div className="space-y-4">
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      {error && <p className="rounded-[5px] border border-[#f0cfc9] bg-[#fbeae8] px-3 py-2 text-[12px] font-semibold text-[#c0392b]">{error}</p>}
 
-      {/* Existing roles */}
-      {roles.map((role) => (
-        <div key={role.id} className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
-          {editingId === role.id ? (
-            <div className="p-4">
-              <p className="mb-3 text-sm font-semibold text-neutral-700">Edit role</p>
-              <RoleForm
-                initial={{ name: role.name, description: role.description ?? "", color: role.color, permissions: role.permissions }}
-                pending={pending}
-                permissions={permissions}
-                onCancel={() => setEditingId(null)}
-                onSave={(form) =>
-                  run(
-                    () => updateRoleAction(slug, role.id, { name: form.name, description: form.description, color: form.color, permissions: form.permissions }),
-                    () => {
-                      setRoles((prev) => prev.map((r) => r.id === role.id ? { ...r, ...form } : r));
-                      setEditingId(null);
-                    }
-                  )
-                }
-              />
-            </div>
-          ) : (
-            <div className="flex items-center justify-between px-4 py-3">
-              <div className="flex items-center gap-3">
-                <RoleChip role={role} />
-                <span className="text-xs text-neutral-400">
-                  {role.description && <span className="mr-2 text-neutral-500">{role.description}</span>}
-                  {role.memberCount} member{role.memberCount !== 1 ? "s" : ""}
-                  {" · "}
-                  {countGranted(role.permissions)} permission{countGranted(role.permissions) !== 1 ? "s" : ""}
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setEditingId(role.id)}
-                  className="text-xs font-medium text-neutral-600 hover:text-neutral-900"
-                >
-                  Edit
-                </button>
-                {!role.is_system && (
-                  <button
-                    onClick={() => {
-                      if (confirm(`Delete role "${role.name}"?`)) {
-                        run(
-                          () => deleteRoleAction(slug, role.id),
-                          () => setRoles((prev) => prev.filter((r) => r.id !== role.id))
-                        );
-                      }
-                    }}
-                    disabled={pending}
-                    className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50"
-                  >
-                    Delete
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
+      {editingRole && (
+        <RoleForm
+          title={`Edit "${editingRole.name}"`}
+          initial={{ name: editingRole.name, description: editingRole.description ?? "", color: editingRole.color, permissions: editingRole.permissions }}
+          pending={pending}
+          permissions={permissions}
+          onCancel={() => setEditingId(null)}
+          onSave={(form) =>
+            run(
+              () => updateRoleAction(slug, editingRole.id, { name: form.name, description: form.description, color: form.color, permissions: form.permissions }),
+              () => {
+                setRoles((prev) => prev.map((r) => (r.id === editingRole.id ? { ...r, ...form } : r)));
+                setEditingId(null);
+              }
+            )
+          }
+        />
+      )}
 
-      {/* Create new role */}
-      {creating ? (
-        <div className="rounded-xl border border-indigo-200 bg-white p-4">
-          <p className="mb-3 text-sm font-semibold text-neutral-700">New custom role</p>
-          <RoleForm
-            initial={{ name: "", description: "", color: "indigo", permissions: { ...emptyPerms } }}
-            pending={pending}
-            permissions={permissions}
-            onCancel={() => setCreating(false)}
-            onSave={(form) =>
-              run(
-                () => createRoleAction(slug, { name: form.name, description: form.description, color: form.color, permissions: form.permissions }),
-                () => {
-                  setRoles((prev) => [
-                    ...prev,
-                    { id: crypto.randomUUID(), tenant_id: "", is_system: false, created_at: new Date().toISOString(), memberCount: 0, ...form },
-                  ]);
-                  setCreating(false);
-                }
-              )
-            }
-          />
-        </div>
-      ) : (
-        <button
-          onClick={() => setCreating(true)}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-neutral-300 px-4 py-3 text-sm font-medium text-neutral-500 hover:border-neutral-400 hover:text-neutral-700"
-        >
-          + New custom role
-        </button>
+      {listRoles.length > 0 && (
+        <AdminList
+          items={listRoles.map((role) => ({
+            key: role.id,
+            title: <RoleChip role={role} />,
+            subline: role.description || undefined,
+            meta: `${role.memberCount} member${role.memberCount !== 1 ? "s" : ""} · ${countGranted(role.permissions)} perm${countGranted(role.permissions) !== 1 ? "s" : ""}`,
+            actionLabel: role.is_system ? "Edit" : "Edit",
+            onAction: () => setEditingId(role.id),
+          }))}
+        />
       )}
 
       {roles.length === 0 && !creating && (
-        <p className="text-center text-sm text-neutral-400">
-          No custom roles yet. Create one above and assign it to members.
+        <p className="text-center text-[12px] text-[#a19d90]">
+          No custom roles yet. Create one below and assign it to members.
         </p>
+      )}
+
+      {creating ? (
+        <RoleForm
+          title="New role"
+          initial={{ name: "", description: "", color: "indigo", permissions: { ...emptyPerms } }}
+          pending={pending}
+          permissions={permissions}
+          onCancel={() => setCreating(false)}
+          onSave={(form) =>
+            run(
+              () => createRoleAction(slug, { name: form.name, description: form.description, color: form.color, permissions: form.permissions }),
+              () => {
+                setRoles((prev) => [
+                  ...prev,
+                  { id: crypto.randomUUID(), tenant_id: "", is_system: false, created_at: new Date().toISOString(), memberCount: 0, ...form },
+                ]);
+                setCreating(false);
+              }
+            )
+          }
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => setCreating(true)}
+          className="flex w-full items-center justify-center gap-2 rounded-[6px] border border-dashed border-[#ddd8c9] px-4 py-3 text-[12px] font-semibold text-[#726e60] hover:border-[#b7452f]/50 hover:text-[#b7452f]"
+        >
+          + New custom role
+        </button>
       )}
     </div>
   );

@@ -90,7 +90,8 @@ export default function IdeaDecisions({ slug, ideaId, decisions, isAdmin }: Prop
               <button
                 onClick={handleAdd}
                 disabled={isPending || !title.trim()}
-                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                className="rounded-lg border border-[#5e2c1f] px-4 py-2 text-sm font-medium text-[#f2e9d8] disabled:opacity-50"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 {isPending ? "Saving…" : "Record decision"}
               </button>

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getStripeConfigStatus } from "@/lib/services/stripeConfig";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { adminStyles as S } from "../page";
+import PageHeader from "@/components/patterns/PageHeader";
 import BillingConfigClient from "./BillingConfigClient";
 
 export default async function AdminBillingPage() {
@@ -18,21 +18,29 @@ export default async function AdminBillingPage() {
   ]);
 
   return (
-    <main style={{ padding: "24px 28px", maxWidth: 900 }}>
-      <Link href="/admin" style={S.backLink}>← Dashboard</Link>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={S.pageTitle}>Billing — Stripe Setup</h1>
-        <p style={S.pageSub}>
-          Paste your live Stripe keys here once you have a Stripe account. Nothing changes for customers
-          until a secret key is saved — checkout falls back to the existing manual request flow until then.
-          Looking for AI cost/usage data? That moved to <Link href="/admin/ai" style={{ color: "#4f46e5", fontWeight: 600 }}>AI Analytics</Link>.
-        </p>
-      </div>
-
-      <BillingConfigClient
-        status={status}
-        plans={(plans ?? []) as { key: string; label: string; monthly_cents: number | null; is_active: boolean; stripe_price_id: string | null }[]}
+    <main className="px-6 py-5">
+      <Link href="/admin" className="mb-2 inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#c9791d] hover:underline">
+        ← Dashboard
+      </Link>
+      <PageHeader
+        title="Billing — Stripe Setup"
+        subtitle="Paste your live Stripe keys here once you have a Stripe account. Nothing changes for customers until a secret key is saved — checkout falls back to the existing manual request flow until then."
       />
+
+      <div className="mt-4 space-y-4">
+        <p className="text-[12px] text-[#726e60]">
+          Looking for AI cost/usage data? That moved to{" "}
+          <Link href="/admin/ai" className="font-semibold text-[#c9791d] hover:underline">
+            AI Analytics
+          </Link>
+          .
+        </p>
+
+        <BillingConfigClient
+          status={status}
+          plans={(plans ?? []) as { key: string; label: string; monthly_cents: number | null; is_active: boolean; stripe_price_id: string | null }[]}
+        />
+      </div>
     </main>
   );
 }

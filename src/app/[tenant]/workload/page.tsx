@@ -49,34 +49,47 @@ export default async function WorkloadPage({
   const windowEnd = new Date();
   windowEnd.setUTCDate(windowEnd.getUTCDate() + 98); // 14 weeks forward
 
+  // Only start_date OR due_date is required, not both — most real issues only
+  // carry a due date. Requiring both here made this view empty for any tenant
+  // that doesn't fill in start_date, which is most of them. Windowing is done
+  // in JS below rather than via chained .or() filters — those don't compose
+  // the way you'd expect in PostgREST and silently dropped nearly all rows.
+  const windowStartIso = windowStart.toISOString().slice(0, 10);
+  const windowEndIso = windowEnd.toISOString().slice(0, 10);
+
   const { data: issueRows } = await svc
     .from("issues")
     .select("id, number, title, status, priority, assignee_id, start_date, due_date, project_id, time_estimate_minutes, story_points")
     .eq("tenant_id", ctx.tenant.id)
     .neq("status", "done")
-    .not("start_date", "is", null)
-    .not("due_date", "is", null)
-    .gte("due_date", windowStart.toISOString().slice(0, 10))
-    .lte("start_date", windowEnd.toISOString().slice(0, 10))
     .order("start_date");
 
-  const issues: HeatIssue[] = (issueRows ?? []).map((r) => {
-    const proj = projectMap.get(r.project_id as string);
-    return {
-      id: r.id as string,
-      key: proj ? `${proj.key}-${r.number}` : String(r.number),
-      title: r.title as string,
-      status: r.status as HeatIssue["status"],
-      priority: r.priority as HeatIssue["priority"],
-      assigneeId: r.assignee_id as string | null,
-      startDate: r.start_date as string,
-      dueDate: r.due_date as string,
-      projectId: r.project_id as string,
-      projectName: proj?.name ?? "",
-      timeEstimateMinutes: r.time_estimate_minutes as number | null,
-      storyPoints: r.story_points as number | null,
-    };
-  });
+  const issues: HeatIssue[] = (issueRows ?? [])
+    .filter((r) => r.start_date || r.due_date)
+    .map((r) => {
+      const proj = projectMap.get(r.project_id as string);
+      // Fill in whichever date is missing from the other — a single-day
+      // placement is the honest fallback, matching how Timeline treats
+      // issues with only one date set.
+      const startDate = (r.start_date as string | null) ?? (r.due_date as string);
+      const dueDate = (r.due_date as string | null) ?? (r.start_date as string);
+      return {
+        id: r.id as string,
+        key: proj ? `${proj.key}-${r.number}` : String(r.number),
+        title: r.title as string,
+        status: r.status as HeatIssue["status"],
+        priority: r.priority as HeatIssue["priority"],
+        assigneeId: r.assignee_id as string | null,
+        startDate,
+        dueDate,
+        projectId: r.project_id as string,
+        projectName: proj?.name ?? "",
+        timeEstimateMinutes: r.time_estimate_minutes as number | null,
+        storyPoints: r.story_points as number | null,
+      };
+    })
+    // Keep only issues that overlap the visible 16-week window.
+    .filter((i) => i.dueDate >= windowStartIso && i.startDate <= windowEndIso);
 
   return (
     <WorkloadHeatmapClient

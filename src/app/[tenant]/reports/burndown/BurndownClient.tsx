@@ -100,7 +100,7 @@ export default function BurndownClient({
               key={v}
               type="button"
               onClick={() => setView(v)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition ${view === v ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-700"}`}
+              className={`rounded-md px-3 py-1.5 text-xs font-medium capitalize transition ${view === v ? "bg-[#8c4632] text-[#f2e9d8]" : "text-[#726e60] hover:text-[#4a473e]"}`}
             >
               {v}
             </button>
@@ -109,7 +109,7 @@ export default function BurndownClient({
         <select
           value={sprintId}
           onChange={(e) => setSprintId(e.target.value)}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+          className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40"
         >
           {sprints.map((s) => (
             <option key={s.id} value={s.id}>
@@ -146,15 +146,15 @@ export default function BurndownClient({
 
           {/* Sprint goal */}
           {result.sprint.goal && (
-            <div className="mb-5 rounded-xl border-l-4 border-indigo-500 bg-indigo-50 px-4 py-3">
-              <p className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400 mb-1">Sprint Goal</p>
-              <p className="text-sm text-indigo-800 italic">{result.sprint.goal}</p>
+            <div className="mb-5 rounded-xl border-l-4 border-[#b7452f] bg-[#fbeae8] px-4 py-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[#b7452f] mb-1">Sprint Goal</p>
+              <p className="text-sm text-[#8c4632] italic">{result.sprint.goal}</p>
             </div>
           )}
 
           {/* Status badge */}
           {onTrack !== null && (
-            <div className={`mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ${onTrack ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>
+            <div className={`mb-5 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ${onTrack ? "bg-[#e9f3ea] text-[#3f7d4c]" : "bg-[#fdf1de] text-[#c9791d]"}`}>
               <span>{onTrack ? "✓" : "⚠"}</span>
               {onTrack ? "On track — at or below ideal burndown" : "Behind — above ideal burndown line"}
             </div>
@@ -171,7 +171,7 @@ export default function BurndownClient({
                       <span className="inline-block h-0.5 w-6 border-t-2 border-dashed border-neutral-400" />Ideal
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-0.5 w-6 bg-indigo-500 rounded" />Actual
+                      <span className="inline-block h-0.5 w-6 bg-[#b7452f] rounded" />Actual
                     </span>
                   </div>
                 </div>
@@ -184,11 +184,11 @@ export default function BurndownClient({
                     </g>
                   ))}
                   {/* Actual area fill */}
-                  <path d={chart.areaPath} fill="#6366f1" opacity="0.08" />
+                  <path d={chart.areaPath} fill="#b7452f" opacity="0.08" />
                   {/* Ideal dashed line */}
                   <path d={chart.idealPath} fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="5 3" />
                   {/* Actual line */}
-                  <path d={chart.actualPath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={chart.actualPath} fill="none" stroke="#b7452f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                   {/* Date labels — every N points */}
                   {result.points.filter((_, i) => i % Math.max(1, Math.floor(result.points.length / 6)) === 0).map((p, idx, arr) => {
                     const origIdx = result.points.indexOf(p);
@@ -222,7 +222,7 @@ export default function BurndownClient({
                       <span className="inline-block h-0.5 w-6 border-t-2 border-dashed border-neutral-400" />Scope (current total)
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="inline-block h-0.5 w-6 bg-emerald-500 rounded" />Completed
+                      <span className="inline-block h-0.5 w-6 bg-[#3f7d4c] rounded" />Completed
                     </span>
                   </div>
                 </div>
@@ -233,9 +233,9 @@ export default function BurndownClient({
                       <text x={PAD.l - 4} y={burnupChart.y(v) + 3} textAnchor="end" fontSize="9" fill="#94a3b8">{v}</text>
                     </g>
                   ))}
-                  <path d={burnupChart.areaPath} fill="#10b981" opacity="0.08" />
+                  <path d={burnupChart.areaPath} fill="#3f7d4c" opacity="0.08" />
                   <path d={burnupChart.scopePath} fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeDasharray="5 3" />
-                  <path d={burnupChart.completedPath} fill="none" stroke="#10b981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d={burnupChart.completedPath} fill="none" stroke="#3f7d4c" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
                   {result.points.filter((_, i) => i % Math.max(1, Math.floor(result.points.length / 6)) === 0).map((p, idx) => {
                     const origIdx = result.points.indexOf(p);
                     return (

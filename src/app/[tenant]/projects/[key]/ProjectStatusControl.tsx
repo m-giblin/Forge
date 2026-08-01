@@ -6,8 +6,8 @@ import { changeStatusAction, deleteProjectAction } from "./actions";
 import type { ProjectStatus } from "@/lib/repositories/projects";
 
 export const STATUS_META: Record<ProjectStatus, { label: string; cls: string }> = {
-  active:   { label: "Active",   cls: "bg-emerald-100 text-emerald-700" },
-  on_hold:  { label: "On hold",  cls: "bg-amber-100 text-amber-700" },
+  active:   { label: "Active",   cls: "bg-[#e9f3ea] text-[#3f7d4c]" },
+  on_hold:  { label: "On hold",  cls: "bg-[#fdf1de] text-[#c9791d]" },
   closed:   { label: "Closed",   cls: "bg-neutral-200 text-neutral-600" },
   archived: { label: "Archived", cls: "bg-purple-100 text-purple-700" },
 };

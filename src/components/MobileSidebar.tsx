@@ -73,10 +73,14 @@ export default function MobileSidebar({
         </button>
 
         <div className="flex items-center gap-2 min-w-0">
-          <div className="h-6 w-6 rounded-md bg-[var(--fw-sidebar-3)] overflow-hidden flex-shrink-0">
-            <img src="/logo-28.png" alt="Forge" className="h-6 w-6 object-cover" />
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-[#3a3c33] bg-[var(--fw-sidebar-3)]">
+            <svg width="15" height="9.4" viewBox="0 0 64 40" aria-hidden="true">
+              <path d="M3,19 L17,11 L17,8 L50,8 L50,15 L41,15 L37,22 L46,22 L48,32 L35,32 Q31,27 27,32 L13,32 L15,22 L24,22 L20,15 L20,11 Z" fill="var(--fw-rust)" />
+            </svg>
           </div>
-          <p className="truncate text-sm font-semibold text-[var(--fw-text-bright)] font-[family-name:var(--font-manrope)]">{tenantName}</p>
+          <p className="truncate font-[family-name:var(--font-manrope)] text-[13px] font-extrabold uppercase tracking-[0.02em] text-[var(--fw-text-bright)]">
+            Forge<span className="text-[var(--fw-rust)]">-Worx</span>
+          </p>
         </div>
 
         {unreadCount > 0 && (
@@ -122,15 +126,16 @@ export default function MobileSidebar({
         }}
         aria-label="Navigation drawer"
       >
-        {/* Drawer header */}
-        <div className="flex items-center gap-2.5 border-b border-[var(--fw-sidebar-border)] px-4 py-4 shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--fw-sidebar-3)] overflow-hidden shrink-0">
-            <img src="/logo-28.png" alt="Forge" className="h-7 w-7 object-cover" />
+        {/* Drawer header — wordmark */}
+        <div className="flex items-center gap-2.5 border-b border-white/[0.06] px-[18px] py-4 shrink-0">
+          <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md border border-[#3a3c33] bg-[var(--fw-sidebar-3)]">
+            <svg width="20" height="12.5" viewBox="0 0 64 40" aria-hidden="true">
+              <path d="M3,19 L17,11 L17,8 L50,8 L50,15 L41,15 L37,22 L46,22 L48,32 L35,32 Q31,27 27,32 L13,32 L15,22 L24,22 L20,15 L20,11 Z" fill="var(--fw-rust)" />
+            </svg>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold text-[var(--fw-text-bright)] font-[family-name:var(--font-manrope)]">{tenantName}</p>
-            <p className="text-[11px] text-[var(--fw-text-dimmer)] capitalize">{role}</p>
-          </div>
+          <p className="flex-1 font-[family-name:var(--font-manrope)] text-[15.5px] font-extrabold uppercase tracking-[0.03em] text-[var(--fw-text-bright)]">
+            Forge<span className="text-[var(--fw-rust)]">-Worx</span>
+          </p>
           <button
             onClick={close}
             aria-label="Close navigation"
@@ -140,6 +145,20 @@ export default function MobileSidebar({
               <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
             </svg>
           </button>
+        </div>
+
+        {/* Workspace switcher */}
+        <div className="mx-3.5 my-3.5 flex shrink-0 items-center gap-2.5 rounded-[5px] border border-[#34362c] bg-[var(--fw-sidebar-2)] px-2.5 py-[9px]">
+          <div
+            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded border border-[#3a1e15] text-[11px] font-extrabold text-[#efe6d0]"
+            style={{ background: "linear-gradient(135deg,var(--fw-rust-dark),var(--fw-rust-border))" }}
+          >
+            {(tenantName || "?").slice(0, 2).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12.5px] font-bold text-[var(--fw-text-bright)]">{tenantName}</p>
+            <p className="truncate text-[10.5px] text-[var(--fw-text-dimmer)] capitalize">{role}</p>
+          </div>
         </div>
 
         {/* Nav links */}
@@ -154,16 +173,14 @@ export default function MobileSidebar({
             <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--fw-text-dimmer)]">Execution</p>
             <div className="space-y-0.5">
               <SidebarNavItem href={`/${slug}/assigned`} icon="📌" label="My Work" onClick={close} />
-              <SidebarNavItem href={`/${slug}/code-review`} icon="🔀" label="Code Review" onClick={close} />
-              <SidebarNavItem href={`/${slug}/watching`} icon="👁" label="Watching" onClick={close} />
               <SidebarNavItem href={`/${slug}/inbox`} icon="📥" label="Inbox" badge={unreadCount > 0 ? unreadCount : undefined} onClick={close} />
               <SidebarNavItem href={`/${slug}/me/today`} icon="🎯" label="My Day" onClick={close} />
               <SidebarNavItem href={`/${slug}/board`} icon="🏃" label="Sprint board" badge={visibleProjects > 1 ? visibleProjects : undefined} badgeColor="rust" onClick={close} />
+              <SidebarNavItem href={`/${slug}/calendar`} icon="🗓️" label="Calendar" onClick={close} />
+              <SidebarNavItem href={`/${slug}/timeline`} icon="📅" label="Timeline" onClick={close} />
+              {flags.ops_layer && <SidebarNavItem href={`/${slug}/time`} icon="⏱️" label="My Time" onClick={close} />}
               <SidebarNavItem href={`/${slug}/backlog`} icon="🧹" label="Backlog" onClick={close} />
               <SidebarNavItem href={`/${slug}/issues`} icon="🐛" label="Table" onClick={close} />
-              <SidebarNavItem href={`/${slug}/timeline`} icon="📅" label="Timeline" onClick={close} />
-              <SidebarNavItem href={`/${slug}/calendar`} icon="🗓️" label="Calendar" onClick={close} />
-              {flags.ops_layer && <SidebarNavItem href={`/${slug}/time`} icon="⏱️" label="My Time" onClick={close} />}
             </div>
           </div>
 
@@ -200,6 +217,14 @@ export default function MobileSidebar({
               <SidebarNavItem href={`/${slug}/customers`} icon="🏢" label="Customers" onClick={close} />
               <SidebarNavItem href={`/${slug}/stakeholder`} icon="📈" label="Stakeholder" onClick={close} />
               <SidebarNavItem href={`/${slug}/changelog`} icon="📋" label="Changelog" onClick={close} />
+            </div>
+          </div>
+
+          <div>
+            <p className="mb-1 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--fw-text-dimmer)]">Review</p>
+            <div className="space-y-0.5">
+              <SidebarNavItem href={`/${slug}/code-review`} icon="🔀" label="Code Review" onClick={close} />
+              <SidebarNavItem href={`/${slug}/watching`} icon="👁" label="Watching" onClick={close} />
             </div>
           </div>
 

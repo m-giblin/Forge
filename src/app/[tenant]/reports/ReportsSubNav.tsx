@@ -54,12 +54,22 @@ export default function ReportsSubNav({ slug }: { slug: string }) {
   }
 
   return (
-    <aside className="w-48 shrink-0 border-r border-neutral-200 bg-white px-2 py-5 flex flex-col">
-      <p className="mb-3 px-2 text-[10px] font-bold uppercase tracking-widest text-neutral-400">Reports</p>
+    <aside
+      className="w-48 shrink-0 border-l-[3px] border-[var(--fw-rust)] px-2 py-5 flex flex-col overflow-y-auto"
+      style={{ background: `linear-gradient(165deg, var(--fw-sidebar-1) 0%, var(--fw-sidebar-2) 55%, var(--fw-sidebar-3) 100%)` }}
+    >
+      <Link
+        href={`/${slug}`}
+        className="mb-3 flex items-center gap-1.5 px-2 text-[11px] font-semibold text-[var(--fw-text-dim)] hover:text-[var(--fw-text-bright)] transition-colors"
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+        Back to workspace
+      </Link>
+      <p className="mb-3 px-2 text-[10px] font-bold uppercase tracking-widest text-[var(--fw-text-dimmer)]">Reports</p>
       {GROUPS.map((group, gi) => (
         <div key={gi} className={gi > 0 ? "mt-4" : ""}>
           {group.label && (
-            <p className="mb-1 px-2 text-[9px] font-semibold uppercase tracking-widest text-neutral-400">
+            <p className="mb-1 px-2 text-[9px] font-semibold uppercase tracking-widest text-[var(--fw-text-dimmer)]">
               {group.label}
             </p>
           )}
@@ -72,14 +82,14 @@ export default function ReportsSubNav({ slug }: { slug: string }) {
                 href={`/${slug}${item.href}`}
                 className={`flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
                   active
-                    ? "bg-indigo-50 text-indigo-700"
-                    : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
+                    ? "bg-[var(--fw-rust)]/20 text-[var(--fw-text-bright)]"
+                    : "text-[var(--fw-text-dim)] hover:bg-white/5 hover:text-[var(--fw-text-bright)]"
                 }`}
               >
                 <span className="text-sm leading-none">{item.icon}</span>
                 <span className="flex-1 truncate">{item.label}</span>
                 {pro && (
-                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold ${active ? "bg-indigo-200 text-indigo-700" : "bg-indigo-100 text-indigo-500"}`}>
+                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-bold ${active ? "bg-[var(--fw-rust)] text-[var(--fw-text-bright)]" : "bg-white/10 text-[var(--fw-text-dim)]"}`}>
                     PRO
                   </span>
                 )}

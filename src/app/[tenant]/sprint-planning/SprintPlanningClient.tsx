@@ -3,6 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addIssueToSprintAction, removeIssueFromSprintAction } from "../board/sprintActions";
+import PageHeader from "@/components/patterns/PageHeader";
+import StatsRow from "@/components/patterns/admin/StatsRow";
+import Note from "@/components/patterns/admin/Note";
+import SectionGroup from "@/components/patterns/SectionGroup";
 
 type Option = { key: string; label: string; color?: string | null };
 type Project = { id: string; key: string; name: string };
@@ -29,6 +33,7 @@ export default function SprintPlanningClient({
   const priMap = new Map(priorities.map((p) => [p.key, p]));
   const committedPoints = committed.reduce((s, i) => s + (i.storyPoints ?? 0), 0);
   const overCommitted = capacity != null && committedPoints > capacity;
+  const pctOfCapacity = capacity != null ? Math.round((committedPoints / Math.max(1, capacity)) * 100) : null;
 
   function switchParam(key: "project" | "sprint", value: string) {
     const params = new URLSearchParams();
@@ -66,134 +71,146 @@ export default function SprintPlanningClient({
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-neutral-900">Sprint Planning</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">Pull candidates into the sprint and watch committed points against your team&apos;s recent capacity.</p>
-        </div>
-        <div className="flex gap-2">
-          <select
-            value={projectId}
-            onChange={(e) => switchParam("project", e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
-          >
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-          {plannedSprints.length > 0 && (
+      <PageHeader
+        title="Sprint Planning"
+        subtitle="Pull backlog candidates into the next sprint"
+        right={
+          <div className="flex flex-nowrap items-center gap-2 overflow-x-auto">
             <select
-              value={sprintId}
-              onChange={(e) => switchParam("sprint", e.target.value)}
-              className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+              value={projectId}
+              onChange={(e) => switchParam("project", e.target.value)}
+              className="shrink-0 rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[11.5px] font-semibold text-[#4a473e] outline-none focus:border-[#b7452f]"
             >
-              {plannedSprints.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
-          )}
-        </div>
-      </div>
-
-      {plannedSprints.length === 0 ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400">
-          {project?.name ?? "This project"} has no planned (not-yet-started) sprints — create one from the board first.
-        </div>
-      ) : (
-        <>
-          {/* Capacity bar */}
-          <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-            <div className="mb-2 flex items-center justify-between text-sm">
-              <span className="font-semibold text-neutral-800">{sprint?.name}</span>
-              <span className={overCommitted ? "font-medium text-red-600" : "text-neutral-500"}>
-                {committedPoints} pts committed{capacity != null ? ` / ~${capacity} pts recent capacity` : ""}
-              </span>
-            </div>
-            {capacity != null ? (
-              <>
-                <div className="h-2.5 w-full overflow-hidden rounded-full bg-neutral-100">
-                  <div
-                    className={`h-full rounded-full transition-all ${overCommitted ? "bg-red-500" : "bg-emerald-500"}`}
-                    style={{ width: `${Math.min(100, (committedPoints / Math.max(1, capacity)) * 100)}%` }}
-                  />
-                </div>
-                {overCommitted && (
-                  <p className="mt-2 text-xs font-medium text-red-600">
-                    ⚠ Committed points exceed your last {completedSprintCount}-sprint average — consider trimming scope.
-                  </p>
-                )}
-                <p className="mt-2 text-[11px] text-neutral-400">
-                  Capacity = average completed points across your last {completedSprintCount} finished sprint{completedSprintCount === 1 ? "" : "s"} on this project — not a per-person hours estimate.
-                </p>
-              </>
-            ) : (
-              <p className="text-xs text-neutral-400">Not enough completed sprints yet on this project to estimate capacity — showing committed points only.</p>
+            {plannedSprints.length > 0 && (
+              <select
+                value={sprintId}
+                onChange={(e) => switchParam("sprint", e.target.value)}
+                className="shrink-0 rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[11.5px] font-semibold text-[#4a473e] outline-none focus:border-[#b7452f]"
+              >
+                {plannedSprints.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
             )}
           </div>
+        }
+      />
 
-          {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <div className="space-y-5 px-6 py-5">
+        {plannedSprints.length === 0 ? (
+          <div className="fw-card px-6 py-10 text-center text-[12.5px] text-[#a19d90]">
+            {project?.name ?? "This project"} has no planned (not-yet-started) sprints — create one from the board first.
+          </div>
+        ) : (
+          <>
+            <StatsRow
+              items={[
+                { label: "Committed", value: `${committedPoints} pts`, hint: capacity != null ? `of ${capacity} pt capacity` : "no capacity baseline yet" },
+                { label: "Candidates", value: candidates.length, hint: "unscheduled issues" },
+                { label: "Velocity", value: capacity != null ? `${capacity} pts` : "—", hint: `avg of last ${completedSprintCount} sprint${completedSprintCount === 1 ? "" : "s"}` },
+                { label: "Team capacity", value: capacity != null ? `${capacity} pts` : "—", hint: "after time off" },
+              ]}
+            />
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <div className="rounded-xl border border-neutral-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-semibold text-neutral-800">Backlog candidates <span className="text-neutral-400">({candidates.length})</span></h2>
-              <div className="space-y-2">
-                {candidates.map((i) => (
-                  <div key={i.id} className="flex items-center justify-between gap-2 rounded-lg border border-neutral-100 bg-neutral-50 p-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-neutral-800">{project?.key}-{i.number} · {i.title}</p>
-                      <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+            {capacity != null && (
+              <div className="fw-card px-4 py-3.5">
+                <div className="mb-2 flex items-center justify-between text-[12.5px]">
+                  <span className="font-bold text-[#20201d]">{sprint?.name}</span>
+                  <span className={overCommitted ? "font-semibold text-[#c0392b]" : "text-[#726e60]"}>
+                    {committedPoints} pts committed / ~{capacity} pts recent capacity
+                  </span>
+                </div>
+                <div className="h-2 w-full overflow-hidden rounded-full bg-[#e3ded0]">
+                  <div
+                    className={`h-full rounded-full transition-all ${overCommitted ? "bg-[#c0392b]" : "bg-[#8c4632]"}`}
+                    style={{ width: `${Math.min(100, pctOfCapacity ?? 0)}%` }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {overCommitted ? (
+              <Note icon="⚠️" tone="warning">
+                Committed points exceed your last {completedSprintCount}-sprint average — consider trimming scope.
+              </Note>
+            ) : capacity != null ? (
+              <Note icon="📊" tone="info">
+                You are at {pctOfCapacity}% of capacity. Capacity = average completed points across your last {completedSprintCount} finished sprint{completedSprintCount === 1 ? "" : "s"} on this project.
+              </Note>
+            ) : (
+              <Note icon="📊" tone="info">
+                Not enough completed sprints yet on this project to estimate capacity — showing committed points only.
+              </Note>
+            )}
+
+            {error && <p className="rounded-[6px] bg-[#fbeae8] px-3.5 py-2.5 text-[12px] text-[#c0392b]">{error}</p>}
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <SectionGroup label="Backlog candidates" color="#a19d90" count={candidates.length}>
+                {candidates.map((i, idx) => (
+                  <div
+                    key={i.id}
+                    className={`flex items-center gap-3 px-3.5 py-[11px] ${idx > 0 ? "border-t border-[#e3ded0]" : ""}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12.5px] font-semibold text-[#20201d]">{project?.key}-{i.number} · {i.title}</p>
+                      <div className="mt-1 flex items-center gap-1.5 text-[11px]">
                         {priMap.get(i.priority) && (
-                          <span className="rounded px-1.5 py-0.5 text-white" style={{ backgroundColor: priMap.get(i.priority)!.color ?? "#9CA3AF" }}>
+                          <span className="rounded px-1.5 py-0.5 font-semibold text-white" style={{ backgroundColor: priMap.get(i.priority)!.color ?? "#a19d90" }}>
                             {priMap.get(i.priority)!.label}
                           </span>
                         )}
-                        <span className="text-neutral-400">{i.storyPoints ?? "—"} pts</span>
+                        <span className="text-[#a19d90]">{i.storyPoints ?? "—"} pts</span>
                       </div>
                     </div>
                     <button
                       onClick={() => add(i)}
                       disabled={pending}
-                      className="shrink-0 rounded-lg border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-600 hover:bg-white disabled:opacity-50"
+                      className="shrink-0 text-[11.5px] font-semibold text-[#b7452f] hover:underline disabled:opacity-50"
                     >
                       + Add
                     </button>
                   </div>
                 ))}
-                {candidates.length === 0 && <p className="text-xs text-neutral-400">No unscheduled candidates left.</p>}
-              </div>
-            </div>
+                {candidates.length === 0 && <p className="px-3.5 py-4 text-[11.5px] text-[#a19d90]">No unscheduled candidates left.</p>}
+              </SectionGroup>
 
-            <div className="rounded-xl border border-neutral-200 bg-white p-4">
-              <h2 className="mb-3 text-sm font-semibold text-neutral-800">Committed to {sprint?.name} <span className="text-neutral-400">({committed.length})</span></h2>
-              <div className="space-y-2">
-                {committed.map((i) => (
-                  <div key={i.id} className="flex items-center justify-between gap-2 rounded-lg border border-indigo-100 bg-indigo-50 p-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm text-neutral-800">{project?.key}-{i.number} · {i.title}</p>
-                      <div className="mt-1 flex items-center gap-1.5 text-[10px]">
+              <SectionGroup label={`Committed to ${sprint?.name ?? "sprint"}`} color="#3f7d4c" count={committed.length}>
+                {committed.map((i, idx) => (
+                  <div
+                    key={i.id}
+                    className={`flex items-center gap-3 px-3.5 py-[11px] ${idx > 0 ? "border-t border-[#e3ded0]" : ""}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[12.5px] font-semibold text-[#20201d]">{project?.key}-{i.number} · {i.title}</p>
+                      <div className="mt-1 flex items-center gap-1.5 text-[11px]">
                         {priMap.get(i.priority) && (
-                          <span className="rounded px-1.5 py-0.5 text-white" style={{ backgroundColor: priMap.get(i.priority)!.color ?? "#9CA3AF" }}>
+                          <span className="rounded px-1.5 py-0.5 font-semibold text-white" style={{ backgroundColor: priMap.get(i.priority)!.color ?? "#a19d90" }}>
                             {priMap.get(i.priority)!.label}
                           </span>
                         )}
-                        <span className="text-neutral-400">{i.storyPoints ?? "—"} pts</span>
+                        <span className="text-[#a19d90]">{i.storyPoints ?? "—"} pts</span>
                       </div>
                     </div>
                     <button
                       onClick={() => remove(i)}
                       disabled={pending}
-                      className="shrink-0 rounded-lg px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-white disabled:opacity-50"
+                      className="shrink-0 text-[11.5px] font-semibold text-[#c0392b] hover:underline disabled:opacity-50"
                     >
                       Remove
                     </button>
                   </div>
                 ))}
-                {committed.length === 0 && <p className="text-xs text-neutral-400">Nothing committed yet.</p>}
-              </div>
+                {committed.length === 0 && <p className="px-3.5 py-4 text-[11.5px] text-[#a19d90]">Nothing committed yet.</p>}
+              </SectionGroup>
             </div>
-          </div>
-        </>
-      )}
+          </>
+        )}
+      </div>
     </div>
   );
 }

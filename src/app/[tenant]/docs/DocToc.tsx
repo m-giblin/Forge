@@ -34,7 +34,7 @@ export function DocToc({ headings }: { headings: TocItem[] }) {
 
   return (
     <nav className="space-y-0.5">
-      <p className="text-[10px] font-bold uppercase tracking-widest text-neutral-400 mb-3 px-1">On this page</p>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-[#a19d90] mb-3 px-1">On this page</p>
       {headings.map((h) => (
         <a
           key={h.id}
@@ -45,7 +45,7 @@ export function DocToc({ headings }: { headings: TocItem[] }) {
             setActive(h.id);
           }}
           className={`block text-[13px] leading-snug py-1 transition-colors rounded ${h.level === 3 ? "pl-4" : "pl-1"} ${
-            active === h.id ? "text-indigo-600 font-medium" : "text-neutral-400 hover:text-neutral-700"
+            active === h.id ? "text-[#b7452f] font-medium" : "text-[#a19d90] hover:text-[#4a473e]"
           }`}
         >
           {h.text}

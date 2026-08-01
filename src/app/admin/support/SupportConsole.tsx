@@ -10,6 +10,9 @@ import {
   savePlatformStalledThresholdAction,
 } from "./actions";
 import { timeAgo } from "@/lib/formatRelativeTime";
+import StatsRow from "@/components/patterns/admin/StatsRow";
+import AdminTable, { type AdminTableCell } from "@/components/patterns/admin/AdminTable";
+import { FilterRow, FilterPill } from "@/components/patterns/FilterRow";
 
 type Ticket = {
   id: string;
@@ -62,15 +65,6 @@ function avgResolutionDays(tickets: Ticket[]): string {
   if (!resolved.length) return "—";
   const avg = resolved.reduce((sum, t) => sum + (new Date(t.resolved_at!).getTime() - new Date(t.created_at).getTime()) / 86400000, 0) / resolved.length;
   return avg < 1 ? `${Math.round(avg * 24)}h` : `${avg.toFixed(1)}d`;
-}
-
-function StatTile({ label, value, color }: { label: string; value: string | number; color?: string }) {
-  return (
-    <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em", marginBottom: 4 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 700, color: color ?? "#111827" }}>{value}</div>
-    </div>
-  );
 }
 
 function StalledSetting({ current }: { current: number }) {
@@ -177,16 +171,16 @@ function TicketModal({ ticket, stalledDays, onClose, onUpdate }: { ticket: Ticke
 
           {/* AI triage */}
           {(ticket.ai_triage_summary || ticket.ai_guidance) && (
-            <div style={{ background: "#eef2ff", border: "1px solid #c7d2fe", borderRadius: 9, padding: "12px 14px" }}>
+            <div style={{ background: "#fdf1de", border: "1px solid #f0dcb8", borderRadius: 9, padding: "12px 14px" }}>
               {ticket.ai_triage_summary && (
                 <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5", marginBottom: 4 }}>✨ AI Triage</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#c9791d", marginBottom: 4 }}>✨ AI Triage</div>
                   <div style={{ fontSize: 12, color: "#374151", lineHeight: 1.5 }}>{ticket.ai_triage_summary}</div>
                 </div>
               )}
               {ticket.ai_guidance && (
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "#4f46e5", marginBottom: 4 }}>Suggested guidance</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "#c9791d", marginBottom: 4 }}>Suggested guidance</div>
                   <div style={{ fontSize: 12, color: "#6b7280", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>{ticket.ai_guidance}</div>
                 </div>
               )}
@@ -229,7 +223,7 @@ function TicketModal({ ticket, stalledDays, onClose, onUpdate }: { ticket: Ticke
                 <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
                   style={{ width: "100%", padding: "8px 10px", borderRadius: 7, border: "1px solid #e5e7eb", fontSize: 12, color: "#374151", outline: "none", resize: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={saveNotes} disabled={notesPending} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: notesPending ? .4 : 1 }}>{notesPending ? "…" : "Save"}</button>
+                  <button onClick={saveNotes} disabled={notesPending} style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: "#c9791d", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: notesPending ? .4 : 1 }}>{notesPending ? "…" : "Save"}</button>
                   <button onClick={() => { setEditingNotes(false); setNotes(ticket.platform_notes ?? ""); }} style={{ fontSize: 12, color: "#6b7280", background: "none", border: "none", cursor: "pointer" }}>Cancel</button>
                 </div>
               </div>
@@ -251,7 +245,7 @@ function TicketModal({ ticket, stalledDays, onClose, onUpdate }: { ticket: Ticke
           {replyError && <div style={{ fontSize: 12, color: "#dc2626" }}>{replyError}</div>}
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button onClick={sendReply} disabled={replyPending || !reply.trim()}
-              style={{ padding: "7px 16px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: replyPending || !reply.trim() ? .4 : 1 }}>
+              style={{ padding: "7px 16px", borderRadius: 7, border: "none", background: "#c9791d", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: replyPending || !reply.trim() ? .4 : 1 }}>
               {replyPending ? "Sending…" : isInternal ? "Save Note" : "Send Reply"}
             </button>
           </div>
@@ -281,89 +275,88 @@ export default function SupportConsole({ tickets: initialTickets, stalledDays }:
     tickets.reduce((m, t) => { const key = t.tenant_name ?? t.tenant_id; m.set(key, (m.get(key) ?? 0) + 1); return m; }, new Map<string, number>())
   ).sort((a, b) => b[1] - a[1]).slice(0, 5);
 
+  const columns = [
+    { label: "Title", flex: true },
+    { label: "Tenant", width: 190 },
+    { label: "Priority", width: 120 },
+    { label: "Status", width: 130 },
+    { label: "Updated", width: 140 },
+  ];
+  const rows: AdminTableCell[][] = filtered.map((ticket) => {
+    const stall = isStalled(ticket, stalledDays);
+    const priorityColor: Record<string, { fg: string; bg: string }> = {
+      urgent: { fg: "#c0392b", bg: "#fbeae8" },
+      high: { fg: "#c9791d", bg: "#fdf1de" },
+      medium: { fg: "#8a4f13", bg: "#f4ead4" },
+      low: { fg: "#726e60", bg: "#f1efe9" },
+    };
+    const statusColor: Record<string, { fg: string; bg: string }> = {
+      open: { fg: "#3a6ea8", bg: "#eaf1f8" },
+      in_progress: { fg: "#c9791d", bg: "#fdf1de" },
+      resolved: { fg: "#3f7d4c", bg: "#e9f3ea" },
+      closed: { fg: "#726e60", bg: "#f1efe9" },
+    };
+    const pc = priorityColor[ticket.priority] ?? { fg: "#726e60", bg: "#f1efe9" };
+    const sc = statusColor[ticket.status] ?? { fg: "#726e60", bg: "#f1efe9" };
+    return [
+      {
+        kind: "link",
+        value: (
+          <span className="flex items-center gap-1.5">
+            {stall && <span className="shrink-0 rounded-full bg-[#fdf1de] px-1.5 py-[1px] text-[10px] font-bold text-[#c9791d]">Stalled</span>}
+            <span className="truncate">{ticket.title}</span>
+          </span>
+        ),
+        onClick: () => setSelectedTicket(ticket),
+      },
+      { kind: "text", value: <span>{ticket.tenant_name ?? "—"}{ticket.tenant_slug && <span className="ml-1 font-mono text-[10.5px] text-[#a19d90]">/{ticket.tenant_slug}</span>}</span> },
+      { kind: "chip", value: ticket.priority, chipFg: pc.fg, chipBg: pc.bg },
+      { kind: "chip", value: STATUS_LABELS[ticket.status] ?? ticket.status, chipFg: sc.fg, chipBg: sc.bg },
+      { kind: "dim", value: timeAgo(ticket.updated_at) },
+    ];
+  });
+
   return (
-    <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 18 }}>
-      {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-        <StatTile label="Open" value={open} color={open > 0 ? "#2563eb" : undefined} />
-        <StatTile label="In Progress" value={inProgress} color={inProgress > 0 ? "#d97706" : undefined} />
-        <StatTile label="Stalled" value={stalled.length} color={stalled.length > 0 ? "#ea580c" : undefined} />
-        <StatTile label="Resolved" value={resolved} color="#16a34a" />
-        <StatTile label="Avg Resolution" value={avgResolutionDays(tickets)} />
-      </div>
+    <div className="mt-4 space-y-4">
+      <StatsRow
+        items={[
+          { label: "Open", value: open, color: open > 0 ? "#3a6ea8" : undefined },
+          { label: "First response", value: "—", hint: "avg time to first reply" },
+          { label: "Resolved (30d)", value: resolved, color: "#3f7d4c" },
+          { label: "Escalated", value: stalled.length, hint: "stalled tickets", color: stalled.length > 0 ? "#c0392b" : undefined },
+        ]}
+      />
 
       {/* Settings + tenant breakdown */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <StalledSetting current={stalledDays} />
         {byTenant.length > 0 && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 12, color: "#94a3b8" }}>
+          <div className="flex items-center gap-2.5 text-[11.5px] text-[#a19d90]">
             <span>Top tenants:</span>
             {byTenant.map(([name, count]) => (
-              <span key={name} style={{ color: "#374151" }}>{name} <span style={{ color: "#94a3b8" }}>({count})</span></span>
+              <span key={name} className="text-[#4a473e]">{name} <span className="text-[#a19d90]">({count})</span></span>
             ))}
           </div>
         )}
       </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 2, background: "#f8fafc", border: "1px solid #e5e7eb", borderRadius: 9, padding: 4, width: "fit-content" }}>
+      <FilterRow>
         {STATUS_TABS.map((t) => {
           const count = t === "all" ? tickets.length : tickets.filter((x) => x.status === t).length;
-          const active = tab === t;
           return (
-            <button key={t} onClick={() => setTab(t)}
-              style={{ padding: "5px 12px", borderRadius: 7, border: "none", background: active ? "#fff" : "transparent", color: active ? "#111827" : "#6b7280", fontWeight: active ? 600 : 400, fontSize: 12, cursor: "pointer", boxShadow: active ? "0 1px 3px rgba(0,0,0,.08)" : "none" }}>
-              {t === "all" ? "All" : STATUS_LABELS[t] ?? t} <span style={{ fontSize: 11, color: "#94a3b8", marginLeft: 2 }}>{count}</span>
-            </button>
+            <FilterPill key={t} active={tab === t} onClick={() => setTab(t)}>
+              {t === "all" ? "All" : STATUS_LABELS[t] ?? t} {count}
+            </FilterPill>
           );
         })}
-      </div>
+      </FilterRow>
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "48px 24px", textAlign: "center", fontSize: 13, color: "#94a3b8" }}>
-          No tickets in this category.
-        </div>
+        <div className="fw-card py-12 text-center text-[13px] text-[#a19d90]">No tickets in this category.</div>
       ) : (
-        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                {["Tenant", "Title", "Priority", "Status", "Updated"].map((h) => (
-                  <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((ticket) => {
-                const stall = isStalled(ticket, stalledDays);
-                return (
-                  <tr key={ticket.id} onClick={() => setSelectedTicket(ticket)}
-                    style={{ borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}>
-                    <td style={{ padding: "11px 14px" }}>
-                      <div style={{ color: "#111827", fontWeight: 500 }}>{ticket.tenant_name ?? "—"}</div>
-                      {ticket.tenant_slug && <div style={{ fontFamily: "monospace", fontSize: 11, color: "#94a3b8" }}>/{ticket.tenant_slug}</div>}
-                    </td>
-                    <td style={{ padding: "11px 14px", maxWidth: 240 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        {stall && <span style={{ padding: "1px 7px", borderRadius: 9, background: "#fff7ed", color: "#ea580c", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>Stalled</span>}
-                        <span style={{ color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ticket.title}</span>
-                      </div>
-                      {ticket.actor_label && <div style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{ticket.actor_label}</div>}
-                    </td>
-                    <td style={{ padding: "11px 14px" }}>
-                      <span style={{ padding: "2px 8px", borderRadius: 9, fontSize: 11, fontWeight: 500, ...(PRIORITY_BADGE[ticket.priority] ?? { background: "#f1f5f9", color: "#64748b" }) }}>{ticket.priority}</span>
-                    </td>
-                    <td style={{ padding: "11px 14px" }}>
-                      <span style={{ padding: "2px 8px", borderRadius: 9, fontSize: 11, fontWeight: 500, ...(STATUS_BADGE[ticket.status] ?? { background: "#f1f5f9", color: "#64748b" }) }}>{STATUS_LABELS[ticket.status] ?? ticket.status}</span>
-                    </td>
-                    <td style={{ padding: "11px 14px", fontSize: 12, color: "#94a3b8", whiteSpace: "nowrap" }}>{timeAgo(ticket.updated_at)}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable columns={columns} rows={rows} minWidth={800} />
       )}
 
       {selectedTicket && (

@@ -84,7 +84,7 @@ export default function VelocityClient({
     <main className="w-full px-6 py-8 space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <h1 className="text-xl font-semibold text-neutral-900">Sprint Velocity</h1>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-100 text-indigo-700 text-sm font-medium">
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#f4e9e5] text-[#8c4632] text-sm font-medium">
           Avg velocity: {avgVelocity} pts/sprint
         </span>
       </div>
@@ -95,8 +95,8 @@ export default function VelocityClient({
             onClick={() => setSelectedProjectId(null)}
             className={`px-3 py-1 rounded-full text-sm border transition ${
               selectedProjectId === null
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-white text-neutral-700 border-neutral-300 hover:border-indigo-400"
+                ? "bg-[#8c4632] text-white border-[#8c4632]"
+                : "bg-white text-neutral-700 border-neutral-300 hover:border-[#b7452f]"
             }`}
           >
             All projects
@@ -107,8 +107,8 @@ export default function VelocityClient({
               onClick={() => setSelectedProjectId(p.id)}
               className={`px-3 py-1 rounded-full text-sm border transition ${
                 selectedProjectId === p.id
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "bg-white text-neutral-700 border-neutral-300 hover:border-indigo-400"
+                  ? "bg-[#8c4632] text-white border-[#8c4632]"
+                  : "bg-white text-neutral-700 border-neutral-300 hover:border-[#b7452f]"
               }`}
             >
               {p.name}
@@ -146,7 +146,7 @@ export default function VelocityClient({
                   y={barY(s.completedPoints)}
                   width={barW}
                   height={ch}
-                  fill="#6366f1"
+                  fill="#8c4632"
                   rx="2"
                 />
                 <text
@@ -169,7 +169,7 @@ export default function VelocityClient({
             Planned
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="inline-block w-3 h-3 rounded-sm bg-[#6366f1]" />
+            <span className="inline-block w-3 h-3 rounded-sm bg-[#8c4632]" />
             Completed
           </span>
         </div>
@@ -199,7 +199,7 @@ export default function VelocityClient({
                   : velPct >= 80
                   ? "text-green-700 bg-green-50"
                   : velPct >= 60
-                  ? "text-amber-700 bg-amber-50"
+                  ? "text-[#c9791d] bg-[#fdf1de]"
                   : "text-red-700 bg-red-50";
               return (
                 <tr key={s.id} className={i % 2 === 1 ? "bg-neutral-50" : ""}>

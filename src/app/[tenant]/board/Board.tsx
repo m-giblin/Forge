@@ -37,7 +37,7 @@ export default function Board({
   templates,
   members,
   sprints,
-  currentSprint,
+  activeSprintId,
   meUserId,
 }: {
   slug: string;
@@ -57,16 +57,18 @@ export default function Board({
   templates: IssueTemplate[];
   members: Member[];
   sprints: Sprint[];
-  currentSprint: Sprint | null;
+  currentSprint?: Sprint | null;
+  activeSprintId?: string | null;
   meUserId?: string;
 }) {
+  const activeSprintExport = activeSprintId ?? null;
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const canEdit = role !== "viewer";
   const [issues, setIssues] = useState<Issue[]>(initialIssues);
   const [dragId, setDragId] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  const [showForm, setShowForm] = useState(searchParams.get("new") === "1");
   const [, startTransition] = useTransition();
   const [cascadePending, setCascadePending] = useState<{ issueId: string; newStatus: string; count: number } | null>(null);
   const [cascading, startCascade] = useTransition();
@@ -74,11 +76,15 @@ export default function Board({
   const [colHasMore, setColHasMore] = useState<Map<string, boolean>>(new Map());
   const [loadingMore, setLoadingMore] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  const [onlyMine, setOnlyMine] = useState(false);
   const [filterPriorities, setFilterPriorities] = useState<Set<string>>(new Set());
   const [filterAssignee, setFilterAssignee] = useState("");
   const [filterType, setFilterType] = useState("");
   const [filterCategory, setFilterCategory] = useState("");
   const [showAging, setShowAging] = useState(false);
+  const [collapsedCols, setCollapsedCols] = useState<Set<string>>(new Set());
+
+  const CANONICAL_STATUS_ORDER = ["backlog", "todo", "in_progress", "in_review", "done"];
 
   const groupByParam = (searchParams.get("groupBy") ?? "status") as "status" | "assignee" | "priority";
   const groupBy = ["status", "assignee", "priority"].includes(groupByParam) ? groupByParam : "status";
@@ -94,7 +100,17 @@ export default function Board({
   const tyMap = useMemo(() => new Map(types.map((o) => [o.key, o])), [types]);
   const memMap = useMemo(() => new Map(members.map((m) => [m.userId, m.label])), [members]);
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
-  const orderedStatuses = useMemo(() => [...statuses].sort((a, b) => a.position - b.position), [statuses]);
+  const orderedStatuses = useMemo(() => {
+    return [...statuses].sort((a, b) => {
+      const ai = CANONICAL_STATUS_ORDER.indexOf(a.key);
+      const bi = CANONICAL_STATUS_ORDER.indexOf(b.key);
+      if (ai !== -1 && bi !== -1) return ai - bi;
+      if (ai !== -1) return -1;
+      if (bi !== -1) return 1;
+      return a.position - b.position;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statuses]);
   const needsAssignment = useMemo(() => issues.filter((i) => isUnassignedOverdue(i)), [issues]);
 
   const filtered = useMemo(() => {
@@ -108,13 +124,14 @@ export default function Board({
         (i.assignee_id ? (memMap.get(i.assignee_id) ?? "").toLowerCase().includes(q) : false)
       );
     }
+    if (onlyMine && meUserId) list = list.filter((i) => i.assignee_id === meUserId);
     if (filterPriorities.size > 0) list = list.filter((i) => filterPriorities.has(i.priority));
     if (filterAssignee === "__unassigned") list = list.filter((i) => !i.assignee_id);
     else if (filterAssignee) list = list.filter((i) => i.assignee_id === filterAssignee);
     if (filterType) list = list.filter((i) => i.type === filterType);
     if (filterCategory) list = list.filter((i) => i.category_id === filterCategory);
     return list;
-  }, [issues, search, filterPriorities, filterAssignee, filterType, filterCategory, memMap]);
+  }, [issues, search, onlyMine, meUserId, filterPriorities, filterAssignee, filterType, filterCategory, memMap]);
 
   const upsert = (row: Issue) =>
     setIssues((prev) => {
@@ -184,145 +201,87 @@ export default function Board({
     }
   }
 
-  const sprintDoneCount = currentSprint
-    ? initialIssues.filter((i) => i.sprint_id === currentSprint.id && i.status === "done").length
-    : null;
-
-  function selectSprint(sprintId: string | null) {
-    const next = new URLSearchParams(searchParams.toString());
-    if (sprintId) next.set("sprint", sprintId);
-    else next.delete("sprint");
-    router.push(`${pathname}?${next.toString()}`);
-  }
-
   return (
-    <div>
-      {sprints.length > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2">
-          <button
-            onClick={() => selectSprint(null)}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-              !currentSprint
-                ? "border-indigo-600 bg-indigo-600 text-white"
-                : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400"
-            }`}
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="flex items-center gap-3 border-b border-[var(--fw-cream-border)] bg-[var(--fw-cream-bg)] px-6 py-2">
+        <Link
+          href={`/${slug}/projects/${currentProject.key}`}
+          className="flex shrink-0 items-center gap-1 text-[11px] text-[#a19d90] hover:text-[#b7452f] transition-colors"
+        >
+          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+          Projects
+        </Link>
+        <span className="shrink-0 text-[#ddd8c9]">/</span>
+        <span className="shrink-0 rounded bg-[var(--fw-cream)] px-1.5 py-0.5 font-mono text-[11px] font-semibold text-[#4a473e]">
+          {currentProject.key}
+        </span>
+        <h1 className="shrink-0 font-[family-name:var(--font-manrope)] text-[14px] font-extrabold text-[#20201d]">{currentProject.name}</h1>
+        {siblingProjects.length > 1 && (
+          <select
+            value={currentProject.key}
+            onChange={(e) => router.push(`/${slug}/board?project=${e.target.value}`)}
+            className="shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none"
+            aria-label="Switch project"
           >
-            All Sprints
-          </button>
-          {sprints.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => selectSprint(s.id)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                currentSprint?.id === s.id
-                  ? "border-indigo-600 bg-indigo-600 text-white"
-                  : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400"
-              }`}
-            >
-              {s.name}
-              {s.status === "active" && (
-                <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-green-400 align-middle" />
-              )}
-            </button>
-          ))}
-          {currentSprint && sprintDoneCount !== null && (
-            <span className="ml-1 text-xs text-neutral-400">
-              {sprintDoneCount} done this sprint
-            </span>
-          )}
-        </div>
-      )}
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href={`/${slug}/projects/${currentProject.key}`}
-            className="flex items-center gap-1.5 text-xs text-neutral-400 hover:text-indigo-600 transition-colors"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            Projects
-          </Link>
-          <span className="text-neutral-300">/</span>
-          <Link
-            href={`/${slug}/projects/${currentProject.key}`}
-            className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
-          >
-            {currentProject.key}
-          </Link>
-          <h1 className="text-lg font-semibold text-neutral-900">{currentProject.name}</h1>
-          {siblingProjects.length > 1 && (
-            <div className="flex items-center gap-1.5">
-              <label className="text-xs font-medium text-neutral-400">Project</label>
-              <select
-                value={currentProject.key}
-                onChange={(e) => router.push(`/${slug}/board?project=${e.target.value}`)}
-                className="rounded-lg border-2 border-indigo-300 bg-indigo-50 px-2.5 py-1.5 text-sm font-medium text-indigo-700 shadow-sm focus:border-indigo-500 focus:outline-none"
-                aria-label="Switch project"
+            {siblingProjects.map((p) => (
+              <option key={p.id} value={p.key}>{p.key} — {p.name}</option>
+            ))}
+          </select>
+        )}
+
+        <span className="flex-1" />
+
+        {presentUsers.length > 0 && (
+          <div className="hidden shrink-0 items-center lg:flex" title={presentUsers.map((u) => u.label).join(", ")}>
+            {presentUsers.slice(0, 5).map((u, i) => (
+              <div
+                key={u.userId}
+                title={u.label}
+                style={{ backgroundColor: avatarColor(u.userId), marginLeft: i > 0 ? "-6px" : "0", zIndex: 10 - i }}
+                className="relative flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--fw-cream-bg)] text-[9px] font-semibold text-white"
               >
-                {siblingProjects.map((p) => (
-                  <option key={p.id} value={p.key}>
-                    {p.key} — {p.name}
-                  </option>
-                ))}
-              </select>
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-indigo-600 px-1.5 text-[10px] font-bold text-white">
-                {siblingProjects.length}
-              </span>
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {presentUsers.length > 0 && (
-            <div className="flex items-center" title={presentUsers.map((u) => u.label).join(", ")}>
-              {presentUsers.slice(0, 5).map((u, i) => (
-                <div
-                  key={u.userId}
-                  title={u.label}
-                  style={{
-                    backgroundColor: avatarColor(u.userId),
-                    marginLeft: i > 0 ? "-6px" : "0",
-                    zIndex: 10 - i,
-                  }}
-                  className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[10px] font-semibold text-white shadow-sm"
-                >
-                  {initials(u.label)}
-                </div>
-              ))}
-              {presentUsers.length > 5 && (
-                <div
-                  style={{ marginLeft: "-6px", zIndex: 5 }}
-                  className="relative flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-neutral-200 text-[10px] font-semibold text-neutral-600"
-                >
-                  +{presentUsers.length - 5}
-                </div>
-              )}
-              <span className="ml-2 text-xs text-neutral-400">
-                {presentUsers.length === 1 ? "1 other viewing" : `${presentUsers.length} others viewing`}
-              </span>
-            </div>
-          )}
-          {canEdit && (
-            <button
-              data-ember-tour="board-new-issue"
-              onClick={() => setShowForm((s) => !s)}
-              className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
-            >
-              {showForm ? "Close" : "+ New issue"}
-            </button>
-          )}
-        </div>
+                {initials(u.label)}
+              </div>
+            ))}
+            {presentUsers.length > 5 && (
+              <div style={{ marginLeft: "-6px", zIndex: 5 }} className="relative flex h-6 w-6 items-center justify-center rounded-full border-2 border-[var(--fw-cream-bg)] bg-[#e3ded0] text-[9px] font-semibold text-[#4a473e]">
+                +{presentUsers.length - 5}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeSprintExport && (
+          <a
+            href={`/${slug}/board/export/sprint-pdf/${activeSprintExport}`}
+            className="shrink-0 whitespace-nowrap rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da]"
+          >
+            📄 Export Sprint Report
+          </a>
+        )}
+        {/* The global top bar's rust "New issue" button (?new=1) already opens this
+            form, so we don't duplicate a second "+ New issue" CTA here — this button
+            only appears once the form is open, to close it. */}
+        {canEdit && showForm && (
+          <button
+            onClick={() => setShowForm((s) => !s)}
+            className="shrink-0 whitespace-nowrap rounded-full px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e]"
+            style={{ background: "var(--fw-cream)", border: "1px solid var(--fw-cream-border)" }}
+          >
+            Close
+          </button>
+        )}
       </div>
 
       {needsAssignment.length > 0 && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          <span className="font-medium">{needsAssignment.length}</span>
-          <span>
-            ticket{needsAssignment.length > 1 ? "s" : ""} unassigned past SLA —
-          </span>
+        <div className="flex shrink-0 items-center gap-2 border-b px-6 py-1.5 text-[12px]" style={{ borderColor: "#f0cfc9", backgroundColor: "#fbeae8", color: "#c0392b" }}>
+          <span className="font-bold">{needsAssignment.length}</span>
+          <span>ticket{needsAssignment.length > 1 ? "s" : ""} unassigned past SLA —</span>
           <button
             onClick={() => router.push(`/${slug}/issues/${needsAssignment[0].id}`)}
-            className="font-medium underline hover:no-underline"
+            className="font-semibold underline hover:no-underline"
           >
             review oldest
           </button>
@@ -330,13 +289,13 @@ export default function Board({
       )}
 
       {total > issueLimit && (
-        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-          Showing {issueLimit} of {total} issues — use the &ldquo;Load more&rdquo; button in each column to see the rest.
+        <div className="shrink-0 border-b border-[#c9dceb] bg-[#eaf1f8] px-6 py-1.5 text-[12px] text-[#3a6ea8]">
+          Showing {issueLimit} of {total} issues — use &ldquo;Load more&rdquo; in each column to see the rest.
         </div>
       )}
 
       {cascadePending && (
-        <div className="mb-4 flex items-center justify-between rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+        <div className="flex shrink-0 items-center justify-between border-b px-6 py-1.5 text-[12px]" style={{ borderColor: "#f0e3c9", backgroundColor: "#fdf1de", color: "#c9791d" }}>
           <span>
             This issue has <strong>{cascadePending.count}</strong> sub-issue{cascadePending.count !== 1 ? "s" : ""} not yet in <strong>{cascadePending.newStatus}</strong>. Move them too?
           </span>
@@ -344,13 +303,13 @@ export default function Board({
             <button
               onClick={() => confirmCascade(true)}
               disabled={cascading}
-              className="rounded-md bg-amber-700 px-3 py-1 text-xs font-semibold text-white hover:bg-amber-800 disabled:opacity-50"
+              className="rounded-full bg-[#c9791d] px-3 py-1 text-[11px] font-semibold text-white disabled:opacity-50"
             >
               {cascading ? "Moving…" : "Yes, move all"}
             </button>
             <button
               onClick={() => confirmCascade(false)}
-              className="rounded-md border border-amber-300 px-3 py-1 text-xs font-medium text-amber-700 hover:bg-amber-100"
+              className="rounded-full border border-[#f0e3c9] px-3 py-1 text-[11px] font-medium text-[#c9791d]"
             >
               No thanks
             </button>
@@ -361,6 +320,10 @@ export default function Board({
       <BoardFilters
         search={search}
         setSearch={setSearch}
+        onlyMine={onlyMine}
+        setOnlyMine={setOnlyMine}
+        showAging={showAging}
+        setShowAging={setShowAging}
         filterPriorities={filterPriorities}
         setFilterPriorities={setFilterPriorities}
         filterAssignee={filterAssignee}
@@ -376,27 +339,6 @@ export default function Board({
         categories={categories}
         members={members}
       />
-      <div className="flex items-center gap-2 px-4">
-        <button
-          onClick={() => setShowAging((v) => !v)}
-          className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-            showAging
-              ? "border-orange-300 bg-orange-50 text-orange-700"
-              : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-300"
-          }`}
-          title="Highlight issues by days since last update"
-        >
-          <span>🔥</span> Aging {showAging ? "On" : "Off"}
-        </button>
-        {showAging && (
-          <div className="flex items-center gap-3 text-[11px] text-neutral-500">
-            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-green-400" /> &lt;4d</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-yellow-400" /> 4–7d</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-orange-400" /> 8–14d</span>
-            <span className="flex items-center gap-1"><span className="inline-block h-2.5 w-2.5 rounded-sm bg-red-500" /> 15d+</span>
-          </div>
-        )}
-      </div>
 
       {showForm && (
         <NewIssueForm
@@ -416,7 +358,7 @@ export default function Board({
         />
       )}
 
-      <div data-ember-tour="board-columns" className="flex gap-3 overflow-x-auto pb-4">
+      <div data-ember-tour="board-columns" className="flex min-h-0 flex-1 gap-3 overflow-x-auto px-6 py-4">
         {groupBy === "priority" ? (() => {
           const orderedPriorities = [...priorities].sort((a, b) => a.position - b.position);
           return orderedPriorities.map((p) => {
@@ -441,30 +383,66 @@ export default function Board({
             .sort((a, b) => a.position - b.position);
           const isFiltered = !!(search.trim() || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory);
           const showLoadMore = !isFiltered && (colHasMore.get(status.key) ?? (total > issueLimit && colIssues.length >= Math.floor(issueLimit / orderedStatuses.length)));
+          const collapsed = collapsedCols.has(status.key);
+
+          if (collapsed) {
+            return (
+              <button
+                key={status.key}
+                onClick={() => setCollapsedCols((prev) => { const next = new Set(prev); next.delete(status.key); return next; })}
+                className="flex shrink-0 flex-col items-center gap-2 rounded-lg bg-[var(--fw-cream)] py-3 hover:bg-[#eae6da]"
+                style={{ width: 48 }}
+                title={`Expand ${status.label}`}
+              >
+                {status.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: status.color }} />}
+                <span className="text-[11px] font-semibold text-[#4a473e]" style={{ writingMode: "vertical-rl" }}>{status.label}</span>
+                <span className="text-[10px] text-[#a19d90]">{colIssues.length}</span>
+              </button>
+            );
+          }
+
           return (
             <div
               key={status.key}
               onDragOver={(e) => canEdit && e.preventDefault()}
               onDrop={() => onDrop(status.key)}
-              className="flex w-56 min-w-[200px] shrink-0 flex-col rounded-xl bg-neutral-100/70 p-3 md:w-64"
+              className="flex min-h-0 shrink-0 flex-col rounded-lg bg-[var(--fw-cream)] p-3"
+              style={{ width: 282 }}
             >
-              <div className="mb-2 flex items-center justify-between px-1">
-                <span className="flex items-center gap-2 text-sm font-semibold text-neutral-700">
+              <div className="mb-2 flex shrink-0 items-center justify-between px-1">
+                <span className="flex items-center gap-2 text-[11.5px] font-bold uppercase tracking-[0.04em] text-[#4a473e]">
                   {status.color && <span className="h-2 w-2 rounded-full" style={{ backgroundColor: status.color }} />}
                   {status.label}
                 </span>
-                <span className="text-xs text-neutral-400">{colIssues.length}</span>
+                <span className="flex items-center gap-1.5">
+                  <span className="text-[11px] text-[#a19d90]">{colIssues.length}</span>
+                  <button
+                    onClick={() => setCollapsedCols((prev) => new Set(prev).add(status.key))}
+                    className="text-[#a19d90] hover:text-[#4a473e]"
+                    title={`Collapse ${status.label}`}
+                  >
+                    <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M8 2L4 6l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                  </button>
+                </span>
               </div>
-              <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee showAging={showAging} />
-              {showLoadMore && (
-                <button
-                  onClick={() => loadMore(status.key)}
-                  disabled={loadingMore.has(status.key)}
-                  className="mt-2 w-full rounded-lg border border-dashed border-neutral-300 py-1.5 text-xs text-neutral-400 hover:border-neutral-400 hover:text-neutral-600 disabled:opacity-50 transition-colors"
-                >
-                  {loadingMore.has(status.key) ? "Loading…" : "Load more"}
-                </button>
-              )}
+              <div className="min-h-0 flex-1 overflow-y-auto">
+                {colIssues.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-[#ddd8c9] px-3 py-6 text-center text-[11.5px] text-[#c3bda9]">
+                    Nothing here — drag a card over, or use + above
+                  </div>
+                ) : (
+                  <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee showAging={showAging} />
+                )}
+                {showLoadMore && (
+                  <button
+                    onClick={() => loadMore(status.key)}
+                    disabled={loadingMore.has(status.key)}
+                    className="mt-2 w-full rounded-lg border border-dashed border-[#ddd8c9] py-1.5 text-[11px] text-[#a19d90] hover:border-[#a19d90] hover:text-[#4a473e] disabled:opacity-50 transition-colors"
+                  >
+                    {loadingMore.has(status.key) ? "Loading…" : "Load more"}
+                  </button>
+                )}
+              </div>
             </div>
           );
         }) : groupBy === "assignee" ? (() => {

@@ -11,18 +11,18 @@ interface Props {
   readOnly: boolean;
 }
 
-const PILL_COLORS = [
-  "bg-red-50 text-red-700 border-red-200",
-  "bg-orange-50 text-orange-700 border-orange-200",
-  "bg-yellow-50 text-yellow-700 border-yellow-200",
-  "bg-green-50 text-green-700 border-green-200",
-  "bg-teal-50 text-teal-700 border-teal-200",
-  "bg-blue-50 text-blue-700 border-blue-200",
-  "bg-indigo-50 text-indigo-700 border-indigo-200",
-  "bg-purple-50 text-purple-700 border-purple-200",
-];
-
 const EMPTY = { label: "", instruction: "" };
+
+function Pill({ children, muted = false }: { children: React.ReactNode; muted?: boolean }) {
+  return (
+    <span
+      className="rounded-full px-3 py-1.5 text-[11.5px] font-semibold"
+      style={muted ? { color: "#4a473e", backgroundColor: "#f1efe9" } : { color: "#8c4632", backgroundColor: "#f3e4dd" }}
+    >
+      {children}
+    </span>
+  );
+}
 
 export default function PillManager({ slug, pills, readOnly }: Props) {
   const [showNew, setShowNew] = useState(false);
@@ -93,60 +93,53 @@ export default function PillManager({ slug, pills, readOnly }: Props) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {error && (
-        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-700">{error}</div>
+        <div className="rounded-[6px] bg-[#fbeae8] px-3.5 py-2.5 text-[12px] text-[#c0392b]">{error}</div>
       )}
 
       {/* Built-in lenses */}
-      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-        <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-neutral-900">Default AI lenses</p>
-            <p className="text-xs text-neutral-500 mt-0.5">Built-in and always available to all teams. Cannot be edited or removed.</p>
-          </div>
-          <span className="text-xs text-neutral-400 bg-neutral-100 rounded-full px-2.5 py-1">{PILLS.length} lenses</span>
+      <div>
+        <div className="mb-1.5 flex items-center justify-between px-0.5">
+          <span className="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Default AI lenses</span>
+          <span className="rounded-full bg-[#e3ded0] px-2 py-0.5 text-[10.5px] font-semibold text-[#726e60]">{PILLS.length} lenses</span>
         </div>
-        <div className="px-5 py-4 flex flex-wrap gap-2">
-          {PILLS.map((p, i) => (
-            <span
-              key={p.id}
-              className={`rounded-full border px-3 py-1.5 text-xs font-medium ${PILL_COLORS[i % PILL_COLORS.length]}`}
-              title={p.instruction}
-            >
-              {p.label}
-            </span>
-          ))}
+        <div className="fw-card px-4 py-3.5">
+          <p className="mb-3 text-[11px] text-[#726e60]">Built-in and always available to all teams. Cannot be edited or removed.</p>
+          <div className="flex flex-wrap gap-2">
+            {PILLS.map((p) => (
+              <Pill key={p.id} muted>{p.label}</Pill>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Custom lenses */}
-      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-        <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50 flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-neutral-900">Custom lenses</p>
-            <p className="text-xs text-neutral-500 mt-0.5">Your team&apos;s own AI analysis perspectives, added after the defaults.</p>
-          </div>
+      <div>
+        <div className="mb-1.5 flex items-center justify-between px-0.5">
+          <span className="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Custom lenses</span>
           {!readOnly && !showNew && (
             <button
               onClick={openNew}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
+              className="rounded-[5px] border border-[#5e2c1f] px-3 py-[6px] text-[11.5px] font-semibold text-[#f2e9d8]"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
             >
               + Add lens
             </button>
           )}
         </div>
 
-        <div className="px-5 py-4">
-          {/* Form */}
+        <div className="fw-card px-4 py-3.5">
+          <p className="mb-3 text-[11px] text-[#726e60]">Your team&apos;s own AI analysis perspectives, added after the defaults.</p>
+
           {showNew && (
             <form
               onSubmit={editingId ? (e) => handleUpdate(editingId, e) : handleCreate}
-              className="mb-4 rounded-xl border border-indigo-100 bg-indigo-50 p-4 space-y-3"
+              className="mb-4 rounded-[6px] border border-[#ddd8c9] bg-white p-4 space-y-3"
             >
-              <p className="text-sm font-semibold text-indigo-900">{editingId ? "Edit lens" : "New AI lens"}</p>
+              <p className="text-[12.5px] font-bold text-[#20201d]">{editingId ? "Edit lens" : "New AI lens"}</p>
               <div>
-                <label className="block text-xs font-medium text-neutral-700 mb-1">Label <span className="text-red-500">*</span></label>
+                <label className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Label</label>
                 <input
                   name="label"
                   required
@@ -154,11 +147,11 @@ export default function PillManager({ slug, pills, readOnly }: Props) {
                   defaultValue={form.label}
                   placeholder="e.g. Regulatory Risk"
                   autoFocus
-                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+                  className="w-full rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-2 text-[12.5px] outline-none focus:border-[#b7452f]"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-neutral-700 mb-1">AI instruction <span className="text-red-500">*</span></label>
+                <label className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">AI instruction</label>
                 <textarea
                   name="instruction"
                   required
@@ -166,46 +159,48 @@ export default function PillManager({ slug, pills, readOnly }: Props) {
                   rows={3}
                   defaultValue={form.instruction}
                   placeholder="e.g. Analyse this idea from a regulatory and compliance perspective. Identify relevant laws or standards that may apply..."
-                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+                  className="w-full rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-2 text-[12.5px] outline-none focus:border-[#b7452f]"
                 />
-                <p className="text-[10px] text-neutral-400 mt-1">This is sent directly to the AI. Be specific about the perspective you want.</p>
+                <p className="mt-1 text-[11px] text-[#a19d90]">This is sent directly to the AI. Be specific about the perspective you want.</p>
               </div>
-              {error && <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{error}</p>}
+              {error && <p className="rounded-[6px] bg-[#fbeae8] px-3 py-2 text-[11.5px] text-[#c0392b]">{error}</p>}
               <div className="flex gap-2">
-                <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700">
+                <button
+                  type="submit"
+                  className="rounded-[5px] border border-[#5e2c1f] px-3.5 py-[7px] text-[12px] font-semibold text-[#f2e9d8]"
+                  style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+                >
                   {editingId ? "Update lens" : "Create lens"}
                 </button>
-                <button type="button" onClick={cancel} className="text-xs text-neutral-500 hover:text-neutral-700 px-2">Cancel</button>
+                <button type="button" onClick={cancel} className="rounded-[5px] px-3.5 py-[7px] text-[12px] font-semibold text-[#a19d90] hover:bg-[#eae6da]">Cancel</button>
               </div>
             </form>
           )}
 
           {pills.length === 0 && !showNew && (
-            <div className="text-center py-8">
-              <p className="text-3xl mb-2">🔬</p>
-              <p className="text-sm font-medium text-neutral-700">No custom lenses yet</p>
-              <p className="text-xs text-neutral-500 mt-1">Add lenses to give your team specialized AI analysis perspectives.</p>
+            <div className="py-6 text-center">
+              <p className="mb-2 text-[24px]">🔬</p>
+              <p className="text-[12.5px] font-semibold text-[#20201d]">No custom lenses yet</p>
+              <p className="mt-1 text-[11.5px] text-[#a19d90]">Add lenses to give your team specialized AI analysis perspectives.</p>
               {!readOnly && (
-                <button onClick={openNew} className="mt-3 text-xs text-indigo-600 hover:underline">+ Add your first lens</button>
+                <button onClick={openNew} className="mt-3 text-[11.5px] font-semibold text-[#b7452f] hover:underline">+ Add your first lens</button>
               )}
             </div>
           )}
 
           {pills.length > 0 && (
             <div className="space-y-2">
-              {pills.map((pill, i) => (
-                <div key={pill.id} className={`rounded-xl border p-4 ${editingId === pill.id ? "border-indigo-200 bg-indigo-50" : "border-neutral-200 bg-white"}`}>
+              {pills.map((pill) => (
+                <div key={pill.id} className={`rounded-[6px] border p-3.5 ${editingId === pill.id ? "border-[#8c4632] bg-[#f3e4dd]" : "border-[#e3ded0] bg-white"}`}>
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-start gap-3 min-w-0 flex-1">
-                      <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-medium mt-0.5 ${PILL_COLORS[(PILLS.length + i) % PILL_COLORS.length]}`}>
-                        {pill.label}
-                      </span>
-                      <p className="text-xs text-neutral-500 line-clamp-2 mt-1">{pill.instruction}</p>
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <span className="mt-0.5 shrink-0"><Pill>{pill.label}</Pill></span>
+                      <p className="mt-1 text-[11.5px] text-[#726e60] line-clamp-2">{pill.instruction}</p>
                     </div>
                     {!readOnly && (
-                      <div className="flex shrink-0 gap-2 mt-1">
-                        <button onClick={() => openEdit(pill)} className="text-xs text-neutral-400 hover:text-neutral-700">Edit</button>
-                        <button onClick={() => handleDelete(pill.id)} className="text-xs text-red-400 hover:text-red-600">Delete</button>
+                      <div className="mt-1 flex shrink-0 gap-2.5">
+                        <button onClick={() => openEdit(pill)} className="text-[11.5px] font-semibold text-[#726e60] hover:text-[#20201d]">Edit</button>
+                        <button onClick={() => handleDelete(pill.id)} className="text-[11.5px] font-semibold text-[#c0392b] hover:underline">Delete</button>
                       </div>
                     )}
                   </div>

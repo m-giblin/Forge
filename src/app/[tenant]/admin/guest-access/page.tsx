@@ -5,6 +5,7 @@ import { listGuestLinks } from "@/lib/services/guestLinks";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 // eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import PageHeader from "@/components/patterns/PageHeader";
 import GuestAccessManager from "./GuestAccessManager";
 
 export default async function GuestAccessPage({ params }: { params: Promise<{ tenant: string }> }) {
@@ -19,20 +20,19 @@ export default async function GuestAccessPage({ params }: { params: Promise<{ te
     listGuestLinks(ctx.tenant.id),
   ]);
 
-  const linkMap = Object.fromEntries(links.map((l) => [l.project_id, { isActive: l.is_active }]));
+  const linkMap = Object.fromEntries(links.map((l) => [l.project_id, { isActive: l.is_active, createdAt: l.created_at }]));
 
   return (
-    <section>
-      <h2 className="text-base font-semibold text-neutral-900">Guest &amp; client access</h2>
-      <p className="mt-1 text-sm text-neutral-500">
-        Generate a view-only link to a project&apos;s Board and Roadmap — no login required. Anyone with the link can view; revoke it any time.
-      </p>
-      <GuestAccessManager
-        slug={slug}
-        readOnly={readOnly}
-        projects={projects.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
-        linkMap={linkMap}
-      />
-    </section>
+    <div className="space-y-6">
+      <PageHeader title="Guest Access" subtitle="Read-only links for clients and stakeholders" />
+      <div className="px-6">
+        <GuestAccessManager
+          slug={slug}
+          readOnly={readOnly}
+          projects={projects.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
+          linkMap={linkMap}
+        />
+      </div>
+    </div>
   );
 }

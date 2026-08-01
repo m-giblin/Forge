@@ -3,6 +3,7 @@ import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role required for cross-tenant aggregate queries
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import EngineeringHealthDashboard from "./EngineeringHealthDashboard";
+import PageHeader from "@/components/patterns/PageHeader";
 
 export const revalidate = 300; // refresh every 5 min
 
@@ -184,13 +185,10 @@ export default async function EngineeringHealthPage({
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-neutral-900">Engineering Health</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Cycle time, WIP, throughput, and team health metrics from your issue board.
-        </p>
+      <PageHeader title="Engineering Health" subtitle="Delivery metrics across every project" />
+      <div className="px-6 py-5">
+        <EngineeringHealthDashboard data={data} />
       </div>
-      <EngineeringHealthDashboard data={data} />
     </div>
   );
 }

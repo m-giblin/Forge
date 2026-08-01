@@ -14,13 +14,7 @@ export default async function WebhooksPage({ params }: { params: Promise<{ tenan
   const endpoints = await webhooksRepo(createSupabaseServiceClient()).listMetadata(ctx.tenant.id);
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 px-4 py-6">
-      <div>
-        <h1 className="text-lg font-semibold text-neutral-900">Webhooks</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          Push issue events to external URLs (Slack, Make, Zapier, your own API). Payloads are signed with HMAC-SHA256.
-        </p>
-      </div>
+    <div className="pb-8">
       <WebhooksClient slug={slug} endpoints={endpoints} allEvents={[...WEBHOOK_EVENTS]} />
     </div>
   );

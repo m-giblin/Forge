@@ -82,63 +82,56 @@ export default function TemplateManager({ slug, templates, readOnly }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-      <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50 flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-neutral-900">Custom Idea Templates</p>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            Templates appear in the idea creation form alongside the built-in ones.
-          </p>
-        </div>
+    <div>
+      <div className="mb-1.5 flex items-center justify-between px-0.5">
+        <span className="text-[11px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Custom Idea Templates</span>
         {!readOnly && !showForm && (
           <button
             onClick={openNew}
-            className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
+            className="rounded-[5px] border border-[#5e2c1f] px-3 py-[6px] text-[11.5px] font-semibold text-[#f2e9d8]"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
           >
             + Add template
           </button>
         )}
       </div>
 
-      <div className="px-5 py-4">
-        {/* Inline form */}
+      <div className="fw-card px-4 py-3.5">
+        <p className="mb-3 text-[11px] text-[#726e60]">Templates appear in the idea creation form alongside the built-in ones.</p>
+
         {showForm && (
-          <div className="mb-5 rounded-xl border border-indigo-100 bg-indigo-50 p-5 space-y-4">
-            <p className="text-sm font-semibold text-indigo-900">{editingId ? "Edit template" : "New idea template"}</p>
+          <div className="mb-4 rounded-[6px] border border-[#ddd8c9] bg-white p-4 space-y-3.5">
+            <p className="text-[12.5px] font-bold text-[#20201d]">{editingId ? "Edit template" : "New idea template"}</p>
 
             <div>
-              <label className="block text-xs font-medium text-neutral-700 mb-1">
-                Template name <span className="text-red-500">*</span>
-              </label>
+              <label className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Template name</label>
               <input
                 type="text"
                 value={form.label}
                 onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
                 placeholder="e.g. Feature Request, Bug Report, Experiment…"
                 autoFocus
-                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+                className="w-full rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-2 text-[12.5px] outline-none focus:border-[#b7452f]"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-neutral-700 mb-1">
-                Description template
-                <span className="ml-1 text-neutral-400 font-normal">(pre-filled when selected)</span>
+              <label className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">
+                Description template <span className="font-normal normal-case text-[#a19d90]">(pre-filled when selected)</span>
               </label>
               <textarea
                 rows={5}
                 value={form.description}
                 onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
                 placeholder={"## Problem\n\n## Proposed solution\n\n## Success looks like"}
-                className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-sm font-mono outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+                className="w-full rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-2 font-mono text-[12px] outline-none focus:border-[#b7452f]"
               />
-              <p className="text-[10px] text-neutral-400 mt-1">Markdown supported. Use ## headings to guide contributors.</p>
+              <p className="mt-1 text-[11px] text-[#a19d90]">Markdown supported. Use ## headings to guide contributors.</p>
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-neutral-700 mb-2">
-                Suggested AI lenses
-                <span className="ml-1 text-neutral-400 font-normal">(shown as recommended when this template is used)</span>
+              <label className="mb-2 block text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">
+                Suggested AI lenses <span className="font-normal normal-case text-[#a19d90]">(shown as recommended when this template is used)</span>
               </label>
               <div className="flex flex-wrap gap-2">
                 {PILLS.map((pill) => {
@@ -148,10 +141,10 @@ export default function TemplateManager({ slug, templates, readOnly }: Props) {
                       key={pill.id}
                       type="button"
                       onClick={() => togglePill(pill.id)}
-                      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                      className={`rounded-full border px-3 py-1 text-[11.5px] font-semibold transition-colors ${
                         checked
-                          ? "border-indigo-400 bg-indigo-600 text-white"
-                          : "border-neutral-200 bg-white text-neutral-600 hover:border-indigo-300 hover:text-indigo-700"
+                          ? "border-[#8c4632] bg-[#8c4632] text-[#f2e9d8]"
+                          : "border-[#ddd8c9] bg-white text-[#4a473e] hover:bg-[#eae6da]"
                       }`}
                     >
                       {checked ? "✓ " : ""}{pill.label}
@@ -162,36 +155,37 @@ export default function TemplateManager({ slug, templates, readOnly }: Props) {
             </div>
 
             {error && (
-              <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-xs text-red-700">{error}</p>
+              <p className="rounded-[6px] bg-[#fbeae8] px-3 py-2 text-[11.5px] text-[#c0392b]">{error}</p>
             )}
 
             <div className="flex items-center gap-2 pt-1">
               <button
                 onClick={handleSave}
                 disabled={isPending || !form.label.trim()}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                className="rounded-[5px] border border-[#5e2c1f] px-3.5 py-[7px] text-[12px] font-semibold text-[#f2e9d8] disabled:opacity-50"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 {isPending ? "Saving…" : editingId ? "Update template" : "Create template"}
               </button>
-              <button onClick={cancelForm} className="text-xs text-neutral-500 hover:text-neutral-700 px-2">
+              <button onClick={cancelForm} className="rounded-[5px] px-3.5 py-[7px] text-[12px] font-semibold text-[#a19d90] hover:bg-[#eae6da]">
                 Cancel
               </button>
             </div>
           </div>
         )}
 
-        {/* Empty state */}
         {templates.length === 0 && !showForm && (
-          <div className="text-center py-10">
-            <p className="text-3xl mb-2">📄</p>
-            <p className="text-sm font-medium text-neutral-700">No custom templates yet</p>
-            <p className="text-xs text-neutral-500 mt-1 max-w-xs mx-auto">
+          <div className="py-8 text-center">
+            <p className="mb-2 text-[24px]">📄</p>
+            <p className="text-[12.5px] font-semibold text-[#20201d]">No custom templates yet</p>
+            <p className="mx-auto mt-1 max-w-xs text-[11.5px] text-[#a19d90]">
               Templates give contributors a structured starting point — headings, prompts, and suggested AI lenses pre-configured.
             </p>
             {!readOnly && (
               <button
                 onClick={openNew}
-                className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-700 transition-colors"
+                className="mt-4 rounded-[5px] border border-[#5e2c1f] px-3.5 py-[7px] text-[12px] font-semibold text-[#f2e9d8]"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 + Create first template
               </button>
@@ -199,47 +193,46 @@ export default function TemplateManager({ slug, templates, readOnly }: Props) {
           </div>
         )}
 
-        {/* Template list */}
         {templates.length > 0 && (
-          <div className="space-y-3">
+          <div className="space-y-2.5">
             {templates.map((t) => (
-              <div key={t.id} className="rounded-xl border border-neutral-200 bg-white hover:border-neutral-300 transition-colors overflow-hidden">
-                <div className="flex items-start justify-between gap-4 px-4 py-3 bg-neutral-50 border-b border-neutral-100">
+              <div key={t.id} className="overflow-hidden rounded-[6px] border border-[#e3ded0] bg-white">
+                <div className="flex items-start justify-between gap-4 border-b border-[#e3ded0] bg-[#eae6da] px-3.5 py-2.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-base">📋</span>
-                    <p className="text-sm font-semibold text-neutral-900">{t.label}</p>
+                    <span className="text-[14px]">📋</span>
+                    <p className="text-[12.5px] font-bold text-[#20201d]">{t.label}</p>
                   </div>
                   {!readOnly && (
-                    <div className="flex shrink-0 items-center gap-3">
+                    <div className="flex shrink-0 items-center gap-2.5">
                       <button
                         onClick={() => openEdit(t)}
-                        className="text-xs text-neutral-500 hover:text-neutral-800 font-medium"
+                        className="text-[11.5px] font-semibold text-[#726e60] hover:text-[#20201d]"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => handleDelete(t.id)}
                         disabled={isPending}
-                        className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                        className="text-[11.5px] font-semibold text-[#c0392b] hover:underline disabled:opacity-50"
                       >
                         Delete
                       </button>
                     </div>
                   )}
                 </div>
-                <div className="px-4 py-3 space-y-2">
+                <div className="space-y-2 px-3.5 py-3">
                   {t.description ? (
-                    <p className="text-xs text-neutral-500 line-clamp-2 font-mono whitespace-pre-wrap">{t.description}</p>
+                    <p className="whitespace-pre-wrap font-mono text-[11px] text-[#726e60] line-clamp-2">{t.description}</p>
                   ) : (
-                    <p className="text-xs text-neutral-400 italic">No description template set</p>
+                    <p className="text-[11.5px] italic text-[#a19d90]">No description template set</p>
                   )}
                   {t.suggestedPillIds.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 pt-1">
-                      <span className="text-[10px] text-neutral-400 mr-1 self-center">Suggested lenses:</span>
+                      <span className="mr-1 self-center text-[10.5px] text-[#a19d90]">Suggested lenses:</span>
                       {t.suggestedPillIds.map((id) => {
                         const pill = PILLS.find((p) => p.id === id);
                         return pill ? (
-                          <span key={id} className="rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] text-indigo-700 font-medium">
+                          <span key={id} className="rounded-full border border-[#e0c9bd] bg-[#f3e4dd] px-2 py-0.5 text-[10.5px] font-semibold text-[#8c4632]">
                             {pill.label}
                           </span>
                         ) : null;

@@ -29,7 +29,7 @@ export default async function PiCycleDetailPage({
   const votes = await listPiVotes(ctx.tenant.id, objectives.map((o) => o.id));
 
   return (
-    <main className="w-full px-6 py-8">
+    <main className="w-full">
       <PiCycleDetail
         slug={slug}
         meUserId={ctx.appUserId}

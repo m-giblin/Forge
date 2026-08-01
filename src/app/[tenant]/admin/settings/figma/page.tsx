@@ -12,7 +12,7 @@ export default async function FigmaSettingsPage({ params }: { params: Promise<{ 
   const config = await getFigmaConfig(ctx.tenant.id);
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8">
+    <div className="pb-8">
       <FigmaSettingsClient slug={slug} config={config} />
     </div>
   );

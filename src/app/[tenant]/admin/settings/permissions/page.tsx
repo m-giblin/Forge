@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import type { PermissionOverrides } from "@/lib/permissions";
 import PermissionsClient from "./PermissionsClient";
+import PageHeader from "@/components/patterns/PageHeader";
 
 export default async function PermissionsPage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant: slug } = await params;
@@ -20,8 +21,11 @@ export default async function PermissionsPage({ params }: { params: Promise<{ te
   const initial = (data?.permission_overrides ?? {}) as PermissionOverrides;
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8">
-      <PermissionsClient slug={slug} initial={initial} />
+    <div className="space-y-6">
+      <PageHeader title="Permissions" subtitle="What each built-in role can do" />
+      <div className="px-6">
+        <PermissionsClient slug={slug} initial={initial} />
+      </div>
     </div>
   );
 }

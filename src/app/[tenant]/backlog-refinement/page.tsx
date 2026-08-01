@@ -52,7 +52,7 @@ export default async function BacklogRefinementPage({
   const priorities = statuses.filter((s) => s.field === "priority").sort((a, b) => a.position - b.position);
 
   return (
-    <main className="w-full px-6 py-8">
+    <main className="w-full">
       <BacklogRefinementClient
         slug={slug}
         projects={projects}

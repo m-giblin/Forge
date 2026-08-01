@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { castVoteAction, revealVotesAction, applyPointsAction, skipIssueAction, endSessionAction } from "../actions";
+import PageHeader from "@/components/patterns/PageHeader";
+import Note from "@/components/patterns/admin/Note";
+import PokerDeck from "@/components/patterns/admin/PokerDeck";
+import AdminList from "@/components/patterns/admin/AdminList";
 
 const DECK = ["1", "2", "3", "5", "8", "13", "21", "?"];
 
@@ -169,121 +173,125 @@ export default function EstimationPokerRoom({
   }
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-bold text-neutral-900">Estimation Poker</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">{project.name}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {presentUsers.length > 0 && (
-            <div className="flex -space-x-2">
-              {presentUsers.slice(0, 5).map((u) => (
-                <span key={u.userId} title={u.label} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-indigo-100 text-[10px] font-bold text-indigo-700">
-                  {u.label.slice(0, 2).toUpperCase()}
-                </span>
-              ))}
-            </div>
-          )}
-          <button onClick={endSession} disabled={pending} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-500 hover:bg-neutral-50 disabled:opacity-50">
-            End session
-          </button>
-        </div>
-      </div>
-
-      {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-      {status === "completed" && !issue ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-8 text-center">
-          <p className="text-lg font-semibold text-emerald-800">Session complete 🎉</p>
-          <p className="mt-1 text-sm text-emerald-700">Every issue in this project now has story points, or the session was ended.</p>
-        </div>
-      ) : !issue ? (
-        <div className="rounded-xl border border-neutral-200 bg-white p-8 text-center text-sm text-neutral-400">Loading next issue…</div>
-      ) : (
-        <>
-          <div className="rounded-xl border border-neutral-200 bg-white p-6 shadow-sm">
-            <div className="flex items-center gap-2 text-xs text-neutral-400">
-              <span className="font-mono">{project.key}-{issue.number}</span>
-              <span className="rounded bg-neutral-100 px-1.5 py-0.5">{typeMap.get(issue.type) ?? issue.type}</span>
-              {priMap.get(issue.priority) && (
-                <span className="rounded px-1.5 py-0.5 text-white" style={{ backgroundColor: priMap.get(issue.priority)!.color ?? "#9CA3AF" }}>
-                  {priMap.get(issue.priority)!.label}
-                </span>
-              )}
-            </div>
-            <h2 className="mt-2 text-lg font-semibold text-neutral-900">{issue.title}</h2>
-            {issue.description && (
-              <p className="mt-2 max-h-32 overflow-y-auto whitespace-pre-wrap text-sm text-neutral-600">{issue.description}</p>
-            )}
-          </div>
-
-          <div className="mt-4 rounded-xl border border-neutral-200 bg-white p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">
-                {revealed ? "Votes revealed" : `${votes.length} of ${presentUsers.length + 1} voted`}
-              </p>
-              {!revealed && (
-                <button onClick={reveal} disabled={pending} className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
-                  Reveal votes
-                </button>
-              )}
-            </div>
-
-            {!revealed ? (
-              <div className="flex flex-wrap gap-2">
-                {DECK.map((card) => (
-                  <button
-                    key={card}
-                    onClick={() => vote(card)}
-                    disabled={pending}
-                    className={`h-14 w-11 rounded-lg border-2 text-lg font-bold transition-colors disabled:opacity-50 ${
-                      myVote === card ? "border-indigo-500 bg-indigo-50 text-indigo-700" : "border-neutral-200 text-neutral-600 hover:border-neutral-300"
-                    }`}
-                  >
-                    {card}
-                  </button>
+    <div>
+      <PageHeader
+        title="Estimation Poker"
+        subtitle={project.name}
+        right={
+          <div className="flex items-center gap-2">
+            {presentUsers.length > 0 && (
+              <div className="flex -space-x-2">
+                {presentUsers.slice(0, 5).map((u) => (
+                  <span key={u.userId} title={u.label} className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#f4f2eb] bg-[#f3e4dd] text-[10px] font-bold text-[#8c4632]">
+                    {u.label.slice(0, 2).toUpperCase()}
+                  </span>
                 ))}
               </div>
-            ) : (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  {votes.map((v) => (
-                    <div key={v.userId} className="flex flex-col items-center gap-1">
-                      <div className="flex h-14 w-11 items-center justify-center rounded-lg border-2 border-neutral-200 text-lg font-bold text-neutral-800">
-                        {v.value}
-                      </div>
-                      <span className="max-w-[3.5rem] truncate text-[10px] text-neutral-400">{memberMap.get(v.userId) ?? "?"}</span>
-                    </div>
-                  ))}
-                  {votes.length === 0 && <p className="text-sm text-neutral-400">Nobody voted this round.</p>}
-                </div>
-
-                <div className="mt-4 flex items-center gap-2 border-t border-neutral-100 pt-4">
-                  <label className="text-xs font-medium text-neutral-600">Apply as story points:</label>
-                  <input
-                    type="number"
-                    min={0}
-                    step={0.5}
-                    value={applyPoints}
-                    onChange={(e) => setApplyPoints(e.target.value)}
-                    className="w-20 rounded-lg border border-neutral-300 px-2 py-1.5 text-sm outline-none focus:border-neutral-900"
-                  />
-                  <button onClick={applyAndNext} disabled={pending} className="rounded-lg bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50">
-                    Apply &amp; next
-                  </button>
-                </div>
-              </>
             )}
-          </div>
-
-          <div className="mt-3">
-            <button onClick={skip} disabled={pending} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 disabled:opacity-50">
-              Skip this issue
+            <button
+              onClick={endSession}
+              disabled={pending}
+              className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-[7px] text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-50"
+            >
+              End session
             </button>
           </div>
-        </>
-      )}
+        }
+      />
+
+      <div className="mx-auto max-w-2xl space-y-4 px-6 py-5">
+        {error && <p className="rounded-[6px] bg-[#fbeae8] px-3.5 py-2.5 text-[12px] text-[#c0392b]">{error}</p>}
+
+        {status === "completed" && !issue ? (
+          <div className="rounded-[6px] border border-[#c9d9c9] bg-[#e9f3ea] px-6 py-10 text-center">
+            <p className="text-[15px] font-extrabold font-[family-name:var(--font-manrope)] text-[#3f7d4c]">Session complete 🎉</p>
+            <p className="mt-1 text-[12.5px] text-[#3f7d4c]">Every issue in this project now has story points, or the session was ended.</p>
+          </div>
+        ) : !issue ? (
+          <div className="fw-card px-6 py-10 text-center text-[12.5px] text-[#a19d90]">Loading next issue…</div>
+        ) : (
+          <>
+            <div className="fw-card px-5 py-4">
+              <div className="flex items-center gap-2 text-[11px] text-[#a19d90]">
+                <span className="font-mono">{project.key}-{issue.number}</span>
+                <span className="rounded bg-[#e3ded0] px-1.5 py-0.5">{typeMap.get(issue.type) ?? issue.type}</span>
+                {priMap.get(issue.priority) && (
+                  <span className="rounded px-1.5 py-0.5 font-semibold text-white" style={{ backgroundColor: priMap.get(issue.priority)!.color ?? "#a19d90" }}>
+                    {priMap.get(issue.priority)!.label}
+                  </span>
+                )}
+              </div>
+              <h2 className="mt-2 text-[15px] font-extrabold font-[family-name:var(--font-manrope)] text-[#20201d]">{issue.title}</h2>
+              {issue.description && (
+                <p className="mt-2 max-h-32 overflow-y-auto whitespace-pre-wrap text-[12.5px] text-[#4a473e]">{issue.description}</p>
+              )}
+            </div>
+
+            <Note icon="🃏" tone="info">
+              {project.key}-{issue.number} · {issue.title} — {revealed ? "votes revealed." : `${votes.length} of ${presentUsers.length + 1} voted.`}
+            </Note>
+
+            <div className="fw-card px-4 py-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">
+                  {revealed ? "Votes revealed" : "Your estimate"}
+                </p>
+                {!revealed && (
+                  <button
+                    onClick={reveal}
+                    disabled={pending}
+                    className="rounded-[5px] border border-[#5e2c1f] px-3 py-[6px] text-[11.5px] font-semibold text-[#f2e9d8] disabled:opacity-50"
+                    style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+                  >
+                    Reveal votes
+                  </button>
+                )}
+              </div>
+
+              {!revealed ? (
+                <PokerDeck values={DECK} selected={myVote} onSelect={(v) => vote(String(v))} />
+              ) : (
+                <>
+                  <AdminList
+                    items={[
+                      ...votes.map((v) => ({ key: v.userId, title: memberMap.get(v.userId) ?? "?", meta: v.value })),
+                      ...(votes.length === 0 ? [{ key: "none", title: "Nobody voted this round." }] : []),
+                    ]}
+                  />
+
+                  <div className="mt-4 flex items-center gap-2 border-t border-[#e3ded0] pt-4">
+                    <label className="text-[11.5px] font-semibold text-[#4a473e]">Apply as story points:</label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.5}
+                      value={applyPoints}
+                      onChange={(e) => setApplyPoints(e.target.value)}
+                      className="w-20 rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12.5px] outline-none focus:border-[#b7452f]"
+                    />
+                    <button
+                      onClick={applyAndNext}
+                      disabled={pending}
+                      className="rounded-[5px] border border-[#5e2c1f] px-3.5 py-[7px] text-[12px] font-semibold text-[#f2e9d8] disabled:opacity-50"
+                      style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+                    >
+                      Apply &amp; next
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <button
+              onClick={skip}
+              disabled={pending}
+              className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3.5 py-[7px] text-[12px] font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-50"
+            >
+              Skip this issue
+            </button>
+          </>
+        )}
+      </div>
     </div>
   );
 }

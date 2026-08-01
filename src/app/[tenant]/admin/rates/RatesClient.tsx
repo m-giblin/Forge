@@ -3,188 +3,18 @@
 import { useState, useTransition } from "react";
 import type { BillingRate, CostRate, Member, Project } from "./actions";
 import { upsertBillingRateAction, upsertCostRateAction, deleteRateAction } from "./actions";
+import PageHeader from "@/components/patterns/PageHeader";
+import AdminTable, { type AdminTableCell } from "@/components/patterns/admin/AdminTable";
+import FormGrid from "@/components/patterns/admin/FormGrid";
 
 function fmtMoney(cents: number, currency: string) {
   return (cents / 100).toLocaleString(undefined, { style: "currency", currency, maximumFractionDigits: 0 });
 }
 
-function RateLabel({ userId, userName, projectName, roleName }: {
-  userId: string | null; userName: string | null; projectName?: string | null; roleName: string | null;
-}) {
-  if (userId && userName) return (
-    <div>
-      <p className="text-sm font-medium text-neutral-900">{userName}</p>
-      {projectName && <p className="text-xs text-neutral-400">Project: {projectName}</p>}
-    </div>
-  );
-  if (roleName) return (
-    <div>
-      <p className="text-sm font-medium text-neutral-900 capitalize">{roleName}</p>
-      {projectName && <p className="text-xs text-neutral-400">Project: {projectName}</p>}
-      <p className="text-xs text-neutral-400">Role rate</p>
-    </div>
-  );
-  return <p className="text-sm font-medium text-neutral-900">{projectName ? `${projectName} — Global` : "Global rate"}</p>;
-}
-
-function AddRateModal({
-  type,
-  members,
-  projects,
-  slug,
-  onDone,
-}: {
-  type: "billing" | "cost";
-  members: Member[];
-  projects: Project[];
-  slug: string;
-  onDone: () => void;
-}) {
-  const [scope, setScope] = useState<"user" | "role" | "global">("user");
-  const [userId, setUserId] = useState("");
-  const [projectId, setProjectId] = useState("");
-  const [roleName, setRoleName] = useState("");
-  const [rateInput, setRateInput] = useState("");
-  const [currency, setCurrency] = useState("USD");
-  const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().split("T")[0]);
-  const [error, setError] = useState<string | null>(null);
-  const [pending, start] = useTransition();
-
-  function submit() {
-    const cents = Math.round(parseFloat(rateInput) * 100);
-    if (!rateInput || isNaN(cents) || cents < 0) { setError("Enter a valid hourly rate."); return; }
-    setError(null);
-    start(async () => {
-      const res = type === "billing"
-        ? await upsertBillingRateAction(slug, {
-            userId: scope === "user" ? userId || undefined : undefined,
-            projectId: projectId || undefined,
-            roleName: scope === "role" ? roleName || undefined : undefined,
-            rateCents: cents, currency, effectiveFrom,
-          })
-        : await upsertCostRateAction(slug, {
-            userId: scope === "user" ? userId || undefined : undefined,
-            roleName: scope === "role" ? roleName || undefined : undefined,
-            costCents: cents, currency, effectiveFrom,
-          });
-      if (res.ok) onDone();
-      else setError(res.error ?? "Failed");
-    });
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 space-y-4">
-        <h3 className="text-base font-semibold text-neutral-900">
-          Add {type === "billing" ? "Billing" : "Cost"} Rate
-        </h3>
-
-        <div className="flex gap-1 bg-neutral-100 rounded-lg p-1">
-          {(["user", "role", "global"] as const).map((s) => (
-            <button
-              key={s}
-              onClick={() => setScope(s)}
-              className={`flex-1 py-1 rounded-md text-xs font-medium transition ${
-                scope === s ? "bg-white shadow-sm text-neutral-900" : "text-neutral-500 hover:text-neutral-700"
-              }`}
-            >
-              {s === "user" ? "Per person" : s === "role" ? "Per role" : "Global"}
-            </button>
-          ))}
-        </div>
-
-        {scope === "user" && (
-          <div>
-            <label className="text-xs font-medium text-neutral-500 block mb-1">Team member</label>
-            <select
-              value={userId}
-              onChange={(e) => setUserId(e.target.value)}
-              className="w-full rounded-lg border border-neutral-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              <option value="">Select member…</option>
-              {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
-            </select>
-          </div>
-        )}
-
-        {scope === "role" && (
-          <div>
-            <label className="text-xs font-medium text-neutral-500 block mb-1">Role name</label>
-            <input
-              value={roleName}
-              onChange={(e) => setRoleName(e.target.value)}
-              placeholder="e.g. engineer, designer"
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-        )}
-
-        {type === "billing" && (
-          <div>
-            <label className="text-xs font-medium text-neutral-500 block mb-1">Project (optional)</label>
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              className="w-full rounded-lg border border-neutral-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              <option value="">All projects</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-        )}
-
-        <div className="flex gap-3">
-          <div className="flex-1">
-            <label className="text-xs font-medium text-neutral-500 block mb-1">Hourly rate ($/hr)</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              value={rateInput}
-              onChange={(e) => setRateInput(e.target.value)}
-              placeholder="150"
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-          </div>
-          <div className="w-24">
-            <label className="text-xs font-medium text-neutral-500 block mb-1">Currency</label>
-            <select
-              value={currency}
-              onChange={(e) => setCurrency(e.target.value)}
-              className="w-full rounded-lg border border-neutral-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              {["USD","EUR","GBP","CAD","AUD"].map((c) => <option key={c}>{c}</option>)}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label className="text-xs font-medium text-neutral-500 block mb-1">Effective from</label>
-          <input
-            type="date"
-            value={effectiveFrom}
-            onChange={(e) => setEffectiveFrom(e.target.value)}
-            className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400"
-          />
-        </div>
-
-        {error && <p className="text-xs text-red-600">{error}</p>}
-
-        <div className="flex gap-2 justify-end">
-          <button onClick={onDone} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50">
-            Cancel
-          </button>
-          <button
-            onClick={submit}
-            disabled={pending}
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            Add Rate
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+function rateLabel(userId: string | null, userName: string | null, roleName: string | null, projectName?: string | null): string {
+  if (userId && userName) return projectName ? `${userName} — ${projectName}` : userName;
+  if (roleName) return projectName ? `${roleName} (role) — ${projectName}` : `${roleName} (role)`;
+  return projectName ? `${projectName} — Global` : "Global rate";
 }
 
 export default function RatesClient({
@@ -199,8 +29,63 @@ export default function RatesClient({
   const [tab, setTab] = useState<"billing" | "cost">("billing");
   const [billing, setBilling] = useState(initialBilling);
   const [cost, setCost] = useState(initialCost);
-  const [adding, setAdding] = useState(false);
   const [delPending, startDel] = useTransition();
+
+  const [scope, setScope] = useState<"user" | "role" | "global">("role");
+  const [userId, setUserId] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [roleName, setRoleName] = useState("");
+  const [rateInput, setRateInput] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [effectiveFrom, setEffectiveFrom] = useState(new Date().toISOString().split("T")[0]);
+  const [error, setError] = useState<string | null>(null);
+  const [addPending, startAdd] = useTransition();
+
+  function resetForm() {
+    setScope("role");
+    setUserId("");
+    setProjectId("");
+    setRoleName("");
+    setRateInput("");
+    setCurrency("USD");
+    setEffectiveFrom(new Date().toISOString().split("T")[0]);
+    setError(null);
+  }
+
+  function submitAdd() {
+    const cents = Math.round(parseFloat(rateInput) * 100);
+    if (!rateInput || isNaN(cents) || cents < 0) { setError("Enter a valid hourly rate."); return; }
+    setError(null);
+    startAdd(async () => {
+      const res = tab === "billing"
+        ? await upsertBillingRateAction(slug, {
+            userId: scope === "user" ? userId || undefined : undefined,
+            projectId: projectId || undefined,
+            roleName: scope === "role" ? roleName || undefined : undefined,
+            rateCents: cents, currency, effectiveFrom,
+          })
+        : await upsertCostRateAction(slug, {
+            userId: scope === "user" ? userId || undefined : undefined,
+            roleName: scope === "role" ? roleName || undefined : undefined,
+            costCents: cents, currency, effectiveFrom,
+          });
+      if (res.ok) {
+        resetForm();
+        // Re-fetch is not wired server-side; reload page data lazily via location refresh of the affected tab.
+        if (tab === "billing") {
+          setBilling((prev) => [
+            { id: crypto.randomUUID(), userId: userId || null, userName: members.find((m) => m.id === userId)?.name ?? null, projectId: projectId || null, projectName: projects.find((p) => p.id === projectId)?.name ?? null, roleName: scope === "role" ? roleName || null : null, rateCents: cents, currency, effectiveFrom },
+            ...prev,
+          ]);
+        } else {
+          setCost((prev) => [
+            { id: crypto.randomUUID(), userId: userId || null, userName: members.find((m) => m.id === userId)?.name ?? null, roleName: scope === "role" ? roleName || null : null, costCents: cents, currency, effectiveFrom },
+            ...prev,
+          ]);
+        }
+      } else setError(res.error ?? "Failed");
+    });
+  }
 
   function deleteRate(table: "billing_rates" | "cost_rates", id: string) {
     if (!confirm("Delete this rate?")) return;
@@ -213,90 +98,186 @@ export default function RatesClient({
 
   const rows = tab === "billing" ? billing : cost;
 
+  const tableRows: AdminTableCell[][] = rows.map((r) => {
+    const isBilling = tab === "billing";
+    const label = isBilling
+      ? rateLabel(r.userId, (r as BillingRate).userName, r.roleName, (r as BillingRate).projectName)
+      : rateLabel(r.userId, (r as CostRate).userName, r.roleName);
+    const amount = isBilling ? (r as BillingRate).rateCents : (r as CostRate).costCents;
+    return [
+      { kind: "bold", value: label },
+      { kind: "text", value: `${fmtMoney(amount, r.currency)}/hr` },
+      { kind: "dim", value: r.currency },
+      { kind: "dim", value: `from ${r.effectiveFrom}` },
+      {
+        kind: "link",
+        value: "Delete",
+        onClick: () => deleteRate(tab === "billing" ? "billing_rates" : "cost_rates", r.id),
+      },
+    ];
+  });
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-neutral-900">Rates</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">
-            {tab === "billing" ? "External billing rates used for client invoicing." : "Internal cost rates for profitability tracking."}
-          </p>
-        </div>
-        <button
-          onClick={() => setAdding(true)}
-          className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-700"
-        >
-          + Add Rate
-        </button>
-      </div>
-
-      <div className="flex gap-1 border-b border-neutral-200">
-        {(["billing", "cost"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${
-              tab === t ? "border-indigo-600 text-indigo-700" : "border-transparent text-neutral-500 hover:text-neutral-700"
-            }`}
-          >
-            {t === "billing" ? "💰 Billing Rates" : "🔒 Internal Cost Rates"}
-          </button>
-        ))}
-      </div>
-
-      {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-neutral-200 py-16 text-center">
-          <p className="text-sm font-medium text-neutral-500">No {tab} rates configured</p>
-          <p className="text-xs text-neutral-400 mt-1">Add a rate to start tracking time costs for this workspace.</p>
-        </div>
-      ) : (
-        <div className="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100 overflow-hidden">
-          {rows.map((r) => (
-            <div key={r.id} className="flex items-center gap-4 px-4 py-3 hover:bg-neutral-50 transition">
-              <div className="flex-1 min-w-0">
-                {tab === "billing" ? (
-                  <RateLabel
-                    userId={(r as BillingRate).userId}
-                    userName={(r as BillingRate).userName}
-                    projectName={(r as BillingRate).projectName}
-                    roleName={(r as BillingRate).roleName}
-                  />
-                ) : (
-                  <RateLabel
-                    userId={(r as CostRate).userId}
-                    userName={(r as CostRate).userName}
-                    roleName={(r as CostRate).roleName}
-                  />
-                )}
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-sm font-semibold text-neutral-900">
-                  {fmtMoney(tab === "billing" ? (r as BillingRate).rateCents : (r as CostRate).costCents, r.currency)}/hr
-                </p>
-                <p className="text-xs text-neutral-400">from {r.effectiveFrom}</p>
-              </div>
+      <PageHeader
+        title="Rates"
+        subtitle="Hourly rates used for budget and cost reporting"
+        right={
+          <div className="flex gap-1 rounded-[6px] border border-[#ddd8c9] bg-[#f4f2eb] p-0.5">
+            {(["billing", "cost"] as const).map((t) => (
               <button
-                onClick={() => deleteRate(tab === "billing" ? "billing_rates" : "cost_rates", r.id)}
-                disabled={delPending}
-                className="text-neutral-300 hover:text-red-400 transition text-lg disabled:opacity-50"
-                title="Delete rate"
+                key={t}
+                onClick={() => setTab(t)}
+                className={`rounded-[4px] px-3 py-1 text-[11.5px] font-semibold transition ${
+                  tab === t ? "bg-white text-[#20201d] shadow-sm" : "text-[#726e60] hover:text-[#4a473e]"
+                }`}
               >
-                ×
+                {t === "billing" ? "Billing rates" : "Internal cost rates"}
               </button>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        }
+      />
 
-      {adding && (
-        <AddRateModal
-          type={tab}
-          members={members}
-          projects={projects}
-          slug={slug}
-          onDone={() => setAdding(false)}
+      <div className="space-y-6 px-6">
+        <p className="text-[11.5px] text-[#726e60]">
+          {tab === "billing" ? "External billing rates used for client invoicing." : "Internal cost rates for profitability tracking."}
+        </p>
+
+        {rows.length === 0 ? (
+          <div className="fw-card py-16 text-center">
+            <p className="text-[12.5px] font-semibold text-[#726e60]">No {tab} rates configured</p>
+            <p className="mt-1 text-[11px] text-[#a19d90]">Add a rate below to start tracking time costs for this workspace.</p>
+          </div>
+        ) : (
+          <AdminTable
+            minWidth={640}
+            columns={[
+              { label: "Role / member", flex: true },
+              { label: "Rate", width: 130 },
+              { label: "Currency", width: 100 },
+              { label: "Effective", width: 130 },
+              { label: "", width: 90 },
+            ]}
+            rows={tableRows}
+          />
+        )}
+
+        <FormGrid
+          submitLabel={addPending ? "Adding…" : "Add rate"}
+          onCancel={resetForm}
+          onSubmit={submitAdd}
+          fields={[
+            {
+              key: "scope",
+              label: "Applies to",
+              input: (
+                <div className="flex gap-1 rounded-[6px] border border-[#ddd8c9] bg-[#f4f2eb] p-0.5">
+                  {(["role", "user", "global"] as const).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => setScope(s)}
+                      className={`flex-1 rounded-[4px] py-1 text-[11.5px] font-semibold transition ${
+                        scope === s ? "bg-white text-[#20201d] shadow-sm" : "text-[#726e60] hover:text-[#4a473e]"
+                      }`}
+                    >
+                      {s === "user" ? "Per person" : s === "role" ? "Per role" : "Global"}
+                    </button>
+                  ))}
+                </div>
+              ),
+            },
+            ...(scope === "user"
+              ? [{
+                  key: "member",
+                  label: "Team member",
+                  input: (
+                    <select
+                      value={userId}
+                      onChange={(e) => setUserId(e.target.value)}
+                      className="rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12px] text-[#20201d] focus:outline-none focus:ring-2 focus:ring-[#b7452f]/30"
+                    >
+                      <option value="">Select member…</option>
+                      {members.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                    </select>
+                  ),
+                }]
+              : []),
+            ...(scope === "role"
+              ? [{
+                  key: "role",
+                  label: "Role",
+                  input: (
+                    <input
+                      value={roleName}
+                      onChange={(e) => setRoleName(e.target.value)}
+                      placeholder="e.g. engineer, designer"
+                      className="rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-[7px] text-[12px] text-[#20201d] focus:outline-none focus:ring-2 focus:ring-[#b7452f]/30"
+                    />
+                  ),
+                }]
+              : []),
+            ...(tab === "billing"
+              ? [{
+                  key: "project",
+                  label: "Project (optional)",
+                  input: (
+                    <select
+                      value={projectId}
+                      onChange={(e) => setProjectId(e.target.value)}
+                      className="rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12px] text-[#20201d] focus:outline-none focus:ring-2 focus:ring-[#b7452f]/30"
+                    >
+                      <option value="">All projects</option>
+                      {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                  ),
+                }]
+              : []),
+            {
+              key: "rate",
+              label: "Hourly rate",
+              input: (
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={rateInput}
+                  onChange={(e) => setRateInput(e.target.value)}
+                  placeholder="150"
+                  className="rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-[7px] text-[12px] text-[#20201d] focus:outline-none focus:ring-2 focus:ring-[#b7452f]/30"
+                />
+              ),
+            },
+            {
+              key: "currency",
+              label: "Currency",
+              input: (
+                <select
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value)}
+                  className="rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12px] text-[#20201d] focus:outline-none focus:ring-2 focus:ring-[#b7452f]/30"
+                >
+                  {["USD", "EUR", "GBP", "CAD", "AUD"].map((c) => <option key={c}>{c}</option>)}
+                </select>
+              ),
+            },
+            {
+              key: "effectiveFrom",
+              label: "Effective from",
+              input: (
+                <input
+                  type="date"
+                  value={effectiveFrom}
+                  onChange={(e) => setEffectiveFrom(e.target.value)}
+                  className="rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-[7px] text-[12px] text-[#20201d] focus:outline-none focus:ring-2 focus:ring-[#b7452f]/30"
+                />
+              ),
+            },
+          ]}
         />
-      )}
+        {error && <p className="-mt-3 text-[11.5px] text-[#b23b2e]">{error}</p>}
+      </div>
     </div>
   );
 }

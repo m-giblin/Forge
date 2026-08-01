@@ -3,6 +3,7 @@ import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role needed for plan/flag reads (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import FeaturesClient from "./FeaturesClient";
+import PageHeader from "@/components/patterns/PageHeader";
 
 const ALWAYS_ON = [
   { key: "kanban",   label: "Kanban Board + Issues",       desc: "Full kanban board, list view, and issue management" },
@@ -27,6 +28,7 @@ export default async function TenantFeaturesPage({ params }: { params: Promise<{
     { data: superOverrides },
     { data: selfOverrides },
     { data: notifications },
+    { data: tenantBilling },
   ] = await Promise.all([
     svc.from("plan_tiers").select("key, label, monthly_cents, is_active, display_order").order("display_order"),
     svc.from("feature_flags").select("key, label, description"),
@@ -39,6 +41,7 @@ export default async function TenantFeaturesPage({ params }: { params: Promise<{
       .is("read_at", null)
       .order("created_at", { ascending: false })
       .limit(5),
+    svc.from("tenants").select("subscription_seats, trial_ends_at, subscription_status").eq("id", ctx.tenant.id).single(),
   ]);
 
   // For each higher tier, fetch their feature set so we can show upgrade info
@@ -90,36 +93,36 @@ export default async function TenantFeaturesPage({ params }: { params: Promise<{
   const currentTier = (allTiers ?? []).find((t) => t.key === plan);
 
   return (
-    <div className="max-w-3xl">
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-neutral-900">Features & Plan</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          Manage which features are active in your workspace. You can disable features your team doesn{"'"}t use — but you can{"'"}t enable features outside your plan.
-        </p>
-      </div>
+    <div className="space-y-6">
+      <PageHeader title="Features & Plan" subtitle="What is included on your plan" />
 
-      <FeaturesClient
-        slug={slug}
-        plan={plan}
-        currentTier={currentTier ? { key: currentTier.key as string, label: currentTier.label as string, monthly_cents: currentTier.monthly_cents as number | null } : null}
-        alwaysOn={ALWAYS_ON}
-        myFeatures={myFeatures}
-        higherTiers={higherTiers.map((t) => ({
-          key: t.key as string,
-          label: t.label as string,
-          monthly_cents: t.monthly_cents as number | null,
-          is_active: t.is_active as boolean,
-          features: higherTierFeatures[t.key as string] ?? {},
-        }))}
-        allFlags={(flags ?? []).map((f) => ({ key: f.key as string, label: f.label as string, description: f.description as string | null }))}
-        notifications={(notifications ?? []).map((n) => ({
-          id: n.id as string,
-          title: n.title as string,
-          body: n.body as string | null,
-          feature_key: n.feature_key as string | null,
-          created_at: n.created_at as string,
-        }))}
-      />
+      <div className="max-w-3xl px-6">
+        <FeaturesClient
+          slug={slug}
+          plan={plan}
+          currentTier={currentTier ? { key: currentTier.key as string, label: currentTier.label as string, monthly_cents: currentTier.monthly_cents as number | null } : null}
+          alwaysOn={ALWAYS_ON}
+          myFeatures={myFeatures}
+          higherTiers={higherTiers.map((t) => ({
+            key: t.key as string,
+            label: t.label as string,
+            monthly_cents: t.monthly_cents as number | null,
+            is_active: t.is_active as boolean,
+            features: higherTierFeatures[t.key as string] ?? {},
+          }))}
+          allFlags={(flags ?? []).map((f) => ({ key: f.key as string, label: f.label as string, description: f.description as string | null }))}
+          notifications={(notifications ?? []).map((n) => ({
+            id: n.id as string,
+            title: n.title as string,
+            body: n.body as string | null,
+            feature_key: n.feature_key as string | null,
+            created_at: n.created_at as string,
+          }))}
+          seats={(tenantBilling?.subscription_seats as number | null) ?? 1}
+          trialEndsAt={(tenantBilling?.trial_ends_at as string | null) ?? null}
+          subscriptionStatus={(tenantBilling?.subscription_status as string | null) ?? "active"}
+        />
+      </div>
     </div>
   );
 }

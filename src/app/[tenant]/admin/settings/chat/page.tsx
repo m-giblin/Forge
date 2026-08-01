@@ -16,7 +16,7 @@ export default async function ChatSettingsPage({ params }: { params: Promise<{ t
   ]);
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8">
+    <div className="pb-8">
       <ChatSettingsClient
         slug={slug}
         webhooks={webhooks}

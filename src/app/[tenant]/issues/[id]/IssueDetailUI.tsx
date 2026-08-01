@@ -38,9 +38,9 @@ export function InfoTooltip({ text }: { text: string }) {
       <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-neutral-200 text-neutral-500 text-[9px] font-bold cursor-default select-none leading-none group-hover/tip:bg-neutral-300">
         i
       </span>
-      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-52 rounded-lg bg-neutral-900 px-3 py-2 text-[11px] text-white leading-relaxed shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-52 rounded-lg bg-[#20201d] px-3 py-2 text-[11px] text-white leading-relaxed shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
         {text}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900" />
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#20201d]" />
       </span>
     </span>
   );
@@ -78,7 +78,7 @@ export function avatarInitials(label: string | null): string {
 }
 
 export function avatarColor(label: string | null): string {
-  const colors = ["bg-blue-500","bg-violet-500","bg-emerald-500","bg-amber-500","bg-rose-500","bg-cyan-500","bg-indigo-500","bg-pink-500"];
+  const colors = ["bg-[#3a6ea8]","bg-[#7a4fa0]","bg-[#3f7d4c]","bg-[#c9791d]","bg-[#c0392b]","bg-[#8c4632]","bg-[#b7452f]","bg-[#726e60]"];
   if (!label) return colors[0];
   const idx = [...label].reduce((acc, ch) => acc + ch.charCodeAt(0), 0) % colors.length;
   return colors[idx];

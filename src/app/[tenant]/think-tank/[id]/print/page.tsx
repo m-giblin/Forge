@@ -69,7 +69,7 @@ export default async function IdeaPrintPage({
           <span className="text-sm text-neutral-500">Print this page or save as PDF using your browser&#39;s Print dialog.</span>
           <button
             onClick={() => typeof window !== "undefined" && window.print()}
-            className="ml-auto rounded-lg bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
+            className="ml-auto rounded-lg bg-[#8c4632] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#6e3324]"
             suppressHydrationWarning
           >
             Print / Save as PDF

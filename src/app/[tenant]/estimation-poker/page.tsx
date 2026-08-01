@@ -35,7 +35,7 @@ export default async function EstimationPokerPage({
     : { count: 0 };
 
   return (
-    <main className="w-full px-6 py-8">
+    <main className="w-full">
       <EstimationPokerLanding
         slug={slug}
         projects={projects}

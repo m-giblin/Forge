@@ -2,9 +2,16 @@
 
 import { useState, useTransition } from "react";
 import { generateGuestLinkAction, revokeGuestLinkAction } from "./actions";
+import TogglesList from "@/components/patterns/admin/TogglesList";
+import AdminTable, { type AdminTableCell } from "@/components/patterns/admin/AdminTable";
+import Note from "@/components/patterns/admin/Note";
 
 type Project = { id: string; key: string; name: string };
-type LinkState = { isActive: boolean };
+type LinkState = { isActive: boolean; createdAt: string };
+
+function relDate(dateStr: string) {
+  return new Date(dateStr).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
 
 export default function GuestAccessManager({
   slug, readOnly, projects, linkMap,
@@ -19,6 +26,9 @@ export default function GuestAccessManager({
   const [active, setActive] = useState<Record<string, boolean>>(
     Object.fromEntries(projects.map((p) => [p.id, linkMap[p.id]?.isActive ?? false]))
   );
+
+  const activeProjects = projects.filter((p) => active[p.id]);
+  const anyActive = activeProjects.length > 0;
 
   function generate(projectId: string) {
     setError(null);
@@ -53,60 +63,101 @@ export default function GuestAccessManager({
     });
   }
 
+  // No global "enable guest links" setting exists in the schema — the master toggle reflects
+  // whether any link is currently active, and turning it off revokes every active link at once.
+  function handleMasterToggle(_key: string, next: boolean) {
+    if (readOnly) return;
+    if (!next) {
+      activeProjects.forEach((p) => revoke(p.id));
+    }
+  }
+
+  const rows: AdminTableCell[][] = activeProjects.map((p) => {
+    const link = linkMap[p.id];
+    return [
+      { kind: "bold", value: p.name },
+      { kind: "dim", value: `Project · ${p.key}` },
+      { kind: "dim", value: link ? relDate(link.createdAt) : "—" },
+      { kind: "dim", value: "Never" },
+      {
+        kind: "link",
+        value: pending ? "…" : "Revoke",
+        onClick: readOnly ? undefined : () => revoke(p.id),
+      },
+    ];
+  });
+
   return (
-    <div className={`mt-6 space-y-3 ${readOnly ? "pointer-events-none opacity-70" : ""}`}>
-      {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+    <div className={`space-y-4 ${readOnly ? "pointer-events-none opacity-70" : ""}`}>
+      {error && <Note icon="⚠" tone="error">{error}</Note>}
 
-      {projects.length === 0 && <p className="text-sm text-neutral-400">No active projects yet.</p>}
+      <TogglesList
+        items={[
+          {
+            key: "guest-links",
+            label: "Enable guest links",
+            description: "Allow admins to generate view-only links to a project's Board and Roadmap.",
+            on: anyActive,
+            tag: anyActive ? <span className="text-[11px] font-semibold text-[#726e60]">{activeProjects.length} active</span> : undefined,
+          },
+        ]}
+        onChange={handleMasterToggle}
+      />
 
-      {projects.map((p) => {
-        const isActive = active[p.id];
-        const freshUrl = freshUrls[p.id];
+      {/* Fresh URLs — shown once, right after generation, since the raw token is never stored */}
+      {Object.entries(freshUrls).map(([projectId, url]) => {
+        const p = projects.find((pr) => pr.id === projectId);
+        if (!p) return null;
         return (
-          <div key={p.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center gap-2">
-              <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">{p.key}</span>
-              <span className="font-medium text-neutral-900">{p.name}</span>
-              <span className={`ml-auto rounded-full px-2 py-0.5 text-[11px] font-medium ${isActive ? "bg-emerald-100 text-emerald-700" : "bg-neutral-100 text-neutral-500"}`}>
-                {isActive ? "Link active" : "No active link"}
-              </span>
-            </div>
-
-            {freshUrl && (
-              <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-                <p className="text-xs font-medium text-amber-800">Copy this now — for security it won&apos;t be shown again. Regenerate if you lose it.</p>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <input readOnly value={freshUrl} onFocus={(e) => e.target.select()} className="flex-1 rounded border border-amber-300 bg-white px-2 py-1 font-mono text-xs text-neutral-700" />
-                  <button onClick={() => copy(p.id, freshUrl)} className="shrink-0 rounded-lg bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-800">
-                    {copiedId === p.id ? "Copied!" : "Copy"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {!readOnly && (
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => generate(p.id)}
-                  disabled={pending}
-                  className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50"
-                >
-                  {isActive ? "Regenerate link" : "Generate link"}
-                </button>
-                {isActive && (
-                  <button
-                    onClick={() => revoke(p.id)}
-                    disabled={pending}
-                    className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
-                  >
-                    Revoke
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
+          <Note key={projectId} icon="🔗" tone="warning">
+            <span className="font-semibold">{p.name}:</span> copy this link now — it won&apos;t be shown again.{" "}
+            <button
+              type="button"
+              onClick={() => copy(projectId, url)}
+              className="ml-1 font-semibold text-[#b7452f] hover:underline"
+            >
+              {copiedId === projectId ? "Copied!" : "Copy link"}
+            </button>
+            <input readOnly value={url} onFocus={(e) => e.target.select()} className="mt-1.5 block w-full rounded border border-[#f0dcb8] bg-white px-2 py-1 font-mono text-[11px] text-[#4a473e]" />
+          </Note>
         );
       })}
+
+      {projects.length === 0 ? (
+        <p className="text-[12.5px] text-[#a19d90]">No active projects yet.</p>
+      ) : activeProjects.length === 0 ? (
+        <p className="text-[12.5px] text-[#a19d90]">No active guest links. Generate one below.</p>
+      ) : (
+        <AdminTable
+          columns={[
+            { label: "Label", flex: true },
+            { label: "Scope", width: 190 },
+            { label: "Created", width: 130 },
+            { label: "Expires", width: 130 },
+            { label: "", width: 90 },
+          ]}
+          rows={rows}
+        />
+      )}
+
+      {!readOnly && (
+        <div>
+          <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Generate a new link</p>
+          <div className="flex flex-wrap gap-2">
+            {projects.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => generate(p.id)}
+                disabled={pending}
+                className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#ede9db] disabled:opacity-50"
+              >
+                {active[p.id] ? `Regenerate — ${p.key}` : `Generate — ${p.key}`}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

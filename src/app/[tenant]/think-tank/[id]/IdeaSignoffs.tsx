@@ -80,7 +80,7 @@ export default function IdeaSignoffs({ slug, ideaId, signoffs, canSign }: Props)
                   className={`mt-2 w-full rounded-md px-2 py-1 text-xs font-medium transition disabled:opacity-50 ${
                     done
                       ? "border border-neutral-200 text-neutral-500 hover:bg-white"
-                      : "bg-neutral-900 text-white hover:bg-neutral-800"
+                      : "bg-[#8c4632] text-[#f2e9d8] hover:bg-[#6e3324]"
                   }`}
                 >
                   {done ? "Undo" : "Approve"}

@@ -54,11 +54,11 @@ export default function ProjectOverview({
     <div className="space-y-5">
       {/* Attention strip — explainable, only when there's something to flag */}
       {data.attention.length > 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-amber-300 bg-amber-50 p-4">
+        <div className="flex items-start gap-3 rounded-xl border border-[#c9791d]/30 bg-[#fdf1de] p-4">
           <span className="text-xl">⚠️</span>
           <div className="flex-1">
-            <p className="text-sm font-semibold text-amber-900">This project needs attention</p>
-            <p className="text-sm text-amber-800">{data.attention.join(" · ")}.</p>
+            <p className="text-sm font-semibold text-[#c9791d]">This project needs attention</p>
+            <p className="text-sm text-[#c9791d]">{data.attention.join(" · ")}.</p>
           </div>
         </div>
       )}
@@ -72,7 +72,8 @@ export default function ProjectOverview({
           </p>
           <Link
             href={`/${slug}/board?project=${data.project.key}`}
-            className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+            className="mt-4 inline-block rounded-[5px] border border-[#5e2c1f] px-4 py-2 text-sm font-bold text-[#f2e9d8]"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
           >
             Open board to add work →
           </Link>
@@ -180,7 +181,7 @@ export default function ProjectOverview({
             <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Origin</p>
               <p className="mt-2 text-sm font-medium text-neutral-900">💡 {data.provenance.ideaTitle}</p>
-              <Link href={`/${slug}/think-tank/${data.provenance.ideaId}`} className="mt-2 inline-block text-xs font-medium text-indigo-600 hover:underline">
+              <Link href={`/${slug}/think-tank/${data.provenance.ideaId}`} className="mt-2 inline-block text-xs font-medium text-[#b7452f] hover:underline">
                 View in Think Tank →
               </Link>
             </div>

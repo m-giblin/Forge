@@ -25,11 +25,11 @@ import {
 } from "./actions";
 
 const KIND_META: Record<IdeaCanvasNodeKind, { label: string; border: string; text: string; dashed?: boolean; soft?: string }> = {
-  problem: { label: "Problem", border: "border-l-rose-600", text: "text-rose-600" },
-  feature: { label: "Feature", border: "border-l-emerald-600", text: "text-emerald-600" },
+  problem: { label: "Problem", border: "border-l-[#c0392b]", text: "text-[#c0392b]" },
+  feature: { label: "Feature", border: "border-l-[#3f7d4c]", text: "text-[#3f7d4c]" },
   risk: { label: "Risk", border: "border-l-orange-600", text: "text-orange-600" },
   question: { label: "Question", border: "border-l-sky-600", text: "text-sky-600" },
-  ai: { label: "AI suggestion", border: "border-l-violet-600", text: "text-violet-600", dashed: true, soft: "bg-violet-50" },
+  ai: { label: "AI suggestion", border: "border-l-[#b7452f]", text: "text-[#b7452f]", dashed: true, soft: "bg-[#f4f2eb]" },
 };
 
 type FlowNodeData = {
@@ -249,28 +249,28 @@ function IdeaCanvasInner({
         {aiPanelOpen && (
           <div className="absolute top-0 right-0 h-full w-[320px] overflow-y-auto border-l border-neutral-200 bg-white p-4 shadow-lg z-10">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-violet-600">Test with AI</span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-[#b7452f]">Test with AI</span>
               <button type="button" onClick={() => setAiPanelOpen(false)} className="text-neutral-400 hover:text-neutral-700">
                 ×
               </button>
             </div>
             {aiPending && !aiText && !aiError && (
               <div className="flex items-center gap-2 text-xs text-neutral-500 mt-4">
-                <span className="h-3 w-3 rounded-full border-2 border-neutral-300 border-t-violet-500 animate-spin" />
+                <span className="h-3 w-3 rounded-full border-2 border-neutral-300 border-t-[#b7452f] animate-spin" />
                 Thinking through the shape of this idea…
               </div>
             )}
             {aiError && <p className="text-xs text-red-600 mt-4">{aiError}</p>}
             {aiText && (
               <>
-                <div className="mt-2 whitespace-pre-wrap rounded-lg bg-violet-50 border border-violet-100 p-3 text-xs leading-relaxed text-neutral-700">
+                <div className="mt-2 whitespace-pre-wrap rounded-lg bg-[#f4f2eb] border border-[#ddd8c9] p-3 text-xs leading-relaxed text-neutral-700">
                   {aiText}
                 </div>
                 <button
                   type="button"
                   onClick={addAiSuggestions}
                   disabled={aiPending}
-                  className="mt-3 w-full rounded-lg bg-violet-600 px-3 py-2 text-xs font-semibold text-white hover:brightness-105 disabled:opacity-50"
+                  className="mt-3 w-full rounded-lg bg-[#b7452f] px-3 py-2 text-xs font-semibold text-white hover:brightness-105 disabled:opacity-50"
                 >
                   {aiPending ? "Adding…" : "+ Add these as AI suggestion cards"}
                 </button>
@@ -300,7 +300,7 @@ function IdeaCanvasInner({
           type="button"
           onClick={testWithAi}
           disabled={aiPending}
-          className="w-full rounded-lg bg-violet-600 px-2.5 py-2 text-xs font-semibold text-white hover:brightness-105 disabled:opacity-50"
+          className="w-full rounded-lg bg-[#b7452f] px-2.5 py-2 text-xs font-semibold text-white hover:brightness-105 disabled:opacity-50"
         >
           ✨ Test with AI
         </button>

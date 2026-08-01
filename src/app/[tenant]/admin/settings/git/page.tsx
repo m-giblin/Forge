@@ -5,6 +5,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
 import { projectsRepo } from "@/lib/repositories/projects";
 import GitSettingsClient from "./GitSettingsClient";
+import AdminTable from "@/components/patterns/admin/AdminTable";
 
 export default async function GitSettingsPage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant: slug } = await params;
@@ -34,7 +35,7 @@ export default async function GitSettingsPage({ params }: { params: Promise<{ te
     .limit(20);
 
   return (
-    <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
+    <div className="space-y-6 pb-8">
       <GitSettingsClient
         slug={slug}
         connection={connection}
@@ -44,48 +45,40 @@ export default async function GitSettingsPage({ params }: { params: Promise<{ te
       />
 
       {/* Deployment history — populated after migration 0091 */}
-      <div>
-        <h3 className="text-sm font-semibold text-neutral-900 mb-3">Recent deployments</h3>
+      <div className="px-6">
+        <h3 className="mb-3 text-[12.5px] font-bold text-[#20201d]">Recent deployments</h3>
         {!deployments || deployments.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-neutral-200 p-6 text-center text-sm text-neutral-400">
+          <div className="fw-card border-dashed p-6 text-center text-[11.5px] text-[#a19d90]">
             No deployments recorded yet. Connect GitHub and push a release tag or use the Deployments API.
           </div>
         ) : (
-          <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-neutral-100 bg-neutral-50 text-left">
-                  <th className="px-4 py-2.5 text-xs font-medium text-neutral-500">Version</th>
-                  <th className="px-4 py-2.5 text-xs font-medium text-neutral-500">Environment</th>
-                  <th className="px-4 py-2.5 text-xs font-medium text-neutral-500">Deployed by</th>
-                  <th className="px-4 py-2.5 text-xs font-medium text-neutral-500">Status</th>
-                  <th className="px-4 py-2.5 text-xs font-medium text-neutral-500 text-right">When</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-50">
-                {(deployments ?? []).map((d: {
-                  id: string; environment: string; version: string; repo_full_name: string | null;
-                  deployed_by: string | null; status: string; commit_sha: string | null; deployed_at: string;
-                }) => (
-                  <tr key={d.id} className="hover:bg-neutral-50 transition">
-                    <td className="px-4 py-2.5 font-mono text-xs font-medium text-neutral-900">{d.version}</td>
-                    <td className="px-4 py-2.5 text-xs text-neutral-500">{d.environment}</td>
-                    <td className="px-4 py-2.5 text-xs text-neutral-500">{d.deployed_by ?? "—"}</td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                        d.status === "success" ? "bg-green-50 text-green-700" :
-                        d.status === "failure" ? "bg-red-50 text-red-700" :
-                        "bg-amber-50 text-amber-700"
-                      }`}>{d.status}</span>
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-neutral-400 text-right">
-                      {new Date(d.deployed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AdminTable
+            columns={[
+              { label: "Version", width: 120 },
+              { label: "Environment", width: 120 },
+              { label: "Deployed by", flex: true },
+              { label: "Status", width: 100 },
+              { label: "When", width: 140 },
+            ]}
+            rows={(deployments ?? []).map((d: {
+              id: string; environment: string; version: string; repo_full_name: string | null;
+              deployed_by: string | null; status: string; commit_sha: string | null; deployed_at: string;
+            }) => [
+              { kind: "mono", value: d.version },
+              { kind: "dim", value: d.environment },
+              { kind: "dim", value: d.deployed_by ?? "—" },
+              {
+                kind: "chip",
+                value: d.status,
+                chipFg: d.status === "success" ? "#3f7d4c" : d.status === "failure" ? "#c0392b" : "#c9791d",
+                chipBg: d.status === "success" ? "#e9f3ea" : d.status === "failure" ? "#fbeae8" : "#fdf1de",
+              },
+              {
+                kind: "dim",
+                value: new Date(d.deployed_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }),
+              },
+            ])}
+          />
         )}
       </div>
     </div>

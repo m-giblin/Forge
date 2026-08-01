@@ -61,7 +61,8 @@ export default function WikiPanel({ slug, projectKey, wiki, canEdit }: Props) {
           <button
             onClick={handleSave}
             disabled={isPending}
-            className="rounded-lg bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+            className="rounded-[5px] border border-[#5e2c1f] px-4 py-1.5 text-sm font-bold text-[#f2e9d8] disabled:opacity-50"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
           >
             {isPending ? "Saving…" : "Save"}
           </button>

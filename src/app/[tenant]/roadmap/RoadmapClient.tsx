@@ -9,14 +9,14 @@ import { createPhaseAction, updatePhaseAction, deletePhaseAction, assignProjectP
 type IssueCountEntry = { todo: number; in_progress: number; done: number; total: number };
 
 const PHASE_COLORS = [
-  { label: "Indigo", value: "#6366f1" },
-  { label: "Sky", value: "#0ea5e9" },
-  { label: "Emerald", value: "#10b981" },
-  { label: "Amber", value: "#f59e0b" },
-  { label: "Rose", value: "#f43f5e" },
-  { label: "Violet", value: "#8b5cf6" },
-  { label: "Teal", value: "#14b8a6" },
-  { label: "Orange", value: "#f97316" },
+  { label: "Indigo", value: "#8c4632" },
+  { label: "Sky", value: "#3a6ea8" },
+  { label: "Emerald", value: "#7a4fa0" },
+  { label: "Green", value: "#3f7d4c" },
+  { label: "Rose", value: "#c9791d" },
+  { label: "Violet", value: "#c0392b" },
+  { label: "Teal", value: "#5b6b4a" },
+  { label: "Orange", value: "#a1663f" },
 ];
 
 type DepEdge = { fromProjectId: string; toProjectId: string };
@@ -35,16 +35,16 @@ type CascadeState = { movedId: string; movedName: string; shift: number; depende
 
 // Vivid per-project palette — each project gets its own color regardless of status
 const PROJECT_PALETTE = [
-  { bg: "#6366f1", light: "#eef2ff", text: "#4338ca" }, // indigo
-  { bg: "#0ea5e9", light: "#e0f2fe", text: "#0369a1" }, // sky
-  { bg: "#10b981", light: "#d1fae5", text: "#047857" }, // emerald
-  { bg: "#f59e0b", light: "#fef3c7", text: "#b45309" }, // amber
-  { bg: "#f43f5e", light: "#ffe4e6", text: "#be123c" }, // rose
-  { bg: "#8b5cf6", light: "#ede9fe", text: "#6d28d9" }, // violet
-  { bg: "#14b8a6", light: "#ccfbf1", text: "#0f766e" }, // teal
-  { bg: "#f97316", light: "#ffedd5", text: "#c2410c" }, // orange
-  { bg: "#ec4899", light: "#fce7f3", text: "#be185d" }, // pink
-  { bg: "#84cc16", light: "#f7fee7", text: "#4d7c0f" }, // lime
+  { bg: "#8c4632", light: "#f4f2eb", text: "#8c4632" }, // indigo
+  { bg: "#3a6ea8", light: "#eaf1f8", text: "#3a6ea8" }, // sky
+  { bg: "#7a4fa0", light: "#f4ecfa", text: "#7a4fa0" }, // emerald
+  { bg: "#3f7d4c", light: "#e9f3ea", text: "#3f7d4c" }, // amber
+  { bg: "#c9791d", light: "#fdf1de", text: "#c9791d" }, // rose
+  { bg: "#c0392b", light: "#fbeae8", text: "#c0392b" }, // violet
+  { bg: "#5b6b4a", light: "#f4f2eb", text: "#5b6b4a" }, // teal
+  { bg: "#a1663f", light: "#f4f2eb", text: "#a1663f" }, // orange
+  { bg: "#8c4632", light: "#f4f2eb", text: "#8c4632" }, // pink
+  { bg: "#3a6ea8", light: "#eaf1f8", text: "#3a6ea8" }, // lime
 ];
 
 function projectPalette(index: number) {
@@ -294,15 +294,16 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
 
   if (projects.length === 0) {
     return (
-      <div>
-        <h1 className="text-2xl font-bold text-neutral-900 mb-6">Roadmap</h1>
-        <div className="rounded-xl border border-neutral-200 bg-white p-16 text-center">
+      <div className="bg-[#eeece4] min-h-full px-6 py-6">
+        <h1 className="font-[family-name:var(--font-manrope)] text-[21px] font-extrabold text-[#20201d] mb-6">Roadmap</h1>
+        <div className="fw-card p-16 text-center">
           <div className="text-5xl mb-4">🗺️</div>
-          <h2 className="text-lg font-semibold text-neutral-700 mb-2">No projects yet</h2>
-          <p className="text-neutral-500 text-sm mb-6">Create your first project to see it on the roadmap.</p>
+          <h2 className="text-lg font-semibold text-[#20201d] mb-2">No projects yet</h2>
+          <p className="text-[#726e60] text-sm mb-6">Create your first project to see it on the roadmap.</p>
           <Link
             href={`/${slug}/projects`}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+            className="inline-flex items-center gap-2 rounded-[5px] px-4 py-2 text-sm font-semibold text-[#f2e9d8]"
+            style={{ background: "#8c4632", backgroundImage: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" }}
           >
             Go to Projects
           </Link>
@@ -312,30 +313,34 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-neutral-900">Roadmap</h1>
+    <div className="bg-[#eeece4] min-h-full">
+      <div className="flex items-center justify-between gap-4 border-b border-[#ddd8c9] bg-[#eeece4] px-6 pt-4 pb-3.5">
+        <div>
+          <h1 className="font-[family-name:var(--font-manrope)] text-[21px] font-extrabold text-[#20201d]">Roadmap</h1>
+          <p className="mt-0.5 text-[12.5px] text-[#726e60]">Goals and epics over the next 6 months</p>
+        </div>
         {isAdmin && (
           <button
             onClick={() => setShowPhasePanel((s) => !s)}
-            className="flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50"
+            className="flex items-center gap-2 rounded-full border border-[#ddd8c9] bg-[#f4f2eb] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da] transition-colors"
           >
-            <span className="text-base">◫</span>
-            Phases {phases.length > 0 && <span className="ml-1 rounded-full bg-neutral-200 px-1.5 py-0.5 text-xs">{phases.length}</span>}
+            Manage epics {phases.length > 0 && <span className="ml-1 rounded-full bg-[#eae6da] px-1.5 py-0.5 text-[10px]">{phases.length}</span>}
           </button>
         )}
       </div>
 
+      <div className="px-6 pt-3.5">
+
       {/* Interaction hint */}
-      <div className="mb-4 flex items-center gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-500">
+      <div className="mb-4 flex items-center gap-2 rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-2 text-[11px] text-[#726e60]">
         <span>⠿</span>
         <span>Drag bars left/right to reschedule · Drag the right edge to resize scope · Click a bar to expand issue counts</span>
       </div>
 
       {/* Phase management panel */}
       {showPhasePanel && isAdmin && (
-        <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-5">
-          <p className="text-sm font-semibold text-neutral-800 mb-4">Manage Phases / Milestones</p>
+        <div className="fw-card mb-6 p-5">
+          <p className="text-[14px] font-extrabold font-[family-name:var(--font-manrope)] text-[#20201d] mb-4">Manage Phases / Milestones</p>
 
           {phases.length > 0 && (
             <ul className="space-y-2 mb-4">
@@ -373,7 +378,7 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
                       <button
                         onClick={handleUpdatePhase}
                         disabled={phasePending}
-                        className="rounded bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+                        className="rounded bg-[#8c4632] px-3 py-1 text-xs font-medium text-white hover:bg-[#6e3324] disabled:opacity-50"
                       >Save</button>
                       <button
                         onClick={() => setEditingPhase(null)}
@@ -439,18 +444,18 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
             <button
               onClick={handleCreatePhase}
               disabled={phasePending || !newPhase.name.trim()}
-              className="rounded bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+              className="rounded bg-[#8c4632] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#6e3324] disabled:opacity-50"
             >+ Add Phase</button>
           </div>
           {phaseError && <p className="mt-2 text-xs text-red-600">{phaseError}</p>}
         </div>
       )}
 
-      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
+      <div className="fw-card overflow-hidden">
         {/* Phase swimlane bands (shown at top if phases exist) */}
         {phases.length > 0 && (
-          <div className="flex border-b border-neutral-200 bg-neutral-50">
-            <div className="w-64 shrink-0 border-r border-neutral-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <div className="flex border-b border-[#e3ded0] bg-[#eae6da]">
+            <div className="w-64 shrink-0 border-r border-[#e3ded0] px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">
               Phases
             </div>
             <div className="relative flex-1 h-8">
@@ -465,7 +470,6 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
                 // Position phase band by date if available, otherwise spread evenly
                 const now = new Date();
                 const sixMonthsMs = 6 * 30 * 24 * 60 * 60 * 1000;
-                const rangeEnd = now.getTime() + sixMonthsMs;
                 let leftPct = 0;
                 let widthPct = 100 / Math.max(phases.length, 1);
                 if (ph.start_date) {
@@ -487,22 +491,21 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
                     {ph.name}
                   </div>
                 );
-                void rangeEnd;
               })}
             </div>
           </div>
         )}
 
         {/* Month headers */}
-        <div className="flex border-b border-neutral-100 bg-neutral-50">
-          <div className="w-64 shrink-0 border-r border-neutral-100 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+        <div className="flex border-b border-[#e3ded0] bg-[#eae6da]">
+          <div className="w-64 shrink-0 border-r border-[#e3ded0] px-4 py-2 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">
             Project
           </div>
           <div className="relative flex-1 h-8 overflow-hidden">
             {monthHeaders.map((m) => (
               <span
                 key={m.label}
-                className="absolute top-2 text-xs text-neutral-400 font-medium"
+                className="absolute top-2 text-[10.5px] text-[#a19d90] font-semibold"
                 style={{ left: `${m.pct}%` }}
               >
                 {m.label}
@@ -512,7 +515,7 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
             {monthHeaders.map((m) => (
               <div
                 key={`line-${m.label}`}
-                className="absolute top-0 bottom-0 border-l border-neutral-100"
+                className="absolute top-0 bottom-0 border-l border-[#e3ded0]"
                 style={{ left: `${m.pct}%` }}
               />
             ))}
@@ -528,7 +531,7 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
           >
             <defs>
               <marker id="dep-arrow" markerWidth="7" markerHeight="7" refX="5" refY="3.5" orient="auto">
-                <path d="M 0 0 L 7 3.5 L 0 7 Z" fill="#f59e0b" />
+                <path d="M 0 0 L 7 3.5 L 0 7 Z" fill="#b7452f" />
               </marker>
             </defs>
             {arcPaths.map((a) => (
@@ -536,7 +539,7 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
                 key={a.key}
                 d={a.path}
                 fill="none"
-                stroke="#f59e0b"
+                stroke="#b7452f"
                 strokeWidth="1.5"
                 strokeDasharray="4 3"
                 markerEnd="url(#dep-arrow)"
@@ -555,10 +558,10 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
           const assignedPhase = phases.find((ph) => ph.id === project.phase_id);
 
           return (
-            <div key={project.id} data-row-id={project.id} className="border-b border-neutral-100 last:border-0">
+            <div key={project.id} data-row-id={project.id} className="border-b border-[#e3ded0] last:border-0">
               <div className="flex items-stretch">
                 {/* Left column — colored accent strip + project info */}
-                <div className="w-64 shrink-0 border-r border-neutral-100 flex">
+                <div className="w-64 shrink-0 border-r border-[#e3ded0] flex">
                   {/* Color accent strip */}
                   <div className="w-1 shrink-0 rounded-tl rounded-bl" style={{ background: palette.bg }} />
                   <div className="flex-1 px-4 py-3">
@@ -575,7 +578,7 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
                         </span>
                         {assignedPhase && (
                           <span
-                            className="text-[9px] font-bold rounded px-1.5 py-0.5 text-white truncate max-w-20"
+                            className="text-[11px] font-bold rounded px-1.5 py-0.5 text-white truncate max-w-20"
                             style={{ background: assignedPhase.color }}
                             title={assignedPhase.name}
                           >
@@ -665,13 +668,13 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
                       <span className="text-neutral-500 text-xs">todo</span>
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-indigo-500" />
-                      <span className="font-semibold text-indigo-700">{counts.in_progress}</span>
+                      <span className="h-2 w-2 rounded-full bg-[#c9791d]" />
+                      <span className="font-semibold text-[#c9791d]">{counts.in_progress}</span>
                       <span className="text-neutral-500 text-xs">in progress</span>
                     </span>
                     <span className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                      <span className="font-semibold text-emerald-700">{counts.done}</span>
+                      <span className="h-2 w-2 rounded-full bg-[#3f7d4c]" />
+                      <span className="font-semibold text-[#3f7d4c]">{counts.done}</span>
                       <span className="text-neutral-500 text-xs">done</span>
                     </span>
                     <span className="flex items-center gap-1.5">
@@ -701,30 +704,32 @@ export default function RoadmapClient({ slug, projects, issueCounts, phases: ini
 
       {/* Cascade confirm callout */}
       {cascadeConfirm && (
-        <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
-          <p className="text-sm font-semibold text-amber-800 mb-1">
+        <div className="mt-4 rounded-[6px] border border-[#c9791d] bg-[#fdf1de] px-5 py-4">
+          <p className="text-sm font-semibold text-[#c9791d] mb-1">
             Cascade shift for overlapping projects?
           </p>
-          <p className="text-sm text-amber-700 mb-3">
+          <p className="text-sm text-[#c9791d] mb-3">
             Moving <strong>{cascadeConfirm.movedName}</strong> overlaps with:{" "}
             {cascadeConfirm.dependents.map((d) => d.name).join(", ")}. Apply the same shift?
           </p>
           <div className="flex gap-2">
             <button
               onClick={applyCascade}
-              className="rounded-lg bg-amber-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+              className="rounded-[5px] px-4 py-1.5 text-sm font-semibold text-[#f2e9d8]"
+              style={{ background: "#8c4632", backgroundImage: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" }}
             >
               Apply cascade
             </button>
             <button
               onClick={() => setCascadeConfirm(null)}
-              className="rounded-lg border border-amber-300 px-4 py-1.5 text-sm font-medium text-amber-800 hover:bg-amber-100"
+              className="rounded-[5px] border border-[#c9791d] px-4 py-1.5 text-sm font-semibold text-[#c9791d] hover:bg-[#fdf1de] transition-colors"
             >
               Leave in place
             </button>
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

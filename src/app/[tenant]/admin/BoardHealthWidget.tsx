@@ -8,7 +8,7 @@ function levelColors(level: BoardAlert["level"]) {
   if (level === "critical")
     return { dot: "bg-red-500", badge: "bg-red-50 border-red-200 text-red-700", icon: "🚨" };
   if (level === "warning")
-    return { dot: "bg-amber-500", badge: "bg-amber-50 border-amber-200 text-amber-700", icon: "⚠️" };
+    return { dot: "bg-[#c9791d]", badge: "bg-[#fdf1de] border-[#f3ddb4] text-[#c9791d]", icon: "⚠️" };
   return { dot: "bg-blue-500", badge: "bg-blue-50 border-blue-200 text-blue-700", icon: "ℹ️" };
 }
 
@@ -53,7 +53,7 @@ export default function BoardHealthWidget({
 
   const statusConfig = {
     healthy: { label: "Board Healthy", color: "text-green-600", bg: "bg-green-50 border-green-200" },
-    warning: { label: "Needs Attention", color: "text-amber-600", bg: "bg-amber-50 border-amber-200" },
+    warning: { label: "Needs Attention", color: "text-[#c9791d]", bg: "bg-[#fdf1de] border-[#f3ddb4]" },
     critical: { label: "Action Required", color: "text-red-600", bg: "bg-red-50 border-red-200" },
   }[overallStatus];
 
@@ -106,7 +106,7 @@ export default function BoardHealthWidget({
 
         {isPending && (
           <div className="text-center py-6">
-            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#b7452f] border-t-transparent" />
             <p className="mt-2 text-sm text-neutral-500">Analyzing board with AI…</p>
           </div>
         )}
@@ -125,7 +125,7 @@ export default function BoardHealthWidget({
                 {
                   label: "Warnings",
                   value: digest.warning_count,
-                  color: digest.warning_count > 0 ? "text-amber-600" : "text-neutral-900",
+                  color: digest.warning_count > 0 ? "text-[#c9791d]" : "text-neutral-900",
                 },
               ].map((k) => (
                 <div key={k.label} className="rounded-lg bg-neutral-50 px-3 py-2.5 text-center">
@@ -170,11 +170,11 @@ export default function BoardHealthWidget({
 
             {/* AI narrative */}
             {digest.ai_digest && (
-              <div className="rounded-lg bg-indigo-50 border border-indigo-100 px-4 py-3">
-                <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-1.5">
+              <div className="rounded-lg bg-[#f5e3dd] border border-[#e8c9bd] px-4 py-3">
+                <p className="text-xs font-semibold text-[#b7452f] uppercase tracking-wide mb-1.5">
                   AI Assessment
                 </p>
-                <p className="text-sm text-indigo-900 leading-relaxed whitespace-pre-line">
+                <p className="text-sm text-[#6e3324] leading-relaxed whitespace-pre-line">
                   {digest.ai_digest}
                 </p>
               </div>

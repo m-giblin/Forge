@@ -3,6 +3,7 @@ import { getTenantContext } from "@/lib/auth";
 import { getSetting } from "@/lib/platformSettings";
 import { getTenantSettings } from "@/lib/tenantSettings";
 import NotificationsForm from "./NotificationsForm";
+import PageHeader from "@/components/patterns/PageHeader";
 
 export default async function NotificationsPage({
   params,
@@ -25,21 +26,20 @@ export default async function NotificationsPage({
   ]);
 
   return (
-    <section>
-      <h2 className="text-base font-semibold text-neutral-900">Notifications</h2>
-      <p className="mt-1 text-sm text-neutral-500">
-        Configure email notifications and branding for your workspace.
-      </p>
-      <NotificationsForm
-        slug={slug}
-        initial={{
-          resendApiKey: storedKey || process.env.RESEND_API_KEY || "",
-          emailDisplayName: tenantBranding["email_display_name"] || ctx.tenant.name,
-          emailPrimaryColor: tenantBranding["email_primary_color"] || "#111827",
-          emailFromName: tenantBranding["email_from_name"] || `${ctx.tenant.name} via Forge`,
-          standupEmailRecipients: tenantBranding["standup_email_recipients"] || "",
-        }}
-      />
-    </section>
+    <div className="space-y-6">
+      <PageHeader title="Notifications" subtitle="Outbound email configuration" />
+      <div className="px-6">
+        <NotificationsForm
+          slug={slug}
+          initial={{
+            resendApiKey: storedKey || process.env.RESEND_API_KEY || "",
+            emailDisplayName: tenantBranding["email_display_name"] || ctx.tenant.name,
+            emailPrimaryColor: tenantBranding["email_primary_color"] || "#111827",
+            emailFromName: tenantBranding["email_from_name"] || `${ctx.tenant.name} via Forge`,
+            standupEmailRecipients: tenantBranding["standup_email_recipients"] || "",
+          }}
+        />
+      </div>
+    </div>
   );
 }

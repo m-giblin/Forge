@@ -55,7 +55,7 @@ export default function AdminSidebar({ openTickets }: { openTickets?: number }) 
           <Image src="/logo-64.png" alt="Forge Worx" width={36} height={36} style={{ borderRadius: 8, flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: 13, fontWeight: 800, color: "var(--fw-text-bright)", lineHeight: 1.2, fontFamily: "var(--font-manrope), sans-serif" }}>Forge Worx</div>
-            <div style={{ fontSize: 10, color: "var(--fw-text-dimmer)", marginTop: 1 }}>Platform Admin</div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: "var(--fw-amber)", marginTop: 1, letterSpacing: ".04em" }}>PLATFORM ADMIN</div>
           </div>
         </div>
       </div>
@@ -84,7 +84,7 @@ export default function AdminSidebar({ openTickets }: { openTickets?: number }) 
                     padding: "7px 10px", borderRadius: 7,
                     color: active ? "var(--fw-text-bright)" : "var(--fw-text-dim)",
                     background: active ? "var(--fw-sidebar-2)" : "transparent",
-                    borderLeft: `2px solid ${active ? "var(--fw-rust)" : "transparent"}`,
+                    borderLeft: `2px solid ${active ? "var(--fw-amber)" : "transparent"}`,
                     fontWeight: active ? 600 : 500,
                     fontSize: 12,
                     textDecoration: "none",
@@ -96,7 +96,7 @@ export default function AdminSidebar({ openTickets }: { openTickets?: number }) 
                   <span style={{ flex: 1 }}>{item.label}</span>
                   {item.badge && openTickets && openTickets > 0 && (
                     <span style={{
-                      background: "var(--fw-rust)", color: "#fff",
+                      background: "var(--fw-amber)", color: "#fff",
                       fontSize: 9, fontWeight: 700,
                       padding: "1px 5px", borderRadius: 9,
                     }}>{openTickets}</span>

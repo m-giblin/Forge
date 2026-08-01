@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { avatarColor } from "@/lib/ui/avatar";
 
 export type HeatMember = {
   userId: string;
@@ -31,7 +32,7 @@ const CELL_W = 80;
 const ROW_H = 64;
 
 const PRIORITY_DOT: Record<string, string> = {
-  urgent: "#ef4444", high: "#f97316", medium: "#6366f1", low: "#94a3b8",
+  urgent: "#c0392b", high: "#c9791d", medium: "#3a6ea8", low: "#a19d90",
 };
 
 function toUTCDate(iso: string): Date {
@@ -55,13 +56,16 @@ function isoOf(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
+// Heat tiers follow the prototype's capacity-row breakpoints
+// (Sprint Board Redesign.dc.html, screenVals() "team" branch, heat(): 50/80/100/120)
+// but use only the §3 status-color tokens instead of the prototype's one-off hex values.
 function heatColor(pct: number): { bg: string; text: string; label: string } {
-  if (pct === 0) return { bg: "#f8fafc", text: "#94a3b8", label: "—" };
-  if (pct <= 0.5) return { bg: "#dcfce7", text: "#166534", label: `${Math.round(pct * 100)}%` };
-  if (pct <= 0.8) return { bg: "#bbf7d0", text: "#14532d", label: `${Math.round(pct * 100)}%` };
-  if (pct <= 1.0) return { bg: "#fef9c3", text: "#713f12", label: `${Math.round(pct * 100)}%` };
-  if (pct <= 1.2) return { bg: "#fed7aa", text: "#7c2d12", label: `${Math.round(pct * 100)}%` };
-  return { bg: "#fecaca", text: "#7f1d1d", label: `${Math.round(pct * 100)}%` };
+  const p = pct * 100;
+  if (pct === 0) return { bg: "#f1efe9", text: "#a19d90", label: "—" };
+  if (p <= 50) return { bg: "#e9f3ea", text: "#3f7d4c", label: `${Math.round(p)}%` };
+  if (p <= 80) return { bg: "#f1efe9", text: "#a19d90", label: `${Math.round(p)}%` };
+  if (p <= 120) return { bg: "#fdf1de", text: "#c9791d", label: `${Math.round(p)}%` };
+  return { bg: "#fbeae8", text: "#c0392b", label: `${Math.round(p)}%` };
 }
 
 export default function WorkloadHeatmapClient({
@@ -163,19 +167,19 @@ export default function WorkloadHeatmapClient({
   const activeWeek = activeCell ? weeks[activeCell.weekIdx] : null;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white">
+    <div className="flex flex-col h-full min-h-0 bg-[#eeece4]">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 shrink-0 flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-base font-semibold text-neutral-900">Resource Capacity</h1>
-          <span className="text-xs text-neutral-400">Cross-project workload heat map</span>
+      <div className="flex items-start justify-between px-6 py-4 pb-[13px] border-b border-[#ddd8c9] shrink-0 flex-wrap gap-3.5">
+        <div>
+          <h1 className="text-[21px] font-extrabold font-[family-name:var(--font-manrope)] text-[#20201d]">Team</h1>
+          <p className="mt-0.5 text-[12.5px] text-[#726e60]">Resource capacity — committed hours vs availability, per week</p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           {/* Project filter */}
           <select
             value={projectFilter ?? ""}
             onChange={(e) => setProjectFilter(e.target.value || null)}
-            className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-600 focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            className="rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-2 py-1.5 text-xs text-[#4a473e] focus:outline-none focus:ring-2 focus:ring-[#8c4632]/40"
           >
             <option value="">All projects</option>
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -183,49 +187,49 @@ export default function WorkloadHeatmapClient({
 
           {/* Week navigation */}
           <div className="flex items-center gap-1">
-            <button onClick={() => setWeekOffset((o) => o - WEEKS)} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition">←</button>
-            <button onClick={() => setWeekOffset(0)} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition">Today</button>
-            <button onClick={() => setWeekOffset((o) => o + WEEKS)} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition">→</button>
+            <button onClick={() => setWeekOffset((o) => o - WEEKS)} className="rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-2.5 py-1.5 text-sm text-[#4a473e] hover:bg-[#eae6da] transition">←</button>
+            <button onClick={() => setWeekOffset(0)} className="rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-xs font-medium text-[#4a473e] hover:bg-[#eae6da] transition">Today</button>
+            <button onClick={() => setWeekOffset((o) => o + WEEKS)} className="rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-2.5 py-1.5 text-sm text-[#4a473e] hover:bg-[#eae6da] transition">→</button>
           </div>
 
           {/* Legend */}
-          <div className="flex items-center gap-1.5 text-[10px]">
+          <div className="flex items-center gap-[9px] text-[10.5px]">
             {[
-              { bg: "#dcfce7", label: "< 50%" },
-              { bg: "#fef9c3", label: "80–100%" },
-              { bg: "#fed7aa", label: "100–120%" },
-              { bg: "#fecaca", label: "> 120%" },
+              { bg: "#e9f3ea", label: "< 50%" },
+              { bg: "#f1efe9", label: "50–80%" },
+              { bg: "#fdf1de", label: "80–120%" },
+              { bg: "#fbeae8", label: "> 120%" },
             ].map((l) => (
-              <span key={l.label} className="flex items-center gap-1">
-                <span className="w-3 h-3 rounded-sm inline-block" style={{ background: l.bg, border: "1px solid #e5e7eb" }} />
-                <span className="text-neutral-500">{l.label}</span>
+              <span key={l.label} className="flex items-center gap-[5px]">
+                <span className="w-3 h-3 rounded-sm inline-block" style={{ background: l.bg, border: "1px solid #ddd8c9" }} />
+                <span className="text-[#726e60]">{l.label}</span>
               </span>
             ))}
           </div>
         </div>
       </div>
 
-      <div className="flex flex-1 min-h-0">
+      <div className="flex flex-1 min-h-0 p-3.5 pt-[14px]">
         {/* Heat map */}
-        <div className="flex-1 overflow-x-auto overflow-y-auto">
+        <div className="fw-card flex-1 overflow-x-auto overflow-y-auto" style={{ minWidth: 820 }}>
           <div style={{ minWidth: COL_W + WEEKS * CELL_W }}>
             {/* Week headers */}
-            <div className="flex sticky top-0 z-10 bg-white border-b border-neutral-200">
-              <div className="shrink-0 border-r border-neutral-200 bg-neutral-50 flex items-end px-4 pb-2" style={{ width: COL_W, height: 56 }}>
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Team member</span>
+            <div className="flex sticky top-0 z-10 bg-[#eae6da] border-b border-[#e3ded0]">
+              <div className="shrink-0 border-r border-[#e3ded0] bg-[#eae6da] flex items-end px-4 pb-2" style={{ width: COL_W, height: 56 }}>
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Team member</span>
               </div>
               {weeks.map((week, i) => {
                 const isThisWeek = week.startIso <= todayIso && todayIso <= week.endIso;
                 return (
                   <div
                     key={i}
-                    className="shrink-0 flex flex-col items-center justify-end pb-1.5 border-r border-neutral-100"
-                    style={{ width: CELL_W, height: 56, background: isThisWeek ? "#fefce8" : "transparent" }}
+                    className="shrink-0 flex flex-col items-center justify-end pb-1.5 border-r border-[#e3ded0]"
+                    style={{ width: CELL_W, height: 56, background: isThisWeek ? "#fdf1de" : "transparent" }}
                   >
-                    <span className={`text-[11px] font-medium ${isThisWeek ? "text-amber-700 font-semibold" : "text-neutral-500"}`}>
+                    <span className={`text-[10.5px] font-medium ${isThisWeek ? "text-[#c9791d] font-semibold" : "text-[#a19d90]"}`}>
                       {week.start.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
                     </span>
-                    {isThisWeek && <span className="text-[9px] text-amber-600 font-semibold">This week</span>}
+                    {isThisWeek && <span className="text-[9px] text-[#c9791d] font-semibold">This week</span>}
                   </div>
                 );
               })}
@@ -233,15 +237,15 @@ export default function WorkloadHeatmapClient({
 
             {/* Member rows */}
             {members.map((member) => (
-              <div key={member.userId} className="flex" style={{ height: ROW_H, borderBottom: "1px solid #f1f5f9" }}>
+              <div key={member.userId} className="flex" style={{ height: ROW_H, borderBottom: "1px solid #e3ded0" }}>
                 {/* Member name */}
-                <div className="shrink-0 border-r border-neutral-200 flex items-center gap-2.5 px-4 sticky left-0 bg-white z-[5]" style={{ width: COL_W }}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold bg-indigo-100 text-indigo-700 shrink-0">
+                <div className="shrink-0 border-r border-[#e3ded0] flex items-center gap-2.5 px-4 sticky left-0 bg-[#f4f2eb] z-[5]" style={{ width: COL_W }}>
+                  <div className="w-[26px] h-[26px] rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style={{ backgroundColor: avatarColor(member.userId) }}>
                     {member.initials}
                   </div>
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-neutral-900 truncate">{member.name}</div>
-                    <div className="text-[10px] text-neutral-400">{member.hoursPerWeek}h/wk capacity</div>
+                    <div className="text-[12.5px] font-semibold text-[#20201d] truncate">{member.name}</div>
+                    <div className="text-[10.5px] text-[#a19d90]">{member.hoursPerWeek}h/wk capacity</div>
                   </div>
                 </div>
 
@@ -259,11 +263,11 @@ export default function WorkloadHeatmapClient({
                     <button
                       key={w}
                       onClick={() => setActiveCell(isActive ? null : { memberId: member.userId, weekIdx: w })}
-                      className="shrink-0 flex flex-col items-center justify-center border-r border-neutral-100 transition-all hover:ring-2 hover:ring-inset hover:ring-indigo-300"
+                      className="shrink-0 flex flex-col items-center justify-center border-r border-[#e3ded0] transition-all hover:ring-2 hover:ring-inset hover:ring-[#8c4632]/40"
                       style={{
                         width: CELL_W,
-                        background: isActive ? "#e0e7ff" : isThisWeek && pct === 0 ? "#fefce8" : cell.bg,
-                        outline: isActive ? "2px solid #6366f1" : undefined,
+                        background: isActive ? "#f4ecfa" : isThisWeek && pct === 0 ? "#fdf1de" : cell.bg,
+                        outline: isActive ? "2px solid #7a4fa0" : undefined,
                         outlineOffset: -2,
                       }}
                     >
@@ -286,46 +290,46 @@ export default function WorkloadHeatmapClient({
 
         {/* Side panel: cell details */}
         {activeCell && activeMember && activeWeek && (
-          <div className="w-72 border-l border-neutral-200 bg-white flex flex-col shrink-0 overflow-hidden">
-            <div className="px-4 pt-4 pb-3 border-b border-neutral-100">
+          <div className="w-72 fw-card ml-3.5 flex flex-col shrink-0 overflow-hidden">
+            <div className="px-4 pt-4 pb-3 border-b border-[#e3ded0]">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-semibold text-neutral-500 uppercase tracking-wide">
+                <span className="text-xs font-semibold text-[#726e60] uppercase tracking-wide">
                   {activeWeek.start.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
                   {" – "}
                   {activeWeek.end.toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
                 </span>
-                <button onClick={() => setActiveCell(null)} className="text-neutral-300 hover:text-neutral-600 text-sm">✕</button>
+                <button onClick={() => setActiveCell(null)} className="text-[#a19d90] hover:text-[#4a473e] text-sm">✕</button>
               </div>
-              <p className="text-sm font-semibold text-neutral-900">{activeMember.name}</p>
-              <p className="text-xs text-neutral-400">{activeCellIssues.length} issue{activeCellIssues.length !== 1 ? "s" : ""} · {activeMember.hoursPerWeek}h/wk capacity</p>
+              <p className="text-sm font-semibold text-[#20201d]">{activeMember.name}</p>
+              <p className="text-xs text-[#a19d90]">{activeCellIssues.length} issue{activeCellIssues.length !== 1 ? "s" : ""} · {activeMember.hoursPerWeek}h/wk capacity</p>
             </div>
 
             <div className="flex-1 overflow-y-auto px-3 py-2 space-y-1.5">
               {activeCellIssues.length === 0 && (
-                <p className="text-xs text-neutral-400 text-center py-8">No issues this week</p>
+                <p className="text-xs text-[#a19d90] text-center py-8">No issues this week</p>
               )}
               {activeCellIssues.map((issue) => (
                 <Link
                   key={issue.id}
                   href={`/${slug}/issues/${issue.id}`}
                   onClick={() => setActiveCell(null)}
-                  className="flex items-start gap-2 rounded-lg border border-neutral-100 px-3 py-2.5 hover:bg-neutral-50 transition group"
+                  className="flex items-start gap-2 rounded-lg border border-[#e3ded0] px-3 py-2.5 hover:bg-[#eae6da] transition group"
                 >
                   <span className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ background: PRIORITY_DOT[issue.priority] }} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="text-[10px] font-mono font-semibold text-indigo-600">{issue.key}</span>
-                      <span className="text-[10px] text-neutral-400 truncate">{issue.projectName}</span>
+                      <span className="text-[10px] font-mono font-semibold text-[#8c4632]">{issue.key}</span>
+                      <span className="text-[10px] text-[#a19d90] truncate">{issue.projectName}</span>
                     </div>
-                    <p className="text-xs text-neutral-700 truncate group-hover:text-neutral-900">{issue.title}</p>
+                    <p className="text-xs text-[#4a473e] truncate group-hover:text-[#20201d]">{issue.title}</p>
                     <div className="flex items-center gap-2 mt-0.5">
                       {issue.timeEstimateMinutes && (
-                        <span className="text-[10px] text-neutral-400">⏱ {Math.round(issue.timeEstimateMinutes / 60 * 10) / 10}h</span>
+                        <span className="text-[10px] text-[#a19d90]">⏱ {Math.round(issue.timeEstimateMinutes / 60 * 10) / 10}h</span>
                       )}
                       {issue.storyPoints && !issue.timeEstimateMinutes && (
-                        <span className="text-[10px] text-neutral-400">{issue.storyPoints}pt</span>
+                        <span className="text-[10px] text-[#a19d90]">{issue.storyPoints}pt</span>
                       )}
-                      <span className="text-[10px] text-neutral-400">
+                      <span className="text-[10px] text-[#a19d90]">
                         {toUTCDate(issue.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
                         {" – "}
                         {toUTCDate(issue.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}

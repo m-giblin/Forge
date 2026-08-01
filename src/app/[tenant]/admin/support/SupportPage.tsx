@@ -11,22 +11,39 @@ import {
   saveTenantStalledThresholdAction,
 } from "./actions";
 import { timeAgo } from "@/lib/formatRelativeTime";
+import PageHeader from "@/components/patterns/PageHeader";
+import StatsRow from "@/components/patterns/admin/StatsRow";
+import AdminTable, { type AdminTableCell } from "@/components/patterns/admin/AdminTable";
+
+const PRIORITY_CHIP: Record<string, { fg: string; bg: string }> = {
+  urgent: { fg: "#8c4632", bg: "#f7e2dc" },
+  high: { fg: "#8c4632", bg: "#f7e2dc" },
+  medium: { fg: "#3d5a73", bg: "#e1e9f0" },
+  low: { fg: "#726e60", bg: "#f1efe9" },
+};
+
+const STATUS_CHIP: Record<string, { fg: string; bg: string }> = {
+  open: { fg: "#3d5a73", bg: "#e1e9f0" },
+  in_progress: { fg: "#8c4632", bg: "#f7e2dc" },
+  resolved: { fg: "#3f6b45", bg: "#dfeee1" },
+  closed: { fg: "#726e60", bg: "#f1efe9" },
+};
 
 const STATUS_LABELS: Record<string, string> = {
   open: "Open", in_progress: "In Progress", resolved: "Resolved", closed: "Closed",
 };
 
 const STATUS_STYLES: Record<string, string> = {
-  open: "bg-blue-100 text-blue-700",
-  in_progress: "bg-amber-100 text-amber-700",
-  resolved: "bg-green-100 text-green-700",
+  open: "bg-[#eaf1f8] text-[#3a6ea8]",
+  in_progress: "bg-[#fdf1de] text-[#c9791d]",
+  resolved: "bg-[#e9f3ea] text-[#3f7d4c]",
   closed: "bg-neutral-100 text-neutral-500",
 };
 
 const PRIORITY_STYLES: Record<string, string> = {
-  high: "bg-red-100 text-red-700",
-  urgent: "bg-red-200 text-red-800 font-semibold",
-  medium: "bg-amber-100 text-amber-700",
+  high: "bg-[#fbeae8] text-[#c0392b]",
+  urgent: "bg-[#f7d3cd] text-[#8c1f13] font-semibold",
+  medium: "bg-[#fdf1de] text-[#c9791d]",
   low: "bg-neutral-100 text-neutral-500",
 };
 
@@ -42,16 +59,6 @@ function avgResolutionDays(tickets: SupportTicket[]): string {
     return sum + (new Date(t.resolved_at!).getTime() - new Date(t.created_at).getTime()) / 86400000;
   }, 0) / resolved.length;
   return avg < 1 ? `${Math.round(avg * 24)}h` : `${avg.toFixed(1)}d`;
-}
-
-// ── Stat tile ─────────────────────────────────────────────────────────────────
-function StatTile({ label, value, accent }: { label: string; value: string | number; accent?: string }) {
-  return (
-    <div className="rounded-xl border border-neutral-200 bg-white px-4 py-4 shadow-sm">
-      <p className="text-xs text-neutral-500 mb-1">{label}</p>
-      <p className={`text-2xl font-bold ${accent ?? "text-neutral-900"}`}>{value}</p>
-    </div>
-  );
 }
 
 // ── Stalled threshold setting ─────────────────────────────────────────────────
@@ -158,7 +165,7 @@ function TicketModal({
                 {STATUS_LABELS[ticket.status]}
               </span>
               {stalled && (
-                <span className="rounded-full bg-orange-100 px-2 py-0.5 text-xs font-semibold text-orange-700">
+                <span className="rounded-full bg-[#fdf1de] px-2 py-0.5 text-xs font-semibold text-[#c9791d]">
                   ⚠ Stalled
                 </span>
               )}
@@ -209,14 +216,14 @@ function TicketModal({
                 {comments?.map((c) => (
                   <div key={c.id} className={`rounded-xl px-4 py-3 text-sm border ${
                     c.is_internal
-                      ? "bg-amber-50 border-amber-200"
+                      ? "bg-[#fdf1de] border-[#f3ddb4]"
                       : "bg-white border-neutral-200"
                   }`}>
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <span className="text-xs font-medium text-neutral-600">{c.author_label ?? "Unknown"}</span>
                       <div className="flex items-center gap-2">
                         {c.is_internal && (
-                          <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">internal note</span>
+                          <span className="rounded-full bg-[#fbe4bb] px-1.5 py-0.5 text-[10px] font-medium text-[#8a5a12]">internal note</span>
                         )}
                         <span className="text-xs text-neutral-400">{timeAgo(c.created_at)}</span>
                       </div>
@@ -247,7 +254,7 @@ function TicketModal({
             rows={3}
             className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none resize-none ${
               isInternalNote
-                ? "border-amber-300 bg-amber-50 text-neutral-800 placeholder-amber-400 focus:border-amber-400"
+                ? "border-[#e8c07a] bg-[#fdf1de] text-neutral-800 placeholder-[#d7a860] focus:border-[#c9791d]"
                 : "border-neutral-300 bg-white text-neutral-800 placeholder-neutral-400 focus:border-neutral-500"
             }`}
           />
@@ -256,7 +263,7 @@ function TicketModal({
             <button
               onClick={sendReply}
               disabled={submitting || !reply.trim()}
-              className="rounded-lg bg-neutral-900 hover:bg-neutral-700 px-4 py-2 text-sm font-medium text-white transition disabled:opacity-40"
+              className="rounded-lg bg-[#b7452f] hover:bg-[#8c4632] px-4 py-2 text-sm font-medium text-white transition disabled:opacity-40"
             >
               {submitting ? "Sending…" : isInternalNote ? "Save Note" : "Send Reply"}
             </button>
@@ -339,7 +346,7 @@ function PlatformTicketModal({ slug, onClose }: { slug: string; onClose: () => v
                 else setError(res.error ?? "Submission failed.");
               });
             }}
-            className="rounded-lg bg-neutral-900 hover:bg-neutral-700 px-4 py-2 text-sm font-medium text-white transition disabled:opacity-40"
+            className="rounded-lg bg-[#b7452f] hover:bg-[#8c4632] px-4 py-2 text-sm font-medium text-white transition disabled:opacity-40"
           >
             {pending ? "Submitting…" : "Submit to Forge"}
           </button>
@@ -364,7 +371,6 @@ export default function SupportPage({
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [showPlatformModal, setShowPlatformModal] = useState(false);
 
-  const stalled = tickets.filter((t) => isStalled(t, stalledDays));
   const filtered = tab === "all" ? tickets : tickets.filter((t) => t.status === tab);
 
   function handleStatusChange(id: string, status: string) {
@@ -378,111 +384,100 @@ export default function SupportPage({
   const inProgress = tickets.filter((t) => t.status === "in_progress").length;
   const resolved = tickets.filter((t) => t.status === "resolved").length;
 
+  const oldestOpen = tickets
+    .filter((t) => t.status === "open")
+    .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())[0];
+
+  const rows: AdminTableCell[][] = filtered.map((ticket) => {
+    const stall = isStalled(ticket, stalledDays);
+    const prio = PRIORITY_CHIP[ticket.priority] ?? PRIORITY_CHIP.low;
+    const stat = STATUS_CHIP[ticket.status] ?? STATUS_CHIP.closed;
+    return [
+      {
+        kind: "link",
+        value: stall ? `⚠ ${ticket.title}` : ticket.title,
+        onClick: () => setSelectedTicket(ticket),
+      },
+      { kind: "dim", value: ticket.actor_label ?? "—" },
+      { kind: "chip", value: ticket.priority, chipFg: prio.fg, chipBg: prio.bg },
+      { kind: "chip", value: STATUS_LABELS[ticket.status], chipFg: stat.fg, chipBg: stat.bg },
+      { kind: "dim", value: timeAgo(ticket.updated_at) },
+    ];
+  });
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-neutral-900">Team Support Queue</h2>
-          <p className="mt-0.5 text-sm text-neutral-500">Internal support requests from your team members.</p>
+      <PageHeader
+        title="Support Queue"
+        subtitle="Tickets raised by your own team"
+        right={
+          <button
+            onClick={() => setShowPlatformModal(true)}
+            className="shrink-0 rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#ede9db] transition"
+          >
+            Contact Forge Team ↗
+          </button>
+        }
+      />
+
+      <div className="space-y-6 px-6">
+        {/* Stats */}
+        <StatsRow
+          items={[
+            { label: "Open", value: open, hint: open > 0 ? "awaiting triage" : "none open", color: open > 0 ? "#b7452f" : undefined },
+            { label: "In Progress", value: inProgress, hint: "being worked" },
+            { label: "Resolved", value: resolved, hint: "closed out", color: "#3f6b45" },
+            {
+              label: "Oldest Open",
+              value: oldestOpen ? timeAgo(oldestOpen.created_at) : "—",
+              hint: oldestOpen ? "since submitted" : "no open tickets",
+              color: oldestOpen ? "#b7452f" : undefined,
+            },
+          ]}
+        />
+
+        {/* Avg resolution + stalled threshold */}
+        <div className="flex items-center justify-between gap-4">
+          <p className="text-[11.5px] text-[#726e60]">
+            Avg resolution: <span className="font-semibold text-[#4a473e]">{avgResolutionDays(tickets)}</span>
+          </p>
+          <StalledSetting slug={slug} current={stalledDays} />
         </div>
-        <button
-          onClick={() => setShowPlatformModal(true)}
-          className="shrink-0 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-sm font-medium text-neutral-700 hover:bg-neutral-50 transition"
-        >
-          Contact Forge Team ↗
-        </button>
-      </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <StatTile label="Open" value={open} accent={open > 0 ? "text-blue-600" : "text-neutral-900"} />
-        <StatTile label="In Progress" value={inProgress} accent={inProgress > 0 ? "text-amber-600" : "text-neutral-900"} />
-        <StatTile label="Stalled" value={stalled.length} accent={stalled.length > 0 ? "text-orange-600" : "text-neutral-900"} />
-        <StatTile label="Resolved" value={resolved} accent="text-green-700" />
-      </div>
-
-      {/* Avg resolution + stalled threshold */}
-      <div className="flex items-center justify-between gap-4">
-        <p className="text-xs text-neutral-500">
-          Avg resolution: <span className="font-medium text-neutral-700">{avgResolutionDays(tickets)}</span>
-        </p>
-        <StalledSetting slug={slug} current={stalledDays} />
-      </div>
-
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-xl border border-neutral-200 bg-white p-1 w-fit shadow-sm">
-        {(["all", "open", "in_progress", "resolved"] as const).map((t) => {
-          const count = t === "all" ? tickets.length : tickets.filter((x) => x.status === t).length;
-          return (
-            <button key={t} onClick={() => setTab(t)}
-              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                tab === t ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-800"
-              }`}>
-              {t === "all" ? "All" : STATUS_LABELS[t]}{" "}
-              <span className={`ml-1 text-xs ${tab === t ? "text-neutral-300" : "text-neutral-400"}`}>{count}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Ticket table */}
-      {filtered.length === 0 ? (
-        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-12 text-center shadow-sm">
-          <p className="text-sm text-neutral-400">No tickets in this category.</p>
+        {/* Tabs */}
+        <div className="flex flex-nowrap gap-1 overflow-x-auto rounded-xl border border-[#ddd8c9] bg-white p-1 w-fit shadow-sm">
+          {(["all", "open", "in_progress", "resolved"] as const).map((t) => {
+            const count = t === "all" ? tickets.length : tickets.filter((x) => x.status === t).length;
+            return (
+              <button key={t} onClick={() => setTab(t)}
+                className={`shrink-0 rounded-lg px-3 py-1.5 text-[12.5px] font-semibold whitespace-nowrap transition-colors ${
+                  tab === t ? "bg-[#b7452f] text-white" : "text-[#726e60] hover:text-[#20201d]"
+                }`}>
+                {t === "all" ? "All" : STATUS_LABELS[t]}{" "}
+                <span className={`ml-1 text-[11px] ${tab === t ? "text-white/70" : "text-[#a19d90]"}`}>{count}</span>
+              </button>
+            );
+          })}
         </div>
-      ) : (
-        <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-500 bg-neutral-50">
-                <th className="px-4 py-2.5 font-medium">Title</th>
-                <th className="px-4 py-2.5 font-medium">Submitted by</th>
-                <th className="px-4 py-2.5 font-medium">Priority</th>
-                <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Updated</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((ticket) => {
-                const stall = isStalled(ticket, stalledDays);
-                return (
-                  <tr
-                    key={ticket.id}
-                    onClick={() => setSelectedTicket(ticket)}
-                    className="border-b border-neutral-100 last:border-0 cursor-pointer hover:bg-neutral-50 transition"
-                  >
-                    <td className="px-4 py-3 max-w-[240px]">
-                      <div className="flex items-center gap-2">
-                        {stall && (
-                          <span className="shrink-0 rounded-full bg-orange-100 px-1.5 py-0.5 text-[10px] font-semibold text-orange-700">Stalled</span>
-                        )}
-                        <span className="text-neutral-900 truncate font-medium">{ticket.title}</span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-neutral-500 max-w-[160px] truncate">
-                      {ticket.actor_label ?? "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs ${PRIORITY_STYLES[ticket.priority] ?? "bg-neutral-100 text-neutral-500"}`}>
-                        {ticket.priority}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLES[ticket.status]}`}>
-                        {STATUS_LABELS[ticket.status]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-neutral-400 whitespace-nowrap">
-                      {timeAgo(ticket.updated_at)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+
+        {/* Ticket table */}
+        {filtered.length === 0 ? (
+          <div className="fw-card px-6 py-12 text-center">
+            <p className="text-[12.5px] text-[#a19d90]">No tickets in this category.</p>
+          </div>
+        ) : (
+          <AdminTable
+            columns={[
+              { label: "Title", flex: true },
+              { label: "Submitted by", width: 160 },
+              { label: "Priority", width: 90 },
+              { label: "Status", width: 110 },
+              { label: "Updated", width: 100 },
+            ]}
+            rows={rows}
+          />
+        )}
+      </div>
 
       {/* Modals */}
       {selectedTicket && (

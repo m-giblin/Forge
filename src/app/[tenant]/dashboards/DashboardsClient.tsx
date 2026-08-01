@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { avatarColor } from "@/lib/ui/avatar";
 
 export type StatCard = { label: string; value: number };
 export type StatusSlice = { label: string; count: number; pct: number; color: string };
@@ -78,14 +79,14 @@ export default function DashboardsClient({
     <main className="w-full px-3 py-4 sm:px-6 sm:py-6">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-neutral-900">Dashboards</h1>
-          <p className="mt-1 text-sm text-neutral-500">A widget board you compose yourself — add, remove, and rearrange.</p>
+          <h1 className="text-[21px] font-extrabold font-[family-name:var(--font-manrope)] text-[#20201d]">Dashboards</h1>
+          <p className="mt-1 text-[12.5px] text-[#726e60]">Compose your own view — add or remove widgets</p>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={newWidgetType}
             onChange={(e) => setNewWidgetType(e.target.value as WidgetType)}
-            className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-sm"
+            className="rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-2.5 py-1.5 text-sm text-[#20201d]"
           >
             {(Object.keys(WIDGET_LABEL) as WidgetType[]).map((k) => (
               <option key={k} value={k}>{WIDGET_LABEL[k]}</option>
@@ -93,7 +94,8 @@ export default function DashboardsClient({
           </select>
           <button
             onClick={addWidget}
-            className="rounded-lg bg-neutral-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-neutral-800"
+            className="rounded-[5px] border border-[#5e2c1f] px-[13px] py-[7px] text-[12px] font-bold text-[#f2e9d8]"
+            style={{ backgroundImage: "linear-gradient(160deg,#9a5138,#6e3324)" }}
           >
             + Add widget
           </button>
@@ -101,19 +103,19 @@ export default function DashboardsClient({
       </div>
 
       {widgets.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center text-sm text-neutral-500">
+        <div className="rounded-xl border border-dashed border-[#ddd8c9] bg-[#f4f2eb] px-6 py-16 text-center text-sm text-[#726e60]">
           No widgets yet — add one above.
         </div>
       ) : (
         <div className="grid gap-4 [grid-template-columns:repeat(auto-fit,minmax(320px,1fr))]">
           {widgets.map((w) => (
-            <div key={w.id} className="rounded-xl border border-neutral-200 bg-white p-4">
+            <div key={w.id} className="fw-card p-4">
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-sm font-semibold text-neutral-900">{WIDGET_LABEL[w.type]}</span>
+                <span className="text-[9.5px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">{WIDGET_LABEL[w.type]}</span>
                 <button
                   onClick={() => removeWidget(w.id)}
                   aria-label={`Remove ${WIDGET_LABEL[w.type]} widget`}
-                  className="text-neutral-400 hover:text-neutral-700"
+                  className="text-[#a19d90] hover:text-[#20201d]"
                 >
                   ×
                 </button>
@@ -122,9 +124,9 @@ export default function DashboardsClient({
               {w.type === "stat" && (
                 <div className="grid grid-cols-2 gap-2.5">
                   {statCards.map((s) => (
-                    <div key={s.label} className="rounded-lg border border-neutral-100 px-3 py-2.5">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-neutral-400">{s.label}</div>
-                      <div className="text-xl font-semibold text-neutral-900">{s.value}</div>
+                    <div key={s.label} className="rounded-lg border border-[#e3ded0] px-3 py-2.5">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-[#a19d90]">{s.label}</div>
+                      <div className="text-xl font-extrabold font-[family-name:var(--font-manrope)] text-[#20201d]">{s.value}</div>
                     </div>
                   ))}
                 </div>
@@ -132,14 +134,14 @@ export default function DashboardsClient({
 
               {w.type === "donut" && (
                 <div className="flex flex-col gap-2.5">
-                  {statusDistribution.length === 0 && <p className="text-xs text-neutral-400">No issues yet.</p>}
+                  {statusDistribution.length === 0 && <p className="text-[11px] text-[#a19d90]">No issues yet.</p>}
                   {statusDistribution.map((d) => (
                     <div key={d.label}>
                       <div className="mb-1 flex justify-between text-[11px]">
-                        <span className="font-medium text-neutral-600">{d.label}</span>
-                        <span className="text-neutral-400">{d.count} · {d.pct}%</span>
+                        <span className="font-medium text-[#4a473e]">{d.label}</span>
+                        <span className="text-[#a19d90]">{d.count} · {d.pct}%</span>
                       </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                      <div className="h-1.5 overflow-hidden rounded-full bg-[#e3ded0]">
                         <div className="h-full rounded-full" style={{ width: `${d.pct}%`, backgroundColor: d.color }} />
                       </div>
                     </div>
@@ -156,7 +158,7 @@ export default function DashboardsClient({
                         style={{ height: `${Math.max(4, (d.count / maxDayCount) * 100)}%` }}
                         title={`${d.count} completed`}
                       />
-                      <span className="text-[9px] text-neutral-400">{d.label[0]}</span>
+                      <span className="text-[11px] text-[#c3bda9]">{d.label[0]}</span>
                     </div>
                   ))}
                 </div>
@@ -164,24 +166,25 @@ export default function DashboardsClient({
 
               {w.type === "list" && (
                 <div className="flex flex-col gap-2">
-                  {workloadRows.length === 0 && <p className="text-xs text-neutral-400">No active assigned work.</p>}
+                  {workloadRows.length === 0 && <p className="text-[11px] text-[#a19d90]">No active assigned work.</p>}
                   {workloadRows.map((t) => {
                     const maxCount = Math.max(1, ...workloadRows.map((r) => r.activeCount));
+                    const avColor = avatarColor(t.userId);
                     return (
                       <div key={t.userId} className="flex items-center gap-2">
-                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[9px] font-bold text-indigo-700">
+                        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold text-white" style={{ backgroundColor: avColor }}>
                           {t.initials}
                         </div>
-                        <div className="flex-1 truncate text-xs text-neutral-800">{t.name}</div>
-                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-neutral-100">
-                          <div className="h-full rounded-full bg-indigo-500" style={{ width: `${(t.activeCount / maxCount) * 100}%` }} />
+                        <div className="flex-1 truncate text-xs text-[#20201d]">{t.name}</div>
+                        <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[#e3ded0]">
+                          <div className="h-full rounded-full bg-[#8c4632]" style={{ width: `${(t.activeCount / maxCount) * 100}%` }} />
                         </div>
                         {t.blockedCount > 0 && (
-                          <span className="shrink-0 rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-semibold text-red-700">
+                          <span className="shrink-0 rounded-full bg-[#fbeae8] px-1.5 py-0.5 text-[11px] font-semibold text-[#c0392b]">
                             {t.blockedCount} blocked
                           </span>
                         )}
-                        <span className="w-16 shrink-0 text-right text-xs font-semibold text-neutral-700">
+                        <span className="w-16 shrink-0 text-right text-xs font-semibold text-[#4a473e]">
                           {t.activeCount} active
                         </span>
                       </div>

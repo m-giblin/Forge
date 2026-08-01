@@ -3,6 +3,8 @@ import { getTenantContext } from "@/lib/auth";
 import { getTenantSchema } from "@/lib/services/fieldConfig";
 import { listVisibleProjects } from "@/lib/services/projects";
 import ImportWizard from "./ImportWizard";
+import PageHeader from "@/components/patterns/PageHeader";
+import Note from "@/components/patterns/admin/Note";
 
 export default async function ImportPage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant: slug } = await params;
@@ -17,28 +19,28 @@ export default async function ImportPage({ params }: { params: Promise<{ tenant:
     listVisibleProjects(ctx.tenant.id, ctx.appUserId, ctx.role, ctx.impersonating),
   ]);
 
+  if (readOnly) {
+    return (
+      <div className="space-y-6">
+        <PageHeader title="Import Issues" subtitle="Bring work in from CSV or another tracker" />
+        <div className="px-6">
+          <Note icon="⚠" tone="warning">
+            Import is disabled in read-only / support-view mode.
+          </Note>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      <h2 className="mb-1 text-base font-semibold text-neutral-900">Import issues</h2>
-      <p className="mb-5 text-sm text-neutral-500">
-        Upload a CSV to bulk-create issues. Only <code className="rounded bg-neutral-100 px-1 font-mono text-xs">title</code> is required.
-        Values for status, priority, and type may be the option key or label.
-      </p>
-      {readOnly ? (
-        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          Import is disabled in read-only / support-view mode.
-        </p>
-      ) : (
-        <ImportWizard
-          slug={slug}
-          projects={projects.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
-          statuses={schema.statuses}
-          priorities={schema.priorities}
-          types={schema.types}
-          categories={schema.categories}
-          customFields={schema.customFields}
-        />
-      )}
-    </div>
+    <ImportWizard
+      slug={slug}
+      projects={projects.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
+      statuses={schema.statuses}
+      priorities={schema.priorities}
+      types={schema.types}
+      categories={schema.categories}
+      customFields={schema.customFields}
+    />
   );
 }

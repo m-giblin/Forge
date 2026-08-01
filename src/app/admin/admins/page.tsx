@@ -1,8 +1,8 @@
 import { requireSuperAdmin } from "@/lib/super-admin";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import AdminsClient from "./AdminsClient";
+import PageHeader from "@/components/patterns/PageHeader";
 
 export type SuperAdminRow = {
   user_id: string;
@@ -40,26 +40,16 @@ export default async function AdminsPage() {
     })
   );
 
-  const S = {
-    backLink: { display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, color: "#6b7280", textDecoration: "none", fontWeight: 500, marginBottom: 18 } as React.CSSProperties,
-    pageTitle: { fontSize: 18, fontWeight: 800, color: "#111827" } as React.CSSProperties,
-    pageSub:   { fontSize: 12, color: "#6b7280", marginTop: 4 } as React.CSSProperties,
-  };
-
   return (
-    <div style={{ padding: "24px 28px", maxWidth: 900 }}>
-      <Link href="/admin" style={S.backLink}>← Dashboard</Link>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={S.pageTitle}>Platform Admins</h1>
-        <p style={S.pageSub}>
-          Accounts with full platform access. Click any row to view or edit their profile.
-        </p>
+    <div className="px-6 py-5">
+      <PageHeader title="Admins" subtitle="Platform staff with portal access" />
+      <div className="mt-4">
+        <AdminsClient
+          initialAdmins={admins}
+          currentUserId={sa.appUserId}
+          lastLoginMap={lastLoginMap}
+        />
       </div>
-      <AdminsClient
-        initialAdmins={admins}
-        currentUserId={sa.appUserId}
-        lastLoginMap={lastLoginMap}
-      />
     </div>
   );
 }

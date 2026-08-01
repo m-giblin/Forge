@@ -59,17 +59,17 @@ export default function IntakeFormDetail({
       <h2 className="mt-1 text-base font-semibold text-neutral-900">{formName}</h2>
 
       <div className="mt-4 flex rounded-lg border border-neutral-200 bg-white p-0.5 w-fit">
-        <button onClick={() => setTab("submissions")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${tab === "submissions" ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-700"}`}>
+        <button onClick={() => setTab("submissions")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${tab === "submissions" ? "bg-[#b7452f] text-white" : "text-neutral-500 hover:text-neutral-700"}`}>
           Submissions {newCount > 0 && `(${newCount} new)`}
         </button>
-        <button onClick={() => setTab("fields")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${tab === "fields" ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-700"}`}>
+        <button onClick={() => setTab("fields")} className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${tab === "fields" ? "bg-[#b7452f] text-white" : "text-neutral-500 hover:text-neutral-700"}`}>
           Fields
         </button>
       </div>
 
       {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       {convertedIssueId && (
-        <p className="mt-3 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        <p className="mt-3 rounded-lg bg-[#e9f3ea] px-3 py-2 text-sm text-[#3f7d4c]">
           Converted → <Link href={`/${slug}/issues/${convertedIssueId}`} className="underline font-medium">view issue</Link>
         </p>
       )}
@@ -85,7 +85,7 @@ export default function IntakeFormDetail({
                   <p className="text-xs text-neutral-400">{new Date(s.createdAt).toLocaleString()}{s.submitterEmail ? ` · ${s.submitterEmail}` : ""}</p>
                 </div>
                 <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${
-                  s.status === "new" ? "bg-indigo-100 text-indigo-700" : s.status === "converted" ? "bg-emerald-100 text-emerald-700" : "bg-neutral-100 text-neutral-500"
+                  s.status === "new" ? "bg-[#eaf1f8] text-[#3a6ea8]" : s.status === "converted" ? "bg-[#e9f3ea] text-[#3f7d4c]" : "bg-neutral-100 text-neutral-500"
                 }`}>
                   {s.status}
                 </span>
@@ -101,11 +101,11 @@ export default function IntakeFormDetail({
                 </dl>
               )}
               {s.status === "converted" && s.convertedIssueId && (
-                <Link href={`/${slug}/issues/${s.convertedIssueId}`} className="mt-2 inline-block text-xs font-medium text-indigo-600 hover:underline">View issue →</Link>
+                <Link href={`/${slug}/issues/${s.convertedIssueId}`} className="mt-2 inline-block text-xs font-medium text-[#b7452f] hover:underline">View issue →</Link>
               )}
               {s.status === "new" && (
                 <div className="mt-3 flex gap-2">
-                  <button onClick={() => convert(s.id)} disabled={pending} className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50">
+                  <button onClick={() => convert(s.id)} disabled={pending} className="rounded-lg bg-[#b7452f] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#8c4632] disabled:opacity-50">
                     Convert to issue
                   </button>
                   <button onClick={() => dismiss(s.id)} disabled={pending} className="rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-500 hover:bg-neutral-50 disabled:opacity-50">
@@ -179,7 +179,7 @@ function FieldsEditor({ slug, formId, fields: initialFields, readOnly }: { slug:
         <label className="flex items-center gap-1.5 text-sm text-neutral-600">
           <input type="checkbox" checked={required} onChange={(e) => setRequired(e.target.checked)} /> Required
         </label>
-        <button onClick={add} disabled={pending || !label.trim()} className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40">
+        <button onClick={add} disabled={pending || !label.trim()} className="rounded-lg bg-[#b7452f] px-3 py-2 text-sm font-medium text-white hover:bg-[#8c4632] disabled:opacity-40">
           Add field
         </button>
       </div>

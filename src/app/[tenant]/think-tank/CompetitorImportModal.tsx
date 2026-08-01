@@ -130,7 +130,8 @@ export default function CompetitorImportModal({ slug, thinkTankId }: Props) {
                       <button
                         onClick={handleExtract}
                         disabled={isPending || !content.trim() || content.length > 20_000}
-                        className="rounded-lg bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                        className="rounded-lg border border-[#5e2c1f] px-4 py-1.5 text-sm font-medium text-[#f2e9d8] disabled:opacity-50"
+                        style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
                       >
                         {isPending ? "Extracting…" : "Extract ideas"}
                       </button>
@@ -204,7 +205,8 @@ export default function CompetitorImportModal({ slug, thinkTankId }: Props) {
                       <button
                         onClick={handleImportSelected}
                         disabled={selected.size === 0}
-                        className="rounded-lg bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                        className="rounded-lg border border-[#5e2c1f] px-4 py-1.5 text-sm font-medium text-[#f2e9d8] disabled:opacity-50"
+                        style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
                       >
                         Import selected →
                       </button>

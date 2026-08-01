@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition, useCallback } from "react";
+import { useEffect, useMemo, useState, useTransition, useCallback } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type CustomField } from "@/lib/repositories/fieldConfig";
@@ -9,6 +9,8 @@ import { bulkUpdateIssuesAction, bulkDeleteIssuesAction } from "./actions";
 import { updateIssueAction } from "./[id]/actions";
 import { createSavedViewAction, deleteSavedViewAction } from "./savedViewActions";
 import { EditableSelectCell, EditableTextCell } from "./EditableCell";
+import PageHeader from "@/components/patterns/PageHeader";
+import { FilterRow, FilterPill } from "@/components/patterns/FilterRow";
 
 type Project = { id: string; key: string; name: string };
 type Member = { userId: string; label: string };
@@ -68,6 +70,7 @@ export default function IssuesTable({
   const priorityFilter = params.get("priority") ?? "all";
   const typeFilter = params.get("type") ?? "all";
   const assigneeFilter = params.get("assignee") ?? "all";
+  const projectFilter = params.get("project") ?? "all";
 
   const setParam = useCallback((key: string, value: string) => {
     const next = new URLSearchParams(params.toString());
@@ -80,7 +83,7 @@ export default function IssuesTable({
     router.replace(pathname);
   }, [pathname, router]);
 
-  const hasFilters = q || statusFilter !== "all" || priorityFilter !== "all" || typeFilter !== "all" || assigneeFilter !== "all";
+  const hasFilters = q || statusFilter !== "all" || priorityFilter !== "all" || typeFilter !== "all" || assigneeFilter !== "all" || projectFilter !== "all";
 
   // Multi-select state
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -89,6 +92,10 @@ export default function IssuesTable({
   const [bulkPending, startBulk] = useTransition();
   const [bulkMsg, setBulkMsg] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  // Pagination
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(1);
 
   // Save view state
   const [showSaveView, setShowSaveView] = useState(false);
@@ -121,6 +128,7 @@ export default function IssuesTable({
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
     const rows = issues
+      .filter((i) => projectFilter === "all" || i.project_id === projectFilter)
       .filter((i) => statusFilter === "all" || i.status === statusFilter)
       .filter((i) => priorityFilter === "all" || i.priority === priorityFilter)
       .filter((i) => typeFilter === "all" || i.type === typeFilter)
@@ -133,6 +141,11 @@ export default function IssuesTable({
 
     const dir = sortDir === "asc" ? 1 : -1;
     rows.sort((a, b) => {
+      if (sortBy === "id") {
+        const ak = `${projectKey(a.project_id)}-${a.number}`;
+        const bk = `${projectKey(b.project_id)}-${b.number}`;
+        return ak < bk ? -dir : ak > bk ? dir : 0;
+      }
       if (sortBy === "priority") {
         const diff = (PRIORITY_ORDER[a.priority] ?? 9) - (PRIORITY_ORDER[b.priority] ?? 9);
         return diff * dir;
@@ -150,7 +163,15 @@ export default function IssuesTable({
     });
     return rows;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [issues, q, statusFilter, priorityFilter, typeFilter, assigneeFilter, sortBy, sortDir]);
+  }, [issues, q, projectFilter, statusFilter, priorityFilter, typeFilter, assigneeFilter, sortBy, sortDir]);
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const paginated = useMemo(
+    () => filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
+    [filtered, currentPage]
+  );
+  useEffect(() => { setPage(1); }, [q, projectFilter, statusFilter, priorityFilter, typeFilter, assigneeFilter, sortBy, sortDir]);
 
   const allSelected = filtered.length > 0 && filtered.every((i) => selected.has(i.id));
   const someSelected = selected.size > 0;
@@ -264,113 +285,124 @@ export default function IssuesTable({
   const teamViews = savedViews.filter((v) => v.isShared);
 
   return (
-    <div>
-      {/* ── Saved views bar ── */}
-      {savedViews.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-1.5">
-          <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400 mr-1">Views:</span>
-          {myViews.map((v) => (
-            <span key={v.id} className="group inline-flex items-center gap-1 rounded-full border border-neutral-200 bg-white px-2.5 py-0.5 text-xs text-neutral-700 hover:border-blue-300 hover:bg-blue-50">
-              <button onClick={() => applyView(v)} className="hover:text-blue-700">{v.name}</button>
-              <button onClick={() => deleteView(v.id)} className="ml-0.5 hidden text-neutral-300 hover:text-red-500 group-hover:inline">×</button>
-            </span>
-          ))}
-          {teamViews.map((v) => (
-            <span key={v.id} className="group inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-0.5 text-xs text-emerald-700 hover:border-emerald-400">
-              <button onClick={() => applyView(v)}>{v.name}</button>
-              <button onClick={() => deleteView(v.id)} className="ml-0.5 hidden text-emerald-300 hover:text-red-500 group-hover:inline">×</button>
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* ── Filter bar ── */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <h1 className="mr-auto text-lg font-semibold text-neutral-900">
-          Issues <span className="text-sm font-normal text-neutral-400">({filtered.length})</span>
-        </h1>
-        <input
-          value={q}
-          onChange={(e) => setParam("q", e.target.value)}
-          placeholder="Search title + description…"
-          className="w-52 rounded-lg border border-neutral-300 px-3 py-1.5 text-sm outline-none focus:border-neutral-900"
-        />
-        <select value={statusFilter} onChange={(e) => setParam("status", e.target.value)} className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm">
-          <option value="all">All statuses</option>
-          {[...statuses].sort((a, b) => a.position - b.position).map((s) => (
-            <option key={s.key} value={s.key}>{s.label}</option>
-          ))}
-        </select>
-        <select value={priorityFilter} onChange={(e) => setParam("priority", e.target.value)} className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm">
-          <option value="all">All priorities</option>
-          {priorities.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
-        </select>
-        <select value={typeFilter} onChange={(e) => setParam("type", e.target.value)} className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm">
-          <option value="all">All types</option>
-          {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
-        </select>
-        {members.length > 0 && (
-          <select value={assigneeFilter} onChange={(e) => setParam("assignee", e.target.value)} className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm">
-            <option value="all">All assignees</option>
-            <option value="none">Unassigned</option>
-            {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
-          </select>
-        )}
-        {hasFilters && (
-          <button onClick={clearFilters} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-500 hover:text-neutral-900">
-            Clear
-          </button>
-        )}
-        {hasFilters && (
-          <button
-            onClick={() => setShowSaveView(true)}
-            className="rounded-lg border border-blue-300 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+    <div className="flex flex-1 flex-col">
+      <PageHeader
+        title="Table"
+        subtitle={`${filtered.length} issue${filtered.length === 1 ? "" : "s"}`}
+        right={
+          <a
+            href={`/${slug}/issues/export?${params.toString()}`}
+            download
+            className="shrink-0 whitespace-nowrap rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da]"
           >
-            Save view
-          </button>
+            Export CSV
+          </a>
+        }
+      />
+
+      <div className="min-h-0 flex-1 overflow-auto px-6 py-3.5">
+        {/* ── Saved views bar ── */}
+        {savedViews.length > 0 && (
+          <div className="mb-3 flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Views:</span>
+            {myViews.map((v) => (
+              <span key={v.id} className="group inline-flex items-center gap-1 rounded-full border border-[#ddd8c9] bg-[#f4f2eb] px-2.5 py-0.5 text-[11.5px] text-[#4a473e] hover:bg-[#eae6da]">
+                <button onClick={() => applyView(v)} className="hover:text-[#b7452f]">{v.name}</button>
+                <button onClick={() => deleteView(v.id)} className="ml-0.5 hidden text-[#c3bda9] hover:text-[#c0392b] group-hover:inline">×</button>
+              </span>
+            ))}
+            {teamViews.map((v) => (
+              <span key={v.id} className="group inline-flex items-center gap-1 rounded-full border border-[#3f7d4c] bg-[#e9f3ea] px-2.5 py-0.5 text-[11.5px] text-[#3f7d4c] hover:bg-[#e9f3ea]">
+                <button onClick={() => applyView(v)}>{v.name}</button>
+                <button onClick={() => deleteView(v.id)} className="ml-0.5 hidden text-[#3f7d4c] hover:text-[#c0392b] group-hover:inline">×</button>
+              </span>
+            ))}
+          </div>
         )}
-        <a
-          href={`/${slug}/issues/export?${params.toString()}`}
-          download
-          className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-xs text-neutral-500 hover:text-neutral-900"
-        >
-          ↓ CSV
-        </a>
-      </div>
+
+        {/* ── Filter bar ── */}
+        <FilterRow>
+          <input
+            value={q}
+            onChange={(e) => setParam("q", e.target.value)}
+            placeholder="Search title + description…"
+            className="w-52 shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-3 py-[6px] text-[11.5px] text-[#20201d] outline-none placeholder:text-[#a19d90]"
+          />
+          {projects.length > 1 && (
+            <select value={projectFilter} onChange={(e) => setParam("project", e.target.value)} className="shrink-0 whitespace-nowrap rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none">
+              <option value="all">All projects ({issues.length})</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.key} ({issues.filter((i) => i.project_id === p.id).length})</option>
+              ))}
+            </select>
+          )}
+          <select value={statusFilter} onChange={(e) => setParam("status", e.target.value)} className="shrink-0 whitespace-nowrap rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none">
+            <option value="all">All statuses</option>
+            {[...statuses].sort((a, b) => a.position - b.position).map((s) => (
+              <option key={s.key} value={s.key}>{s.label}</option>
+            ))}
+          </select>
+          <select value={priorityFilter} onChange={(e) => setParam("priority", e.target.value)} className="shrink-0 whitespace-nowrap rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none">
+            <option value="all">All priorities</option>
+            {priorities.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
+          </select>
+          <select value={typeFilter} onChange={(e) => setParam("type", e.target.value)} className="shrink-0 whitespace-nowrap rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none">
+            <option value="all">All types</option>
+            {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
+          </select>
+          {members.length > 0 && (
+            <select value={assigneeFilter} onChange={(e) => setParam("assignee", e.target.value)} className="shrink-0 whitespace-nowrap rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none">
+              <option value="all">All assignees</option>
+              <option value="none">Unassigned</option>
+              {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
+            </select>
+          )}
+          {hasFilters && (
+            <FilterPill onClick={clearFilters}>Clear</FilterPill>
+          )}
+          {hasFilters && (
+            <button
+              onClick={() => setShowSaveView(true)}
+              className="shrink-0 whitespace-nowrap rounded-full border border-[#8c4632] bg-[#f4ecfa] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#7a4fa0] hover:bg-[#efe3f7]"
+            >
+              Save view
+            </button>
+          )}
+        </FilterRow>
 
       {/* ── Save view dialog ── */}
       {showSaveView && (
-        <div className="mb-4 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5">
-          <span className="text-sm font-medium text-blue-800">Save current filters as:</span>
+        <div className="mb-4 mt-3 flex items-center gap-2 rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-4 py-2.5">
+          <span className="text-[12.5px] font-semibold text-[#20201d]">Save current filters as:</span>
           <input
             autoFocus
             value={viewName}
             onChange={(e) => setViewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") saveView(); if (e.key === "Escape") setShowSaveView(false); }}
             placeholder="View name…"
-            className="rounded-lg border border-blue-300 bg-white px-2.5 py-1 text-sm outline-none focus:border-blue-500"
+            className="rounded-lg border border-[#ddd8c9] bg-white px-2.5 py-1 text-[12.5px] outline-none focus:border-[#8c4632]"
           />
-          <label className="flex items-center gap-1.5 text-xs text-blue-700 cursor-pointer">
-            <input type="checkbox" checked={viewShared} onChange={(e) => setViewShared(e.target.checked)} className="rounded accent-blue-600" />
+          <label className="flex items-center gap-1.5 text-[11.5px] text-[#4a473e] cursor-pointer">
+            <input type="checkbox" checked={viewShared} onChange={(e) => setViewShared(e.target.checked)} className="rounded accent-[#8c4632]" />
             Share with team
           </label>
-          <button onClick={saveView} disabled={savePending || !viewName.trim()} className="rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+          <button onClick={saveView} disabled={savePending || !viewName.trim()} className="rounded-lg bg-[#8c4632] bg-[image:linear-gradient(160deg,#9a5138,#6e3324)] border border-[#5e2c1f] px-3 py-1.5 text-[11.5px] font-bold text-[#f2e9d8] disabled:opacity-50">
             {savePending ? "Saving…" : "Save"}
           </button>
-          <button onClick={() => setShowSaveView(false)} className="text-xs text-blue-500 hover:text-blue-700">Cancel</button>
+          <button onClick={() => setShowSaveView(false)} className="text-[11.5px] text-[#726e60] hover:text-[#20201d]">Cancel</button>
         </div>
       )}
 
       {/* ── Bulk action bar ── */}
       {someSelected && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5">
-          <span className="text-sm font-medium text-blue-800">{selected.size} selected</span>
-          <button onClick={() => setSelected(new Set())} className="text-xs text-blue-500 hover:text-blue-700">Clear</button>
+        <div className="mb-3 mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-4 py-2.5">
+          <span className="text-[12.5px] font-semibold text-[#20201d]">{selected.size} selected</span>
+          <button onClick={() => setSelected(new Set())} className="text-[11.5px] text-[#726e60] hover:text-[#20201d]">Clear</button>
           <div className="ml-2 flex items-center gap-2">
             <select
               value={bulkField}
               onChange={(e) => { setBulkField(e.target.value); setBulkValue(""); }}
-              className="rounded-lg border border-blue-300 bg-white px-2 py-1.5 text-sm"
+              className="rounded-lg border border-[#ddd8c9] bg-white px-2 py-1.5 text-[12.5px]"
             >
               <option value="">Change field…</option>
               <option value="status">Status</option>
@@ -380,31 +412,31 @@ export default function IssuesTable({
               <option value="phase">Phase</option>
             </select>
             {bulkField === "status" && (
-              <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-blue-300 bg-white px-2 py-1.5 text-sm">
+              <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-[#ddd8c9] bg-white px-2 py-1.5 text-[12.5px]">
                 <option value="">Pick status…</option>
                 {[...statuses].sort((a, b) => a.position - b.position).map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
               </select>
             )}
             {bulkField === "priority" && (
-              <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-blue-300 bg-white px-2 py-1.5 text-sm">
+              <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-[#ddd8c9] bg-white px-2 py-1.5 text-[12.5px]">
                 <option value="">Pick priority…</option>
                 {priorities.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
               </select>
             )}
             {bulkField === "type" && (
-              <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-blue-300 bg-white px-2 py-1.5 text-sm">
+              <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-[#ddd8c9] bg-white px-2 py-1.5 text-[12.5px]">
                 <option value="">Pick type…</option>
                 {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
               </select>
             )}
             {bulkField === "assigneeId" && (
-              <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-blue-300 bg-white px-2 py-1.5 text-sm">
+              <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-[#ddd8c9] bg-white px-2 py-1.5 text-[12.5px]">
                 <option value="">Unassign</option>
                 {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
               </select>
             )}
             {bulkField === "phase" && (
-              <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-blue-300 bg-white px-2 py-1.5 text-sm">
+              <select value={bulkValue} onChange={(e) => setBulkValue(e.target.value)} className="rounded-lg border border-[#ddd8c9] bg-white px-2 py-1.5 text-[12.5px]">
                 <option value="">Clear phase</option>
                 <option value="discovery">Discovery</option>
                 <option value="design">Design</option>
@@ -417,7 +449,7 @@ export default function IssuesTable({
               <button
                 onClick={applyBulk}
                 disabled={bulkPending || !bulkField}
-                className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-lg bg-[#8c4632] bg-[image:linear-gradient(160deg,#9a5138,#6e3324)] border border-[#5e2c1f] px-3 py-1.5 text-[11.5px] font-bold text-[#f2e9d8] disabled:opacity-50"
               >
                 {bulkPending ? "Applying…" : "Apply"}
               </button>
@@ -426,52 +458,52 @@ export default function IssuesTable({
           {canDelete && (
             confirmDelete ? (
               <div className="ml-auto flex items-center gap-2">
-                <span className="text-sm text-red-700 font-medium">Delete {selected.size} issue{selected.size === 1 ? "" : "s"}?</span>
-                <button onClick={doDelete} disabled={bulkPending} className="rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50">
+                <span className="text-[12.5px] font-semibold text-[#c0392b]">Delete {selected.size} issue{selected.size === 1 ? "" : "s"}?</span>
+                <button onClick={doDelete} disabled={bulkPending} className="rounded-lg bg-[#c0392b] px-3 py-1.5 text-[11.5px] font-bold text-white hover:bg-[#a53024] disabled:opacity-50">
                   {bulkPending ? "Deleting…" : "Yes, delete"}
                 </button>
-                <button onClick={() => setConfirmDelete(false)} className="text-sm text-neutral-500 hover:text-neutral-700">Cancel</button>
+                <button onClick={() => setConfirmDelete(false)} className="text-[11.5px] text-[#726e60] hover:text-[#20201d]">Cancel</button>
               </div>
             ) : (
-              <button onClick={() => setConfirmDelete(true)} className="ml-auto text-sm font-medium text-red-600 hover:text-red-700">
+              <button onClick={() => setConfirmDelete(true)} className="ml-auto text-[11.5px] font-bold text-[#c0392b] hover:underline">
                 Delete selected
               </button>
             )
           )}
-          {bulkMsg && <span className="ml-2 text-sm text-blue-700">{bulkMsg}</span>}
+          {bulkMsg && <span className="ml-2 text-[11.5px] text-[#4a473e]">{bulkMsg}</span>}
         </div>
       )}
 
       {/* ── Table ── */}
-      <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white">
-        <table className="w-full text-sm">
+      <div className="fw-card mt-3 overflow-hidden">
+        <table className="w-full text-[12.5px]">
           <thead>
-            <tr className="border-b border-neutral-200 text-left text-xs uppercase tracking-wide text-neutral-400">
+            <tr className="border-b border-[#e3ded0] bg-[#eae6da] text-left text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">
               <th className="px-3 py-2.5">
                 <input
                   type="checkbox"
                   checked={allSelected}
                   onChange={toggleAll}
-                  className="h-4 w-4 rounded border-neutral-300 accent-blue-600"
+                  className="h-4 w-4 rounded border-[#ddd8c9] accent-[#8c4632]"
                   aria-label="Select all"
                 />
               </th>
-              <th className="px-4 py-2.5 font-medium">ID</th>
-              <th className="px-4 py-2.5 font-medium">Title</th>
-              <th className="px-4 py-2.5 font-medium">Type</th>
+              <SortTh label="ID" field="id" current={sortBy} dir={sortDir} onToggle={toggleSort} />
+              <th className="px-4 py-2.5 font-extrabold">Title</th>
+              <th className="px-4 py-2.5 font-extrabold">Type</th>
               <SortTh label="Priority" field="priority" current={sortBy} dir={sortDir} onToggle={toggleSort} />
-              <th className="px-4 py-2.5 font-medium">Assignee</th>
-              <th className="px-4 py-2.5 font-medium">Phase <span className="normal-case font-normal text-[10px] text-neutral-300">(stage)</span></th>
+              <th className="px-4 py-2.5 font-extrabold">Assignee</th>
+              <th className="px-4 py-2.5 font-extrabold">Phase <span className="normal-case font-normal text-[10px] text-[#c3bda9]">(stage)</span></th>
               <SortTh label="Due" field="due" current={sortBy} dir={sortDir} onToggle={toggleSort} />
-              <th className="px-4 py-2.5 font-medium">Status</th>
+              <th className="px-4 py-2.5 font-extrabold">Status</th>
               <SortTh label="Updated" field="updated" current={sortBy} dir={sortDir} onToggle={toggleSort} />
               {customFields.map((f) => (
-                <th key={f.id} className="px-4 py-2.5 font-medium">{f.label}</th>
+                <th key={f.id} className="px-4 py-2.5 font-extrabold">{f.label}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {filtered.map((i) => {
+            {paginated.map((i) => {
               const ty = tyMap.get(i.type);
               const pr = prMap.get(i.priority);
               const badge = dueBadge(i.due_date);
@@ -479,27 +511,27 @@ export default function IssuesTable({
               return (
                 <tr
                   key={i.id}
-                  className={`border-b border-neutral-100 last:border-0 hover:bg-neutral-50 ${isSelected ? "bg-blue-50 hover:bg-blue-50" : ""}`}
+                  className={`border-t border-[#e3ded0] first:border-t-0 hover:bg-[#eae6da]/50 ${isSelected ? "bg-[#f4ecfa] hover:bg-[#f4ecfa]" : ""}`}
                 >
                   <td className="px-3 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
                       checked={isSelected}
                       onChange={() => toggleOne(i.id)}
-                      className="h-4 w-4 rounded border-neutral-300 accent-blue-600"
+                      className="h-4 w-4 rounded border-[#ddd8c9] accent-[#8c4632]"
                       aria-label={`Select ${i.title}`}
                     />
                   </td>
                   <td
-                    className="cursor-pointer whitespace-nowrap px-4 py-2.5 font-medium text-neutral-400"
+                    className="cursor-pointer whitespace-nowrap px-4 py-2.5 font-mono text-[11px] font-bold text-[#726e60]"
                     onClick={() => router.push(`/${slug}/issues/${i.id}`)}
                   >
                     {projectKey(i.project_id)}-{i.number}
                   </td>
-                  <td className="cursor-pointer px-4 py-2.5 text-neutral-800" onClick={() => router.push(`/${slug}/issues/${i.id}`)}>
+                  <td className="cursor-pointer px-4 py-2.5 text-[#20201d]" onClick={() => router.push(`/${slug}/issues/${i.id}`)}>
                     {i.title}
                   </td>
-                  <td className="px-4 py-2.5 text-neutral-600" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-4 py-2.5 text-[#4a473e]" onClick={(e) => e.stopPropagation()}>
                     <EditableSelectCell
                       value={i.type}
                       options={types}
@@ -515,7 +547,7 @@ export default function IssuesTable({
                       onSave={(v) => saveCell(i.id, { priority: v })}
                     />
                   </td>
-                  <td className="px-4 py-2.5 text-neutral-600" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-4 py-2.5 text-[#4a473e]" onClick={(e) => e.stopPropagation()}>
                     <EditableSelectCell
                       value={i.assignee_id ?? ""}
                       options={members.map((m) => ({ key: m.userId, label: m.label }))}
@@ -535,8 +567,8 @@ export default function IssuesTable({
                   </td>
                   <td className="whitespace-nowrap px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
                     <span className={
-                      badge === "overdue" ? "font-medium text-red-600" :
-                      badge === "soon"    ? "font-medium text-amber-600" :
+                      badge === "overdue" ? "font-semibold text-[#c0392b]" :
+                      badge === "soon"    ? "font-semibold text-[#c9791d]" :
                       ""
                     }>
                       <EditableTextCell
@@ -548,7 +580,7 @@ export default function IssuesTable({
                       {badge === "overdue" && <span className="ml-1 text-xs">⚠</span>}
                     </span>
                   </td>
-                  <td className="px-4 py-2.5 text-neutral-600" onClick={(e) => e.stopPropagation()}>
+                  <td className="px-4 py-2.5 text-[#4a473e]" onClick={(e) => e.stopPropagation()}>
                     <EditableSelectCell
                       value={i.status}
                       options={[...statuses].sort((a, b) => a.position - b.position)}
@@ -557,7 +589,7 @@ export default function IssuesTable({
                     />
                   </td>
                   {customFields.map((f) => (
-                    <td key={f.id} className="px-4 py-2.5 text-neutral-600" onClick={(e) => e.stopPropagation()}>
+                    <td key={f.id} className="px-4 py-2.5 text-[#4a473e]" onClick={(e) => e.stopPropagation()}>
                       {f.type === "select" ? (
                         <EditableSelectCell
                           value={String((i.custom_values ?? {})[f.key] ?? "")}
@@ -581,13 +613,38 @@ export default function IssuesTable({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10 + customFields.length} className="px-4 py-10 text-center text-sm text-neutral-400">
+                <td colSpan={10 + customFields.length} className="px-4 py-10 text-center text-[12.5px] text-[#a19d90]">
                   {hasFilters ? "No issues match the current filters." : "No issues yet."}
                 </td>
               </tr>
             )}
           </tbody>
         </table>
+      </div>
+      {pageCount > 1 && (
+        <div className="flex items-center justify-between border-t border-[#ddd8c9] bg-[#f4f2eb] px-4 py-2.5 text-[11.5px] text-[#726e60]">
+          <span>
+            {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length}
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-1 font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-40 transition-colors"
+            >
+              ← Prev
+            </button>
+            <span className="px-1.5 font-semibold text-[#20201d]">Page {currentPage} of {pageCount}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+              disabled={currentPage === pageCount}
+              className="rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-1 font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-40 transition-colors"
+            >
+              Next →
+            </button>
+          </div>
+        </div>
+      )}
       </div>
     </div>
   );
@@ -602,10 +659,10 @@ function SortTh({ label, field, current, dir, onToggle }: {
 }) {
   const active = current === field;
   return (
-    <th className="px-4 py-2.5 font-medium">
+    <th className="px-4 py-2.5 font-extrabold">
       <button
         onClick={() => onToggle(field)}
-        className={`flex items-center gap-1 hover:text-neutral-700 transition-colors ${active ? "text-neutral-900" : "text-neutral-400"}`}
+        className={`flex items-center gap-1 transition-colors hover:text-[#4a473e] ${active ? "text-[#20201d]" : "text-[#a19d90]"}`}
       >
         {label}
         <span className="text-[10px]">

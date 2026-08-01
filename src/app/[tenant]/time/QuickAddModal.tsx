@@ -87,7 +87,7 @@ export default function QuickAddModal({ slug, weekDates, existingIssues, onClose
               value={selectedIssue ? `${selectedIssue.issueKey ?? ""} – ${selectedIssue.issueTitle}` : issueKey}
               onChange={e => { setIssueKey(e.target.value); setSelectedIssue(null); }}
               placeholder="Search by key or title…"
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-300 focus:border-[#b7452f] focus:outline-none focus:ring-2 focus:ring-[#f4e3dc]"
             />
             {filteredIssues.length > 0 && !selectedIssue && (
               <div className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-auto rounded-xl border border-neutral-200 bg-white shadow-lg">
@@ -98,7 +98,7 @@ export default function QuickAddModal({ slug, weekDates, existingIssues, onClose
                     onClick={() => { setSelectedIssue(issue); setIssueKey(""); }}
                     className="flex w-full items-center gap-2 px-3 py-2.5 text-left hover:bg-neutral-50 transition-colors"
                   >
-                    <span className="text-xs font-semibold text-indigo-600 shrink-0">{issue.issueKey ?? "–"}</span>
+                    <span className="text-xs font-semibold text-[#b7452f] shrink-0">{issue.issueKey ?? "–"}</span>
                     <span className="truncate text-sm text-neutral-700">{issue.issueTitle}</span>
                   </button>
                 ))}
@@ -112,7 +112,7 @@ export default function QuickAddModal({ slug, weekDates, existingIssues, onClose
             <select
               value={date}
               onChange={e => setDate(e.target.value)}
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 focus:border-[#b7452f] focus:outline-none focus:ring-2 focus:ring-[#f4e3dc]"
             >
               {weekDates.map(d => (
                 <option key={d} value={d}>
@@ -133,7 +133,7 @@ export default function QuickAddModal({ slug, weekDates, existingIssues, onClose
                   max={23}
                   value={hours}
                   onChange={e => setHours(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                  className="w-16 rounded-lg border border-neutral-200 px-3 py-2 text-center text-sm font-medium focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  className="w-16 rounded-lg border border-neutral-200 px-3 py-2 text-center text-sm font-medium focus:border-[#b7452f] focus:outline-none focus:ring-2 focus:ring-[#f4e3dc]"
                 />
                 <span className="text-xs text-neutral-500">h</span>
               </div>
@@ -144,7 +144,7 @@ export default function QuickAddModal({ slug, weekDates, existingIssues, onClose
                   max={59}
                   value={minutes}
                   onChange={e => setMinutes(Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0)))}
-                  className="w-16 rounded-lg border border-neutral-200 px-3 py-2 text-center text-sm font-medium focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  className="w-16 rounded-lg border border-neutral-200 px-3 py-2 text-center text-sm font-medium focus:border-[#b7452f] focus:outline-none focus:ring-2 focus:ring-[#f4e3dc]"
                 />
                 <span className="text-xs text-neutral-500">m</span>
               </div>
@@ -160,7 +160,7 @@ export default function QuickAddModal({ slug, weekDates, existingIssues, onClose
               value={note}
               onChange={e => setNote(e.target.value)}
               placeholder="What did you work on?"
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-300 focus:border-[#b7452f] focus:outline-none focus:ring-2 focus:ring-[#f4e3dc]"
             />
           </div>
 
@@ -172,7 +172,7 @@ export default function QuickAddModal({ slug, weekDates, existingIssues, onClose
               type="checkbox"
               checked={billable}
               onChange={e => setBillable(e.target.checked)}
-              className="h-4 w-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-neutral-300 text-[#b7452f] focus:ring-[#b7452f]"
             />
             <span className="text-sm text-neutral-700">Billable</span>
           </label>
@@ -186,7 +186,7 @@ export default function QuickAddModal({ slug, weekDates, existingIssues, onClose
             <button
               type="submit"
               disabled={saving || totalMins <= 0}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              className="rounded-lg bg-[#b7452f] px-4 py-2 text-sm font-medium text-white hover:bg-[#8c4632] transition-colors disabled:opacity-50"
             >
               {saving ? "Saving…" : "Log time"}
             </button>

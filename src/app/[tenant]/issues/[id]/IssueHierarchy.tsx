@@ -16,9 +16,9 @@ function InfoTip({ text }: { text: string }) {
       <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-neutral-200 text-neutral-500 text-[9px] font-bold cursor-default select-none leading-none group-hover/tip:bg-neutral-300">
         i
       </span>
-      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-52 rounded-lg bg-neutral-900 px-3 py-2 text-[11px] text-white leading-relaxed shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+      <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 z-50 w-52 rounded-lg bg-[#20201d] px-3 py-2 text-[11px] text-white leading-relaxed shadow-lg opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
         {text}
-        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-neutral-900" />
+        <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-[#20201d]" />
       </span>
     </span>
   );
@@ -29,9 +29,9 @@ function InfoTip({ text }: { text: string }) {
 type SearchResult = { id: string; key: string; title: string; status: string; priority: string };
 
 const STATUS_DOT: Record<string, string> = {
-  done:        "bg-emerald-500",
-  in_review:   "bg-blue-400",
-  in_progress: "bg-amber-400",
+  done:        "bg-[#3f7d4c]",
+  in_review:   "bg-[#7a4fa0]",
+  in_progress: "bg-[#c9791d]",
 };
 function statusDot(s: string) { return STATUS_DOT[s] ?? "bg-neutral-300"; }
 
@@ -231,11 +231,12 @@ export function LinkedIssuesCard({
               <button key={t.value} type="button" onClick={() => setLinkType(t.value)}
                 className={`flex-1 rounded-lg border px-2 py-1.5 text-left transition ${
                   linkType === t.value
-                    ? "border-neutral-900 bg-neutral-900 text-white"
+                    ? "text-[#f2e9d8]"
                     : "border-neutral-200 bg-white text-neutral-600 hover:border-neutral-400"
-                }`}>
+                }`}
+                style={linkType === t.value ? { background: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" } : undefined}>
                 <div className="text-xs font-medium">{t.label}</div>
-                <div className={`text-[10px] leading-tight ${linkType === t.value ? "text-neutral-300" : "text-neutral-400"}`}>{t.desc}</div>
+                <div className={`text-[10px] leading-tight ${linkType === t.value ? "text-[#f2e9d8]/70" : "text-neutral-400"}`}>{t.desc}</div>
               </button>
             ))}
           </div>
@@ -361,7 +362,7 @@ export function SubIssuesCard({
       {/* Progress bar */}
       {subIssues.length > 0 && (
         <div className="mb-2 h-1 w-full rounded-full bg-neutral-100 overflow-hidden">
-          <div className="h-full rounded-full bg-emerald-500 transition-all"
+          <div className="h-full rounded-full bg-[#3f7d4c] transition-all"
             style={{ width: `${subIssues.length ? (done / subIssues.length) * 100 : 0}%` }} />
         </div>
       )}
@@ -405,7 +406,7 @@ export function SubIssuesCard({
           <button onClick={() => setMode("existing")}
             className="text-xs text-neutral-400 hover:text-neutral-700">Link existing</button>
           <button onClick={() => setMode("new")}
-            className="text-xs font-medium text-white bg-neutral-900 border border-neutral-900 rounded-md px-2.5 py-1 hover:bg-neutral-700 transition-colors">+ New</button>
+            className="text-xs font-medium rounded-md px-2.5 py-1 transition-colors" style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f", color: "#f2e9d8" }}>+ New</button>
         </div>
       )}
 
@@ -418,7 +419,7 @@ export function SubIssuesCard({
             className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs focus:outline-none focus:border-neutral-900 disabled:opacity-50" />
           {error && <p className="text-xs text-red-600">{error}</p>}
           <button onClick={submitNew} disabled={pending || !title.trim()}
-            className="rounded-lg bg-neutral-900 px-3 py-1 text-xs font-medium text-white disabled:opacity-50 hover:bg-neutral-700">
+            className="rounded-lg px-3 py-1 text-xs font-medium disabled:opacity-50" style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f", color: "#f2e9d8" }}>
             {pending ? "Creating…" : "Create sub-issue"}
           </button>
         </div>

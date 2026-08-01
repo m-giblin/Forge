@@ -44,7 +44,7 @@ export default async function SettingsPage({
         <h2 className="mb-3 text-sm font-semibold text-neutral-700">Availability</h2>
         <Link
           href={`/${slug}/settings/availability`}
-          className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:border-indigo-300 hover:text-indigo-700 transition-colors"
+          className="inline-flex items-center gap-2 rounded-lg border border-neutral-200 bg-white px-4 py-2.5 text-sm font-medium text-neutral-700 hover:border-[#b7452f] hover:text-[#b7452f] transition-colors"
         >
           Set your working hours &amp; days →
         </Link>

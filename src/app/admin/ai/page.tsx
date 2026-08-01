@@ -1,9 +1,9 @@
-import { adminStyles as S } from "../page";
 import { requireSuperAdmin } from "@/lib/super-admin";
 import { redirect } from "next/navigation";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import AiAnalyticsClient from "./AiAnalyticsClient";
+import PageHeader from "@/components/patterns/PageHeader";
 
 export type UsageRow = {
   tenantId: string;
@@ -68,12 +68,9 @@ export default async function AiAnalyticsPage() {
   const thinkTankFlag = (flagsRaw ?? []).find((f) => f.key === "think_tank")?.enabled ?? false;
 
   return (
-    <main style={{ padding: "24px 28px", maxWidth: 1200 }}>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={S.pageTitle}>AI Analytics</h1>
-        <p style={S.pageSub}>Usage, real cost, and BYO key config across all tenants — every AI feature, not just Think Tank.</p>
-      </div>
-
+    <main className="px-6 py-5">
+      <PageHeader title="AI Analytics" subtitle="Model usage by tenant" />
+      <div className="mt-4">
       <AiAnalyticsClient
         usageRows={usageRows}
         notYetMigrated={notYetMigrated}
@@ -81,6 +78,7 @@ export default async function AiAnalyticsPage() {
         aiDisabled={aiDisabled}
         thinkTankEnabled={thinkTankFlag as boolean}
       />
+      </div>
     </main>
   );
 }

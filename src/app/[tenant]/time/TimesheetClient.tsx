@@ -38,6 +38,8 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
   const [submitStatus, setSubmitStatus] = useState<"idle" | "submitted" | "error">("idle");
   const [submitPending, startSubmit] = useTransition();
   const [reminderDismissed, setReminderDismissed] = useState(false);
+  const ROWS_PER_PAGE = 10;
+  const [entryPage, setEntryPage] = useState(1);
 
   // Time off state
   const [showTimeOff, setShowTimeOff] = useState(false);
@@ -62,6 +64,14 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
   const weekDates = getWeekDates(weekStart);
   const today = todayStr();
 
+  // Load time-off requests up front (not just when the modal opens) so the
+  // inline "Time off" panel always has data, matching the prototype's
+  // always-visible panel rather than hiding it behind a click.
+  useEffect(() => {
+    if (!isPremium) return;
+    getMyTimeOffRequestsAction(slug).then(setPtoRequests);
+  }, [slug, isPremium]);
+
   // Live timer tick
   useEffect(() => {
     if (!activeTimer) return;
@@ -76,10 +86,15 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
     const newStart = addWeeks(weekStart, n);
     setLoadingWeek(true);
     setWeekStart(newStart);
+    setEntryPage(1);
     const data = await getWeeklyTimesheetAction(slug, newStart);
     setWeekData(data);
     setLoadingWeek(false);
   }, [weekStart, slug]);
+
+  const entryPageCount = Math.max(1, Math.ceil(weekData.entries.length / ROWS_PER_PAGE));
+  const currentEntryPage = Math.min(entryPage, entryPageCount);
+  const pagedEntries = weekData.entries.slice((currentEntryPage - 1) * ROWS_PER_PAGE, currentEntryPage * ROWS_PER_PAGE);
 
   // Stop timer
   async function handleStopTimer() {
@@ -171,25 +186,26 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col min-h-screen bg-neutral-50">
+    <div className="flex flex-col min-h-screen bg-[#eeece4]">
 
       {/* Active Timer Banner */}
       {activeTimer && (
-        <div className="flex items-center gap-3 border-b border-amber-200 bg-amber-50 px-6 py-2.5">
+        <div className="flex items-center gap-3 border-b border-[#ddd8c9] bg-[#fdf1de] px-6 py-2.5">
           <span className="text-base">⏱</span>
-          <span className="text-sm text-amber-800">
+          <span className="text-[12.5px] text-[#4a473e]">
             <span className="font-semibold">Timer running</span>
             {activeTimer.issueKey && (
-              <> on <Link href={`/${slug}/issues/${activeTimer.issueId}`} className="font-bold text-amber-900 hover:underline">{activeTimer.issueKey}</Link>:</>
+              <> on <Link href={`/${slug}/issues/${activeTimer.issueId}`} className="font-bold text-[#8c4632] hover:underline">{activeTimer.issueKey}</Link>:</>
             )}
             {activeTimer.issueName && <> {activeTimer.issueName}</>}
           </span>
-          <span className="ml-1 font-mono text-sm font-semibold text-amber-700 tabular-nums">{elapsed}</span>
+          <span className="ml-1 font-mono text-[12.5px] font-semibold text-[#c9791d] tabular-nums">{elapsed}</span>
           <div className="ml-auto">
             <button
               onClick={handleStopTimer}
               disabled={stoppingTimer}
-              className="rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 transition-colors disabled:opacity-50"
+              className="rounded-[5px] px-3 py-1.5 text-xs font-bold text-[#f2e9d8] transition-colors disabled:opacity-50"
+              style={{ background: "#8c4632", backgroundImage: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" }}
             >
               {stoppingTimer ? "Stopping…" : "Stop"}
             </button>
@@ -198,14 +214,14 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
       )}
 
       {showReminderBanner && (
-        <div className="flex items-center gap-3 border-b border-indigo-200 bg-indigo-50 px-6 py-2.5">
+        <div className="flex items-center gap-3 border-b border-[#ddd8c9] bg-[#eaf1f8] px-6 py-2.5">
           <span className="text-base">📋</span>
-          <span className="flex-1 text-sm text-indigo-800">
+          <span className="flex-1 text-[12.5px] text-[#3a6ea8]">
             You haven&apos;t logged any time this week. Start tracking ↓
           </span>
           <button
             onClick={() => setReminderDismissed(true)}
-            className="ml-auto text-indigo-400 hover:text-indigo-600 text-lg leading-none"
+            className="ml-auto text-[#a19d90] hover:text-[#4a473e] text-lg leading-none"
             aria-label="Dismiss"
           >
             ×
@@ -214,18 +230,18 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
       )}
 
       {/* Page header */}
-      <div className="flex items-center justify-between border-b border-neutral-200 bg-white px-6 py-4">
-        <div className="flex items-center gap-4">
+      <div className="flex items-center justify-between border-b border-[#ddd8c9] bg-[#eeece4] px-6 pt-4 pb-3.5 flex-wrap gap-3">
+        <div className="flex items-center gap-3.5 flex-wrap">
           <div>
-            <h1 className="text-lg font-semibold text-neutral-900">My Timesheet</h1>
-            <p className="text-sm text-neutral-500 mt-0.5">{fmtWeekRange(weekStart)}</p>
+            <h1 className="font-[family-name:var(--font-manrope)] text-[21px] font-extrabold text-[#20201d]">My Timesheet</h1>
+            <p className="text-[12.5px] text-[#726e60] mt-0.5">{fmtWeekRange(weekStart)}</p>
           </div>
           {/* Week nav */}
           <div className="flex items-center gap-1">
             <button
               onClick={() => navigateWeek(-1)}
               disabled={loadingWeek}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 transition-colors disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] text-[#4a473e] hover:bg-[#eae6da] transition-colors disabled:opacity-40"
               aria-label="Previous week"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -247,7 +263,7 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
                   setWeekData(data);
                   setLoadingWeek(false);
                 }}
-                className="rounded-lg border border-neutral-200 px-2.5 py-1 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
+                className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-2.5 py-1 text-[11.5px] font-bold text-[#4a473e] hover:bg-[#eae6da] transition-colors"
               >
                 Today
               </button>
@@ -255,7 +271,7 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
             <button
               onClick={() => navigateWeek(1)}
               disabled={loadingWeek}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-neutral-200 text-neutral-500 hover:bg-neutral-50 hover:text-neutral-900 transition-colors disabled:opacity-40"
+              className="flex h-8 w-8 items-center justify-center rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] text-[#4a473e] hover:bg-[#eae6da] transition-colors disabled:opacity-40"
               aria-label="Next week"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
@@ -265,19 +281,25 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          {/* Total hours badge */}
-          <div className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-semibold ${weekData.totalMinutes > 0 ? "bg-indigo-50 text-indigo-700" : "bg-neutral-100 text-neutral-500"}`}>
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-              <circle cx="12" cy="12" r="10" /><path strokeLinecap="round" d="M12 6v6l4 2" />
-            </svg>
-            {weekData.totalMinutes > 0 ? `${(weekData.totalMinutes / 60).toFixed(1)}h this week` : "No time logged"}
+        <div className="flex items-center gap-3.5 flex-wrap">
+          {/* Total hours / target — matches prototype's two-stat display */}
+          <div className="flex items-center gap-5">
+            <div className="text-right">
+              <div className="font-[family-name:var(--font-manrope)] text-[20px] font-extrabold leading-none text-[#20201d]">
+                {(weekData.totalMinutes / 60).toFixed(1)}h
+              </div>
+              <div className="text-[10.5px] text-[#a19d90]">logged this week</div>
+            </div>
+            <div className="text-right">
+              <div className="font-[family-name:var(--font-manrope)] text-[20px] font-extrabold leading-none text-[#8c4632]">40h</div>
+              <div className="text-[10.5px] text-[#a19d90]">target</div>
+            </div>
           </div>
 
           {/* Premium: Submit Week */}
           {isPremium && weekData.totalMinutes > 0 && (
             submitStatus === "submitted" ? (
-              <span className="rounded-lg bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-700">✓ Submitted</span>
+              <span className="rounded-[5px] px-4 py-2 text-[12.5px] font-semibold" style={{ background: "#e9f3ea", color: "#3f7d4c" }}>✓ Submitted</span>
             ) : (
               <button
                 onClick={() => {
@@ -288,7 +310,8 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
                   });
                 }}
                 disabled={submitPending}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                className="rounded-[5px] px-4 py-2 text-[12.5px] font-bold text-[#f2e9d8] transition-colors disabled:opacity-50"
+                style={{ background: "#8c4632", backgroundImage: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" }}
               >
                 {submitPending ? "Submitting…" : "Submit week"}
               </button>
@@ -304,19 +327,23 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
                   setPtoRequests(reqs);
                 });
               }}
-              className="rounded-lg border border-neutral-200 px-3 py-2 text-sm font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
+              className="flex items-center gap-1.5 rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-2 text-[12.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da] transition-colors"
             >
-              🏖 Time Off
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <rect x="3" y="4" width="18" height="17" rx="2" />
+                <path strokeLinecap="round" d="M8 2v4M16 2v4M3 10h18" />
+              </svg>
+              Time Off
             </button>
           )}
         </div>
       </div>
 
       {/* Grid */}
-      <div className="flex-1 overflow-auto px-6 py-5">
+      <div className="flex-1 overflow-auto px-6 py-3.5">
         {loadingWeek ? (
           <div className="flex items-center justify-center py-24">
-            <div className="flex items-center gap-2 text-sm text-neutral-400">
+            <div className="flex items-center gap-2 text-[12.5px] text-[#a19d90]">
               <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
@@ -325,13 +352,13 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
             </div>
           </div>
         ) : (
-          <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
+          <div className="fw-card overflow-hidden mb-4" style={{ minWidth: 820 }}>
             <table className="w-full border-collapse text-sm">
               <thead>
-                <tr className="border-b border-neutral-200 bg-neutral-50">
+                <tr className="border-b border-[#e3ded0] bg-[#eae6da]">
                   {/* Issue column */}
-                  <th className="w-52 border-r border-neutral-200 px-4 py-3 text-left">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Issue</span>
+                  <th className="w-[300px] px-3.5 py-[9px] text-left">
+                    <span className="text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Issue</span>
                   </th>
                   {weekDates.map(date => {
                     const { day, num } = fmtDateHeader(date);
@@ -339,15 +366,17 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
                     return (
                       <th
                         key={date}
-                        className={`border-r border-neutral-200 px-3 py-3 text-center last:border-r-0 ${isToday ? "bg-indigo-50" : ""}`}
+                        className="px-3 py-[9px] text-center"
+                        style={{ background: isToday ? "#eae6da" : undefined }}
                       >
-                        <div className={`text-xs font-semibold uppercase tracking-wide ${isToday ? "text-indigo-600" : "text-neutral-400"}`}>{day}</div>
-                        <div className={`mt-0.5 text-[11px] font-medium ${isToday ? "text-indigo-500" : "text-neutral-400"}`}>{num}</div>
+                        <span className="text-[10px] font-extrabold uppercase tracking-[0.06em]" style={{ color: isToday ? "#8c4632" : "#a19d90" }}>
+                          {day} <span className="font-medium normal-case tracking-normal">{num.replace(/^[A-Za-z]+ /, "")}</span>
+                        </span>
                       </th>
                     );
                   })}
-                  <th className="px-3 py-3 text-center">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Total</span>
+                  <th className="w-[74px] px-3 py-[9px] text-center">
+                    <span className="text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Total</span>
                   </th>
                 </tr>
               </thead>
@@ -358,34 +387,31 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
                     <td colSpan={9} className="px-4 py-16 text-center">
                       <div className="mx-auto max-w-xs">
                         <div className="text-4xl mb-3">⏱</div>
-                        <p className="text-sm font-medium text-neutral-600">No time logged this week</p>
-                        <p className="mt-1 text-xs text-neutral-400">Click a cell or use &ldquo;Log time&rdquo; to record work against issues.</p>
+                        <p className="text-[13px] font-medium text-[#4a473e]">No time logged this week</p>
+                        <p className="mt-1 text-[11.5px] text-[#a19d90]">Click a cell or use &ldquo;Log time&rdquo; to record work against issues.</p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  weekData.entries.map((entry, rowIdx) => {
+                  pagedEntries.map((entry, rowIdx) => {
                     const rowTotal = entry.logs.reduce((s, l) => s + l.minutes, 0);
                     return (
                       <tr
                         key={entry.issueId}
-                        className={`border-b border-neutral-100 transition-colors hover:bg-neutral-50/60 ${rowIdx % 2 === 1 ? "bg-neutral-50/40" : ""}`}
+                        className={rowIdx > 0 ? "border-t border-[#e3ded0]" : ""}
                       >
                         {/* Issue cell */}
-                        <td className="border-r border-neutral-200 px-4 py-2.5">
+                        <td className="px-3.5 py-2.5">
                           <Link
                             href={`/${slug}/issues/${entry.issueId}`}
                             className="block group"
                           >
-                            <span className="text-xs font-bold text-indigo-600 group-hover:text-indigo-700">
+                            <span className="font-mono text-[11px] font-bold text-[#a19d90] group-hover:text-[#8c4632]">
                               {entry.issueKey ?? "—"}
                             </span>
-                            <span className="mt-0.5 block max-w-[11rem] truncate text-xs text-neutral-500 group-hover:text-neutral-700">
+                            <span className="mt-0.5 block max-w-[11rem] truncate text-[12.5px] text-[#20201d]">
                               {entry.issueTitle}
                             </span>
-                            {entry.projectName && (
-                              <span className="mt-0.5 block text-[10px] text-neutral-400">{entry.projectName}</span>
-                            )}
                           </Link>
                         </td>
 
@@ -404,14 +430,14 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
                                 date,
                                 existingLog: log,
                               })}
-                              className={`border-r border-neutral-100 px-3 py-2.5 text-center cursor-pointer transition-colors last:border-r-0 select-none
-                                ${isToday ? "bg-indigo-50/40 hover:bg-indigo-100/60" : "hover:bg-indigo-50"}`}
+                              className="px-3 py-2.5 text-center cursor-pointer transition-colors select-none hover:bg-[#eae6da]/60"
+                              style={{ background: isToday ? "#eae6da" : undefined }}
                             >
-                              <span className={`text-xs font-medium ${mins > 0 ? "text-neutral-900" : "text-neutral-300"}`}>
+                              <span className="text-[12.5px] font-medium" style={{ color: mins > 0 ? "#20201d" : "#c3bda9" }}>
                                 {fmtMinutes(mins)}
                               </span>
                               {log?.billable && mins > 0 && (
-                                <span className="ml-1 inline-block text-[9px] font-semibold text-green-600 bg-green-50 rounded px-1">$</span>
+                                <span className="ml-1 inline-block text-[9px] font-semibold rounded px-1" style={{ color: "#3f7d4c", background: "#e9f3ea" }}>$</span>
                               )}
                             </td>
                           );
@@ -419,7 +445,7 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
 
                         {/* Row total */}
                         <td className="px-3 py-2.5 text-center">
-                          <span className={`text-xs font-semibold ${rowTotal > 0 ? "text-neutral-800" : "text-neutral-300"}`}>
+                          <span className="text-[12.5px] font-semibold" style={{ color: rowTotal > 0 ? "#20201d" : "#c3bda9" }}>
                             {fmtMinutes(rowTotal)}
                           </span>
                         </td>
@@ -430,23 +456,23 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
 
                 {/* Daily totals row */}
                 {weekData.entries.length > 0 && (
-                  <tr className="border-t-2 border-neutral-200 bg-neutral-50">
-                    <td className="border-r border-neutral-200 px-4 py-2.5">
-                      <span className="text-xs font-bold text-neutral-500 uppercase tracking-wide">Daily total</span>
+                  <tr className="border-t border-[#e3ded0] bg-[#eae6da]">
+                    <td className="px-3.5 py-2.5">
+                      <span className="text-[10.5px] font-extrabold uppercase tracking-[0.06em] text-[#726e60]">Daily total</span>
                     </td>
                     {weekDates.map(date => {
                       const total = getColTotal(date);
                       const isToday = date === today;
                       return (
-                        <td key={date} className={`border-r border-neutral-200 px-3 py-2.5 text-center last:border-r-0 ${isToday ? "bg-indigo-50/60" : ""}`}>
-                          <span className={`text-xs font-bold ${total > 0 ? "text-neutral-800" : "text-neutral-300"}`}>
+                        <td key={date} className="px-3 py-2.5 text-center">
+                          <span className="text-[12.5px] font-bold" style={{ color: isToday ? "#8c4632" : total > 0 ? "#20201d" : "#c3bda9" }}>
                             {fmtMinutes(total)}
                           </span>
                         </td>
                       );
                     })}
                     <td className="px-3 py-2.5 text-center">
-                      <span className={`text-xs font-bold ${weekData.totalMinutes > 0 ? "text-indigo-700" : "text-neutral-300"}`}>
+                      <span className="text-[13px] font-extrabold" style={{ color: weekData.totalMinutes > 0 ? "#8c4632" : "#c3bda9" }}>
                         {fmtMinutes(weekData.totalMinutes)}
                       </span>
                     </td>
@@ -456,10 +482,10 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
             </table>
 
             {/* Quick-add row */}
-            <div className="border-t border-neutral-200 bg-neutral-50/50 px-4 py-2.5">
+            <div className="border-t border-[#e3ded0] bg-[#eae6da]/50 px-3.5 py-2.5">
               <button
                 onClick={() => setQuickAddOpen(true)}
-                className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-neutral-500 hover:bg-neutral-100 hover:text-neutral-800 transition-colors"
+                className="flex items-center gap-1.5 rounded-[5px] px-3 py-1.5 text-[11.5px] font-semibold text-[#726e60] hover:bg-[#eae6da] hover:text-[#20201d] transition-colors"
               >
                 <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -467,6 +493,31 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
                 Log time
               </button>
             </div>
+
+            {entryPageCount > 1 && (
+              <div className="flex items-center justify-between border-t border-[#e3ded0] bg-[#f4f2eb] px-3.5 py-2 text-[11px] text-[#726e60]">
+                <span>
+                  {(currentEntryPage - 1) * ROWS_PER_PAGE + 1}–{Math.min(currentEntryPage * ROWS_PER_PAGE, weekData.entries.length)} of {weekData.entries.length} issues
+                </span>
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setEntryPage((p) => Math.max(1, p - 1))}
+                    disabled={currentEntryPage === 1}
+                    className="rounded-[5px] border border-[#ddd8c9] bg-white px-2 py-1 font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-40 transition-colors"
+                  >
+                    ← Prev
+                  </button>
+                  <span className="px-1 font-semibold text-[#20201d]">Page {currentEntryPage} of {entryPageCount}</span>
+                  <button
+                    onClick={() => setEntryPage((p) => Math.min(entryPageCount, p + 1))}
+                    disabled={currentEntryPage === entryPageCount}
+                    className="rounded-[5px] border border-[#ddd8c9] bg-white px-2 py-1 font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-40 transition-colors"
+                  >
+                    Next →
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -475,12 +526,46 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
           <div className="mt-4 flex justify-center">
             <button
               onClick={() => setQuickAddOpen(true)}
-              className="flex items-center gap-2 rounded-xl border border-dashed border-indigo-300 px-6 py-3 text-sm font-medium text-indigo-600 hover:border-indigo-400 hover:bg-indigo-50/60 transition-colors"
+              className="flex items-center gap-2 rounded-xl border border-dashed border-[#c9791d] px-6 py-3 text-[12.5px] font-semibold text-[#8c4632] hover:bg-[#fdf1de]/40 transition-colors"
             >
               <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
               Log time on an issue
+            </button>
+          </div>
+        )}
+
+        {/* Time off — always-visible panel (not hidden behind a click) */}
+        {isPremium && (
+          <div className="fw-card mt-4 max-w-[460px] p-4">
+            <div className="flex items-center justify-between mb-2">
+              <p className="font-[family-name:var(--font-manrope)] text-[14px] font-extrabold text-[#20201d]">Time off</p>
+            </div>
+            {ptoRequests.length === 0 ? (
+              <p className="text-[12px] text-[#a19d90]">No time off requested.</p>
+            ) : (
+              ptoRequests.map((r) => {
+                const statusChip = r.status === "approved"
+                  ? { fg: "#3f7d4c", bg: "#e9f3ea" }
+                  : r.status === "rejected"
+                    ? { fg: "#c0392b", bg: "#fbeae8" }
+                    : { fg: "#c9791d", bg: "#fdf1de" };
+                return (
+                  <div key={r.id} className="flex items-center gap-3 border-t border-[#e3ded0] py-2 first:border-t-0">
+                    <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize shrink-0" style={{ color: statusChip.fg, background: statusChip.bg }}>{r.status}</span>
+                    <span className="flex-1 text-[12.5px] text-[#20201d] capitalize truncate">{r.type}</span>
+                    <span className="text-[11px] text-[#a19d90] shrink-0">{r.daysCount} days</span>
+                  </div>
+                );
+              })
+            )}
+            <button
+              type="button"
+              onClick={() => setShowTimeOff(true)}
+              className="mt-3 text-[11.5px] font-bold text-[#b7452f] hover:underline"
+            >
+              + Request time off
             </button>
           </div>
         )}
@@ -516,22 +601,22 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
       {/* Time Off Modal */}
       {showTimeOff && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-6 space-y-5 overflow-y-auto max-h-[90vh]">
+          <div className="fw-card w-full max-w-lg p-6 space-y-5 overflow-y-auto max-h-[90vh]" style={{ background: "#f4f2eb" }}>
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-semibold text-neutral-900">🏖 Time Off</h3>
-              <button onClick={() => setShowTimeOff(false)} className="text-neutral-400 hover:text-neutral-600 text-xl">×</button>
+              <h3 className="font-[family-name:var(--font-manrope)] text-[15px] font-extrabold text-[#20201d]">Time Off</h3>
+              <button onClick={() => setShowTimeOff(false)} className="text-[#a19d90] hover:text-[#4a473e] text-xl">×</button>
             </div>
 
             {/* Request form */}
-            <div className="rounded-xl border border-neutral-200 p-4 space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">New Request</p>
+            <div className="rounded-[6px] border border-[#ddd8c9] p-4 space-y-3">
+              <p className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#726e60]">New Request</p>
               <div className="flex gap-2">
                 {[["pto","PTO"],["sick","Sick"],["holiday","Holiday"],["other","Other"]].map(([v,l]) => (
                   <button
                     key={v}
                     onClick={() => setPtoType(v)}
-                    className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
-                      ptoType === v ? "bg-indigo-600 text-white border-indigo-600" : "border-neutral-200 text-neutral-600 hover:border-neutral-300"
+                    className={`px-3 py-1 rounded-full text-[11.5px] font-semibold border transition-colors ${
+                      ptoType === v ? "bg-[#8c4632] text-[#f2e9d8] border-[#5e2c1f]" : "border-[#ddd8c9] bg-[#f4f2eb] text-[#4a473e] hover:bg-[#eae6da]"
                     }`}
                   >
                     {l}
@@ -540,22 +625,22 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
               </div>
               <div className="flex gap-3">
                 <div className="flex-1">
-                  <label className="text-xs text-neutral-500 block mb-1">Start date</label>
+                  <label className="text-[11px] text-[#726e60] block mb-1">Start date</label>
                   <input type="date" value={ptoStart} onChange={(e) => setPtoStart(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                    className="w-full rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-2 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#8c4632]/40" />
                 </div>
                 <div className="flex-1">
-                  <label className="text-xs text-neutral-500 block mb-1">End date</label>
+                  <label className="text-[11px] text-[#726e60] block mb-1">End date</label>
                   <input type="date" value={ptoEnd} onChange={(e) => setPtoEnd(e.target.value)} min={ptoStart}
-                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                    className="w-full rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-2 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#8c4632]/40" />
                 </div>
               </div>
               <div>
-                <label className="text-xs text-neutral-500 block mb-1">Notes (optional)</label>
+                <label className="text-[11px] text-[#726e60] block mb-1">Notes (optional)</label>
                 <input value={ptoNotes} onChange={(e) => setPtoNotes(e.target.value)} placeholder="Optional context…"
-                  className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+                  className="w-full rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#8c4632]/40" />
               </div>
-              {ptoError && <p className="text-xs text-red-600">{ptoError}</p>}
+              {ptoError && <p className="text-[11.5px] text-[#c0392b]">{ptoError}</p>}
               <button
                 disabled={!ptoStart || !ptoEnd || ptoPending}
                 onClick={() => {
@@ -571,30 +656,12 @@ export default function TimesheetClient({ slug, weekStart: initialWeekStart, ini
                     } else setPtoError(res.error ?? "Failed");
                   });
                 }}
-                className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                className="rounded-[5px] px-4 py-1.5 text-[12.5px] font-semibold text-[#f2e9d8] disabled:opacity-50 transition-colors"
+                style={{ background: "#8c4632", backgroundImage: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" }}
               >
                 {ptoPending ? "Submitting…" : "Submit Request"}
               </button>
             </div>
-
-            {/* Past requests */}
-            {ptoRequests.length > 0 && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider text-neutral-500">My Requests</p>
-                {ptoRequests.map((r) => (
-                  <div key={r.id} className="flex items-center gap-3 rounded-lg border border-neutral-100 bg-neutral-50 px-3 py-2">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-neutral-900 capitalize">{r.type}</p>
-                      <p className="text-xs text-neutral-500">{r.startDate} → {r.endDate} · {r.daysCount} days</p>
-                    </div>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      r.status === "approved" ? "bg-emerald-100 text-emerald-700" :
-                      r.status === "rejected" ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-700"
-                    }`}>{r.status}</span>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
         </div>
       )}

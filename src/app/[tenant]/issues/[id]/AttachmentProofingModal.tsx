@@ -89,12 +89,12 @@ export default function AttachmentProofingModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="flex max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-xl bg-white shadow-2xl"
+        className="flex max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-xl bg-[#faf8f2] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Image + pins */}
-        <div className="relative flex-1 overflow-auto bg-neutral-900">
-          {loading && <div className="flex h-96 items-center justify-center text-sm text-neutral-400">Loading…</div>}
+        <div className="relative flex-1 overflow-auto bg-[#20201d]">
+          {loading && <div className="flex h-96 items-center justify-center text-sm text-[#a19d90]">Loading…</div>}
           {imageUrl && (
             <div className="relative inline-block">
               {/* eslint-disable-next-line @next/next/no-img-element -- signed, expiring URL; next/image's remote-pattern allowlist doesn't fit a per-request signed origin */}
@@ -111,7 +111,7 @@ export default function AttachmentProofingModal({
                   onClick={(e) => { e.stopPropagation(); setDraftPin(null); setActivePinId(activePinId === pin.id ? null : pin.id); }}
                   style={{ left: `${pin.xPct}%`, top: `${pin.yPct}%` }}
                   className={`absolute -translate-x-1/2 -translate-y-1/2 flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white shadow-lg transition-transform hover:scale-110 ${
-                    pin.resolved ? "bg-emerald-500" : "bg-red-500"
+                    pin.resolved ? "bg-[#3f7d4c]" : "bg-[#c0392b]"
                   }`}
                 >
                   {pin.number}
@@ -120,7 +120,7 @@ export default function AttachmentProofingModal({
               {draftPin && (
                 <div
                   style={{ left: `${draftPin.xPct}%`, top: `${draftPin.yPct}%` }}
-                  className="absolute -translate-x-1/2 -translate-y-1/2 h-6 w-6 rounded-full border-2 border-white bg-indigo-500 shadow-lg"
+                  className="absolute -translate-x-1/2 -translate-y-1/2 h-6 w-6 rounded-full border-2 border-white bg-[#b7452f] shadow-lg"
                 />
               )}
             </div>
@@ -128,40 +128,40 @@ export default function AttachmentProofingModal({
         </div>
 
         {/* Sidebar */}
-        <div className="flex w-80 shrink-0 flex-col border-l border-neutral-200">
-          <div className="flex items-center justify-between border-b border-neutral-200 px-4 py-3">
+        <div className="flex w-80 shrink-0 flex-col border-l border-[#ddd8c9]">
+          <div className="flex items-center justify-between border-b border-[#ddd8c9] px-4 py-3">
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-neutral-900">{attachment.filename}</p>
-              <p className="text-xs text-neutral-400">{pins.length} pin{pins.length === 1 ? "" : "s"}{!readOnly ? " · click the image to add one" : ""}</p>
+              <p className="truncate text-sm font-semibold text-[#20201d]">{attachment.filename}</p>
+              <p className="text-xs text-[#a19d90]">{pins.length} pin{pins.length === 1 ? "" : "s"}{!readOnly ? " · click the image to add one" : ""}</p>
             </div>
-            <button onClick={onClose} className="shrink-0 rounded p-1 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700">✕</button>
+            <button onClick={onClose} className="shrink-0 rounded p-1 text-[#a19d90] hover:bg-[#f1efe9] hover:text-[#4a473e]">✕</button>
           </div>
 
-          {error && <p className="m-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
+          {error && <p className="m-3 rounded-lg bg-[#fbeae8] px-3 py-2 text-xs text-[#c0392b]">{error}</p>}
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2">
             {draftPin && (
-              <div className="rounded-lg border-2 border-indigo-300 bg-indigo-50 p-3">
-                <p className="mb-1.5 text-xs font-semibold text-indigo-700">New pin</p>
+              <div className="rounded-lg border-2 border-[#7a4fa0]/40 bg-[#f4ecfa] p-3">
+                <p className="mb-1.5 text-xs font-semibold text-[#7a4fa0]">New pin</p>
                 <textarea
                   autoFocus
                   value={draftComment}
                   onChange={(e) => setDraftComment(e.target.value)}
                   placeholder="What needs attention here?"
                   rows={2}
-                  className="w-full rounded border border-indigo-200 bg-white px-2 py-1.5 text-sm outline-none focus:border-indigo-400 resize-none"
+                  className="w-full rounded border border-[#7a4fa0]/30 bg-white px-2 py-1.5 text-sm outline-none focus:border-[#7a4fa0] resize-none"
                 />
                 <div className="mt-2 flex gap-1.5">
-                  <button onClick={submitDraftPin} disabled={saving || !draftComment.trim()} className="rounded-lg bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50">
+                  <button onClick={submitDraftPin} disabled={saving || !draftComment.trim()} className="rounded-lg bg-[#20201d] px-3 py-1 text-xs font-medium text-white hover:bg-[#3a2318] disabled:opacity-50">
                     Add pin
                   </button>
-                  <button onClick={() => setDraftPin(null)} className="rounded-lg px-3 py-1 text-xs text-neutral-500 hover:bg-neutral-100">Cancel</button>
+                  <button onClick={() => setDraftPin(null)} className="rounded-lg px-3 py-1 text-xs text-[#726e60] hover:bg-[#f1efe9]">Cancel</button>
                 </div>
               </div>
             )}
 
             {pins.length === 0 && !draftPin && (
-              <p className="text-sm text-neutral-400">No pins yet.{!readOnly && " Click anywhere on the image to leave feedback at that spot."}</p>
+              <p className="text-sm text-[#a19d90]">No pins yet.{!readOnly && " Click anywhere on the image to leave feedback at that spot."}</p>
             )}
 
             {pins.map((pin) => (
@@ -169,21 +169,21 @@ export default function AttachmentProofingModal({
                 key={pin.id}
                 onClick={() => setActivePinId(activePinId === pin.id ? null : pin.id)}
                 className={`cursor-pointer rounded-lg border p-3 transition ${
-                  activePinId === pin.id ? "border-indigo-300 bg-indigo-50" : pin.resolved ? "border-neutral-100 bg-neutral-50 opacity-60" : "border-neutral-200 bg-white hover:border-neutral-300"
+                  activePinId === pin.id ? "border-[#7a4fa0]/40 bg-[#f4ecfa]" : pin.resolved ? "border-[#ddd8c9] bg-[#f4f2eb] opacity-60" : "border-[#ddd8c9] bg-[#faf8f2] hover:border-[#a19d90]"
                 }`}
               >
                 <div className="flex items-center gap-2">
-                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${pin.resolved ? "bg-emerald-500" : "bg-red-500"}`}>
+                  <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${pin.resolved ? "bg-[#3f7d4c]" : "bg-[#c0392b]"}`}>
                     {pin.number}
                   </span>
-                  <p className={`flex-1 text-sm text-neutral-800 ${pin.resolved ? "line-through" : ""}`}>{pin.comment}</p>
+                  <p className={`flex-1 text-sm text-[#4a473e] ${pin.resolved ? "line-through" : ""}`}>{pin.comment}</p>
                 </div>
                 {!readOnly && (
                   <div className="mt-2 flex gap-2 pl-7">
-                    <button onClick={(e) => { e.stopPropagation(); toggleResolved(pin); }} disabled={saving} className="text-xs font-medium text-neutral-500 hover:text-neutral-800 disabled:opacity-50">
+                    <button onClick={(e) => { e.stopPropagation(); toggleResolved(pin); }} disabled={saving} className="text-xs font-medium text-[#726e60] hover:text-[#4a473e] disabled:opacity-50">
                       {pin.resolved ? "Reopen" : "Mark resolved"}
                     </button>
-                    <button onClick={(e) => { e.stopPropagation(); removePin(pin); }} disabled={saving} className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-50">
+                    <button onClick={(e) => { e.stopPropagation(); removePin(pin); }} disabled={saving} className="text-xs font-medium text-[#c0392b] hover:text-[#c0392b] disabled:opacity-50">
                       Delete
                     </button>
                   </div>

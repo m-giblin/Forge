@@ -49,13 +49,13 @@ export function SessionReplayCard({
   }
 
   return (
-    <div className="rounded-xl border border-violet-200 bg-violet-50 p-5">
+    <div className="fw-card rounded-xl p-5">
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <span className="text-2xl">🎥</span>
           <div>
-            <p className="text-sm font-semibold text-violet-900">Session Replay available</p>
-            <p className="text-xs text-violet-600">See exactly what the user did before this was reported.</p>
+            <p className="text-sm font-semibold text-[#20201d]">Session Replay available</p>
+            <p className="text-xs text-[#726e60]">See exactly what the user did before this was reported.</p>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -63,31 +63,32 @@ export function SessionReplayCard({
             <button
               onClick={summarize}
               disabled={summarizing}
-              className="rounded-lg border border-violet-300 bg-white px-3 py-2 text-sm font-medium text-violet-700 hover:bg-violet-100 disabled:opacity-50"
+              className="rounded-lg border border-[#ddd8c9] bg-white px-3 py-2 text-sm font-medium text-[#b7452f] hover:bg-[#f4f2eb] disabled:opacity-50"
             >
               {summarizing ? "Summarizing…" : "✨ Summarize"}
             </button>
           )}
           <button
             onClick={() => setOpen(true)}
-            className="rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white hover:bg-violet-700"
+            className="rounded-lg px-4 py-2 text-sm font-medium text-[#f2e9d8]"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" }}
           >
             ▶ Watch replay
           </button>
         </div>
       </div>
-      {summaryError && <p className="mt-2 text-xs text-red-600">{summaryError}</p>}
-      {summarized && <p className="mt-2 text-xs text-violet-600">Summary posted to Activity below. ✓</p>}
+      {summaryError && <p className="mt-2 text-xs text-[#c0392b]">{summaryError}</p>}
+      {summarized && <p className="mt-2 text-xs text-[#3f7d4c]">Summary posted to Activity below. ✓</p>}
 
       {(badges?.deployBadge || badges?.customerBadge) && (
         <div className="mt-3 flex flex-wrap gap-2">
           {badges.deployBadge && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-1 text-xs font-medium text-orange-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#f3ddb8] bg-[#fdf1de] px-2.5 py-1 text-xs font-medium text-[#c9791d]">
               🚀 {badges.deployBadge}
             </span>
           )}
           {badges.customerBadge && (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#cfe4d3] bg-[#e9f3ea] px-2.5 py-1 text-xs font-medium text-[#3f7d4c]">
               💼 {badges.customerBadge}
             </span>
           )}
@@ -170,11 +171,11 @@ function ReplayModal({ slug, storagePath, onClose }: { slug: string; storagePath
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-sm font-semibold text-neutral-800">Session Replay</p>
-          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-700">✕</button>
+          <p className="text-sm font-semibold text-[#20201d]">Session Replay</p>
+          <button onClick={onClose} className="text-[#a19d90] hover:text-[#4a473e]">✕</button>
         </div>
-        {loading && <p className="text-sm text-neutral-500">Loading replay…</p>}
-        {error && <p className="text-sm text-red-600">{error}</p>}
+        {loading && <p className="text-sm text-[#726e60]">Loading replay…</p>}
+        {error && <p className="text-sm text-[#c0392b]">{error}</p>}
         {/* rrweb.Replayer inserts the reconstructed page as a fixed-size iframe
             (sized to the recorded viewport, which is often taller than any
             reasonable modal). It does not scale that iframe to fit the root —
@@ -182,18 +183,19 @@ function ReplayModal({ slug, storagePath, onClose }: { slug: string; storagePath
             not just tall, or anything below the recorded fold is unreachable. */}
         <div
           ref={containerRef}
-          className="max-h-[70vh] max-w-[90vw] overflow-auto rounded-lg border border-neutral-200"
+          className="max-h-[70vh] max-w-[90vw] overflow-auto rounded-lg border border-[#ddd8c9]"
           style={{ width: 1100, height: 700 }}
         />
         {!loading && !error && (
           <div className="mt-3 flex items-center gap-3">
             <button
               onClick={toggle}
-              className="rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-700"
+              className="rounded-lg px-3 py-1.5 text-sm font-medium text-[#f2e9d8]"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" }}
             >
               {playing ? "⏸ Pause" : "▶ Play"}
             </button>
-            <span className="text-xs text-neutral-400">{(totalMs / 1000).toFixed(1)}s recording</span>
+            <span className="text-xs text-[#a19d90]">{(totalMs / 1000).toFixed(1)}s recording</span>
           </div>
         )}
       </div>

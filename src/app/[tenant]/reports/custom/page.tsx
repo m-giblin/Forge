@@ -32,10 +32,10 @@ export default async function CustomReportPage({
 
   return (
     <main className="w-full px-6 py-8">
-      <div className="mb-6 flex items-center gap-2 text-sm text-neutral-500">
-        <Link href={`/${slug}/reports`} className="hover:text-indigo-600 transition-colors">Reports</Link>
+      <div className="mb-6 flex items-center gap-2 text-sm text-[#726e60]">
+        <Link href={`/${slug}/reports`} className="hover:text-[#b7452f] transition-colors">Reports</Link>
         <span>/</span>
-        <span className="font-medium text-neutral-800">Custom Builder</span>
+        <span className="font-medium text-[#4a473e]">Custom Builder</span>
       </div>
       <CustomReportClient slug={slug} projectId={sp.project ?? ""} projects={projects} sprints={sprints} />
     </main>

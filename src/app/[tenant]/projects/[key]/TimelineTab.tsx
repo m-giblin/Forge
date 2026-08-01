@@ -4,9 +4,9 @@ import type { ProjectTimelineData } from "@/lib/services/projectPortal";
 const LEGEND = [
   { l: "Backlog", c: "bg-neutral-300" },
   { l: "Todo", c: "bg-sky-400" },
-  { l: "In progress", c: "bg-indigo-500" },
-  { l: "In review", c: "bg-amber-400" },
-  { l: "Done", c: "bg-emerald-500" },
+  { l: "In progress", c: "bg-[#c9791d]" },
+  { l: "In review", c: "bg-[#7a4fa0]" },
+  { l: "Done", c: "bg-[#3f7d4c]" },
 ];
 
 export default function TimelineTab({ slug, data }: { slug: string; data: ProjectTimelineData }) {
@@ -18,7 +18,7 @@ export default function TimelineTab({ slug, data }: { slug: string; data: Projec
           Add a <strong>start</strong> and/or <strong>due date</strong> to issues (on the issue page) and they&rsquo;ll appear here on the timeline — colored by status, with today and go-live markers.
         </p>
         {data.totalCount === 0 && (
-          <Link href={`/${slug}/board`} className="mt-4 inline-block rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">
+          <Link href={`/${slug}/board`} className="mt-4 inline-block rounded-[5px] border border-[#5e2c1f] px-4 py-2 text-sm font-bold text-[#f2e9d8]" style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}>
             Open board to add issues →
           </Link>
         )}
@@ -43,8 +43,8 @@ export default function TimelineTab({ slug, data }: { slug: string; data: Projec
           <div className="pointer-events-none absolute inset-y-0 left-44 right-0">
             {data.todayPct != null && (
               <>
-                <div className="absolute inset-y-0 w-px bg-indigo-400" style={{ left: `${data.todayPct}%` }} />
-                <div className="absolute -top-4 -translate-x-1/2 text-[10px] font-medium text-indigo-500" style={{ left: `${data.todayPct}%` }}>today</div>
+                <div className="absolute inset-y-0 w-px bg-[#b7452f]" style={{ left: `${data.todayPct}%` }} />
+                <div className="absolute -top-4 -translate-x-1/2 text-[10px] font-medium text-[#b7452f]" style={{ left: `${data.todayPct}%` }}>today</div>
               </>
             )}
             {data.goLivePct != null && (

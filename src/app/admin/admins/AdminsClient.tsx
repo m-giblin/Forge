@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import type { SuperAdminRow } from "./page";
+import AdminTable, { type AdminTableCell } from "@/components/patterns/admin/AdminTable";
+import Note from "@/components/patterns/admin/Note";
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -82,7 +84,7 @@ function ProfilePanel({
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px", borderBottom: "1px solid #f1f5f9" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#c9791d", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
               {initials(admin)}
             </div>
             <div>
@@ -110,7 +112,7 @@ function ProfilePanel({
                   </div>
                 </div>
               </div>
-              <span style={{ padding: "3px 10px", borderRadius: 9, background: "#fffbeb", color: "#d97706", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>Super Admin</span>
+              <span style={{ padding: "3px 10px", borderRadius: 9, background: "#f4ead4", color: "#8a4f13", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>Super Admin</span>
             </div>
           </div>
 
@@ -150,7 +152,7 @@ function ProfilePanel({
           )}
           <div style={{ display: "flex", gap: 8 }}>
             <button onClick={onClose} style={{ padding: "7px 14px", borderRadius: 7, border: "1px solid #e5e7eb", background: "#f8fafc", color: "#6b7280", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
-            <button onClick={save} disabled={saving} style={{ padding: "7px 14px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: saving ? .5 : 1 }}>
+            <button onClick={save} disabled={saving} style={{ padding: "7px 14px", borderRadius: 7, border: "none", background: "#c9791d", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: saving ? .5 : 1 }}>
               {saving ? "Saving…" : "Save profile"}
             </button>
           </div>
@@ -234,91 +236,84 @@ export default function AdminsClient({
   // suppress unused var warning
   void revoking;
 
-  const cardStyle: React.CSSProperties = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden", marginBottom: 14 };
-  const cardHeaderStyle: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 16px", borderBottom: "1px solid #f1f5f9" };
-  const inputStyle: React.CSSProperties = { padding: "7px 10px", borderRadius: 7, border: "1px solid #e5e7eb", fontSize: 12, color: "#111827", outline: "none", background: "#fff" };
+  const columns = [
+    { label: "Name", flex: true },
+    { label: "Email", width: 250 },
+    { label: "Access", width: 160 },
+    { label: "Last active", width: 150 },
+    { label: "", width: 90 },
+  ];
+  const tableRows: AdminTableCell[][] = admins.map((a) => {
+    const isMe = a.user_id === currentUserId;
+    const label = displayLabel(a);
+    const emailStr = a.user?.email ?? "—";
+    return [
+      {
+        kind: "text",
+        value: (
+          <span className="flex items-center gap-2">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#c9791d] text-[10px] font-bold text-white">{initials(a)}</span>
+            <span className="truncate font-bold text-[#20201d]">{label}</span>
+            {isMe && <span className="shrink-0 rounded-full bg-[#f4ead4] px-1.5 py-[1px] text-[9px] font-bold text-[#8a4f13]">you</span>}
+          </span>
+        ),
+      },
+      { kind: "mono", value: emailStr },
+      { kind: "chip", value: "Super Admin", chipFg: "#8a4f13", chipBg: "#f4ead4" },
+      { kind: "dim", value: `granted ${timeAgo(a.created_at)}` },
+      { kind: "link", value: "Manage", onClick: () => setSelected(a) },
+    ];
+  });
 
   return (
-    <div>
+    <div className="space-y-4">
       {/* Admin list */}
-      <div style={cardStyle}>
-        <div style={cardHeaderStyle}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>Current platform admins</span>
-          <span style={{ fontSize: 11, color: "#94a3b8" }}>{admins.length} account{admins.length !== 1 ? "s" : ""}</span>
+      <div>
+        <div className="mb-2 flex items-center justify-between">
+          <h2 className="text-[13px] font-bold text-[#20201d]">Current platform admins</h2>
+          <span className="text-[11px] text-[#a19d90]">{admins.length} account{admins.length !== 1 ? "s" : ""}</span>
         </div>
         {admins.length === 0 ? (
-          <p style={{ padding: "24px", textAlign: "center", fontSize: 12, color: "#94a3b8" }}>No admins found.</p>
+          <div className="fw-card py-6 text-center text-[12px] text-[#a19d90]">No admins found.</div>
         ) : (
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {admins.map((a) => {
-              const isMe = a.user_id === currentUserId;
-              const label = displayLabel(a);
-              const emailStr = a.user?.email ?? "—";
-              const hasProfile = a.phone || a.cell || a.alt_email || a.notes;
-              return (
-                <li
-                  key={a.user_id}
-                  onClick={() => setSelected(a)}
-                  style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderBottom: "1px solid #f1f5f9", cursor: "pointer" }}
-                >
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#4f46e5", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, color: "#fff", flexShrink: 0 }}>
-                    {initials(a)}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{label}</span>
-                      {isMe && <span style={{ padding: "1px 7px", borderRadius: 9, background: "#ede9fe", color: "#4f46e5", fontSize: 9, fontWeight: 700 }}>you</span>}
-                      {hasProfile && <span style={{ padding: "1px 7px", borderRadius: 9, background: "#f1f5f9", color: "#64748b", fontSize: 9, fontWeight: 700 }}>profile</span>}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{emailStr}</div>
-                  </div>
-                  <span style={{ fontSize: 11, color: "#94a3b8", flexShrink: 0 }}>granted {timeAgo(a.created_at)}</span>
-                  <span style={{ color: "#d1d5db", fontSize: 14 }}>›</span>
-                </li>
-              );
-            })}
-          </ul>
+          <AdminTable columns={columns} rows={tableRows} minWidth={800} />
         )}
       </div>
 
       {/* Grant access */}
-      <div style={cardStyle}>
-        <div style={cardHeaderStyle}>
-          <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>Grant platform access</span>
+      <div className="fw-card px-3.5 py-3">
+        <h2 className="mb-2.5 text-[12.5px] font-bold text-[#20201d]">Grant platform access</h2>
+        <div className="flex flex-wrap gap-2">
+          <input
+            type="email"
+            placeholder="Email address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && email && invite()}
+            suppressHydrationWarning
+            className="min-w-[180px] flex-[2] rounded-md border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12px] text-[#20201d] outline-none focus:border-[#c9791d]"
+          />
+          <input
+            type="text"
+            placeholder="Display name (optional)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && email && invite()}
+            className="min-w-[140px] flex-1 rounded-md border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12px] text-[#20201d] outline-none focus:border-[#c9791d]"
+          />
+          <button
+            onClick={invite}
+            disabled={!email.trim() || isPending}
+            className="whitespace-nowrap rounded-md border border-[#c9791d] bg-[#c9791d] px-4 py-[7px] text-[12px] font-semibold text-white disabled:opacity-50"
+          >
+            {isPending ? "Sending…" : "Invite & Grant"}
+          </button>
         </div>
-        <div style={{ padding: "14px 16px" }}>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && email && invite()}
-              suppressHydrationWarning
-              style={{ ...inputStyle, flex: 2, minWidth: 180 }}
-            />
-            <input
-              type="text"
-              placeholder="Display name (optional)"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && email && invite()}
-              style={{ ...inputStyle, flex: 1, minWidth: 140 }}
-            />
-            <button
-              onClick={invite}
-              disabled={!email.trim() || isPending}
-              style={{ padding: "7px 16px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: !email.trim() || isPending ? .5 : 1, whiteSpace: "nowrap" }}
-            >
-              {isPending ? "Sending…" : "Invite & Grant"}
-            </button>
-          </div>
-          <p style={{ marginTop: 8, fontSize: 11, color: "#94a3b8" }}>
-            New users receive an invitation email to set their password. Existing users get access immediately. You can fill in their full profile after adding them.
-          </p>
-          {error && <div style={{ marginTop: 10, padding: "9px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, fontSize: 12, color: "#dc2626" }}>{error}</div>}
-          {success && <div style={{ marginTop: 10, padding: "9px 12px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 7, fontSize: 12, color: "#059669" }}>{success}</div>}
-        </div>
+        <p className="mt-2 text-[11px] text-[#a19d90]">
+          New users receive an invitation email to set their password. Existing users get access immediately. You can fill in their full profile after adding them.
+        </p>
+        {error && <div className="mt-2.5"><Note icon="⚠" tone="error">{error}</Note></div>}
+        {success && <div className="mt-2.5"><Note icon="✓" tone="info">{success}</Note></div>}
       </div>
 
       {selected && (

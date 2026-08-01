@@ -59,7 +59,7 @@ export default function CycleTimeClient({
         <div>
           <label className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-1">Project</label>
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40">
             <option value="">All projects</option>
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -67,12 +67,12 @@ export default function CycleTimeClient({
         <div>
           <label className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-1">From</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40" />
         </div>
         <div>
           <label className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-1">To</label>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40" />
         </div>
       </div>
 
@@ -104,7 +104,7 @@ export default function CycleTimeClient({
               <div className="mb-4 flex gap-1 border-b border-neutral-200">
                 {(["priority", "type", "assignee", "items"] as const).map((t) => (
                   <button key={t} onClick={() => setTab(t)}
-                    className={`px-4 py-2 text-sm font-medium capitalize transition border-b-2 -mb-px ${tab === t ? "border-indigo-500 text-indigo-600" : "border-transparent text-neutral-500 hover:text-neutral-700"}`}>
+                    className={`px-4 py-2 text-sm font-medium capitalize transition border-b-2 -mb-px ${tab === t ? "border-[#b7452f] text-[#b7452f]" : "border-transparent text-neutral-500 hover:text-neutral-700"}`}>
                     {t === "items" ? "Slowest Issues" : `By ${t}`}
                   </button>
                 ))}
@@ -138,7 +138,7 @@ export default function CycleTimeClient({
                 <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-neutral-900 text-white text-xs">
+                      <tr className="bg-[#20201d] text-white text-xs">
                         {["Title", "Priority", "Type", "Assignee", "Cycle Time"].map((h) => (
                           <th key={h} className="px-3 py-2 text-left font-semibold">{h}</th>
                         ))}
@@ -156,7 +156,7 @@ export default function CycleTimeClient({
                           <td className="px-3 py-2 text-xs text-neutral-600 capitalize">{item.type}</td>
                           <td className="px-3 py-2 text-xs text-neutral-500">{item.assignee?.split("@")[0] ?? "—"}</td>
                           <td className="px-3 py-2">
-                            <span className={`font-bold text-sm ${item.cycleDays > 14 ? "text-red-600" : item.cycleDays > 7 ? "text-amber-600" : "text-green-600"}`}>
+                            <span className={`font-bold text-sm ${item.cycleDays > 14 ? "text-red-600" : item.cycleDays > 7 ? "text-[#c9791d]" : "text-[#3f7d4c]"}`}>
                               {item.cycleDays}d
                             </span>
                           </td>

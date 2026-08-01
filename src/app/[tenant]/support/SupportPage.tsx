@@ -12,10 +12,10 @@ import {
 import { timeAgo } from "@/lib/formatRelativeTime";
 
 const STATUS_STYLES: Record<string, string> = {
-  open: "bg-blue-500/15 text-blue-400",
-  in_progress: "bg-amber-500/15 text-amber-400",
-  resolved: "bg-green-500/15 text-green-400",
-  closed: "bg-neutral-700 text-neutral-400",
+  open: "bg-[#eaf1f8] text-[#3a6ea8]",
+  in_progress: "bg-[#fdf1de] text-[#c9791d]",
+  resolved: "bg-[#e9f3ea] text-[#3f7d4c]",
+  closed: "bg-[#f1efe9] text-[#a19d90]",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -133,7 +133,7 @@ function ThreadModal({
                 {comments?.map((c) => (
                   <div key={c.id} className={`flex gap-3 ${c.author_id ? "" : "flex-row-reverse"}`}>
                     <div className={`flex-1 rounded-xl px-4 py-3 text-sm ${
-                      c.author_id ? "bg-indigo-50 border border-indigo-100" : "bg-white border border-neutral-200"
+                      c.author_id ? "bg-[#f4ece4] border border-[#e4d4c4]" : "bg-white border border-neutral-200"
                     }`}>
                       <p className="text-xs font-medium mb-1 text-neutral-500">{c.author_label ?? "Support"}</p>
                       <p className="text-neutral-800 whitespace-pre-wrap">{c.body}</p>
@@ -154,14 +154,15 @@ function ThreadModal({
               onChange={(e) => setReply(e.target.value)}
               placeholder="Add a reply…"
               rows={3}
-              className="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm text-neutral-800 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 resize-none"
+              className="w-full rounded-xl border border-neutral-300 px-3 py-2.5 text-sm text-neutral-800 outline-none focus:border-[#b7452f] focus:ring-1 focus:ring-[#b7452f]/20 resize-none"
             />
             {replyError && <p className="text-xs text-red-600 mt-1">{replyError}</p>}
             <div className="flex justify-end mt-2">
               <button
                 onClick={sendReply}
                 disabled={submitting || !reply.trim()}
-                className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 transition disabled:opacity-40"
+                className="rounded-lg border border-[#5e2c1f] px-4 py-2 text-sm font-medium text-[#f2e9d8] transition disabled:opacity-40"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 {submitting ? "Sending…" : "Send Reply"}
               </button>
@@ -244,7 +245,7 @@ export default function SupportPage({
           <p className="mt-1 text-sm text-neutral-500">
             Submit requests to your team admin. Click any ticket to view the reply thread.
             {openCount > 0 && (
-              <span className="ml-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+              <span className="ml-2 inline-flex items-center rounded-full bg-[#fdf1de] px-2 py-0.5 text-xs font-medium text-[#c9791d]">
                 {openCount} open
               </span>
             )}
@@ -252,7 +253,8 @@ export default function SupportPage({
         </div>
         <button
           onClick={() => { setShowForm((v) => !v); setError(null); setSuccess(false); }}
-          className="shrink-0 rounded-lg bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-700 transition-colors"
+          className="shrink-0 rounded-lg border border-[#5e2c1f] px-4 py-2 text-sm font-semibold text-[#f2e9d8] transition-colors"
+          style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
         >
           {showForm ? "Cancel" : "+ New Request"}
         </button>
@@ -279,7 +281,7 @@ export default function SupportPage({
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Brief summary of what you need help with"
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-300"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-[#b7452f] focus:ring-1 focus:ring-[#b7452f]/20"
             />
           </div>
           <div>
@@ -291,7 +293,7 @@ export default function SupportPage({
               onChange={(e) => setBody(e.target.value)}
               rows={6}
               placeholder="Describe what you need help with in as much detail as possible…"
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-300 resize-none"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-[#b7452f] focus:ring-1 focus:ring-[#b7452f]/20 resize-none"
             />
             <p className="mt-1 text-xs text-neutral-400">{body.length} chars</p>
           </div>
@@ -300,7 +302,7 @@ export default function SupportPage({
             <select
               value={priority}
               onChange={(e) => setPriority(e.target.value as SupportTicket["priority"])}
-              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+              className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-[#b7452f]"
             >
               <option value="low">Low</option>
               <option value="medium">Medium</option>
@@ -320,10 +322,10 @@ export default function SupportPage({
               onDrop={(e) => { e.preventDefault(); setDragOver(false); if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files); }}
               onClick={() => fileInputRef.current?.click()}
               className={`cursor-pointer rounded-xl border-2 border-dashed px-4 py-6 text-center transition-colors ${
-                dragOver ? "border-indigo-400 bg-indigo-50" : "border-neutral-200 bg-neutral-50 hover:border-neutral-300"
+                dragOver ? "border-[#b7452f] bg-[#f4ece4]" : "border-neutral-200 bg-neutral-50 hover:border-neutral-300"
               }`}
             >
-              <p className="text-sm text-neutral-500">Drop files here or <span className="text-indigo-600 font-medium">browse</span></p>
+              <p className="text-sm text-neutral-500">Drop files here or <span className="text-[#b7452f] font-medium">browse</span></p>
               <input ref={fileInputRef} type="file" multiple accept={ACCEPT} className="hidden"
                 onChange={(e) => { if (e.target.files) addFiles(e.target.files); e.target.value = ""; }} />
             </div>
@@ -345,7 +347,8 @@ export default function SupportPage({
           {error && <p className="text-sm text-red-600">{error}</p>}
           <div className="flex justify-end">
             <button type="submit" disabled={isPending}
-              className="rounded-lg bg-neutral-900 px-5 py-2 text-sm font-semibold text-white hover:bg-neutral-700 transition disabled:opacity-50">
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+              className="rounded-lg border border-[#5e2c1f] px-5 py-2 text-sm font-semibold text-[#f2e9d8] transition disabled:opacity-50">
               {isPending ? "Submitting…" : "Submit Request"}
             </button>
           </div>
@@ -364,10 +367,10 @@ export default function SupportPage({
             <button
               key={ticket.id}
               onClick={() => setSelectedTicket(ticket)}
-              className="w-full text-left rounded-xl border border-neutral-200 bg-white p-4 shadow-sm hover:border-indigo-300 hover:shadow-md transition-all group"
+              className="w-full text-left rounded-xl border border-neutral-200 bg-white p-4 shadow-sm hover:border-[#b7452f]/50 hover:shadow-md transition-all group"
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-semibold text-neutral-900 leading-snug group-hover:text-indigo-700 transition-colors">
+                <p className="text-sm font-semibold text-neutral-900 leading-snug group-hover:text-[#8c4632] transition-colors">
                   {ticket.title}
                 </p>
                 <div className="flex items-center gap-2 shrink-0">
@@ -381,7 +384,7 @@ export default function SupportPage({
                 <p className="text-xs text-neutral-400">
                   {new Date(ticket.created_at).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
                 </p>
-                <span className="text-xs text-indigo-500 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-xs text-[#b7452f] font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                   View thread →
                 </span>
               </div>

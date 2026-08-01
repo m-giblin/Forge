@@ -88,7 +88,8 @@ export default function ScheduledClient({ slug, isAdmin }: { slug: string; isAdm
         </div>
         {isAdmin && (
           <button onClick={() => setShowForm(!showForm)}
-            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 transition-colors shrink-0">
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f", color: "#f2e9d8" }}
+            className="rounded-xl px-4 py-2 text-sm font-semibold transition-colors shrink-0">
             + New Schedule
           </button>
         )}
@@ -106,43 +107,43 @@ export default function ScheduledClient({ slug, isAdmin }: { slug: string; isAdm
       {/* Create form */}
       {showForm && isAdmin && (
         <form onSubmit={(e) => { void handleCreate(e); }}
-          className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-5">
-          <h3 className="text-sm font-bold text-indigo-900 mb-4">New Scheduled Report</h3>
+          className="mb-6 rounded-xl border border-[#ddd8c9] bg-[#f4f2eb] p-5">
+          <h3 className="text-sm font-bold text-[#20201d] mb-4">New Scheduled Report</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-indigo-700 mb-1">Name</label>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-[#726e60] mb-1">Name</label>
               <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
                 placeholder="Weekly stakeholder update"
-                className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                className="w-full rounded-lg border border-[#ddd8c9] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40" />
             </div>
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-indigo-700 mb-1">Report Type</label>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-[#726e60] mb-1">Report Type</label>
               <select value={form.report_type} onChange={(e) => setForm((f) => ({ ...f, report_type: e.target.value }))}
-                className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                className="w-full rounded-lg border border-[#ddd8c9] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40">
                 {Object.entries(REPORT_TYPE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
             <div>
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-indigo-700 mb-1">Cadence</label>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-[#726e60] mb-1">Cadence</label>
               <select value={form.cadence} onChange={(e) => setForm((f) => ({ ...f, cadence: e.target.value }))}
-                className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                className="w-full rounded-lg border border-[#ddd8c9] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40">
                 {Object.entries(CADENCE_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
               </select>
             </div>
             {form.cadence !== "daily" && form.cadence !== "monthly" && (
               <div>
-                <label className="block text-[10px] font-semibold uppercase tracking-wider text-indigo-700 mb-1">Day of Week</label>
+                <label className="block text-[10px] font-semibold uppercase tracking-wider text-[#726e60] mb-1">Day of Week</label>
                 <select value={form.day_of_week} onChange={(e) => setForm((f) => ({ ...f, day_of_week: Number(e.target.value) }))}
-                  className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                  className="w-full rounded-lg border border-[#ddd8c9] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40">
                   {DAY_NAMES.map((d, i) => <option key={i} value={i}>{d}</option>)}
                 </select>
               </div>
             )}
             <div className="sm:col-span-2">
-              <label className="block text-[10px] font-semibold uppercase tracking-wider text-indigo-700 mb-1">Recipients (comma-separated emails)</label>
+              <label className="block text-[10px] font-semibold uppercase tracking-wider text-[#726e60] mb-1">Recipients (comma-separated emails)</label>
               <input value={form.recipients} onChange={(e) => setForm((f) => ({ ...f, recipients: e.target.value }))}
                 placeholder="ceo@company.com, cto@company.com"
-                className="w-full rounded-lg border border-indigo-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                className="w-full rounded-lg border border-[#ddd8c9] bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40" />
             </div>
           </div>
           <div className="flex gap-2 justify-end">
@@ -151,7 +152,8 @@ export default function ScheduledClient({ slug, isAdmin }: { slug: string; isAdm
               Cancel
             </button>
             <button type="submit" disabled={saving || !form.name.trim() || !form.recipients.trim()}
-              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors">
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f", color: "#f2e9d8" }}
+              className="rounded-lg px-4 py-2 text-sm font-semibold disabled:opacity-40 transition-colors">
               {saving ? "Saving…" : "Create Schedule"}
             </button>
           </div>
@@ -200,7 +202,7 @@ export default function ScheduledClient({ slug, isAdmin }: { slug: string; isAdm
                 {isAdmin && (
                   <div className="flex items-center gap-2 shrink-0">
                     <button onClick={() => void handleToggle(r)}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${r.is_active ? "border border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100" : "border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"}`}>
+                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${r.is_active ? "border border-[#f0d5ab] bg-[#fdf1de] text-[#c9791d] hover:bg-[#fbe6c4]" : "border border-[#bfe0c5] bg-[#e9f3ea] text-[#3f7d4c] hover:bg-[#d9ecdc]"}`}>
                       {r.is_active ? "Pause" : "Resume"}
                     </button>
                     <button onClick={() => void handleDelete(r.id)}

@@ -29,7 +29,7 @@ function FlashRing({ flash, children }: { flash: "saved" | "error" | null; child
   return (
     <div
       className={`rounded transition-shadow ${
-        flash === "saved" ? "ring-2 ring-emerald-300" : flash === "error" ? "ring-2 ring-red-300" : ""
+        flash === "saved" ? "ring-2 ring-[#3f7d4c]/50" : flash === "error" ? "ring-2 ring-[#c0392b]/50" : ""
       }`}
     >
       {children}
@@ -58,7 +58,7 @@ export function EditableSelectCell({
         disabled={disabled || pending}
         onChange={(e) => save(e.target.value)}
         onClick={(e) => e.stopPropagation()}
-        className="w-full cursor-pointer rounded border-0 bg-transparent px-1 py-0.5 text-neutral-600 hover:bg-neutral-100 focus:bg-white focus:outline focus:outline-1 focus:outline-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full cursor-pointer rounded border-0 bg-transparent px-1 py-0.5 text-[#4a473e] hover:bg-[#f1efe9] focus:bg-white focus:outline focus:outline-1 focus:outline-[#3a6ea8] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {placeholder && <option value="">{placeholder}</option>}
         {options.map((o) => (
@@ -100,7 +100,7 @@ export function EditableTextCell({
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
           if (e.key === "Escape") { setDraft(value); (e.target as HTMLInputElement).blur(); }
         }}
-        className="w-full rounded border-0 bg-transparent px-1 py-0.5 text-neutral-600 hover:bg-neutral-100 focus:bg-white focus:outline focus:outline-1 focus:outline-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+        className="w-full rounded border-0 bg-transparent px-1 py-0.5 text-[#4a473e] hover:bg-[#f1efe9] focus:bg-white focus:outline focus:outline-1 focus:outline-[#3a6ea8] disabled:cursor-not-allowed disabled:opacity-50"
       />
     </FlashRing>
   );

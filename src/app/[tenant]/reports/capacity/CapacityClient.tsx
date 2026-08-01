@@ -106,8 +106,8 @@ export default function CapacityClient({
               onClick={() => setSelectedIdx(i)}
               className={`px-4 py-1.5 rounded-full text-sm border transition ${
                 i === selectedIdx
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "bg-white text-neutral-700 border-neutral-300 hover:border-indigo-400"
+                  ? "bg-[#8c4632] text-[#f2e9d8] border-[#8c4632]"
+                  : "bg-white text-neutral-700 border-neutral-300 hover:border-[#b7452f]/50"
               }`}
             >
               {s.name}
@@ -117,7 +117,7 @@ export default function CapacityClient({
       )}
 
       {overcommitted.length > 0 && (
-        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-amber-700 text-sm font-medium">
+        <div className="flex items-center gap-2 px-4 py-3 rounded-xl bg-[#fdf1de] border border-[#c9791d]/30 text-[#c9791d] text-sm font-medium">
           ⚠ {overcommitted.length} member{overcommitted.length > 1 ? "s" : ""} are overcommitted this sprint
         </div>
       )}

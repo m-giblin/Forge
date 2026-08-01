@@ -29,21 +29,21 @@ export default function DevilsAdvocateButton({
 
   if (result) {
     return (
-      <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-rose-100">
-          <p className="text-sm font-semibold text-rose-800">🔥 Devil&apos;s Advocate Analysis</p>
+      <div className="mb-4 rounded-xl border border-[#e8b4ab] bg-[#fbeae8] overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-[#e8b4ab]">
+          <p className="text-sm font-semibold text-[#c0392b]">🔥 Devil&apos;s Advocate Analysis</p>
           <div className="flex gap-2">
             <button
               onClick={challenge}
               disabled={isPending}
-              className="text-xs text-rose-500 hover:text-rose-800 disabled:opacity-50"
+              className="text-xs text-[#c0392b] hover:text-[#a8291a] disabled:opacity-50"
             >
               {isPending ? "Re-challenging…" : "Re-run"}
             </button>
-            <button onClick={() => setResult(null)} className="text-xs text-rose-400 hover:text-rose-700">Dismiss</button>
+            <button onClick={() => setResult(null)} className="text-xs text-[#c0392b]/60 hover:text-[#c0392b]">Dismiss</button>
           </div>
         </div>
-        <div className="px-5 py-4 prose prose-sm prose-rose max-w-none text-rose-900">
+        <div className="px-5 py-4 prose prose-sm max-w-none text-[#20201d]">
           <ReactMarkdown>{result}</ReactMarkdown>
         </div>
       </div>
@@ -58,10 +58,10 @@ export default function DevilsAdvocateButton({
       <button
         onClick={challenge}
         disabled={isPending}
-        className="flex items-center gap-2 rounded-xl border border-rose-200 bg-white px-4 py-2.5 text-sm font-medium text-rose-700 hover:bg-rose-50 transition-colors disabled:opacity-50"
+        className="flex items-center gap-2 rounded-xl border border-[#e8b4ab] bg-white px-4 py-2.5 text-sm font-medium text-[#c0392b] hover:bg-[#fbeae8] transition-colors disabled:opacity-50"
       >
         {isPending ? (
-          <><span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-rose-500 border-t-transparent" /> Challenging idea…</>
+          <><span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-[#c0392b] border-t-transparent" /> Challenging idea…</>
         ) : (
           <>🔥 Challenge This Idea</>
         )}

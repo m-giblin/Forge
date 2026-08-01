@@ -11,11 +11,11 @@ interface Issue {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  todo: "bg-neutral-200 text-neutral-700",
-  in_progress: "bg-blue-100 text-blue-700",
-  in_review: "bg-amber-100 text-amber-700",
-  done: "bg-green-100 text-green-700",
-  backlog: "bg-neutral-100 text-neutral-500",
+  todo: "bg-[#eaf1f8] text-[#3a6ea8]",
+  in_progress: "bg-[#fdf1de] text-[#c9791d]",
+  in_review: "bg-[#f4ecfa] text-[#7a4fa0]",
+  done: "bg-[#e9f3ea] text-[#3f7d4c]",
+  backlog: "bg-[#f1efe9] text-[#a19d90]",
 };
 
 const STATUS_LABELS: Record<string, string> = {

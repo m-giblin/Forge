@@ -209,14 +209,15 @@ function CommentCard({
               value={editBody}
               onChange={(e) => setEditBody(e.target.value)}
               rows={3}
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-[#b7452f] focus:ring-1 focus:ring-[#b7452f]/20"
             />
             {error && <p className="text-xs text-red-600">{error}</p>}
             <div className="flex gap-2">
               <button
                 onClick={handleEdit}
                 disabled={isPending || !editBody.trim()}
-                className="rounded-lg bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                className="rounded-lg border border-[#5e2c1f] px-3 py-1 text-xs font-medium text-[#f2e9d8] disabled:opacity-50"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 {isPending ? "Saving…" : "Save"}
               </button>
@@ -264,14 +265,15 @@ function CommentCard({
               rows={2}
               placeholder="Write a reply…"
               autoFocus
-              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+              className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-[#b7452f] focus:ring-1 focus:ring-[#b7452f]/20"
             />
             {error && <p className="text-xs text-red-600">{error}</p>}
             <div className="flex gap-2">
               <button
                 onClick={handleReply}
                 disabled={isPending || !replyBody.trim()}
-                className="rounded-lg bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                className="rounded-lg border border-[#5e2c1f] px-3 py-1 text-xs font-medium text-[#f2e9d8] disabled:opacity-50"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 {isPending ? "Posting…" : "Post reply"}
               </button>
@@ -423,10 +425,10 @@ export default function IdeaComments({
           <button
             onClick={synthesize}
             disabled={consensusPending}
-            className="flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-600 hover:bg-indigo-100 transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg border border-[#e4d4c4] bg-[#f4ece4] px-3 py-1.5 text-xs font-medium text-[#b7452f] hover:bg-[#ecdfd0] transition-colors disabled:opacity-50"
           >
             {consensusPending ? (
-              <><span className="inline-block h-3 w-3 animate-spin rounded-full border border-indigo-500 border-t-transparent" /> Synthesizing…</>
+              <><span className="inline-block h-3 w-3 animate-spin rounded-full border border-[#b7452f] border-t-transparent" /> Synthesizing…</>
             ) : (
               <>🤖 Synthesize consensus</>
             )}
@@ -441,12 +443,12 @@ export default function IdeaComments({
         </div>
       )}
       {consensus && (
-        <div className="mb-5 rounded-xl border border-indigo-200 bg-indigo-50 p-4 space-y-3">
+        <div className="mb-5 rounded-xl border border-[#e4d4c4] bg-[#f4ece4] p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-bold uppercase tracking-wide text-indigo-500">🤖 AI Consensus Summary</p>
-            <button onClick={() => setConsensus(null)} className="text-xs text-indigo-400 hover:text-indigo-700">Dismiss</button>
+            <p className="text-xs font-bold uppercase tracking-wide text-[#b7452f]">🤖 AI Consensus Summary</p>
+            <button onClick={() => setConsensus(null)} className="text-xs text-[#b7452f]/60 hover:text-[#b7452f]">Dismiss</button>
           </div>
-          <p className="text-sm text-indigo-900 leading-relaxed">{consensus.summary}</p>
+          <p className="text-sm text-[#20201d] leading-relaxed">{consensus.summary}</p>
           <div className="grid gap-3 sm:grid-cols-2">
             {consensus.agreement.length > 0 && (
               <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2">
@@ -455,22 +457,22 @@ export default function IdeaComments({
               </div>
             )}
             {consensus.contention.length > 0 && (
-              <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
-                <p className="text-[10px] font-bold uppercase text-amber-600 mb-1">Open Tensions</p>
-                <ul className="space-y-0.5">{consensus.contention.map((c, i) => <li key={i} className="text-xs text-amber-800">⚡ {c}</li>)}</ul>
+              <div className="rounded-lg bg-[#fdf1de] border border-[#f0d6a8] px-3 py-2">
+                <p className="text-[10px] font-bold uppercase text-[#c9791d] mb-1">Open Tensions</p>
+                <ul className="space-y-0.5">{consensus.contention.map((c, i) => <li key={i} className="text-xs text-[#8a5410]">⚡ {c}</li>)}</ul>
               </div>
             )}
           </div>
           {consensus.themes.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
               {consensus.themes.map((t, i) => (
-                <span key={i} className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs text-indigo-700">{t}</span>
+                <span key={i} className="rounded-full bg-[#e4d4c4] px-2.5 py-0.5 text-xs text-[#8c4632]">{t}</span>
               ))}
             </div>
           )}
-          <div className="rounded-lg bg-white border border-indigo-100 px-3 py-2">
-            <p className="text-[10px] font-bold uppercase text-indigo-400 mb-0.5">Recommended Next Step</p>
-            <p className="text-sm font-medium text-indigo-900">→ {consensus.recommended_next}</p>
+          <div className="rounded-lg bg-white border border-[#e4d4c4] px-3 py-2">
+            <p className="text-[10px] font-bold uppercase text-[#b7452f]/70 mb-0.5">Recommended Next Step</p>
+            <p className="text-sm font-medium text-[#20201d]">→ {consensus.recommended_next}</p>
           </div>
         </div>
       )}
@@ -516,7 +518,7 @@ export default function IdeaComments({
           onChange={(e) => setBody(e.target.value)}
           rows={3}
           placeholder="Add a comment…"
-          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
+          className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-[#b7452f] focus:ring-1 focus:ring-[#b7452f]/20"
         />
 
         {/* Staged files */}
@@ -565,7 +567,8 @@ export default function IdeaComments({
           <button
             onClick={handleSubmit}
             disabled={isPending || !body.trim()}
-            className="rounded-lg bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+            className="rounded-lg border border-[#5e2c1f] px-4 py-1.5 text-sm font-medium text-[#f2e9d8] disabled:opacity-50"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
           >
             {submitLabel}
           </button>

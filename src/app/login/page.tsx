@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
-type Screen = "credentials" | "totp";
+type Screen = "credentials" | "totp" | "forgot";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -82,6 +82,28 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const totpInputRef = useRef<HTMLInputElement>(null);
+  const [forgotSent, setForgotSent] = useState(false);
+
+  async function onForgotSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setLoading(true);
+    // Goes through our own API (Admin API + Resend) rather than
+    // supabase.auth.resetPasswordForEmail — that path depends on Supabase
+    // Auth's own email delivery, which isn't configured for this project.
+    const res = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    setLoading(false);
+    if (res.status === 429) {
+      setError("Too many requests. Try again in a bit.");
+      return;
+    }
+    // Otherwise always show success — avoids leaking account existence.
+    setForgotSent(true);
+  }
 
   // The plain `autoFocus` prop is unreliable here — this is a state-driven
   // screen swap within the same mounted component, not a fresh page load, and
@@ -143,6 +165,70 @@ function LoginForm() {
 
     router.push(next);
     router.refresh();
+  }
+
+  if (screen === "forgot") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[var(--fw-cream)] px-4 font-[family-name:var(--font-inter)]">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 text-center">
+            <h1 className="font-[family-name:var(--font-manrope)] text-2xl font-extrabold tracking-tight text-[#20201d]">Reset your password</h1>
+            <p className="mt-1 text-sm text-[#726e60]">Enter your email and we&rsquo;ll send you a reset link.</p>
+          </div>
+          {forgotSent ? (
+            <div className="space-y-4 rounded-xl border border-[var(--fw-cream-border)] bg-white p-6 shadow-sm text-center">
+              <p className="text-sm text-[#4a473e]">
+                If an account exists for <span className="font-semibold">{email}</span>, a reset link is on its way.
+              </p>
+              <button
+                type="button"
+                onClick={() => { setScreen("credentials"); setForgotSent(false); }}
+                className="w-full rounded-lg border border-[var(--fw-rust-border)] px-4 py-2 text-sm font-medium text-[#f2e9d8] transition"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+              >
+                Back to sign in
+              </button>
+            </div>
+          ) : (
+            <form
+              onSubmit={onForgotSubmit}
+              className="space-y-4 rounded-xl border border-[var(--fw-cream-border)] bg-white p-6 shadow-sm"
+            >
+              <div>
+                <label className="mb-1 block text-sm font-medium text-[#4a473e]">Email</label>
+                <input
+                  type="email"
+                  required
+                  autoFocus
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-sm outline-none focus:border-[var(--fw-rust)] focus:ring-1 focus:ring-[var(--fw-rust)]"
+                  placeholder="you@example.com"
+                />
+              </div>
+              {error && (
+                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p>
+              )}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-lg border border-[var(--fw-rust-border)] px-4 py-2 text-sm font-medium text-[#f2e9d8] transition disabled:opacity-50"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+              >
+                {loading ? "Sending…" : "Send reset link"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setScreen("credentials"); setError(null); }}
+                className="w-full text-center text-xs text-[#a19d90] hover:text-[#726e60]"
+              >
+                ← Back to sign in
+              </button>
+            </form>
+          )}
+        </div>
+      </main>
+    );
   }
 
   if (screen === "totp") {
@@ -250,7 +336,16 @@ function LoginForm() {
               </button>
             )}
             <div>
-              <label className="mb-1 block text-sm font-medium text-[#4a473e]">Password</label>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="block text-sm font-medium text-[#4a473e]">Password</label>
+                <button
+                  type="button"
+                  onClick={() => { setScreen("forgot"); setError(null); }}
+                  className="text-xs font-medium text-[var(--fw-rust)] hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <input
                 type="password"
                 required

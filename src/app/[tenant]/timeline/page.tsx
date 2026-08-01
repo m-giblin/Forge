@@ -10,6 +10,7 @@ import TimelineClient, {
   type TLSprint,
   type TLDependency,
   type TLBaseline,
+  type TLEpic,
 } from "../admin/workload/timeline/TimelineClient";
 
 export default async function TimelinePage({
@@ -60,7 +61,7 @@ export default async function TimelinePage({
   const { data: issueRows } = await svc
     .from("issues")
     .select(
-      "id, number, title, status, priority, assignee_id, start_date, due_date, project_id, story_points, time_estimate_minutes"
+      "id, number, title, status, priority, assignee_id, start_date, due_date, project_id, story_points, time_estimate_minutes, type, parent_id"
     )
     .eq("tenant_id", ctx.tenant.id)
     .neq("status", "done")
@@ -83,8 +84,43 @@ export default async function TimelinePage({
       projectName: proj?.name ?? "",
       storyPoints: r.story_points as number | null,
       timeEstimateMinutes: r.time_estimate_minutes as number | null,
+      type: r.type as string,
+      parentId: r.parent_id as string | null,
     };
   });
+
+  // Epic rollup — all statuses, so progress counts are accurate.
+  const { data: epicRollupRows } = await svc
+    .from("issues")
+    .select("id, number, title, status, start_date, due_date, project_id, type, parent_id")
+    .eq("tenant_id", ctx.tenant.id)
+    .order("project_id", { ascending: true });
+
+  const tlEpics: TLEpic[] = (epicRollupRows ?? [])
+    .filter((r) => r.type === "epic")
+    .map((e) => {
+      const children = (epicRollupRows ?? []).filter((r) => r.parent_id === e.id);
+      const proj = projectMap.get(e.project_id as string);
+      return {
+        id: e.id as string,
+        key: proj ? `${proj.key}-${e.number}` : String(e.number),
+        title: e.title as string,
+        projectId: e.project_id as string,
+        projectName: proj?.name ?? "",
+        startDate: e.start_date as string | null,
+        dueDate: e.due_date as string | null,
+        totalChildren: children.length,
+        doneChildren: children.filter((c) => c.status === "done").length,
+        children: children.map((c) => ({
+          id: c.id as string,
+          key: proj ? `${proj.key}-${c.number}` : String(c.number),
+          title: c.title as string,
+          status: c.status as string,
+          startDate: c.start_date as string | null,
+          dueDate: c.due_date as string | null,
+        })),
+      };
+    });
 
   // Sprints
   const today = new Date();
@@ -158,6 +194,7 @@ export default async function TimelinePage({
       sprints={tlSprints}
       dependencies={tlDeps}
       initialBaselines={tlBaselines}
+      epics={tlEpics}
     />
   );
 }

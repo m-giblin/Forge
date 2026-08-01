@@ -82,7 +82,7 @@ export default function ControlChartClient({
         <div>
           <label className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-1">Project</label>
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40">
             <option value="">All projects</option>
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -90,12 +90,12 @@ export default function ControlChartClient({
         <div>
           <label className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-1">From</label>
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40" />
         </div>
         <div>
           <label className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-1">To</label>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40" />
         </div>
       </div>
 
@@ -123,7 +123,7 @@ export default function ControlChartClient({
                 <p className="text-sm font-semibold text-neutral-800">Cycle Time by Completion Date</p>
                 <div className="flex items-center gap-4 text-xs text-neutral-500">
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-2 w-2 rounded-full bg-indigo-500" />Normal
+                    <span className="inline-block h-2 w-2 rounded-full bg-[#b7452f]" />Normal
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="inline-block h-2 w-2 rounded-full bg-red-500" />Above P90
@@ -132,7 +132,7 @@ export default function ControlChartClient({
                     <span className="inline-block h-0.5 w-6 bg-neutral-700 rounded" />Median
                   </span>
                   <span className="flex items-center gap-1.5">
-                    <span className="inline-block h-0.5 w-6 border-t-2 border-dashed border-amber-500" />P90
+                    <span className="inline-block h-0.5 w-6 border-t-2 border-dashed border-[#c9791d]" />P90
                   </span>
                 </div>
               </div>
@@ -165,7 +165,7 @@ export default function ControlChartClient({
                       cx={chart!.x(item.resolvedAt)}
                       cy={chart!.y(item.cycleDays)}
                       r={hovered?.issueId === item.issueId ? 5 : 3}
-                      fill={isOutlier ? "#ef4444" : "#6366f1"}
+                      fill={isOutlier ? "#c0392b" : "#b7452f"}
                       opacity={hovered && hovered.issueId !== item.issueId ? 0.35 : 0.75}
                       onMouseEnter={() => setHovered(item)}
                       onMouseLeave={() => setHovered(null)}

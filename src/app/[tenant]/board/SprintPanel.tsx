@@ -20,46 +20,46 @@ function fmtDate(d: string | null) {
   return new Date(d + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-function daysLeft(end: string | null) {
-  if (!end) return null;
-  return Math.ceil((new Date(end + "T00:00:00").getTime() - Date.now()) / 86_400_000);
+function currentMs() {
+  return Date.now();
 }
 
-function BurnDown({ startDate, endDate, total, done }: {
-  startDate: string; endDate: string; total: number; done: number;
+function daysLeft(end: string | null) {
+  if (!end) return null;
+  return Math.ceil((new Date(end + "T00:00:00").getTime() - currentMs()) / 86_400_000);
+}
+
+/**
+ * Small inline sparkline — not a full chart. The real burndown chart lives in
+ * Reports. `nowMs` is passed in (rather than read via Date.now() during
+ * render) to keep this component pure per React's render-purity rules.
+ */
+function BurnSparkline({ startDate, endDate, total, done, nowMs }: {
+  startDate: string; endDate: string; total: number; done: number; nowMs: number;
 }) {
-  const W = 260, H = 80, pad = 4;
+  const W = 120, H = 42, pad = 3;
   const start = new Date(startDate + "T00:00:00").getTime();
-  const end   = new Date(endDate   + "T00:00:00").getTime();
-  const now   = Math.min(Date.now(), end);
-  const span  = Math.max(1, end - start);
+  const end = new Date(endDate + "T00:00:00").getTime();
+  const now = Math.min(Math.max(nowMs, start), end);
+  const span = Math.max(1, end - start);
   const remaining = total - done;
   const xOf = (t: number) => pad + ((t - start) / span) * (W - pad * 2);
   const yOf = (v: number) => pad + ((total - v) / Math.max(1, total)) * (H - pad * 2);
   const ix0 = xOf(start), iy0 = yOf(total);
-  const ix1 = xOf(end),   iy1 = yOf(0);
+  const ix1 = xOf(end), iy1 = yOf(0);
   const ax = xOf(now), ay = yOf(remaining);
-  const projEndY = yOf(remaining > 0 ? Math.max(0, remaining - (remaining * (end - now) / Math.max(1, end - now))) : 0);
   const onTrack = remaining <= (total * (end - now) / Math.max(1, span));
   return (
-    <div className="shrink-0" title={`Burn-down: ${done}/${total} done · ${remaining} remaining`}>
-      <svg width={W} height={H} className="block">
-        <line x1={ix0} y1={iy0} x2={ix1} y2={iy1} stroke="#e5e7eb" strokeWidth="1.5" strokeDasharray="4 3" />
-        <line x1={ax} y1={ay} x2={ix1} y2={projEndY} stroke={onTrack ? "#10b981" : "#f59e0b"} strokeWidth="1" strokeDasharray="3 2" opacity="0.6" />
-        <circle cx={ax} cy={ay} r="4" fill={onTrack ? "#10b981" : "#f59e0b"} />
-        <line x1={ax} y1={pad} x2={ax} y2={H - pad} stroke="#d1d5db" strokeWidth="1" />
-        <text x={ix0} y={H - 1} fontSize="9" fill="#9ca3af">Start</text>
-        <text x={ix1 - 16} y={H - 1} fontSize="9" fill="#9ca3af">End</text>
-        <text x={ax + 5} y={ay - 3} fontSize="9" fill={onTrack ? "#059669" : "#d97706"} fontWeight="600">{remaining} left</text>
-      </svg>
-      <p className="text-[10px] text-neutral-400 text-center -mt-1">
-        {onTrack ? "✓ On track" : "⚠ Behind ideal"}
-      </p>
-    </div>
+    <svg width={W} height={H} className="block">
+      <line x1={ix0} y1={iy0} x2={ix1} y2={iy1} stroke="#ddd8c9" strokeWidth="1.25" strokeDasharray="3 2" />
+      <circle cx={ax} cy={ay} r="3" fill={onTrack ? "#3f7d4c" : "#c9791d"} />
+      <line x1={ax} y1={pad} x2={ax} y2={H - pad} stroke="#ddd8c9" strokeWidth="1" />
+    </svg>
   );
 }
 
 type CreateTab = "single" | "bulk" | "import";
+type Warning = { key: string; text: string; actionLabel: string; onAction: () => void };
 
 export default function SprintPanel({
   slug, projectId, activeSprint, plannedSprints, sprintIssues, backlogIssues,
@@ -76,13 +76,23 @@ export default function SprintPanel({
   loggedMinutes?: number;
 }) {
   const [pending, startTransition] = useTransition();
-  const [showCreate, setShowCreate] = useState(false);
-  const [createTab, setCreateTab] = useState<CreateTab>("single");
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [createTab, setCreateTab] = useState<CreateTab | null>(null);
   const [showBacklog, setShowBacklog] = useState(false);
-  const [showPlanned, setShowPlanned] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [alertExpanded, setAlertExpanded] = useState(false);
 
-  // Edit sprint inline
+  const [detailsOpen, setDetailsOpen] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem("fw-sprint-details-open") === "1"
+  );
+  function toggleDetails() {
+    setDetailsOpen((v) => {
+      const next = !v;
+      localStorage.setItem("fw-sprint-details-open", next ? "1" : "0");
+      return next;
+    });
+  }
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editGoal, setEditGoal] = useState("");
@@ -90,7 +100,6 @@ export default function SprintPanel({
   const [editEnd, setEditEnd] = useState("");
   const [editError, setEditError] = useState<string | null>(null);
 
-  // Single sprint form
   const [name, setName] = useState("");
   const [goal, setGoal] = useState("");
   const [startDate, setStartDate] = useState("");
@@ -102,8 +111,8 @@ export default function SprintPanel({
   const pct = total > 0 ? Math.round((done / total) * 100) : 0;
   const days = sprint ? daysLeft(sprint.endDate) : null;
 
-  function close() {
-    setShowCreate(false);
+  function closeCreate() {
+    setCreateTab(null);
     setError(null);
   }
 
@@ -112,7 +121,7 @@ export default function SprintPanel({
     startTransition(async () => {
       try {
         await createSprintAction(slug, projectId, name || "Sprint", goal, startDate, endDate);
-        close();
+        closeCreate();
         setName(""); setGoal(""); setStartDate(""); setEndDate("");
       } catch (e) { setError(e instanceof Error ? e.message : "Failed"); }
     });
@@ -149,43 +158,68 @@ export default function SprintPanel({
     });
   }
 
-  const tabCls = (t: CreateTab) =>
-    `px-3 py-1.5 text-xs font-semibold rounded-lg transition ${
-      createTab === t ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-800 hover:bg-neutral-100"
-    }`;
+  // ── Consolidated alert bar — every warning collapses into one row ──
+  const warnings: Warning[] = [];
+  if (sprint && sprint.status === "active") {
+    const unassignedInSprint = sprintIssues.filter((i) => !i.assignee_id);
+    if (unassignedInSprint.length > 0) {
+      warnings.push({
+        key: "unassigned",
+        text: `${unassignedInSprint.length} issue${unassignedInSprint.length > 1 ? "s" : ""} in this sprint ${unassignedInSprint.length > 1 ? "have" : "has"} no assignee.`,
+        actionLabel: "Assign now",
+        onAction: () => document.getElementById(`issue-row-${unassignedInSprint[0].id}`)?.scrollIntoView({ behavior: "smooth" }),
+      });
+    }
+    if (days !== null && days <= 2 && total > 0 && done < total) {
+      warnings.push({
+        key: "ending",
+        text: days < 0 ? `Sprint is ${-days}d overdue with ${total - done} issue${total - done > 1 ? "s" : ""} still open.` : `Sprint ends ${days === 0 ? "today" : `in ${days}d`} with ${total - done} issue${total - done > 1 ? "s" : ""} still open.`,
+        actionLabel: days < 0 ? "Complete sprint" : "Extend dates",
+        onAction: () => (days < 0 ? completeSprint(sprint.id) : openEdit(sprint)),
+      });
+    }
+    if (estimatedMinutes > 0 && loggedMinutes > estimatedMinutes) {
+      warnings.push({
+        key: "over-capacity",
+        text: `Logged time (${(loggedMinutes / 60).toFixed(1)}h) has exceeded the sprint estimate (${(estimatedMinutes / 60).toFixed(1)}h).`,
+        actionLabel: "Review",
+        onAction: () => setAlertExpanded(true),
+      });
+    }
+  }
 
   const editForm = (
-    <div className="mt-3 pt-3 border-t border-neutral-100 space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div className="mt-3 space-y-3 border-t border-[#e3ded0] pt-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
-          <label className="text-xs font-medium text-neutral-500 mb-1 block">Name</label>
+          <label className="mb-1 block text-[11px] font-semibold text-[#726e60]">Name</label>
           <input value={editName} onChange={(e) => setEditName(e.target.value)}
-            className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+            className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-1.5 text-[12.5px] outline-none focus:border-[#8c4632]" />
         </div>
         <div>
-          <label className="text-xs font-medium text-neutral-500 mb-1 block">Goal</label>
+          <label className="mb-1 block text-[11px] font-semibold text-[#726e60]">Goal</label>
           <input value={editGoal} onChange={(e) => setEditGoal(e.target.value)} placeholder="(optional)"
-            className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+            className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-1.5 text-[12.5px] outline-none focus:border-[#8c4632]" />
         </div>
         <div>
-          <label className="text-xs font-medium text-neutral-500 mb-1 block">Start date</label>
+          <label className="mb-1 block text-[11px] font-semibold text-[#726e60]">Start date</label>
           <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)}
-            className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+            className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-1.5 text-[12.5px] outline-none focus:border-[#8c4632]" />
         </div>
         <div>
-          <label className="text-xs font-medium text-neutral-500 mb-1 block">End date</label>
+          <label className="mb-1 block text-[11px] font-semibold text-[#726e60]">End date</label>
           <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)}
-            className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+            className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-1.5 text-[12.5px] outline-none focus:border-[#8c4632]" />
         </div>
       </div>
-      {editError && <p className="text-xs text-red-600">{editError}</p>}
+      {editError && <p className="text-[11px] text-[#c0392b]">{editError}</p>}
       <div className="flex gap-2">
         <button onClick={saveSprint} disabled={pending}
-          className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50">
+          className="rounded-lg bg-[#8c4632] px-4 py-1.5 text-[11.5px] font-semibold text-white hover:bg-[#7a3c2a] disabled:opacity-50">
           {pending ? "Saving…" : "Save"}
         </button>
         <button onClick={() => setEditingId(null)}
-          className="rounded-lg border border-neutral-200 px-4 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50">
+          className="rounded-lg border border-[var(--fw-cream-border)] px-4 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da]">
           Cancel
         </button>
       </div>
@@ -193,308 +227,308 @@ export default function SprintPanel({
   );
 
   return (
-    <div className="mb-4 space-y-2">
-      {/* Sprint banner */}
-      {sprint ? (
-        <div className="rounded-xl border border-neutral-200 bg-white px-4 py-3">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3 min-w-0">
-              <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                sprint.status === "active" ? "bg-emerald-100 text-emerald-700" :
-                sprint.status === "planned" ? "bg-blue-100 text-blue-700" :
-                "bg-neutral-100 text-neutral-500"
-              }`}>
-                {sprint.status === "active" ? "Active sprint" : sprint.status === "planned" ? "Planned" : "Completed"}
+    <div className="border-b border-[var(--fw-cream-border)] bg-[var(--fw-cream-bg)]">
+      {/* ── Sticky one-row header ── */}
+      <div className="flex items-center gap-3 px-6 py-2" style={{ minHeight: 40 }}>
+        {sprint ? (
+          <>
+            <span className={`shrink-0 rounded-full border px-2 py-0.5 text-[9.5px] font-extrabold uppercase tracking-[0.07em] ${
+              sprint.status === "active" ? "border-[#cbe2cf] bg-[#e9f3ea] text-[#3f7d4c]" :
+              sprint.status === "planned" ? "border-[#c9dceb] bg-[#eaf1f8] text-[#3a6ea8]" :
+              "border-[#e3ded0] bg-[#f1efe9] text-[#a19d90]"
+            }`}>
+              {sprint.status === "active" ? "Active" : sprint.status === "planned" ? "Planned" : "Completed"}
+            </span>
+            <span className="shrink-0 font-[family-name:var(--font-manrope)] text-[21px] font-extrabold leading-none text-[#20201d]">
+              {sprint.name}
+            </span>
+            {sprint.goal && (
+              <span className="min-w-0 flex-1 truncate text-[12px] text-[#726e60]">{sprint.goal}</span>
+            )}
+
+            <button
+              onClick={() => setDropdownOpen((v) => !v)}
+              aria-label="Switch sprint"
+              className="flex shrink-0 items-center justify-center rounded-md px-1 text-[#a19d90] hover:bg-[#eae6da] hover:text-[#4a473e]"
+            >
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" style={{ transform: dropdownOpen ? "rotate(180deg)" : undefined }}>
+                <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+
+            {sprint.startDate && (
+              <span className="hidden shrink-0 items-center gap-1 text-[11px] text-[#a19d90] sm:flex">
+                🗓️ {fmtDate(sprint.startDate)}–{fmtDate(sprint.endDate)}
+                {days !== null && sprint.status === "active" && (
+                  <span className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${days < 0 ? "bg-[#fbeae8] text-[#c0392b]" : days <= 2 ? "bg-[#fdf1de] text-[#c9791d]" : ""}`}>
+                    {days < 0 ? `${-days}d overdue` : days === 0 ? "ends today" : `${days}d left`}
+                  </span>
+                )}
               </span>
-              <span className="font-semibold text-neutral-900 truncate">{sprint.name}</span>
-              {sprint.goal && <span className="hidden sm:block text-sm text-neutral-500 truncate">— {sprint.goal}</span>}
-              {sprint.startDate && (
-                <span className="hidden sm:block text-xs text-neutral-400">
-                  {fmtDate(sprint.startDate)} → {fmtDate(sprint.endDate)}
-                  {days !== null && sprint.status === "active" && (
-                    <span className={`ml-1 font-medium ${days < 0 ? "text-red-600" : days <= 2 ? "text-amber-600" : "text-neutral-500"}`}>
-                      {days < 0 ? `(${-days}d overdue)` : days === 0 ? "(ends today)" : `(${days}d left)`}
-                    </span>
-                  )}
+            )}
+
+            {total > 0 && (
+              <span className="hidden shrink-0 items-center gap-2 md:flex">
+                <span className="block overflow-hidden rounded-full bg-[#e3ded0]" style={{ width: 96, height: 6 }}>
+                  <span className="block h-full rounded-full bg-[#3f7d4c] transition-all" style={{ width: `${pct}%` }} />
                 </span>
-              )}
-              {canEdit && editingId !== sprint.id && (
-                <button
-                  onClick={() => openEdit(sprint)}
-                  title="Edit sprint"
-                  className="shrink-0 flex items-center gap-1.5 rounded-lg border border-yellow-300 bg-yellow-50 px-2.5 py-1 text-xs font-semibold text-yellow-700 hover:bg-yellow-100 hover:border-yellow-400 transition"
-                >
-                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M11.5 1.5a2.121 2.121 0 0 1 3 3L4 15H1v-3L11.5 1.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  Edit
-                </button>
-              )}
-            </div>
+                <span className="text-[11px] text-[#a19d90]">{done}/{total} done</span>
+              </span>
+            )}
 
-            <div className="flex items-center gap-3 shrink-0">
-              {total > 0 && (
-                <div className="flex items-center gap-2" title={`${done} of ${total} issues done`}>
-                  <div className="w-20 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
-                    <div className="h-1.5 rounded-full bg-emerald-500 transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                  <span className="text-xs text-neutral-500">{done}/{total} issues</span>
-                </div>
-              )}
-              {estimatedMinutes > 0 && (() => {
-                const estH = (estimatedMinutes / 60).toFixed(1);
-                const logH = (loggedMinutes / 60).toFixed(1);
-                const burnPct = Math.min(100, Math.round((loggedMinutes / estimatedMinutes) * 100));
-                const over = loggedMinutes > estimatedMinutes;
-                return (
-                  <div className="flex items-center gap-2" title={`${logH}h logged of ${estH}h estimated`}>
-                    <div className="w-20 h-1.5 rounded-full bg-neutral-100 overflow-hidden">
-                      <div className={`h-1.5 rounded-full transition-all ${over ? "bg-red-400" : "bg-indigo-400"}`} style={{ width: `${burnPct}%` }} />
-                    </div>
-                    <span className={`text-xs ${over ? "text-red-600 font-medium" : "text-neutral-500"}`}>{logH}h / {estH}h</span>
-                  </div>
-                );
-              })()}
-              {canEdit && sprint.status === "planned" && (
-                <button onClick={() => startSprint(sprint.id)} disabled={pending}
-                  className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50">
-                  Start sprint
-                </button>
-              )}
-              {canEdit && sprint.status === "active" && (
-                <button onClick={() => completeSprint(sprint.id)} disabled={pending}
-                  className="rounded-lg border border-neutral-300 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50">
-                  Complete sprint
-                </button>
-              )}
-            </div>
-          </div>
+            <span className="flex-1" />
 
-          {editingId === sprint.id && editForm}
+            <button
+              onClick={toggleDetails}
+              className={`shrink-0 rounded-full border px-[11px] py-[6px] text-[11.5px] font-semibold transition-colors ${
+                detailsOpen ? "border-[#8c4632] bg-[#8c4632] text-[#f2e9d8]" : "border-[var(--fw-cream-border)] bg-[var(--fw-cream)] text-[#4a473e] hover:bg-[#eae6da]"
+              }`}
+            >
+              Sprint details
+            </button>
 
-          {sprint.status === "active" && total > 0 && sprint.startDate && sprint.endDate && (
-            <div className="mt-3 pt-2 border-t border-neutral-100">
-              <BurnDown startDate={sprint.startDate} endDate={sprint.endDate} total={total} done={done} />
-            </div>
-          )}
+            {canEdit && sprint.status === "planned" && (
+              <button onClick={() => startSprint(sprint.id)} disabled={pending}
+                className="shrink-0 rounded-full bg-[#8c4632] px-[11px] py-[6px] text-[11.5px] font-semibold text-white hover:bg-[#7a3c2a] disabled:opacity-50">
+                Start sprint
+              </button>
+            )}
+            {canEdit && sprint.status === "active" && (
+              <button onClick={() => completeSprint(sprint.id)} disabled={pending}
+                className="shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-50">
+                Complete sprint
+              </button>
+            )}
+          </>
+        ) : (
+          <>
+            <span className="text-[12.5px] text-[#726e60]">No sprint yet for this project.</span>
+            <span className="flex-1" />
+            {canEdit && (
+              <button onClick={() => setDropdownOpen((v) => !v)}
+                className="shrink-0 rounded-full bg-[#8c4632] px-[11px] py-[6px] text-[11.5px] font-semibold text-white hover:bg-[#7a3c2a]">
+                + Create sprint
+              </button>
+            )}
+          </>
+        )}
+      </div>
 
-          {(sprint.status === "active" || sprint.status === "completed") && (() => {
-            const sprintDays = sprint.startDate && sprint.endDate
-              ? Math.ceil((new Date(sprint.endDate + "T00:00:00").getTime() - new Date(sprint.startDate + "T00:00:00").getTime()) / 86_400_000)
-              : null;
-            return (
-              <SprintIntelligence
-                slug={slug}
-                sprintId={sprint.id}
-                issueCount={sprintIssues.length}
-                sprintDays={sprintDays}
-              />
-            );
-          })()}
+      {/* ── Sprint dropdown — replaces the old sprint-pill row ── */}
+      {dropdownOpen && (
+        <div className="border-t border-[var(--fw-cream-border)] bg-white px-6 py-3 shadow-sm">
+          <p className="mb-2 -mx-6 border-b border-[var(--fw-cream-border)] bg-[#f4f2eb] px-6 py-1.5 text-[9.5px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">
+            Sprints · {1 + plannedSprints.filter((s) => s.id !== sprint?.id).length}
+          </p>
+          {editingId === sprint?.id && sprint && editForm}
 
-          {sprint.status === "active" && sprintIssues.length > 0 && canEdit && (
-            <div className="mt-2 flex flex-wrap gap-1.5 pt-2 border-t border-neutral-100">
-              {sprintIssues.slice(0, 8).map((i) => (
-                <button key={i.id} onClick={() => removeFromSprint(i.id)} title="Remove from sprint"
-                  className="inline-flex items-center gap-1 rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-600 hover:bg-red-50 hover:text-red-600">
-                  <span className={`h-1.5 w-1.5 rounded-full ${i.status === "done" ? "bg-emerald-500" : "bg-neutral-400"}`} />
-                  {i.title.length > 30 ? i.title.slice(0, 30) + "…" : i.title}
-                  <span className="text-neutral-300">×</span>
-                </button>
-              ))}
-              {sprintIssues.length > 8 && <span className="text-xs text-neutral-400">+{sprintIssues.length - 8} more</span>}
-            </div>
-          )}
-        </div>
-      ) : null}
-
-      {/* Planned sprints — collapsed by default */}
-      {plannedSprints.length > 0 && (
-        <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-          <button
-            onClick={() => setShowPlanned((s) => !s)}
-            className="w-full px-4 py-2.5 flex items-center justify-between hover:bg-neutral-50 transition"
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-base text-neutral-500">{showPlanned ? "▾" : "▸"}</span>
-              <span className="text-xs font-semibold text-neutral-600">Upcoming Sprints</span>
-            </div>
-            <span className="text-xs text-neutral-400">{plannedSprints.length} planned</span>
-          </button>
-          {showPlanned && <div className="border-t border-neutral-100" />}
-          {showPlanned && plannedSprints.map((s, i) => (
-            <div key={s.id}>
-              {i > 0 && <div className="border-t border-neutral-100" />}
-              {editingId === s.id ? (
-                <div className="px-4 py-3 space-y-3">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-xs font-medium text-neutral-500 mb-1 block">Name</label>
-                      <input value={editName} onChange={(e) => setEditName(e.target.value)}
-                        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-neutral-500 mb-1 block">Goal</label>
-                      <input value={editGoal} onChange={(e) => setEditGoal(e.target.value)} placeholder="(optional)"
-                        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-neutral-500 mb-1 block">Start date</label>
-                      <input type="date" value={editStart} onChange={(e) => setEditStart(e.target.value)}
-                        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                    </div>
-                    <div>
-                      <label className="text-xs font-medium text-neutral-500 mb-1 block">End date</label>
-                      <input type="date" value={editEnd} onChange={(e) => setEditEnd(e.target.value)}
-                        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                    </div>
-                  </div>
-                  {editError && <p className="text-xs text-red-600">{editError}</p>}
-                  <div className="flex gap-2">
-                    <button onClick={saveSprint} disabled={pending}
-                      className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50">
-                      {pending ? "Saving…" : "Save"}
-                    </button>
-                    <button onClick={() => setEditingId(null)}
-                      className="rounded-lg border border-neutral-200 px-4 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <span className="shrink-0 rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">Planned</span>
-                  <span className="font-medium text-neutral-800 text-sm truncate">{s.name}</span>
-                  {s.goal && <span className="hidden sm:block text-xs text-neutral-400 truncate">— {s.goal}</span>}
-                  {s.startDate && (
-                    <span className="hidden sm:block text-xs text-neutral-400 shrink-0">
-                      {fmtDate(s.startDate)} → {fmtDate(s.endDate)}
-                    </span>
-                  )}
-                  <div className="ml-auto flex items-center gap-2 shrink-0">
+          {plannedSprints.filter((s) => s.id !== sprint?.id).length > 0 && (
+            <div className="mb-3">
+              <p className="mb-1.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Upcoming sprints</p>
+              <div className="fw-card overflow-hidden">
+                {plannedSprints.filter((s) => s.id !== sprint?.id).map((s, i) => (
+                  <div key={s.id} className={`flex items-center gap-3 px-3.5 py-[11px] ${i > 0 ? "border-t border-[#e3ded0]" : ""}`}>
+                    <span className="shrink-0 rounded-full bg-[#eaf1f8] px-2 py-0.5 text-[10px] font-bold text-[#3a6ea8]">Planned</span>
+                    <span className="min-w-0 flex-1 truncate text-[12.5px] text-[#20201d]">{s.name}</span>
+                    {s.startDate && <span className="hidden shrink-0 text-[11px] text-[#a19d90] sm:block">{fmtDate(s.startDate)}–{fmtDate(s.endDate)}</span>}
                     {canEdit && (
-                      <>
-                        <button
-                          onClick={() => openEdit(s)}
-                          className="flex items-center gap-1.5 rounded-lg border border-yellow-300 bg-yellow-50 px-2.5 py-1 text-xs font-semibold text-yellow-700 hover:bg-yellow-100 hover:border-yellow-400 transition"
-                        >
-                          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M11.5 1.5a2.121 2.121 0 0 1 3 3L4 15H1v-3L11.5 1.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
-                          </svg>
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => startSprint(s.id)}
-                          disabled={pending || !!activeSprint}
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button onClick={() => openEdit(s)} className="text-[11px] font-semibold text-[#a19d90] hover:text-[#4a473e]">Edit</button>
+                        <button onClick={() => startSprint(s.id)} disabled={pending || !!activeSprint}
                           title={activeSprint ? "Complete the active sprint first" : "Start this sprint"}
-                          className="rounded-lg bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
+                          className="rounded-full bg-[#8c4632] px-2.5 py-1 text-[11px] font-semibold text-white disabled:opacity-40">
                           Start
                         </button>
-                      </>
+                      </div>
                     )}
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* + Create sprint */}
-      {canEdit && !showCreate && (
-        <button onClick={() => setShowCreate(true)}
-          className="rounded-lg border border-dashed border-neutral-300 px-4 py-2 text-sm text-neutral-500 hover:border-neutral-400 hover:text-neutral-700">
-          + Create sprint
-        </button>
-      )}
-
-      {showCreate && (
-        <div className="rounded-xl border border-neutral-200 bg-white p-4 space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex gap-1">
-              <button className={tabCls("single")} onClick={() => { setCreateTab("single"); setError(null); }}>Single</button>
-              <button className={tabCls("bulk")} onClick={() => { setCreateTab("bulk"); setError(null); }}>Bulk scaffold</button>
-              <button className={tabCls("import")} onClick={() => { setCreateTab("import"); setError(null); }}>AI import</button>
-            </div>
-            <button onClick={close} className="text-neutral-400 hover:text-neutral-600 text-sm">✕</button>
-          </div>
-
-          {createTab === "single" && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-neutral-500 mb-1 block">Name</label>
-                  <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Sprint 1"
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-neutral-500 mb-1 block">Goal (optional)</label>
-                  <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="Ship user auth"
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-neutral-500 mb-1 block">Start date</label>
-                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-neutral-500 mb-1 block">End date</label>
-                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
-                </div>
-              </div>
-              {error && <p className="text-xs text-red-600">{error}</p>}
-              <div className="flex gap-2">
-                <button onClick={createSingle} disabled={pending}
-                  className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50">
-                  {pending ? "Creating…" : "Create"}
-                </button>
-                <button onClick={close} className="rounded-lg border border-neutral-200 px-4 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50">Cancel</button>
-              </div>
-            </div>
-          )}
-
-          {createTab === "bulk" && (
-            <BulkSprintCreator
-              slug={slug}
-              projectId={projectId}
-              onClose={close}
-              onDone={close}
-            />
-          )}
-
-          {createTab === "import" && (
-            <SprintImport
-              slug={slug}
-              projectId={projectId}
-              onClose={close}
-              onDone={close}
-            />
-          )}
-        </div>
-      )}
-
-      {/* Backlog toggle */}
-      {canEdit && backlogIssues.length > 0 && sprint && sprint.status !== "completed" && (
-        <div>
-          <button onClick={() => setShowBacklog((s) => !s)} className="text-xs text-neutral-400 hover:text-neutral-600">
-            {showBacklog ? "▾" : "▸"} Backlog ({backlogIssues.length} unscheduled)
-          </button>
-          {showBacklog && (
-            <div className="mt-2 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-              <p className="mb-2 text-xs text-neutral-500">Click + to add to the current sprint</p>
-              <div className="space-y-1 max-h-48 overflow-y-auto">
-                {backlogIssues.map((i) => (
-                  <div key={i.id} className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-2 text-sm border border-neutral-100">
-                    <span className="truncate text-neutral-700">{i.title}</span>
-                    <button onClick={() => addToSprint(i.id)} disabled={pending}
-                      className="shrink-0 text-xs text-neutral-400 hover:text-neutral-900 disabled:opacity-50">
-                      + sprint
-                    </button>
                   </div>
                 ))}
               </div>
+              {editingId && editingId !== sprint?.id && editForm}
+            </div>
+          )}
+
+          {canEdit && (
+            <div className="mb-3">
+              {createTab === null ? (
+                <button onClick={() => setCreateTab("single")}
+                  className="rounded-lg border border-dashed border-[var(--fw-cream-border)] px-4 py-2 text-[12px] text-[#726e60] hover:border-[#a19d90] hover:text-[#4a473e]">
+                  + Create sprint
+                </button>
+              ) : (
+                <div className="fw-card space-y-3 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex gap-1">
+                      {(["single", "bulk", "import"] as CreateTab[]).map((t) => (
+                        <button key={t} onClick={() => { setCreateTab(t); setError(null); }}
+                          className={`rounded-lg px-3 py-1.5 text-[11.5px] font-semibold transition ${createTab === t ? "bg-[#8c4632] text-white" : "text-[#726e60] hover:bg-[#eae6da]"}`}>
+                          {t === "single" ? "Single" : t === "bulk" ? "Bulk scaffold" : "AI import"}
+                        </button>
+                      ))}
+                    </div>
+                    <button onClick={closeCreate} className="text-[#a19d90] hover:text-[#4a473e]">✕</button>
+                  </div>
+
+                  {createTab === "single" && (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-1 block text-[11px] font-semibold text-[#726e60]">Name</label>
+                          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Sprint 1"
+                            className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-[12.5px] outline-none focus:border-[#8c4632]" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-semibold text-[#726e60]">Goal (optional)</label>
+                          <input value={goal} onChange={(e) => setGoal(e.target.value)} placeholder="Ship user auth"
+                            className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-[12.5px] outline-none focus:border-[#8c4632]" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-semibold text-[#726e60]">Start date</label>
+                          <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
+                            className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-[12.5px] outline-none focus:border-[#8c4632]" />
+                        </div>
+                        <div>
+                          <label className="mb-1 block text-[11px] font-semibold text-[#726e60]">End date</label>
+                          <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
+                            className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-[12.5px] outline-none focus:border-[#8c4632]" />
+                        </div>
+                      </div>
+                      {error && <p className="text-[11px] text-[#c0392b]">{error}</p>}
+                      <div className="flex gap-2">
+                        <button onClick={createSingle} disabled={pending}
+                          className="rounded-lg bg-[#8c4632] px-4 py-1.5 text-[11.5px] font-semibold text-white hover:bg-[#7a3c2a] disabled:opacity-50">
+                          {pending ? "Creating…" : "Create"}
+                        </button>
+                        <button onClick={closeCreate} className="rounded-lg border border-[var(--fw-cream-border)] px-4 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da]">Cancel</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {createTab === "bulk" && (
+                    <BulkSprintCreator slug={slug} projectId={projectId} onClose={closeCreate} onDone={closeCreate} />
+                  )}
+                  {createTab === "import" && (
+                    <SprintImport slug={slug} projectId={projectId} onClose={closeCreate} onDone={closeCreate} />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {canEdit && backlogIssues.length > 0 && sprint && sprint.status !== "completed" && (
+            <div>
+              <button onClick={() => setShowBacklog((s) => !s)} className="text-[11.5px] font-semibold text-[#a19d90] hover:text-[#4a473e]">
+                {showBacklog ? "▾" : "▸"} Backlog ({backlogIssues.length} unscheduled)
+              </button>
+              {showBacklog && (
+                <div className="mt-2 max-h-48 overflow-y-auto fw-card">
+                  {backlogIssues.map((i, idx) => (
+                    <div key={i.id} className={`flex items-center justify-between gap-2 px-3.5 py-2 text-[12.5px] ${idx > 0 ? "border-t border-[#e3ded0]" : ""}`}>
+                      <span className="truncate text-[#20201d]">{i.title}</span>
+                      <button onClick={() => addToSprint(i.id)} disabled={pending}
+                        className="shrink-0 text-[11px] font-semibold text-[#a19d90] hover:text-[#8c4632] disabled:opacity-50">
+                        + sprint
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Consolidated alert bar ── */}
+      {warnings.length > 0 && (
+        <div className="border-t" style={{ borderColor: "#f0cfc9", backgroundColor: "#fbeae8" }}>
+          <button onClick={() => setAlertExpanded((v) => !v)} className="flex w-full items-center gap-2.5 px-6 py-2 text-left">
+            <span className="shrink-0 text-[13px]">⚠️</span>
+            <span className="shrink-0 text-[12px] font-bold text-[#c0392b]">
+              {warnings.length} thing{warnings.length > 1 ? "s" : ""} need{warnings.length === 1 ? "s" : ""} your attention
+            </span>
+            <span className="min-w-0 flex-1 truncate text-[12px] text-[#c0392b]">{warnings[0].text}</span>
+            <span className="shrink-0 text-[11px] font-semibold text-[#c0392b]">{alertExpanded ? "Hide ▾" : "Review ▸"}</span>
+          </button>
+          {alertExpanded && (
+            <div style={{ backgroundColor: "#fdf4f2" }}>
+              {warnings.map((w, i) => (
+                <div key={w.key} className={`flex items-center gap-2.5 py-2 pr-6 text-[12px] text-[#c0392b] ${i > 0 ? "border-t border-[#f0cfc9]" : ""}`} style={{ paddingLeft: 37 }}>
+                  <span className="min-w-0 flex-1">{w.text}</span>
+                  <button onClick={w.onAction} className="shrink-0 font-semibold underline hover:no-underline">{w.actionLabel}</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Sprint details panel — collapsed by default ── */}
+      {detailsOpen && sprint && (
+        <div className="border-t border-[var(--fw-cream-border)] px-6 py-4">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="fw-card p-3.5">
+              <p className="text-[9.5px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Burndown</p>
+              {sprint.startDate && sprint.endDate && total > 0 ? (
+                <BurnSparkline startDate={sprint.startDate} endDate={sprint.endDate} total={total} done={done} nowMs={currentMs()} />
+              ) : (
+                <p className="mt-2 text-[11px] text-[#a19d90]">No data yet.</p>
+              )}
+            </div>
+            <div className="fw-card p-3.5">
+              <p className="text-[9.5px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Scope</p>
+              <p className="mt-2 font-[family-name:var(--font-manrope)] text-[23px] font-extrabold text-[#20201d]">{done}/{total}</p>
+              <p className="mt-0.5 text-[11px] text-[#a19d90]">issues done</p>
+            </div>
+            <div className="fw-card p-3.5">
+              <p className="text-[9.5px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Capacity</p>
+              {estimatedMinutes > 0 ? (
+                <>
+                  <p className="mt-2 font-[family-name:var(--font-manrope)] text-[23px] font-extrabold text-[#20201d]">
+                    {(loggedMinutes / 60).toFixed(1)}h <span className="text-[13px] font-semibold text-[#a19d90]">/ {(estimatedMinutes / 60).toFixed(1)}h</span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-[#a19d90]">logged / estimated</p>
+                  <span className="mt-2 block overflow-hidden rounded-full bg-[#e3ded0]" style={{ height: 6 }}>
+                    <span
+                      className="block h-full rounded-full transition-all"
+                      style={{ width: `${Math.min(100, Math.round((loggedMinutes / estimatedMinutes) * 100))}%`, backgroundColor: "#8c4632" }}
+                    />
+                  </span>
+                </>
+              ) : (
+                <p className="mt-2 text-[11px] text-[#a19d90]">No estimates logged.</p>
+              )}
+            </div>
+            <div
+              className="rounded-[6px] p-3.5 fw-grunge relative overflow-hidden border"
+              style={{ background: "linear-gradient(160deg,#2a2c26,#20221d)", borderColor: "#454636" }}
+            >
+              <p className="relative text-[9.5px] font-extrabold uppercase tracking-[0.07em] text-[#a39d89]">AI Sprint Intelligence</p>
+              <div className="relative mt-2">
+                {(sprint.status === "active" || sprint.status === "completed") && sprint.startDate && sprint.endDate ? (
+                  <SprintIntelligence
+                    slug={slug}
+                    sprintId={sprint.id}
+                    issueCount={total}
+                    sprintDays={Math.ceil((new Date(sprint.endDate + "T00:00:00").getTime() - new Date(sprint.startDate + "T00:00:00").getTime()) / 86_400_000)}
+                  />
+                ) : (
+                  <p className="text-[11px] text-[#a39d89]">Available once the sprint is active.</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {sprint.status === "active" && sprintIssues.length > 0 && canEdit && (
+            <div className="mt-3 flex flex-wrap gap-1.5">
+              {sprintIssues.slice(0, 8).map((i) => (
+                <button key={i.id} onClick={() => removeFromSprint(i.id)} title="Remove from sprint"
+                  className="inline-flex items-center gap-1 rounded-full bg-[var(--fw-cream)] px-2 py-0.5 text-[11px] text-[#4a473e] hover:bg-[#fbeae8] hover:text-[#c0392b]">
+                  <span className={`h-1.5 w-1.5 rounded-full ${i.status === "done" ? "bg-[#3f7d4c]" : "bg-[#a19d90]"}`} />
+                  {i.title.length > 30 ? i.title.slice(0, 30) + "…" : i.title}
+                  <span className="text-[#a19d90]">×</span>
+                </button>
+              ))}
+              {sprintIssues.length > 8 && <span className="text-[11px] text-[#a19d90]">+{sprintIssues.length - 8} more</span>}
             </div>
           )}
         </div>

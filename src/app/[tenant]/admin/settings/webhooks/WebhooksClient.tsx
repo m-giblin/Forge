@@ -3,6 +3,11 @@
 import { useState, useTransition } from "react";
 import type { WebhookEndpointMeta } from "@/lib/repositories/webhooks";
 import { createWebhookAction, toggleWebhookAction, deleteWebhookAction, testWebhookAction, revealSecretAction } from "./actions";
+import PageHeader from "@/components/patterns/PageHeader";
+import AdminTable from "@/components/patterns/admin/AdminTable";
+import FormGrid from "@/components/patterns/admin/FormGrid";
+import Note from "@/components/patterns/admin/Note";
+import Toggle from "@/components/patterns/Toggle";
 
 const EVENT_LABELS: Record<string, string> = {
   "issue.created": "Issue created",
@@ -10,6 +15,9 @@ const EVENT_LABELS: Record<string, string> = {
   "issue.deleted": "Issue deleted",
   "comment.created": "Comment posted",
 };
+
+const inputCls =
+  "w-full rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12.5px] text-[#20201d] placeholder-[#a19d90] outline-none focus:border-[#b7452f]";
 
 export default function WebhooksClient({
   slug,
@@ -35,7 +43,6 @@ export default function WebhooksClient({
       try {
         await createWebhookAction(slug, formData);
         setAdding(false);
-        // Refresh by reloading — server action revalidates the path
         window.location.reload();
       } catch (e) {
         setError(e instanceof Error ? e.message : "Failed to create webhook");
@@ -65,134 +72,162 @@ export default function WebhooksClient({
     });
   }
 
+  async function toggleReveal(id: string) {
+    if (revealSecret === id) { setRevealSecret(null); return; }
+    if (revealedSecrets[id]) { setRevealSecret(id); return; }
+    setRevealPending(id);
+    try {
+      const secret = await revealSecretAction(slug, id);
+      if (secret) setRevealedSecrets((s) => ({ ...s, [id]: secret }));
+      setRevealSecret(id);
+    } finally { setRevealPending(null); }
+  }
+
   return (
-    <div className="space-y-4">
-      {/* Endpoint list */}
-      {list.length === 0 && !adding && (
-        <div className="rounded-xl border border-dashed border-neutral-200 p-8 text-center text-sm text-neutral-400">
-          No webhooks yet. Add one to start receiving events.
-        </div>
-      )}
+    <div className="space-y-6">
+      <PageHeader title="Webhooks" subtitle="Send issue events to your own endpoints" />
 
-      {list.map((ep) => (
-        <div key={ep.id} className="rounded-xl border border-neutral-200 bg-white p-4 space-y-3">
-          <div className="flex items-start gap-3">
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-mono text-neutral-800 truncate">{ep.url}</p>
-              <div className="flex flex-wrap gap-1 mt-1.5">
-                {ep.events.map((e) => (
-                  <span key={e} className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] text-neutral-500">
-                    {EVENT_LABELS[e] ?? e}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <label className="flex items-center gap-1.5 cursor-pointer shrink-0">
-              <input
-                type="checkbox"
-                checked={ep.enabled}
-                onChange={(e) => handleToggle(ep.id, e.target.checked)}
-                disabled={pending}
-                className="h-4 w-4 rounded border-neutral-300"
-              />
-              <span className="text-xs text-neutral-500">{ep.enabled ? "Enabled" : "Disabled"}</span>
-            </label>
-          </div>
+      <div className="space-y-6 px-6">
+        {error && <Note icon="⚠" tone="error">{error}</Note>}
 
-          {/* Secret — fetched on demand; never in initial page data */}
-          <div className="flex items-center gap-2 rounded-lg bg-neutral-50 px-3 py-2 text-xs font-mono text-neutral-500">
-            <span className="text-neutral-400 shrink-0">Secret:</span>
-            <span className="flex-1 truncate">
-              {revealSecret === ep.id && revealedSecrets[ep.id]
-                ? revealedSecrets[ep.id]
-                : "••••••••••••••••••••••••"}
-            </span>
-            <button
-              onClick={async () => {
-                if (revealSecret === ep.id) { setRevealSecret(null); return; }
-                if (revealedSecrets[ep.id]) { setRevealSecret(ep.id); return; }
-                setRevealPending(ep.id);
-                try {
-                  const secret = await revealSecretAction(slug, ep.id);
-                  if (secret) setRevealedSecrets((s) => ({ ...s, [ep.id]: secret }));
-                  setRevealSecret(ep.id);
-                } finally { setRevealPending(null); }
-              }}
-              disabled={revealPending === ep.id}
-              className="shrink-0 text-neutral-400 hover:text-neutral-700 text-[11px] disabled:opacity-50">
-              {revealPending === ep.id ? "…" : revealSecret === ep.id ? "Hide" : "Reveal"}
-            </button>
-          </div>
-
-          {/* Test result */}
-          {testResults[ep.id] && (
-            <p className={`text-xs px-3 py-1.5 rounded-lg ${testResults[ep.id].ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>
-              {testResults[ep.id].ok
-                ? `✓ Delivered (HTTP ${testResults[ep.id].status})`
-                : `✗ Failed${testResults[ep.id].status ? ` (HTTP ${testResults[ep.id].status})` : ""}: ${testResults[ep.id].error ?? "unknown error"}`}
-            </p>
+        <div>
+          <h2 className="mb-3 text-[12.5px] font-bold text-[#20201d]">Endpoints</h2>
+          {list.length === 0 ? (
+            <p className="text-[11.5px] text-[#a19d90]">No webhooks yet. Add one below to start receiving events.</p>
+          ) : (
+            <AdminTable
+              minWidth={720}
+              columns={[
+                { label: "URL", flex: true },
+                { label: "Events", width: 220 },
+                { label: "Status", width: 90 },
+                { label: "Last delivery", width: 150 },
+                { label: "", width: 140 },
+              ]}
+              rows={list.map((ep) => {
+                const result = testResults[ep.id];
+                const failing = result && !result.ok;
+                return [
+                  { kind: "mono", value: ep.url },
+                  {
+                    kind: "dim",
+                    value: ep.events.map((e) => EVENT_LABELS[e] ?? e).join(", "),
+                  },
+                  {
+                    kind: "chip",
+                    value: failing ? "Failing" : ep.enabled ? "Active" : "Disabled",
+                    chipFg: failing ? "#c0392b" : ep.enabled ? "#3f7d4c" : "#a19d90",
+                    chipBg: failing ? "#fbeae8" : ep.enabled ? "#e9f3ea" : "#f1efe9",
+                  },
+                  {
+                    kind: "dim",
+                    value: result
+                      ? result.ok
+                        ? `✓ HTTP ${result.status}`
+                        : `✗ ${result.status ? `HTTP ${result.status}` : result.error ?? "failed"}`
+                      : "—",
+                  },
+                  {
+                    kind: "text",
+                    value: (
+                      <span className="flex items-center gap-2.5 text-[11.5px]">
+                        <button type="button" onClick={() => handleTest(ep.id)} disabled={pending} className="font-semibold text-[#b7452f] hover:underline disabled:opacity-50">
+                          Test
+                        </button>
+                        <span className="text-[#ddd8c9]">·</span>
+                        <button type="button" onClick={() => handleDelete(ep.id)} disabled={pending} className="font-semibold text-[#c0392b] hover:underline disabled:opacity-50">
+                          Delete
+                        </button>
+                      </span>
+                    ),
+                  },
+                ];
+              })}
+            />
           )}
-
-          <div className="flex gap-2">
-            <button onClick={() => handleTest(ep.id)} disabled={pending}
-              className="rounded-lg border border-neutral-200 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-50 disabled:opacity-50">
-              Send test
-            </button>
-            <button onClick={() => handleDelete(ep.id)} disabled={pending}
-              className="rounded-lg border border-red-200 px-3 py-1 text-xs text-red-600 hover:bg-red-50 disabled:opacity-50">
-              Delete
-            </button>
-          </div>
         </div>
-      ))}
 
-      {/* Add form */}
-      {adding ? (
-        <form action={handleCreate} className="rounded-xl border border-neutral-200 bg-white p-4 space-y-4">
-          <p className="text-sm font-medium text-neutral-800">New webhook endpoint</p>
+        {list.length > 0 && (
+          <div className="space-y-3">
+            {list.map((ep) => (
+              <div key={ep.id} className="fw-card flex items-center gap-3 px-3.5 py-3">
+                <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-[#726e60]">{ep.url}</span>
+                <span className="shrink-0 flex-1 truncate text-[11px] text-[#a19d90]">
+                  {revealSecret === ep.id && revealedSecrets[ep.id] ? revealedSecrets[ep.id] : "••••••••••••••••••••••••"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => toggleReveal(ep.id)}
+                  disabled={revealPending === ep.id}
+                  className="shrink-0 text-[11px] font-semibold text-[#b7452f] hover:underline disabled:opacity-50"
+                >
+                  {revealPending === ep.id ? "…" : revealSecret === ep.id ? "Hide secret" : "Reveal secret"}
+                </button>
+                <Toggle on={ep.enabled} onChange={(next) => handleToggle(ep.id, next)} label={`Enable ${ep.url}`} />
+              </div>
+            ))}
+          </div>
+        )}
 
+        {adding ? (
           <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-500">URL</label>
-            <input name="url" required placeholder="https://hooks.slack.com/…"
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900" />
+            <h2 className="mb-3 text-[12.5px] font-bold text-[#20201d]">New endpoint</h2>
+            <form action={handleCreate}>
+              <FormGrid
+                fields={[
+                  {
+                    key: "url",
+                    label: "URL",
+                    input: <input name="url" required placeholder="https://hooks.slack.com/…" className={inputCls} />,
+                  },
+                  {
+                    key: "events",
+                    label: "Events",
+                    input: (
+                      <div className="flex flex-col gap-1.5 pt-1">
+                        {allEvents.map((e) => (
+                          <label key={e} className="flex cursor-pointer items-center gap-2">
+                            <input
+                              type="checkbox"
+                              name={`event_${e}`}
+                              defaultChecked
+                              className="h-3.5 w-3.5 rounded border-[#ddd8c9]"
+                            />
+                            <span className="text-[12px] text-[#4a473e]">{EVENT_LABELS[e] ?? e}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ),
+                  },
+                ]}
+                onCancel={() => { setAdding(false); setError(null); }}
+              />
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={pending}
+                  className="rounded-[5px] border border-[#5e2c1f] px-3.5 py-[7px] text-[12px] font-semibold text-[#f2e9d8] disabled:opacity-50"
+                  style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+                >
+                  {pending ? "Creating…" : "Create endpoint"}
+                </button>
+              </div>
+            </form>
           </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setAdding(true)}
+            className="w-full rounded-[6px] border border-dashed border-[#ddd8c9] bg-[#faf8f2] py-3 text-[12px] font-semibold text-[#726e60] hover:bg-[#f4f2eb]"
+          >
+            + Add webhook endpoint
+          </button>
+        )}
 
-          <div>
-            <label className="mb-1 block text-xs font-medium text-neutral-500">Events</label>
-            <div className="space-y-1.5">
-              {allEvents.map((e) => (
-                <label key={e} className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name={`event_${e}`} defaultChecked className="h-4 w-4 rounded border-neutral-300" />
-                  <span className="text-sm text-neutral-700">{EVENT_LABELS[e] ?? e}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-
-          {error && <p className="text-sm text-red-600">{error}</p>}
-
-          <div className="flex gap-2">
-            <button type="submit" disabled={pending}
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50">
-              {pending ? "Creating…" : "Create webhook"}
-            </button>
-            <button type="button" onClick={() => { setAdding(false); setError(null); }}
-              className="rounded-lg border border-neutral-200 px-4 py-2 text-sm text-neutral-500 hover:bg-neutral-50">
-              Cancel
-            </button>
-          </div>
-        </form>
-      ) : (
-        <button onClick={() => setAdding(true)}
-          className="w-full rounded-xl border border-dashed border-neutral-300 py-3 text-sm text-neutral-500 hover:bg-neutral-50 transition">
-          + Add webhook endpoint
-        </button>
-      )}
-
-      <div className="rounded-xl bg-neutral-50 border border-neutral-200 p-4 text-xs text-neutral-500 space-y-1">
-        <p className="font-medium text-neutral-700">Verifying signatures</p>
-        <p>Each request includes an <code className="font-mono bg-white px-1 rounded">X-Forge-Signature: sha256=&lt;hex&gt;</code> header.</p>
-        <p>Compute <code className="font-mono bg-white px-1 rounded">HMAC-SHA256(secret, raw_body)</code> and compare to verify authenticity.</p>
+        <Note icon="🔒" tone="info">
+          Each request includes an <code className="font-mono">X-Forge-Signature: sha256=&lt;hex&gt;</code> header. Compute{" "}
+          <code className="font-mono">HMAC-SHA256(secret, raw_body)</code> and compare to verify authenticity.
+        </Note>
       </div>
     </div>
   );

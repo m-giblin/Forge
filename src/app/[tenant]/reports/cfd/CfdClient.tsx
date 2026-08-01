@@ -5,7 +5,7 @@ import type { CfdResult } from "@/app/api/reports/cfd/route";
 
 interface Project { id: string; name: string }
 
-const FALLBACK_COLORS = ["#6366f1", "#3B82F6", "#F59E0B", "#10B981", "#EF4444", "#8B5CF6", "#9CA3AF"];
+const FALLBACK_COLORS = ["#b7452f", "#3a6ea8", "#c9791d", "#7a4fa0", "#3f7d4c", "#5b6b4a", "#a1663f"];
 
 export default function CfdClient({
   slug, projects, initialProjectId,
@@ -84,7 +84,7 @@ export default function CfdClient({
                 key={d}
                 type="button"
                 onClick={() => setDays(d)}
-                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${days === d ? "bg-neutral-900 text-white" : "text-neutral-500 hover:text-neutral-700"}`}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${days === d ? "bg-[#8c4632] text-[#f2e9d8]" : "text-[#726e60] hover:text-[#4a473e]"}`}
               >
                 {d}d
               </button>
@@ -93,7 +93,7 @@ export default function CfdClient({
           <select
             value={projectId}
             onChange={(e) => setProjectId(e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300"
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>

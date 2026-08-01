@@ -27,20 +27,23 @@ const CHART_TYPE_ICONS: Record<ChartType, string> = { "bar-h": "≡", "bar-v": "
 
 // ── Color maps ─────────────────────────────────────────────────────────────────
 const STATUS_COLORS: Record<string, string> = {
-  backlog: "#94a3b8", todo: "#64748b", in_progress: "#6366f1",
-  in_review: "#8b5cf6", done: "#22c55e", closed: "#22c55e", unknown: "#cbd5e1",
+  backlog: "#a19d90", todo: "#3a6ea8", in_progress: "#c9791d",
+  in_review: "#7a4fa0", done: "#3f7d4c", closed: "#3f7d4c", unknown: "#a19d90",
 };
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "#ef4444", high: "#f97316", medium: "#eab308", low: "#22c55e", none: "#94a3b8",
+  urgent: "#c0392b", high: "#c9791d", medium: "#a1663f", low: "#5b6b4a", none: "#a19d90",
 };
 const TYPE_COLORS: Record<string, string> = {
-  bug: "#ef4444", feature: "#6366f1", task: "#94a3b8", question: "#0ea5e9",
+  bug: "#c0392b", feature: "#b7452f", task: "#a19d90", question: "#3a6ea8",
 };
-const PALETTE = ["#6366f1","#22c55e","#f97316","#ef4444","#8b5cf6","#0ea5e9","#eab308","#64748b","#ec4899","#14b8a6","#f59e0b","#84cc16"];
+// NOTE: dynamic dimensions (assignee/label/sprint/project/phase/environment) can exceed
+// the ~6-color status/rust palette; flagged rather than silently invented — cycling the
+// brand-safe set below (rust + status hues + olive/tan) instead of Tailwind defaults.
+const PALETTE = ["#b7452f","#3a6ea8","#c9791d","#7a4fa0","#3f7d4c","#c0392b","#5b6b4a","#a1663f"];
 function dimColor(groupBy: GroupBy, dim: string, i: number): string {
-  if (groupBy === "status") return STATUS_COLORS[dim] ?? "#94a3b8";
-  if (groupBy === "priority") return PRIORITY_COLORS[dim] ?? "#94a3b8";
-  if (groupBy === "type") return TYPE_COLORS[dim] ?? "#94a3b8";
+  if (groupBy === "status") return STATUS_COLORS[dim] ?? "#a19d90";
+  if (groupBy === "priority") return PRIORITY_COLORS[dim] ?? "#a19d90";
+  if (groupBy === "type") return TYPE_COLORS[dim] ?? "#a19d90";
   return PALETTE[i % PALETTE.length];
 }
 function dimLabel(dim: string): string {
@@ -116,7 +119,7 @@ function HBarChart({ rows, groupBy, metric, unit }: { rows: ReportRow[]; groupBy
             </span>
           </div>
           <div className="flex gap-3 shrink-0 text-[11px] text-neutral-400 w-32">
-            <span className="text-indigo-500">{row.open} open</span>
+            <span className="text-[#b7452f]">{row.open} open</span>
             <span className="text-green-500">{Math.round(row.closed)} done</span>
             <span className="font-medium text-neutral-600">{row.pctDone}%</span>
           </div>
@@ -193,8 +196,8 @@ function LineChart({ points }: { points: TrendPoint[] }) {
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full min-w-[400px]">
         <defs>
           <linearGradient id="areaGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#6366f1" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#6366f1" stopOpacity="0.01" />
+            <stop offset="0%" stopColor="#b7452f" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#b7452f" stopOpacity="0.01" />
           </linearGradient>
         </defs>
         {gridYs.map((gy, i) => (
@@ -202,22 +205,22 @@ function LineChart({ points }: { points: TrendPoint[] }) {
         ))}
         <path d={areaPath} fill="url(#areaGrad)" />
         {prevPath && <path d={prevPath} fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeDasharray="4 3" />}
-        <path d={linePath} fill="none" stroke="#6366f1" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        <path d={linePath} fill="none" stroke="#b7452f" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
         {points.map((p, i) => (
           <g key={p.key}>
-            <circle cx={x(i)} cy={y(p.value)} r="3.5" fill="#6366f1" />
+            <circle cx={x(i)} cy={y(p.value)} r="3.5" fill="#b7452f" />
             {p.prevValue != null && <circle cx={x(i)} cy={y(p.prevValue)} r="2.5" fill="#cbd5e1" />}
             <text x={x(i)} y={H - 8} textAnchor="middle" fontSize="8" fill="#94a3b8" transform={points.length > 8 ? `rotate(-45, ${x(i)}, ${H - 8})` : undefined}>
               {p.label}
             </text>
-            <text x={x(i)} y={y(p.value) - 8} textAnchor="middle" fontSize="8" fill="#4f46e5" fontWeight="600">
+            <text x={x(i)} y={y(p.value) - 8} textAnchor="middle" fontSize="8" fill="#8c4632" fontWeight="600">
               {p.value}
             </text>
           </g>
         ))}
       </svg>
       <div className="mt-2 flex gap-4 text-[11px] text-neutral-500">
-        <span><span className="inline-block w-6 h-0.5 bg-indigo-500 align-middle mr-1.5" />Current period</span>
+        <span><span className="inline-block w-6 h-0.5 bg-[#b7452f] align-middle mr-1.5" />Current period</span>
         {points.some((p) => p.prevValue != null) && <span><span className="inline-block w-6 h-0.5 bg-neutral-300 align-middle mr-1.5 border-dashed border-t" />Previous period</span>}
       </div>
     </div>
@@ -324,10 +327,10 @@ function DataTable({ rows, groupBy, metric, unit }: { rows: ReportRow[]; groupBy
         </thead>
         <tbody>
           {sorted.map((row, i) => (
-            <tr key={row.dimension} className={`border-b border-neutral-100 ${i % 2 === 1 ? "bg-neutral-50/50" : ""} hover:bg-indigo-50/40 transition-colors`}>
+            <tr key={row.dimension} className={`border-b border-neutral-100 ${i % 2 === 1 ? "bg-neutral-50/50" : ""} hover:bg-[#fbeae8]/40 transition-colors`}>
               <td className="px-3 py-2.5 font-medium text-neutral-800">{dimLabel(row.dimension)}</td>
               <td className="px-3 py-2.5 text-neutral-700 font-semibold">{fmtVal(row.value)}</td>
-              <td className="px-3 py-2.5 text-indigo-600">{fmtVal(row.open)}</td>
+              <td className="px-3 py-2.5 text-[#b7452f]">{fmtVal(row.open)}</td>
               <td className="px-3 py-2.5 text-green-600">{fmtVal(row.closed)}</td>
               <td className="px-3 py-2.5">
                 <div className="flex items-center gap-2">
@@ -453,7 +456,7 @@ export default function CustomReportClient({
                 <div className="flex gap-1.5">
                   {(["breakdown", "trend"] as const).map((v) => (
                     <button key={v} onClick={() => setTrend(v === "trend")}
-                      className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors ${(v === "trend") === trend ? "bg-indigo-600 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}>
+                      className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors ${(v === "trend") === trend ? "bg-[#8c4632] text-[#f2e9d8]" : "bg-[#f4f2eb] text-[#4a473e] hover:bg-[#ede9db]"}`}>
                       {v === "breakdown" ? "Breakdown" : "Trend"}
                     </button>
                   ))}
@@ -465,7 +468,7 @@ export default function CustomReportClient({
                 <div>
                   <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Group By</p>
                   <select value={groupBy} onChange={(e) => setGroupBy(e.target.value as GroupBy)}
-                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                    className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40">
                     {GROUP_BY_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.icon} {opt.label}</option>
                     ))}
@@ -477,7 +480,7 @@ export default function CustomReportClient({
               <div>
                 <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Metric</p>
                 <select value={metric} onChange={(e) => setMetric(e.target.value as Metric)}
-                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                  className="w-full rounded-lg border border-neutral-200 bg-white px-3 py-2 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40">
                   {METRIC_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
                   ))}
@@ -489,9 +492,9 @@ export default function CustomReportClient({
                 <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Date Range</p>
                 <div className="space-y-1.5">
                   <input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40" />
                   <input type="date" value={to} min={from} max={today} onChange={(e) => setTo(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40" />
                 </div>
                 <div className="mt-2 flex gap-1 flex-wrap">
                   {[["7d", 7], ["30d", 30], ["90d", 90], ["1y", 365]].map(([label, days]) => (
@@ -510,11 +513,11 @@ export default function CustomReportClient({
                     return (
                       <>
                         <button onClick={() => { setFrom(qStart.toISOString().slice(0, 10)); setTo(qEnd.toISOString().slice(0, 10)); }}
-                          className="rounded px-2 py-0.5 text-[10px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors">
+                          className="rounded px-2 py-0.5 text-[10px] text-[#8c4632] bg-[#fbeae8] hover:bg-[#f0c9c1] transition-colors">
                           This Q
                         </button>
                         <button onClick={() => { setFrom(lqStart.toISOString().slice(0, 10)); setTo(lqEnd.toISOString().slice(0, 10)); }}
-                          className="rounded px-2 py-0.5 text-[10px] text-indigo-600 bg-indigo-50 hover:bg-indigo-100 transition-colors">
+                          className="rounded px-2 py-0.5 text-[10px] text-[#8c4632] bg-[#fbeae8] hover:bg-[#f0c9c1] transition-colors">
                           Last Q
                         </button>
                         <button onClick={() => { const y = now.getFullYear(); setFrom(`${y}-01-01`); setTo(`${y}-12-31`); }}
@@ -532,7 +535,7 @@ export default function CustomReportClient({
                 <div>
                   <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Project</p>
                   <select value={projectId} onChange={(e) => setProjectId(e.target.value)}
-                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                    className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40">
                     <option value="">All Projects</option>
                     {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
@@ -546,7 +549,7 @@ export default function CustomReportClient({
                   <div className="flex gap-1.5">
                     {(["week", "month"] as DateGroup[]).map((v) => (
                       <button key={v} onClick={() => setDateGroup(v)}
-                        className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors capitalize ${dateGroup === v ? "bg-indigo-600 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}>
+                        className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition-colors capitalize ${dateGroup === v ? "bg-[#8c4632] text-[#f2e9d8]" : "bg-[#f4f2eb] text-[#4a473e] hover:bg-[#ede9db]"}`}>
                         {v}
                       </button>
                     ))}
@@ -560,14 +563,14 @@ export default function CustomReportClient({
 
               {/* Sprints info (breakdown mode) */}
               {!trend && filteredSprints.length > 0 && groupBy === "sprint" && (
-                <div className="rounded-lg bg-indigo-50 px-3 py-2">
-                  <p className="text-[10px] text-indigo-600">{filteredSprints.length} sprint{filteredSprints.length !== 1 ? "s" : ""} in scope</p>
+                <div className="rounded-lg bg-[#fbeae8] px-3 py-2">
+                  <p className="text-[10px] text-[#8c4632]">{filteredSprints.length} sprint{filteredSprints.length !== 1 ? "s" : ""} in scope</p>
                 </div>
               )}
 
               {/* Run button */}
               <button onClick={run} disabled={loading}
-                className="w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-60 transition-colors shadow-sm">
+                className="w-full rounded-xl bg-[#8c4632] py-2.5 text-sm font-semibold text-[#f2e9d8] hover:bg-[#6e3324] disabled:opacity-60 transition-colors shadow-sm">
                 {loading ? "Running…" : "▶  Run Report"}
               </button>
             </div>
@@ -581,10 +584,10 @@ export default function CustomReportClient({
             {result && (
               <div className="mb-3 flex gap-1.5">
                 <input value={saveName} onChange={(e) => setSaveName(e.target.value)} placeholder="Report name…"
-                  className="flex-1 min-w-0 rounded-lg border border-neutral-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-300" />
+                  className="flex-1 min-w-0 rounded-lg border border-neutral-200 px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40" />
                 <button onClick={() => { if (saveName.trim()) { saveReport(saveName.trim(), currentConfig); setSaveName(""); } }}
                   disabled={!saveName.trim()}
-                  className="rounded-lg bg-indigo-600 px-2 py-1 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-40 transition-colors">
+                  className="rounded-lg bg-[#8c4632] px-2 py-1 text-xs font-semibold text-[#f2e9d8] hover:bg-[#6e3324] disabled:opacity-40 transition-colors">
                   Save
                 </button>
               </div>
@@ -594,7 +597,7 @@ export default function CustomReportClient({
               {saved.map((s) => (
                 <div key={s.id} className="flex items-center gap-1.5">
                   <button onClick={() => { setGroupBy(s.config.groupBy); setMetric(s.config.metric); setFrom(s.config.from); setTo(s.config.to); setProjectId(s.config.projectId); setTrend(s.config.trend); setDateGroup(s.config.dateGroup); setCompare(s.config.compare); }}
-                    className="flex-1 min-w-0 truncate text-left text-xs text-neutral-700 hover:text-indigo-600 transition-colors">
+                    className="flex-1 min-w-0 truncate text-left text-xs text-neutral-700 hover:text-[#b7452f] transition-colors">
                     {s.name}
                   </button>
                   <button onClick={() => removeReport(s.id)} className="text-neutral-300 hover:text-red-400 text-sm transition-colors">×</button>
@@ -628,7 +631,7 @@ export default function CustomReportClient({
                 📊 Excel
               </a>
               <a href={`/${slug}/reports/custom/export/pdf?groupBy=${groupBy}&metric=${metric}&from=${result.from}&to=${result.to}${projectId ? `&project=${projectId}` : ""}&trend=${trend}&dateGroup=${dateGroup}&compare=${compare}`}
-                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors shadow-sm">
+                className="flex items-center gap-1.5 rounded-lg bg-[#8c4632] px-3 py-2 text-xs font-semibold text-[#f2e9d8] hover:bg-[#6e3324] transition-colors shadow-sm">
                 📑 PDF
               </a>
             </div>
@@ -658,7 +661,7 @@ export default function CustomReportClient({
             <div className="flex items-center gap-1 border-b border-neutral-100 px-4 py-2">
               {CHART_TYPES.filter((t) => trend ? t === "line" || t === "table" : t !== "line").map((t) => (
                 <button key={t} onClick={() => setChartType(t)}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${chartType === t ? "bg-indigo-600 text-white" : "text-neutral-500 hover:bg-neutral-100"}`}>
+                  className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${chartType === t ? "bg-[#8c4632] text-[#f2e9d8]" : "text-[#726e60] hover:bg-[#f4f2eb]"}`}>
                   <span className="mr-1">{CHART_TYPE_ICONS[t]}</span>{CHART_TYPE_LABELS[t]}
                 </button>
               ))}
@@ -690,7 +693,7 @@ export default function CustomReportClient({
 
         {loading && (
           <div className="rounded-xl border border-neutral-200 bg-white py-16 text-center shadow-sm">
-            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+            <div className="inline-block h-6 w-6 animate-spin rounded-full border-2 border-[#8c4632] border-t-transparent" />
             <p className="mt-3 text-sm text-neutral-500">Building report…</p>
           </div>
         )}

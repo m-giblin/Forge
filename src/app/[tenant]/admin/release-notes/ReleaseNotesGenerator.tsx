@@ -2,23 +2,10 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { generateReleaseNotesAction, getProjectsAction, type ReleaseNotes } from "./actions";
-
-function Section({ title, items, icon }: { title: string; items: string[]; icon: string }) {
-  if (items.length === 0) return null;
-  return (
-    <div>
-      <p className="text-xs font-bold uppercase tracking-wide text-neutral-500 mb-2">{icon} {title}</p>
-      <ul className="space-y-1.5">
-        {items.map((item, i) => (
-          <li key={i} className="flex gap-2 text-sm text-neutral-800">
-            <span className="text-neutral-400 shrink-0 mt-0.5">•</span>
-            <span>{item}</span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
+import PageHeader from "@/components/patterns/PageHeader";
+import FormGrid from "@/components/patterns/admin/FormGrid";
+import AdminList, { type AdminListItem } from "@/components/patterns/admin/AdminList";
+import Note from "@/components/patterns/admin/Note";
 
 function toMarkdown(notes: ReleaseNotes): string {
   const lines: string[] = [
@@ -87,128 +74,142 @@ export default function ReleaseNotesGenerator({ slug }: { slug: string }) {
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const draftItems: AdminListItem[] = notes
+    ? ([
+        notes.features.length > 0 && {
+          key: "features",
+          title: "✨ New Features",
+          subline: notes.features.join(" · "),
+          meta: `${notes.features.length}`,
+        },
+        notes.fixes.length > 0 && {
+          key: "fixes",
+          title: "🐛 Bug Fixes",
+          subline: notes.fixes.join(" · "),
+          meta: `${notes.fixes.length}`,
+        },
+        notes.improvements.length > 0 && {
+          key: "improvements",
+          title: "🔧 Improvements",
+          subline: notes.improvements.join(" · "),
+          meta: `${notes.improvements.length}`,
+        },
+        notes.breaking.length > 0 && {
+          key: "breaking",
+          title: "⚠️ Breaking Changes",
+          subline: notes.breaking.join(" · "),
+          meta: `${notes.breaking.length}`,
+        },
+      ].filter(Boolean) as AdminListItem[])
+    : [];
+
   return (
     <div className="space-y-6">
-      {/* Config panel */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-6 space-y-5">
-        {/* Date range */}
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1">From date</label>
-            <input
-              type="date"
-              value={fromDate}
-              max={toDate}
-              onChange={(e) => setFromDate(e.target.value)}
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-1">To date</label>
-            <input
-              type="date"
-              value={toDate}
-              min={fromDate}
-              onChange={(e) => setToDate(e.target.value)}
-              className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-            />
-          </div>
-        </div>
+      <PageHeader title="AI Release Notes" subtitle="Draft a changelog entry from completed work" />
 
-        {/* Project filter */}
-        {projects.length > 0 && (
-          <div>
-            <label className="block text-xs font-medium text-neutral-600 mb-2">Projects (all if none selected)</label>
-            <div className="flex flex-wrap gap-2">
-              {projects.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => toggleProject(p.id)}
-                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
-                    selectedProjects.includes(p.id)
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
-                      : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"
-                  }`}
-                >
-                  {p.key} — {p.name}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <button
-          onClick={generate}
-          disabled={isPending}
-          className="flex items-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
-        >
-          {isPending ? (
-            <><span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> Generating…</>
-          ) : (
-            "✨ Generate release notes"
-          )}
-        </button>
-
-        {error && (
-          <p className="rounded-lg bg-red-50 border border-red-200 px-4 py-2.5 text-sm text-red-700">{error}</p>
-        )}
-      </div>
-
-      {/* Result */}
-      {notes && (
-        <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-100 bg-neutral-50">
-            <div>
-              <p className="text-sm font-semibold text-neutral-800">Release Notes — {notes.version}</p>
-              <p className="text-xs text-neutral-400 mt-0.5">{notes.rawIssues.length} issues · {fromDate} to {toDate}</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={copy}
-                className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition-colors"
-              >
-                {copied ? "✓ Copied!" : "Copy as Markdown"}
-              </button>
-              <button
-                onClick={generate}
-                disabled={isPending}
-                className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-500 hover:bg-neutral-50 disabled:opacity-50"
-              >
-                Regenerate
-              </button>
-            </div>
-          </div>
-
-          <div className="px-6 py-6 space-y-6">
-            {/* Summary */}
-            <div className="rounded-lg bg-indigo-50 border border-indigo-100 px-4 py-3">
-              <p className="text-sm text-indigo-900 leading-relaxed">{notes.summary}</p>
-            </div>
-
-            <Section title="New Features" items={notes.features} icon="✨" />
-            <Section title="Bug Fixes" items={notes.fixes} icon="🐛" />
-            <Section title="Improvements" items={notes.improvements} icon="🔧" />
-            <Section title="Breaking Changes" items={notes.breaking} icon="⚠️" />
-
-            {/* Source issues */}
-            <details className="group">
-              <summary className="cursor-pointer text-xs font-medium text-neutral-400 hover:text-neutral-600 select-none">
-                {notes.rawIssues.length} source issues ▸
-              </summary>
-              <div className="mt-2 space-y-1">
-                {notes.rawIssues.map((i) => (
-                  <div key={i.key} className="flex items-center gap-2 text-xs text-neutral-500">
-                    <span className="font-mono text-neutral-400">{i.key}</span>
-                    <span>{i.title}</span>
-                    <span className="ml-auto text-neutral-300">{i.type}</span>
+      <div className="space-y-6 px-6">
+        <div>
+          <h2 className="mb-3 text-[12.5px] font-bold text-[#20201d]">Generate</h2>
+          <FormGrid
+            submitLabel={isPending ? "Generating…" : "Generate draft"}
+            onSubmit={generate}
+            fields={[
+              {
+                key: "from",
+                label: "From date",
+                input: (
+                  <input
+                    type="date"
+                    value={fromDate}
+                    max={toDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="w-full rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-2 text-[12.5px] outline-none focus:border-[#8c4632]"
+                  />
+                ),
+              },
+              {
+                key: "to",
+                label: "To date",
+                input: (
+                  <input
+                    type="date"
+                    value={toDate}
+                    min={fromDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-full rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-2 text-[12.5px] outline-none focus:border-[#8c4632]"
+                  />
+                ),
+              },
+              {
+                key: "projects",
+                label: "Projects (all if none selected)",
+                input: projects.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {projects.map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => toggleProject(p.id)}
+                        className={`rounded-[5px] border px-2.5 py-1 text-[11.5px] font-semibold transition-colors ${
+                          selectedProjects.includes(p.id)
+                            ? "border-[#8c4632] bg-[#f5e4dd] text-[#8c4632]"
+                            : "border-[#ddd8c9] bg-white text-[#4a473e] hover:bg-[#f4f2eb]"
+                        }`}
+                      >
+                        {p.key} — {p.name}
+                      </button>
+                    ))}
                   </div>
-                ))}
-              </div>
-            </details>
-          </div>
+                ) : (
+                  <p className="text-[11.5px] text-[#a19d90]">No projects available</p>
+                ),
+              },
+            ]}
+          />
+          {error && <p className="mt-2 text-[12px] font-medium text-[#a3372a]">{error}</p>}
         </div>
-      )}
+
+        {notes && (
+          <div>
+            <div className="mb-3 flex items-center justify-between">
+              <h2 className="text-[12.5px] font-bold text-[#20201d]">Draft — {notes.version}</h2>
+              <div className="flex gap-2">
+                <button
+                  onClick={copy}
+                  className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da]"
+                >
+                  {copied ? "Copied ✓" : "Copy as Markdown"}
+                </button>
+                <button
+                  onClick={generate}
+                  disabled={isPending}
+                  className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-50"
+                >
+                  Regenerate
+                </button>
+              </div>
+            </div>
+
+            <p className="fw-card mb-3 px-3.5 py-3 text-[12.5px] text-[#20201d]">{notes.summary}</p>
+
+            {draftItems.length > 0 ? (
+              <AdminList items={draftItems} />
+            ) : (
+              <p className="fw-card px-4 py-8 text-center text-[12px] text-[#a19d90]">
+                No items in this draft.
+              </p>
+            )}
+
+            <p className="mt-3 text-[11px] text-[#a19d90]">
+              {notes.rawIssues.length} source issue{notes.rawIssues.length !== 1 ? "s" : ""} · {fromDate} to {toDate}
+            </p>
+          </div>
+        )}
+
+        <Note icon="ℹ" tone="info">
+          Nothing is published automatically — review the draft, then use &ldquo;Copy as Markdown&rdquo; to paste it into your changelog.
+        </Note>
+      </div>
     </div>
   );
 }

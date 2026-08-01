@@ -78,10 +78,10 @@ export default function EstimateAccuracyClient({ slug, issues, projects }: Props
           {/* Summary stat cards */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { label: "Avg Accuracy", value: `${avgAccuracy}%`, color: avgAccuracy >= 80 ? "text-emerald-700" : avgAccuracy >= 60 ? "text-amber-600" : "text-red-600" },
+              { label: "Avg Accuracy", value: `${avgAccuracy}%`, color: avgAccuracy >= 80 ? "text-[#3f7d4c]" : avgAccuracy >= 60 ? "text-[#c9791d]" : "text-red-600" },
               { label: "Median Variance", value: fmtMins(medVariance), color: "text-neutral-700" },
-              { label: "Issues Analyzed", value: String(filtered.length), color: "text-indigo-700" },
-              { label: "Within 20% of Estimate", value: `${withinTwenty}%`, color: withinTwenty >= 70 ? "text-emerald-700" : "text-amber-600" },
+              { label: "Issues Analyzed", value: String(filtered.length), color: "text-[#8c4632]" },
+              { label: "Within 20% of Estimate", value: `${withinTwenty}%`, color: withinTwenty >= 70 ? "text-[#3f7d4c]" : "text-[#c9791d]" },
             ].map((s) => (
               <div key={s.label} className="rounded-xl border border-neutral-200 bg-white px-5 py-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{s.label}</p>
@@ -95,7 +95,7 @@ export default function EstimateAccuracyClient({ slug, issues, projects }: Props
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setProjectFilter(null)}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${!projectFilter ? "bg-indigo-600 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+                className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${!projectFilter ? "bg-[#8c4632] text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
               >
                 All projects
               </button>
@@ -103,7 +103,7 @@ export default function EstimateAccuracyClient({ slug, issues, projects }: Props
                 <button
                   key={p.id}
                   onClick={() => setProjectFilter(projectFilter === p.id ? null : p.id)}
-                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${projectFilter === p.id ? "bg-indigo-600 text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${projectFilter === p.id ? "bg-[#8c4632] text-white" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}
                 >
                   {p.key} · {p.name}
                 </button>
@@ -136,9 +136,9 @@ export default function EstimateAccuracyClient({ slug, issues, projects }: Props
           </div>
 
           {/* Insights callout */}
-          <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-5 py-4">
-            <p className="text-sm font-semibold text-indigo-900 mb-1">Insights</p>
-            <p className="text-sm text-indigo-800">
+          <div className="rounded-xl border border-[#ddd8c9] bg-[#f4f2eb] px-5 py-4">
+            <p className="text-sm font-semibold text-[#20201d] mb-1">Insights</p>
+            <p className="text-sm text-[#4a473e]">
               Your team&apos;s estimates are <strong>{avgAccuracy}%</strong> accurate on average.
               {avgVariancePct !== 0 && (
                 <> You tend to <strong>{tendency}</strong> by about <strong>{Math.abs(avgVariancePct)}%</strong>.</>
@@ -164,7 +164,7 @@ export default function EstimateAccuracyClient({ slug, issues, projects }: Props
                 <tbody>
                   {filtered.map((issue) => (
                     <tr key={issue.id} className="border-t border-neutral-50 hover:bg-neutral-50">
-                      <td className="px-4 py-2.5 font-mono font-bold text-indigo-600 whitespace-nowrap">
+                      <td className="px-4 py-2.5 font-mono font-bold text-[#b7452f] whitespace-nowrap">
                         {issue.projectKey}-{issue.number}
                       </td>
                       <td className="px-4 py-2.5 text-neutral-800 max-w-[200px] truncate" title={issue.title}>
@@ -173,14 +173,14 @@ export default function EstimateAccuracyClient({ slug, issues, projects }: Props
                       <td className="px-4 py-2.5 text-neutral-500">{issue.projectName}</td>
                       <td className="px-4 py-2.5 tabular-nums text-neutral-700">{fmtMins(issue.estimatedMinutes)}</td>
                       <td className="px-4 py-2.5 tabular-nums text-neutral-700">{fmtMins(issue.loggedMinutes)}</td>
-                      <td className={`px-4 py-2.5 tabular-nums font-medium ${issue.varianceMinutes > 0 ? "text-red-600" : "text-emerald-600"}`}>
+                      <td className={`px-4 py-2.5 tabular-nums font-medium ${issue.varianceMinutes > 0 ? "text-red-600" : "text-[#3f7d4c]"}`}>
                         {issue.varianceMinutes > 0 ? "+" : ""}{fmtMins(issue.varianceMinutes)}
                         <span className="ml-1 text-neutral-400">({issue.variancePct > 0 ? "+" : ""}{issue.variancePct}%)</span>
                       </td>
                       <td className="px-4 py-2.5">
                         <span className={`rounded-full px-2.5 py-0.5 font-semibold ${
-                          issue.accuracyPct >= 80 ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                          : issue.accuracyPct >= 60 ? "bg-amber-50 text-amber-700 border border-amber-200"
+                          issue.accuracyPct >= 80 ? "bg-[#e9f3ea] text-[#3f7d4c] border border-[#bfe0c5]"
+                          : issue.accuracyPct >= 60 ? "bg-[#fdf1de] text-[#c9791d] border border-[#f0d5ab]"
                           : "bg-red-50 text-red-600 border border-red-200"
                         }`}>
                           {issue.accuracyPct}%

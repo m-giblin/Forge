@@ -405,7 +405,7 @@ export default function IssueDetail({
     : priority === "high"
     ? "bg-orange-50 text-orange-700"
     : priority === "medium"
-    ? "bg-amber-50 text-amber-700"
+    ? "bg-[#fdf1de] text-[#c9791d]"
     : priority === "low"
     ? "bg-blue-50 text-blue-700"
     : "bg-neutral-100 text-neutral-600";
@@ -443,7 +443,7 @@ export default function IssueDetail({
         )}
         <span className="font-semibold text-neutral-900">{issueKey}</span>
         <div className="ml-auto flex items-center gap-3">
-          {readOnly && <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs text-amber-700">read-only</span>}
+          {readOnly && <span className="rounded-full bg-[#f1efe9] px-2.5 py-1 text-xs text-[#726e60]">read-only</span>}
           {saved && !dirty && <span className="text-xs text-green-600 font-medium">Saved ✓</span>}
         </div>
       </div>
@@ -516,7 +516,7 @@ export default function IssueDetail({
                   type="button"
                   tabIndex={-1}
                   onClick={(e) => (e.currentTarget.previousElementSibling as HTMLInputElement)?.focus()}
-                  className="mt-1 flex-shrink-0 rounded-md p-1.5 text-amber-400 opacity-0 group-hover:opacity-100 hover:bg-amber-50 hover:text-amber-600 transition-all"
+                  className="mt-1 flex-shrink-0 rounded-md p-1.5 text-[#b7452f] opacity-0 group-hover:opacity-100 hover:bg-[#f4f2eb] hover:text-[#8c4632] transition-all"
                   title="Edit title"
                 >
                   <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -673,8 +673,8 @@ export default function IssueDetail({
 
           {/* ── AI Actions ── */}
           {!readOnly && (
-            <div className="rounded-xl border border-violet-200 bg-violet-50 p-4 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-violet-500 mb-3">✨ AI Actions</p>
+            <div className="rounded-xl border border-[#454636] p-4 space-y-2" style={{ background: "linear-gradient(160deg,#2a2c26,#20221d)" }}>
+              <p className="inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold uppercase tracking-wide mb-3" style={{ background: "rgba(183,69,47,0.18)", color: "#e29a7e", border: "1px solid rgba(183,69,47,0.35)" }}>✨ AI Actions</p>
               <TriageCard
                 slug={slug}
                 issueId={issue.id}
@@ -839,19 +839,19 @@ export default function IssueDetail({
           <GitLinksCard links={gitLinks} />
 
           {/* ── 📋 Details ── */}
-          <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 space-y-3">
-            <SideGroupLabel color="text-rose-500">📋 Details</SideGroupLabel>
+          <div className="rounded-xl border border-[#ddd8c9] bg-[#f4f2eb] p-4 space-y-3">
+            <SideGroupLabel color="text-[#726e60]">📋 Details</SideGroupLabel>
             <div className="flex justify-between items-center">
               <p className="text-xs font-semibold text-neutral-500">Created</p>
-              <p className="text-xs text-neutral-800 font-semibold bg-white border border-rose-100 rounded-md px-2 py-0.5" title={new Date(issue.created_at).toLocaleString()}>{relTime(issue.created_at)}</p>
+              <p className="text-xs text-neutral-800 font-semibold bg-white border border-[#ddd8c9] rounded-md px-2 py-0.5" title={new Date(issue.created_at).toLocaleString()}>{relTime(issue.created_at)}</p>
             </div>
-            <div className="flex justify-between items-center border-t border-rose-100 pt-3">
+            <div className="flex justify-between items-center border-t border-[#ddd8c9] pt-3">
               <p className="text-xs font-semibold text-neutral-500">Last update</p>
-              <p className="text-xs text-neutral-800 font-semibold bg-white border border-rose-100 rounded-md px-2 py-0.5" title={new Date(issue.updated_at).toLocaleString()}>{relTime(issue.updated_at)}</p>
+              <p className="text-xs text-neutral-800 font-semibold bg-white border border-[#ddd8c9] rounded-md px-2 py-0.5" title={new Date(issue.updated_at).toLocaleString()}>{relTime(issue.updated_at)}</p>
             </div>
-            <div className="flex justify-between items-center border-t border-rose-100 pt-3">
+            <div className="flex justify-between items-center border-t border-[#ddd8c9] pt-3">
               <p className="text-xs font-semibold text-neutral-500">Age</p>
-              <p className="text-xs text-neutral-800 font-semibold bg-white border border-rose-100 rounded-md px-2 py-0.5">{ageSince(issue.created_at)}</p>
+              <p className="text-xs text-neutral-800 font-semibold bg-white border border-[#ddd8c9] rounded-md px-2 py-0.5">{ageSince(issue.created_at)}</p>
             </div>
             {issue.environment && (() => {
               let meta: Record<string, string | number | boolean> | null = null;

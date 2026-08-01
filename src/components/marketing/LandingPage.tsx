@@ -119,7 +119,7 @@ export default function LandingPage() {
                 stat: "61%",
                 label: "Of sprint retro action items are forgotten by the next sprint",
                 sub: "Because they live in a doc nobody checks twice.",
-                color: "text-amber-400",
+                color: "text-[#e29a7e]",
               },
               {
                 stat: "4 days",
@@ -265,7 +265,7 @@ export default function LandingPage() {
                     <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wider uppercase ${
                       f.badge === "PRO"
                         ? "bg-[var(--fw-rust)]/20 text-[#e29a7e]"
-                        : "bg-amber-500/20 text-amber-300"
+                        : "bg-[var(--fw-rust-dark)]/25 text-[#e29a7e]"
                     }`}>
                       {f.badge}
                     </span>

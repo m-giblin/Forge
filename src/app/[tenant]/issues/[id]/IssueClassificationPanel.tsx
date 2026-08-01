@@ -42,8 +42,8 @@ export default function IssueClassificationPanel({
   saveField: (patch: IssuePatch) => void;
 }) {
   return (
-    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-3">
-      <SideGroupLabel color="text-amber-600">🏷 Classification</SideGroupLabel>
+    <div className="rounded-xl border border-[#ddd8c9] bg-[#f4f2eb] p-4 space-y-3">
+      <SideGroupLabel color="text-[#b7452f]">🏷 Classification</SideGroupLabel>
       <div>
         <p className={sideLabel}>
           Priority
@@ -93,7 +93,7 @@ export default function IssueClassificationPanel({
             {f.key === "severity" && (
               <InfoTooltip text="How severely this impacts end users. Critical = data loss or outage. High = major feature broken. Medium = degraded experience. Low = cosmetic or minor." />
             )}
-            {f.required && <span className="text-red-500"> *</span>}
+            {f.required && <span className="text-[#c0392b]"> *</span>}
           </p>
           {f.type === "select" ? (
             <select

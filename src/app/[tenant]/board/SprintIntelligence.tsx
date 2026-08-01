@@ -21,17 +21,17 @@ interface IntelligenceMetrics {
 }
 
 function ScoreBadge({ score, label }: { score: number; label: string }) {
-  const color =
-    score >= 80 ? "bg-emerald-100 text-emerald-700 border-emerald-200" :
-    score >= 60 ? "bg-blue-100 text-blue-700 border-blue-200" :
-    score >= 40 ? "bg-amber-100 text-amber-700 border-amber-200" :
-                  "bg-red-100 text-red-700 border-red-200";
+  const style =
+    score >= 80 ? { color: "#3f7d4c", background: "#e9f3ea", borderColor: "#3f7d4c" } :
+    score >= 60 ? { color: "#3a6ea8", background: "#eaf1f8", borderColor: "#3a6ea8" } :
+    score >= 40 ? { color: "#c9791d", background: "#fdf1de", borderColor: "#c9791d" } :
+                  { color: "#c0392b", background: "#fbeae8", borderColor: "#c0392b" };
   const icon =
     score >= 80 ? "✓" :
     score >= 60 ? "→" :
     score >= 40 ? "⚠" : "✕";
   return (
-    <div className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold ${color}`}>
+    <div className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-semibold" style={style}>
       <span>{icon}</span>
       <span>{label}</span>
     </div>
@@ -80,8 +80,8 @@ export default function SprintIntelligence({
     // Not enough data to analyze — show a contextual nudge instead of the button
     if (issueCount === 0) {
       return (
-        <div className="mt-3 pt-3 border-t border-neutral-100">
-          <p className="text-xs text-neutral-400">
+        <div className="mt-3 pt-3 border-t border-[#ddd8c9]">
+          <p className="text-xs text-[#a19d90]">
             🧠 <span className="font-medium">AI Sprint Intelligence</span> — add issues to this sprint to unlock analysis.
           </p>
         </div>
@@ -89,18 +89,18 @@ export default function SprintIntelligence({
     }
     if (sprintDays !== null && sprintDays < 3) {
       return (
-        <div className="mt-3 pt-3 border-t border-neutral-100">
-          <p className="text-xs text-neutral-400">
+        <div className="mt-3 pt-3 border-t border-[#ddd8c9]">
+          <p className="text-xs text-[#a19d90]">
             🧠 <span className="font-medium">AI Sprint Intelligence</span> — sprint is too short ({sprintDays}d) for meaningful analysis. Extend to at least 3 days.
           </p>
         </div>
       );
     }
     return (
-      <div className="mt-3 pt-3 border-t border-neutral-100">
+      <div className="mt-3 pt-3 border-t border-[#ddd8c9]">
         <button
           onClick={generate}
-          className="flex items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-100 transition"
+          className="flex items-center gap-2 rounded-lg border border-[#b7452f]/30 bg-[#fbeae8] px-4 py-2 text-sm font-medium text-[#b7452f] hover:bg-[#f4ecfa] transition"
         >
           <span>🧠</span>
           Generate AI Sprint Intelligence
@@ -111,9 +111,9 @@ export default function SprintIntelligence({
 
   if (state === "loading") {
     return (
-      <div className="mt-3 pt-3 border-t border-neutral-100">
-        <div className="flex items-center gap-2 text-sm text-neutral-500">
-          <svg className="h-4 w-4 animate-spin text-indigo-500" viewBox="0 0 24 24" fill="none">
+      <div className="mt-3 pt-3 border-t border-[#ddd8c9]">
+        <div className="flex items-center gap-2 text-sm text-[#726e60]">
+          <svg className="h-4 w-4 animate-spin text-[#b7452f]" viewBox="0 0 24 24" fill="none">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
           </svg>
@@ -125,12 +125,12 @@ export default function SprintIntelligence({
 
   if (state === "error") {
     return (
-      <div className="mt-3 pt-3 border-t border-neutral-100">
+      <div className="mt-3 pt-3 border-t border-[#ddd8c9]">
         <div className="flex items-center gap-3">
-          <p className="text-sm text-red-600">{errorMsg}</p>
+          <p className="text-sm text-[#c0392b]">{errorMsg}</p>
           <button
             onClick={() => setState("idle")}
-            className="text-xs text-neutral-500 underline hover:text-neutral-700"
+            className="text-xs text-[#726e60] underline hover:text-[#4a473e]"
           >
             Retry
           </button>
@@ -142,18 +142,18 @@ export default function SprintIntelligence({
   if (!report) return null;
 
   return (
-    <div className="mt-3 pt-3 border-t border-neutral-100 space-y-4">
+    <div className="mt-3 pt-3 border-t border-[#ddd8c9] space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <span className="text-lg">🧠</span>
-          <span className="text-sm font-semibold text-neutral-700">AI Sprint Intelligence</span>
+          <span className="text-sm font-semibold text-[#4a473e]">AI Sprint Intelligence</span>
         </div>
         <div className="flex items-center gap-3">
           <ScoreBadge score={report.score} label={report.scoreLabel} />
           <button
             onClick={() => setState("idle")}
-            className="text-xs text-neutral-400 hover:text-neutral-600"
+            className="text-xs text-[#a19d90] hover:text-[#4a473e]"
           >
             Regenerate
           </button>
@@ -161,30 +161,30 @@ export default function SprintIntelligence({
       </div>
 
       {/* Headline */}
-      <p className="text-sm text-neutral-700 leading-relaxed">{report.headline}</p>
+      <p className="text-sm text-[#4a473e] leading-relaxed">{report.headline}</p>
 
       {/* Metrics strip */}
       {metrics && (
         <div className="flex flex-wrap gap-4">
           <div className="text-center">
-            <p className="text-xl font-black text-neutral-900">{metrics.completionRate}%</p>
-            <p className="text-xs text-neutral-500">Completion rate</p>
+            <p className="text-xl font-black text-[#20201d]">{metrics.completionRate}%</p>
+            <p className="text-xs text-[#726e60]">Completion rate</p>
           </div>
           {metrics.totalPoints > 0 && (
             <div className="text-center">
-              <p className="text-xl font-black text-neutral-900">{metrics.donePoints}<span className="text-sm font-normal text-neutral-400">/{metrics.totalPoints}</span></p>
-              <p className="text-xs text-neutral-500">Story points</p>
+              <p className="text-xl font-black text-[#20201d]">{metrics.donePoints}<span className="text-sm font-normal text-[#a19d90]">/{metrics.totalPoints}</span></p>
+              <p className="text-xs text-[#726e60]">Story points</p>
             </div>
           )}
           {metrics.avgCycleTime !== null && (
             <div className="text-center">
-              <p className="text-xl font-black text-neutral-900">{metrics.avgCycleTime}d</p>
-              <p className="text-xs text-neutral-500">Avg cycle time</p>
+              <p className="text-xl font-black text-[#20201d]">{metrics.avgCycleTime}d</p>
+              <p className="text-xs text-[#726e60]">Avg cycle time</p>
             </div>
           )}
           <div className="text-center">
-            <p className="text-xl font-black text-neutral-900">{metrics.done}<span className="text-sm font-normal text-neutral-400">/{metrics.total}</span></p>
-            <p className="text-xs text-neutral-500">Issues closed</p>
+            <p className="text-xl font-black text-[#20201d]">{metrics.done}<span className="text-sm font-normal text-[#a19d90]">/{metrics.total}</span></p>
+            <p className="text-xs text-[#726e60]">Issues closed</p>
           </div>
         </div>
       )}
@@ -192,21 +192,21 @@ export default function SprintIntelligence({
       {/* Wins + Risks */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {report.wins.length > 0 && (
-          <div className="rounded-lg bg-emerald-50 border border-emerald-100 px-3 py-2.5">
-            <p className="text-xs font-semibold text-emerald-700 mb-1.5">✓ Wins</p>
+          <div className="rounded-lg bg-[#e9f3ea] border border-[#3f7d4c]/20 px-3 py-2.5">
+            <p className="text-xs font-semibold text-[#3f7d4c] mb-1.5">✓ Wins</p>
             <ul className="space-y-1">
               {report.wins.map((w, i) => (
-                <li key={i} className="text-xs text-emerald-800 leading-snug">{w}</li>
+                <li key={i} className="text-xs text-[#3f7d4c] leading-snug">{w}</li>
               ))}
             </ul>
           </div>
         )}
         {report.risks.length > 0 && (
-          <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2.5">
-            <p className="text-xs font-semibold text-amber-700 mb-1.5">⚠ Watch</p>
+          <div className="rounded-lg bg-[#fdf1de] border border-[#c9791d]/20 px-3 py-2.5">
+            <p className="text-xs font-semibold text-[#c9791d] mb-1.5">⚠ Watch</p>
             <ul className="space-y-1">
               {report.risks.map((r, i) => (
-                <li key={i} className="text-xs text-amber-800 leading-snug">{r}</li>
+                <li key={i} className="text-xs text-[#c9791d] leading-snug">{r}</li>
               ))}
             </ul>
           </div>
@@ -214,9 +214,9 @@ export default function SprintIntelligence({
       </div>
 
       {/* Recommendation */}
-      <div className="rounded-lg bg-indigo-50 border border-indigo-100 px-3 py-2.5">
-        <p className="text-xs font-semibold text-indigo-700 mb-1">💡 Recommendation for next sprint</p>
-        <p className="text-xs text-indigo-800 leading-snug">{report.recommendation}</p>
+      <div className="rounded-lg bg-[#f4ecfa] border border-[#7a4fa0]/20 px-3 py-2.5">
+        <p className="text-xs font-semibold text-[#7a4fa0] mb-1">💡 Recommendation for next sprint</p>
+        <p className="text-xs text-[#7a4fa0] leading-snug">{report.recommendation}</p>
       </div>
     </div>
   );

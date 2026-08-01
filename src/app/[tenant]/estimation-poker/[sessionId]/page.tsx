@@ -40,7 +40,7 @@ export default async function EstimationPokerRoomPage({
   const currentIssue = currentIssueRes.data as { id: string; number: number; title: string; description: string | null; type: string; priority: string; story_points: number | null } | null;
 
   return (
-    <main className="w-full px-6 py-8">
+    <main className="w-full">
       <EstimationPokerRoom
         slug={slug}
         sessionId={session.id}

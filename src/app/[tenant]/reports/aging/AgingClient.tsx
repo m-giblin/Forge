@@ -41,7 +41,7 @@ export default function AgingClient({
         <div>
           <label className="block text-[10px] font-semibold uppercase tracking-wider text-neutral-400 mb-1">Project</label>
           <select value={projectId} onChange={(e) => setProjectId(e.target.value)}
-            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-300">
+            className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#b7452f]/40">
             <option value="">All projects</option>
             {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
@@ -73,11 +73,11 @@ export default function AgingClient({
 
           {/* Warning banner if lots of stale issues */}
           {(result.buckets[3]?.count ?? 0) > 0 && (
-            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
-              <span className="text-amber-500 text-lg mt-0.5">⚠</span>
+            <div className="mb-5 rounded-xl border border-[#c9791d]/30 bg-[#fdf1de] px-4 py-3 flex items-start gap-3">
+              <span className="text-[#c9791d] text-lg mt-0.5">⚠</span>
               <div>
-                <p className="text-sm font-semibold text-amber-800">{result.buckets[3].count} issues are 90+ days old</p>
-                <p className="text-xs text-amber-700 mt-0.5">These are risk flags for stakeholder reviews. Review and either close or prioritize.</p>
+                <p className="text-sm font-semibold text-[#8a5312]">{result.buckets[3].count} issues are 90+ days old</p>
+                <p className="text-xs text-[#c9791d] mt-0.5">These are risk flags for stakeholder reviews. Review and either close or prioritize.</p>
               </div>
             </div>
           )}
@@ -86,7 +86,7 @@ export default function AgingClient({
           <div className="mb-4 flex gap-1 border-b border-neutral-200">
             {(["overview", "priority", "oldest"] as const).map((t) => (
               <button key={t} onClick={() => setTab(t)}
-                className={`px-4 py-2 text-sm font-medium capitalize transition border-b-2 -mb-px ${tab === t ? "border-indigo-500 text-indigo-600" : "border-transparent text-neutral-500 hover:text-neutral-700"}`}>
+                className={`px-4 py-2 text-sm font-medium capitalize transition border-b-2 -mb-px ${tab === t ? "border-[#b7452f] text-[#8c4632]" : "border-transparent text-neutral-500 hover:text-neutral-700"}`}>
                 {t === "overview" ? "Age Buckets" : t === "oldest" ? "Oldest Issues" : "By Priority"}
               </button>
             ))}
@@ -114,7 +114,7 @@ export default function AgingClient({
             <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-neutral-900 text-white text-xs">
+                  <tr className="bg-[#3a372e] text-[#f2e9d8] text-xs">
                     <th className="px-3 py-2 text-left font-semibold">Priority</th>
                     {result.buckets.map((b) => (
                       <th key={b.label} className="px-3 py-2 text-center font-semibold">{b.label}</th>
@@ -154,7 +154,7 @@ export default function AgingClient({
             <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden shadow-sm">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="bg-neutral-900 text-white text-xs">
+                  <tr className="bg-[#3a372e] text-[#f2e9d8] text-xs">
                     {["Title", "Priority", "Status", "Assignee", "Age"].map((h) => (
                       <th key={h} className="px-3 py-2 text-left font-semibold">{h}</th>
                     ))}
@@ -172,7 +172,7 @@ export default function AgingClient({
                       <td className="px-3 py-2 text-xs text-neutral-600 capitalize">{row.status.replace(/_/g, " ")}</td>
                       <td className="px-3 py-2 text-xs text-neutral-500">{row.assignee?.split("@")[0] ?? "Unassigned"}</td>
                       <td className="px-3 py-2">
-                        <span className={`font-bold text-sm ${row.ageDays >= 90 ? "text-red-600" : row.ageDays >= 30 ? "text-amber-600" : "text-neutral-700"}`}>
+                        <span className={`font-bold text-sm ${row.ageDays >= 90 ? "text-red-600" : row.ageDays >= 30 ? "text-[#c9791d]" : "text-neutral-700"}`}>
                           {row.ageDays}d
                         </span>
                       </td>

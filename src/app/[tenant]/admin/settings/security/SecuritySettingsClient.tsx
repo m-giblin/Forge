@@ -1,6 +1,10 @@
 "use client";
 
 import { useRef, useState, useCallback } from "react";
+import PageHeader from "@/components/patterns/PageHeader";
+import TogglesList from "@/components/patterns/admin/TogglesList";
+import FormGrid, { type FormField } from "@/components/patterns/admin/FormGrid";
+import Note from "@/components/patterns/admin/Note";
 
 const SESSION_MIN = 15;
 const SESSION_MAX = 480;
@@ -24,7 +28,7 @@ export default function SecuritySettingsClient({
   initialSessionMinutes: number;
 }) {
   const [requireMfa, setRequireMfa] = useState(initialRequireMfa);
-  const [mfaSaving, setMfaSaving] = useState(false);
+  const [, setMfaSaving] = useState(false);
   const [mfaSaved, setMfaSaved] = useState(false);
   const [mfaError, setMfaError] = useState<string | null>(null);
 
@@ -121,178 +125,95 @@ export default function SecuritySettingsClient({
 
   const ipEnabled = ipEntries.length > 0;
 
-  return (
-    <div className="space-y-6 max-w-2xl">
-      <div>
-        <h2 className="text-lg font-semibold text-neutral-900">Security</h2>
-        <p className="mt-1 text-sm text-neutral-500">
-          Enforce security policies for everyone in this workspace.
-        </p>
-      </div>
+  function handleToggle(key: string, next: boolean) {
+    if (key === "require-mfa") saveMfa(next);
+    if (key === "restrict-ip") {
+      if (!next) clearIpAllowlist();
+      // turning on with no entries is a no-op until the admin fills in the form below
+    }
+  }
 
-      {/* MFA card */}
-      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-        <div className="p-5 flex items-start justify-between gap-6">
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <p className="font-semibold text-neutral-900">Require two-factor authentication</p>
-              {requireMfa ? (
-                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Enforced</span>
-              ) : (
-                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-500">Off</span>
-              )}
-            </div>
-            <p className="mt-1.5 text-sm text-neutral-500">
-              When enabled, every member must enroll a TOTP authenticator app and pass a code
-              challenge on every login. Users without enrollment are blocked until they enroll.
-            </p>
-            {requireMfa && (
-              <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-                ⚠ MFA is currently enforced. Members without an enrolled authenticator will be
-                blocked at their next login until they enroll.
-              </p>
-            )}
-          </div>
-          <button
-            onClick={() => saveMfa(!requireMfa)}
-            disabled={mfaSaving}
-            className={`shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition disabled:opacity-50 ${
-              requireMfa
-                ? "border border-neutral-200 text-neutral-700 hover:bg-neutral-50"
-                : "bg-neutral-900 text-white hover:bg-neutral-800"
-            }`}
-          >
-            {mfaSaving ? "Saving…" : requireMfa ? "Disable" : "Enable"}
-          </button>
-        </div>
-        {mfaSaved && (
-          <div className="border-t border-emerald-100 bg-emerald-50 px-5 py-2.5 text-sm text-emerald-700">
-            ✓ Saved — changes take effect on the next login for each member.
-          </div>
-        )}
-        {mfaError && (
-          <div className="border-t border-red-100 bg-red-50 px-5 py-2.5 text-sm text-red-700">{mfaError}</div>
-        )}
-      </div>
-
-      {/* IP allowlist card */}
-      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-        <div className="p-5">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="font-semibold text-neutral-900">IP allowlist</p>
-            {ipEnabled ? (
-              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">Active</span>
-            ) : (
-              <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-500">Off</span>
-            )}
-          </div>
-          <p className="text-sm text-neutral-500 mb-3">
-            Restrict workspace access to specific IP addresses or CIDR ranges. Workspace owners
-            are never blocked. Leave empty to allow access from any IP.
-          </p>
-          <textarea
-            value={ipRaw}
-            onChange={(e) => setIpRaw(e.target.value)}
-            rows={5}
-            placeholder={"192.168.1.0/24\n10.0.0.1\n203.0.113.42"}
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-neutral-900 resize-y"
+  const sessionFields: FormField[] = [
+    {
+      key: "timeout",
+      label: "Session timeout",
+      input: (
+        <div className="space-y-1.5">
+          <input
+            type="range"
+            min={SESSION_MIN}
+            max={SESSION_MAX}
+            step={15}
+            value={sessionMinutes}
+            onChange={(e) => setSessionMinutes(Number(e.target.value))}
+            className="w-full accent-[#8c4632]"
           />
-          <p className="mt-1.5 text-xs text-neutral-400">
-            One entry per line. Supports exact IPs and IPv4 CIDR notation (e.g. 10.0.0.0/8).
-          </p>
-          <div className="mt-3 flex items-center gap-3">
-            <button
-              onClick={saveIpAllowlist}
-              disabled={ipSaving}
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 transition"
-            >
-              {ipSaving ? "Saving…" : "Save allowlist"}
-            </button>
-            {ipEnabled && (
-              <button
-                onClick={clearIpAllowlist}
-                disabled={ipSaving}
-                className="rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:opacity-50 transition"
-              >
-                Remove all restrictions
-              </button>
-            )}
-          </div>
-          {ipEnabled && (
-            <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-              ⚠ IP restriction is active. Members connecting from outside the allowlist will be
-              denied access. Workspace owners are exempt.
-            </p>
-          )}
+          <p className="text-[11.5px] font-semibold text-[#20201d]">{minutesToDisplay(sessionMinutes)}</p>
         </div>
-        {ipSaved && (
-          <div className="border-t border-emerald-100 bg-emerald-50 px-5 py-2.5 text-sm text-emerald-700">
-            ✓ Saved — IP restrictions apply immediately.
-          </div>
-        )}
-        {ipError && (
-          <div className="border-t border-red-100 bg-red-50 px-5 py-2.5 text-sm text-red-700">{ipError}</div>
-        )}
-      </div>
+      ),
+    },
+    {
+      key: "warning",
+      label: "Warning shown at",
+      input: <p className="text-[12px] text-[#726e60]">{minutesToDisplay(Math.max(SESSION_MIN, sessionMinutes - 5))} of inactivity</p>,
+    },
+  ];
 
-      {/* Session timeout card */}
-      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-        <div className="p-5">
-          <div className="flex items-center gap-2 mb-1">
-            <p className="font-semibold text-neutral-900">Session timeout</p>
-            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
-              {minutesToDisplay(sessionMinutes)}
-            </span>
-          </div>
-          <p className="text-sm text-neutral-500 mb-4">
-            Automatically sign out all members — including admins — after this period of inactivity.
-            A warning appears 5 minutes before sign-out with an option to stay logged in.
-          </p>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <label className="text-sm text-neutral-600 w-20 shrink-0">Timeout</label>
-              <input
-                type="range"
-                min={SESSION_MIN}
-                max={SESSION_MAX}
-                step={15}
-                value={sessionMinutes}
-                onChange={(e) => setSessionMinutes(Number(e.target.value))}
-                className="flex-1 accent-neutral-900"
-              />
-              <span className="text-sm font-medium text-neutral-900 w-20 text-right tabular-nums">
-                {minutesToDisplay(sessionMinutes)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between text-xs text-neutral-400">
-              <span>15 min</span>
-              <span>1 hr</span>
-              <span>4 hrs</span>
-              <span>8 hrs</span>
-            </div>
-          </div>
-          <div className="mt-4 rounded-lg bg-neutral-50 border border-neutral-200 px-4 py-3 text-sm text-neutral-600">
-            Warning shown at <span className="font-medium">{minutesToDisplay(Math.max(SESSION_MIN, sessionMinutes - 5))}</span>,
-            sign-out at <span className="font-medium">{minutesToDisplay(sessionMinutes)}</span> of inactivity.
-          </div>
-          <div className="mt-4">
-            <button
-              onClick={() => saveSessionTimeout(sessionMinutes)}
-              disabled={sessionSaving}
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50 transition"
-            >
-              {sessionSaving ? "Saving…" : "Save"}
-            </button>
-          </div>
+  const ipFields: FormField[] = [
+    {
+      key: "ip-entries",
+      label: "Allowed IPs / CIDR ranges",
+      input: (
+        <textarea
+          value={ipRaw}
+          onChange={(e) => setIpRaw(e.target.value)}
+          rows={4}
+          placeholder={"192.168.1.0/24\n10.0.0.1\n203.0.113.42"}
+          className="w-full resize-y rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] font-mono text-[11.5px] text-[#20201d] focus:outline-none focus:border-[#b7452f]"
+        />
+      ),
+    },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Security Settings" subtitle="Sessions, MFA and sign-in policy" />
+
+      <div className="space-y-5 px-6">
+        <TogglesList
+          items={[
+            {
+              key: "require-mfa",
+              label: "Require MFA",
+              description: "Every member must enroll a second factor",
+              on: requireMfa,
+            },
+            {
+              key: "restrict-ip",
+              label: "Restrict by IP",
+              description: "Only allow sign-in from listed ranges",
+              on: ipEnabled,
+            },
+          ]}
+          onChange={handleToggle}
+        />
+        {mfaError && <Note icon="⚠" tone="error">{mfaError}</Note>}
+        {mfaSaved && <Note icon="✓" tone="info">Saved — changes take effect on the next login for each member.</Note>}
+
+        <div className="space-y-2.5">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">IP allowlist</p>
+          <FormGrid fields={ipFields} onSubmit={saveIpAllowlist} submitLabel={ipSaving ? "Saving…" : "Save allowlist"} />
+          {ipEnabled && <Note icon="⚠" tone="warning">IP restriction is active. Members connecting from outside the allowlist will be denied access. Workspace owners are exempt.</Note>}
+          {ipSaved && <Note icon="✓" tone="info">Saved — IP restrictions apply immediately.</Note>}
+          {ipError && <Note icon="⚠" tone="error">{ipError}</Note>}
         </div>
-        {sessionSaved && (
-          <div className="border-t border-emerald-100 bg-emerald-50 px-5 py-2.5 text-sm text-emerald-700">
-            ✓ Saved — new timeout applies on the next page load for each member.
-          </div>
-        )}
-        {sessionError && (
-          <div className="border-t border-red-100 bg-red-50 px-5 py-2.5 text-sm text-red-700">{sessionError}</div>
-        )}
+
+        <div className="space-y-2.5">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Session policy</p>
+          <FormGrid fields={sessionFields} onSubmit={() => saveSessionTimeout(sessionMinutes)} submitLabel={sessionSaving ? "Saving…" : "Save"} />
+          {sessionSaved && <Note icon="✓" tone="info">Saved — new timeout applies on the next page load for each member.</Note>}
+          {sessionError && <Note icon="⚠" tone="error">{sessionError}</Note>}
+        </div>
       </div>
     </div>
   );

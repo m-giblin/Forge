@@ -3,6 +3,7 @@ import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- admin okr management: service-role to read members for owner display
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import OkrManager from "./OkrManager";
+import PageHeader from "@/components/patterns/PageHeader";
 
 export const revalidate = 60;
 
@@ -36,14 +37,11 @@ export default async function OkrsAdminPage({
   }>;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-bold text-neutral-900">OKRs</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Define objectives and key results. Link ideas to OKRs to track strategic alignment.
-        </p>
+    <div>
+      <PageHeader title="OKRs" subtitle="Objectives and key results for the workspace" />
+      <div className="px-6 py-5">
+        <OkrManager slug={slug} initialOkrs={okrs} tenantId={ctx.tenant.id} isAdmin />
       </div>
-      <OkrManager slug={slug} initialOkrs={okrs} tenantId={ctx.tenant.id} isAdmin />
     </div>
   );
 }

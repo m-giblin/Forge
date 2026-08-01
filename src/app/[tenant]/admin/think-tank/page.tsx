@@ -7,6 +7,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import PillManager from "./PillManager";
 import TemplateManager from "./TemplateManager";
 import BlindVotingToggle from "./BlindVotingToggle";
+import PageHeader from "@/components/patterns/PageHeader";
 
 export default async function ThinkTankAdminPage({
   params,
@@ -36,19 +37,15 @@ export default async function ThinkTankAdminPage({
   const blindVoting = blindRow.data?.value === "true";
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-xl font-bold text-neutral-900">Think Tank Settings</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Configure AI lenses and idea templates available to your team.
-        </p>
+    <div>
+      <PageHeader title="Think Tank Settings" subtitle="How ideas are captured and voted on" />
+
+      <div className="space-y-6 px-6 py-5">
+        {!readOnly && <BlindVotingToggle slug={slug} enabled={blindVoting} />}
+
+        <PillManager slug={slug} pills={pills} readOnly={readOnly} />
+        <TemplateManager slug={slug} templates={templates} readOnly={readOnly} />
       </div>
-
-      {/* Blind voting toggle */}
-      {!readOnly && <BlindVotingToggle slug={slug} enabled={blindVoting} />}
-
-      <PillManager slug={slug} pills={pills} readOnly={readOnly} />
-      <TemplateManager slug={slug} templates={templates} readOnly={readOnly} />
     </div>
   );
 }

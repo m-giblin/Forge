@@ -4,9 +4,9 @@ import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { customRolesRepo } from "@/lib/repositories/customRoles";
 import { permissionDefinitionsRepo } from "@/lib/repositories/permissionDefinitions";
-import Link from "next/link";
 import { loadTenantFlags } from "@/lib/services/featureFlags";
 import RolesManager from "./RolesManager";
+import PageHeader from "@/components/patterns/PageHeader";
 
 export default async function RolesPage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant: slug } = await params;
@@ -24,15 +24,11 @@ export default async function RolesPage({ params }: { params: Promise<{ tenant: 
   ]);
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-neutral-900">Custom Roles</h1>
-        <p className="mt-1 text-sm text-neutral-500">
-          Define named roles with specific permission sets. Assign them to members on the{" "}
-          <Link href={`/${slug}/admin/members`} className="text-indigo-600 hover:underline">Members page</Link>.
-        </p>
+    <div className="space-y-6">
+      <PageHeader title="Custom Roles" subtitle="Named permission sets layered on Admin / Member / Viewer" />
+      <div className="px-6">
+        <RolesManager slug={slug} initialRoles={roles} permissions={permissions} />
       </div>
-      <RolesManager slug={slug} initialRoles={roles} permissions={permissions} />
     </div>
   );
 }

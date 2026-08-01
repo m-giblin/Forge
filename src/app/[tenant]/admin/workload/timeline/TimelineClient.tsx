@@ -19,6 +19,30 @@ export type TLIssue = {
   projectName: string;
   storyPoints: number | null;
   timeEstimateMinutes: number | null;
+  type: string;
+  parentId: string | null;
+};
+
+export type TLEpicChild = {
+  id: string;
+  key: string;
+  title: string;
+  status: string;
+  startDate: string | null;
+  dueDate: string | null;
+};
+
+export type TLEpic = {
+  id: string;
+  key: string;
+  title: string;
+  projectId: string;
+  projectName: string;
+  startDate: string | null;
+  dueDate: string | null;
+  totalChildren: number;
+  doneChildren: number;
+  children: TLEpicChild[];
 };
 
 export type TLMember = {
@@ -111,12 +135,12 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 const STATUS_DOT: Record<string, string> = {
-  backlog: "#94a3b8", todo: "#64748b", in_progress: "#6366f1",
-  in_review: "#f59e0b", done: "#10b981",
+  backlog: "#a19d90", todo: "#3a6ea8", in_progress: "#c9791d",
+  in_review: "#7a4fa0", done: "#3f7d4c",
 };
 
 const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "#ef4444", high: "#f97316", medium: "#6366f1", low: "#94a3b8",
+  urgent: "#c0392b", high: "#c9791d", medium: "#3a6ea8", low: "#a19d90",
 };
 
 // ─── Date helpers ─────────────────────────────────────────────────────────────
@@ -400,19 +424,19 @@ function EditPopover({
     : [];
 
   return (
-    <div className="absolute z-[200] w-80 rounded-xl border border-neutral-200 bg-white shadow-2xl" style={style} onMouseDown={(e) => e.stopPropagation()}>
-      <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-3 border-b border-neutral-100">
+    <div className="absolute z-[200] w-80 rounded-xl border border-[#ddd8c9] bg-[#f4f2eb] shadow-2xl" style={style} onMouseDown={(e) => e.stopPropagation()}>
+      <div className="flex items-start justify-between gap-2 px-4 pt-4 pb-3 border-b border-[#e3ded0]">
         <div className="min-w-0">
           <div className="flex items-center gap-2 mb-0.5">
-            <span className="text-xs font-mono font-semibold text-neutral-400">{issue.key}</span>
-            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: "#f1f5f9", color: STATUS_DOT[issue.status] }}>
+            <span className="text-xs font-mono font-semibold text-[#a19d90]">{issue.key}</span>
+            <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium" style={{ background: "#eae6da", color: STATUS_DOT[issue.status] }}>
               <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ background: STATUS_DOT[issue.status] }} />
               {STATUS_LABELS[issue.status]}
             </span>
           </div>
-          <p className="text-sm font-semibold text-neutral-900 leading-snug truncate">{issue.title}</p>
+          <p className="text-sm font-semibold text-[#20201d] leading-snug truncate">{issue.title}</p>
         </div>
-        <button onClick={onClose} className="shrink-0 text-neutral-400 hover:text-neutral-700 mt-0.5">
+        <button onClick={onClose} className="shrink-0 text-[#a19d90] hover:text-[#4a473e] mt-0.5">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
         </button>
       </div>
@@ -420,43 +444,43 @@ function EditPopover({
       <div className="px-4 py-3 space-y-3">
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-medium text-neutral-500 mb-1">Status</label>
-            <select value={issue.status} onChange={(e) => patch({ status: e.target.value as TLIssue["status"] })} className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <label className="block text-[11px] font-medium text-[#726e60] mb-1">Status</label>
+            <select value={issue.status} onChange={(e) => patch({ status: e.target.value as TLIssue["status"] })} className="w-full rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#8c4632]">
               {Object.entries(STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-neutral-500 mb-1">Priority</label>
-            <select value={issue.priority} onChange={(e) => patch({ priority: e.target.value as TLIssue["priority"] })} className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400">
+            <label className="block text-[11px] font-medium text-[#726e60] mb-1">Priority</label>
+            <select value={issue.priority} onChange={(e) => patch({ priority: e.target.value as TLIssue["priority"] })} className="w-full rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#8c4632]">
               {["urgent", "high", "medium", "low"].map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
             </select>
           </div>
         </div>
         <div>
-          <label className="block text-[11px] font-medium text-neutral-500 mb-1">Assignee</label>
-          <select value={issue.assigneeId ?? ""} onChange={(e) => patch({ assigneeId: e.target.value || null })} className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400">
+          <label className="block text-[11px] font-medium text-[#726e60] mb-1">Assignee</label>
+          <select value={issue.assigneeId ?? ""} onChange={(e) => patch({ assigneeId: e.target.value || null })} className="w-full rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#8c4632]">
             <option value="">Unassigned</option>
             {members.map((m) => <option key={m.userId} value={m.userId}>{m.name}</option>)}
           </select>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-[11px] font-medium text-neutral-500 mb-1">Start date</label>
-            <input type="date" value={issue.startDate ?? ""} onChange={(e) => patch({ startDate: e.target.value || null })} className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            <label className="block text-[11px] font-medium text-[#726e60] mb-1">Start date</label>
+            <input type="date" value={issue.startDate ?? ""} onChange={(e) => patch({ startDate: e.target.value || null })} className="w-full rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#8c4632]" />
           </div>
           <div>
-            <label className="block text-[11px] font-medium text-neutral-500 mb-1">Due date</label>
-            <input type="date" value={issue.dueDate ?? ""} onChange={(e) => patch({ dueDate: e.target.value || null })} className="w-full rounded-lg border border-neutral-200 px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+            <label className="block text-[11px] font-medium text-[#726e60] mb-1">Due date</label>
+            <input type="date" value={issue.dueDate ?? ""} onChange={(e) => patch({ dueDate: e.target.value || null })} className="w-full rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#8c4632]" />
           </div>
         </div>
       </div>
 
-      <div className="border-t border-neutral-100 px-4 py-3">
+      <div className="border-t border-[#e3ded0] px-4 py-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wide">Dependencies</span>
-          <button onClick={() => setDepSearch({ issueId: issue.id, depType: "blocks", query: "" })} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">+ Link</button>
+          <span className="text-[11px] font-semibold text-[#726e60] uppercase tracking-wide">Dependencies</span>
+          <button onClick={() => setDepSearch({ issueId: issue.id, depType: "blocks", query: "" })} className="text-xs text-[#8c4632] hover:text-[#6e3324] font-medium">+ Link</button>
         </div>
-        {myDeps.length === 0 && !depSearch && <p className="text-xs text-neutral-400">None — link issues to show arrows on the timeline.</p>}
+        {myDeps.length === 0 && !depSearch && <p className="text-xs text-[#a19d90]">None — link issues to show arrows on the timeline.</p>}
         {myDeps.map((dep) => {
           const other = dep.fromIssueId === issue.id
             ? allIssues.find((i) => i.id === dep.toIssueId)
@@ -467,30 +491,30 @@ function EditPopover({
           return (
             <div key={dep.id} className="flex items-center justify-between py-1 group">
               <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[10px] font-medium text-neutral-400 shrink-0">{label}</span>
-                <span className="text-xs font-mono text-indigo-700 shrink-0">{other?.key}</span>
-                <span className="text-xs text-neutral-600 truncate">{other?.title}</span>
+                <span className="text-[10px] font-medium text-[#a19d90] shrink-0">{label}</span>
+                <span className="text-xs font-mono text-[#8c4632] shrink-0">{other?.key}</span>
+                <span className="text-xs text-[#4a473e] truncate">{other?.title}</span>
               </div>
-              <button onClick={() => removeDep(dep)} className="opacity-0 group-hover:opacity-100 text-neutral-300 hover:text-red-500 ml-2 shrink-0 transition">✕</button>
+              <button onClick={() => removeDep(dep)} className="opacity-0 group-hover:opacity-100 text-[#a19d90] hover:text-[#c0392b] ml-2 shrink-0 transition">✕</button>
             </div>
           );
         })}
         {depSearch && (
           <div className="mt-2">
             <div className="flex items-center gap-2 mb-1.5">
-              <select value={depSearch.depType} onChange={(e) => setDepSearch((s) => s && { ...s, depType: e.target.value as "blocks" | "relates_to" })} className="rounded border border-neutral-200 px-1.5 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-400">
+              <select value={depSearch.depType} onChange={(e) => setDepSearch((s) => s && { ...s, depType: e.target.value as "blocks" | "relates_to" })} className="rounded border border-[#ddd8c9] px-1.5 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-[#8c4632]">
                 <option value="blocks">Blocks</option>
                 <option value="relates_to">Relates to</option>
               </select>
-              <input autoFocus type="text" placeholder="Search issues…" value={depSearch.query} onChange={(e) => setDepSearch((s) => s && { ...s, query: e.target.value })} className="flex-1 rounded border border-neutral-200 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400" />
-              <button onClick={() => setDepSearch(null)} className="text-neutral-300 hover:text-neutral-600">✕</button>
+              <input autoFocus type="text" placeholder="Search issues…" value={depSearch.query} onChange={(e) => setDepSearch((s) => s && { ...s, query: e.target.value })} className="flex-1 rounded border border-[#ddd8c9] px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-[#8c4632]" />
+              <button onClick={() => setDepSearch(null)} className="text-[#a19d90] hover:text-[#4a473e]">✕</button>
             </div>
             {searchResults.length > 0 && (
-              <div className="rounded-lg border border-neutral-200 divide-y divide-neutral-100 overflow-hidden">
+              <div className="rounded-lg border border-[#ddd8c9] divide-y divide-[#e3ded0] overflow-hidden">
                 {searchResults.map((r) => (
-                  <button key={r.id} disabled={saving} onClick={() => addDep(r.id, depSearch.depType)} className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-indigo-50 text-left transition">
-                    <span className="text-[11px] font-mono text-indigo-600 shrink-0">{r.key}</span>
-                    <span className="text-xs text-neutral-700 truncate">{r.title}</span>
+                  <button key={r.id} disabled={saving} onClick={() => addDep(r.id, depSearch.depType)} className="w-full flex items-center gap-2 px-2 py-1.5 hover:bg-[#eae6da] text-left transition">
+                    <span className="text-[11px] font-mono text-[#8c4632] shrink-0">{r.key}</span>
+                    <span className="text-xs text-[#4a473e] truncate">{r.title}</span>
                   </button>
                 ))}
               </div>
@@ -499,8 +523,8 @@ function EditPopover({
         )}
       </div>
 
-      <div className="border-t border-neutral-100 px-4 py-2.5">
-        <Link href={`/${slug}/issues/${issue.id}`} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium" onClick={onClose}>Open full issue →</Link>
+      <div className="border-t border-[#e3ded0] px-4 py-2.5">
+        <Link href={`/${slug}/issues/${issue.id}`} className="text-xs text-[#8c4632] hover:text-[#6e3324] font-medium" onClick={onClose}>Open full issue →</Link>
       </div>
     </div>
   );
@@ -515,10 +539,10 @@ function UnscheduledTray({ issues, colorMap, onSchedule }: {
 }) {
   if (issues.length === 0) return null;
   return (
-    <div className="border-t border-neutral-200 bg-neutral-50">
+    <div className="border-t border-[#ddd8c9] bg-[#eae6da]">
       <div className="flex items-center gap-2 px-4 py-2">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Unscheduled ({issues.length})</span>
-        <span className="text-[11px] text-neutral-400">— click to assign dates</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-[#a19d90]">Unscheduled ({issues.length})</span>
+        <span className="text-[11px] text-[#a19d90]">— click to assign dates</span>
       </div>
       <div className="flex flex-wrap gap-2 px-4 pb-3">
         {issues.map((issue) => {
@@ -527,7 +551,7 @@ function UnscheduledTray({ issues, colorMap, onSchedule }: {
             <button key={issue.id} onClick={() => onSchedule(issue.id)} className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition hover:shadow-sm" style={{ background: color.bg, borderColor: color.border, color: color.text }}>
               <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ background: STATUS_DOT[issue.status] }} />
               <span className="font-mono">{issue.key}</span>
-              <span className="max-w-[160px] truncate text-neutral-600">{issue.title}</span>
+              <span className="max-w-[160px] truncate text-[#4a473e]">{issue.title}</span>
             </button>
           );
         })}
@@ -545,6 +569,7 @@ export default function TimelineClient({
   sprints,
   dependencies: initialDeps,
   initialBaselines = [],
+  epics = [],
 }: {
   slug: string;
   members: TLMember[];
@@ -552,10 +577,12 @@ export default function TimelineClient({
   sprints: TLSprint[];
   dependencies: TLDependency[];
   initialBaselines?: TLBaseline[];
+  epics?: TLEpic[];
 }) {
   const [issues, setIssues] = useState<TLIssue[]>(initialIssues);
   const [deps, setDeps] = useState<TLDependency[]>(initialDeps);
   const [baselines, setBaselines] = useState<TLBaseline[]>(initialBaselines);
+  const [viewMode, setViewMode] = useState<"resource" | "epics">("resource");
   const [zoom, setZoom] = useState<"week" | "month">("week");
   const [windowOffset, setWindowOffset] = useState(0);
   const [selection, setSelection] = useState<Set<string>>(new Set());
@@ -841,76 +868,96 @@ export default function TimelineClient({
   const todayLeft = diffDays(windowStart, today2) * dayWidth;
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white" onClick={() => { setPopover(null); setSelection(new Set()); setShowBaselineSave(false); }}>
+    <div className="flex flex-col h-full min-h-0 bg-[#eeece4]" onClick={() => { setPopover(null); setSelection(new Set()); setShowBaselineSave(false); }}>
       {/* Top bar */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 shrink-0 flex-wrap gap-2">
+      <div className="flex items-center justify-between px-6 pt-4 pb-3.5 border-b border-[#ddd8c9] shrink-0 flex-wrap gap-2">
         <div className="flex items-center gap-3">
-          <h1 className="text-base font-semibold text-neutral-900">Allocation Timeline</h1>
+          <div>
+            <h1 className="font-[family-name:var(--font-manrope)] text-[21px] font-extrabold text-[#20201d]">Timeline</h1>
+            <p className="text-[12.5px] text-[#726e60] mt-0.5">
+              {viewMode === "resource" ? "Team allocation across issues and sprints" : "Epics and issues across the next 8 weeks"}
+            </p>
+          </div>
           {selection.size > 1 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
+            <span className="inline-flex items-center gap-1 rounded-full px-[11px] py-1 text-[11.5px] font-semibold" style={{ background: "#8c4632", color: "#f2e9d8" }}>
               {selection.size} selected — drag to move all
             </span>
           )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Critical Path toggle */}
-          <button
-            onClick={(e) => { e.stopPropagation(); setShowCriticalPath((v) => !v); }}
-            className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${showCriticalPath ? "bg-orange-500 border-orange-500 text-white" : "border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-          >
-            <span>🔴</span> Critical Path
-          </button>
-
-          {/* Baseline controls */}
-          <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-            <select
-              value={activeBaselineId ?? ""}
-              onChange={(e) => setActiveBaselineId(e.target.value || null)}
-              className="rounded-lg border border-neutral-200 px-2 py-1.5 text-xs text-neutral-600 focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            >
-              <option value="">No baseline</option>
-              {baselines.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-            <button
-              onClick={() => setShowBaselineSave(true)}
-              className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition"
-            >
-              📌 Save baseline
-            </button>
-          </div>
-
-          {/* Zoom */}
-          <div className="flex rounded-lg border border-neutral-200 overflow-hidden text-xs">
-            {(["week", "month"] as const).map((z) => (
-              <button key={z} onClick={(e) => { e.stopPropagation(); setZoom(z); }} className={`px-3 py-1.5 font-medium transition ${zoom === z ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`}>
-                {z === "week" ? "Week" : "Month"}
+          {/* View mode */}
+          <div className="flex rounded-[5px] border border-[#ddd8c9] overflow-hidden text-[11.5px]" onClick={(e) => e.stopPropagation()}>
+            {([["resource", "Team"], ["epics", "Epics"]] as const).map(([m, label]) => (
+              <button key={m} onClick={() => setViewMode(m)} className={`px-3 py-1.5 font-semibold transition-colors ${viewMode === m ? "bg-[#8c4632] text-[#f2e9d8]" : "bg-[#f4f2eb] text-[#4a473e] hover:bg-[#eae6da]"}`}>
+                {label}
               </button>
             ))}
           </div>
 
-          {/* Window navigation */}
-          <div className="flex items-center gap-1">
-            <button onClick={(e) => { e.stopPropagation(); setWindowOffset((o) => o - 4); }} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition">←</button>
-            <button onClick={(e) => { e.stopPropagation(); setWindowOffset(0); }} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition">Today</button>
-            <button onClick={(e) => { e.stopPropagation(); setWindowOffset((o) => o + 4); }} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition">→</button>
-          </div>
+          {viewMode === "resource" && (
+            <>
+              {/* Critical Path toggle */}
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowCriticalPath((v) => !v); }}
+                className={`flex items-center gap-1.5 rounded-full border px-[11px] py-[6px] text-[11.5px] font-semibold transition-colors ${showCriticalPath ? "border-[#c9791d] bg-[#c9791d] text-white" : "border-[#ddd8c9] bg-[#f4f2eb] text-[#4a473e] hover:bg-[#eae6da]"}`}
+              >
+                <span>🔴</span> Critical Path
+              </button>
 
-          {/* Legend */}
-          <div className="flex items-center gap-3 text-[11px] text-neutral-500">
-            <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-indigo-200 border border-indigo-400 inline-block" /> Current</span>
-            {activeBaselineId && <span className="flex items-center gap-1"><span className="w-6 h-1.5 rounded-sm border border-dashed border-neutral-400 inline-block bg-transparent" /> Baseline</span>}
-            {showCriticalPath && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-orange-500 inline-block" /> Critical</span>}
-          </div>
+              {/* Baseline controls */}
+              <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                <select
+                  value={activeBaselineId ?? ""}
+                  onChange={(e) => setActiveBaselineId(e.target.value || null)}
+                  className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-2 py-1.5 text-[11.5px] text-[#4a473e] focus:outline-none focus:ring-2 focus:ring-[#8c4632]"
+                >
+                  <option value="">No baseline</option>
+                  {baselines.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => setShowBaselineSave(true)}
+                  className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da] transition-colors"
+                >
+                  📌 Save baseline
+                </button>
+              </div>
+
+              {/* Zoom */}
+              <div className="flex rounded-[5px] border border-[#ddd8c9] overflow-hidden text-[11.5px]">
+                {(["week", "month"] as const).map((z) => (
+                  <button key={z} onClick={(e) => { e.stopPropagation(); setZoom(z); }} className={`px-3 py-1.5 font-semibold transition-colors ${zoom === z ? "bg-[#8c4632] text-[#f2e9d8]" : "bg-[#f4f2eb] text-[#4a473e] hover:bg-[#eae6da]"}`}>
+                    {z === "week" ? "Week" : "Month"}
+                  </button>
+                ))}
+              </div>
+
+              {/* Window navigation */}
+              <div className="flex items-center gap-[5px]">
+                <button onClick={(e) => { e.stopPropagation(); setWindowOffset((o) => o - 4); }} className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-2.5 py-1.5 text-xs font-bold text-[#4a473e] hover:bg-[#eae6da] transition-colors">←</button>
+                <button onClick={(e) => { e.stopPropagation(); setWindowOffset(0); }} className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[11.5px] font-bold text-[#4a473e] hover:bg-[#eae6da] transition-colors">Today</button>
+                <button onClick={(e) => { e.stopPropagation(); setWindowOffset((o) => o + 4); }} className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-2.5 py-1.5 text-xs font-bold text-[#4a473e] hover:bg-[#eae6da] transition-colors">→</button>
+              </div>
+
+              {/* Legend */}
+              <div className="flex items-center gap-3 text-[11px] text-[#726e60]">
+                <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm inline-block" style={{ background: "#eaf1f8", border: "1px solid #3a6ea8" }} /> Current</span>
+                {activeBaselineId && <span className="flex items-center gap-1"><span className="w-6 h-1.5 rounded-sm border border-dashed border-[#a19d90] inline-block bg-transparent" /> Baseline</span>}
+                {showCriticalPath && <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full inline-block" style={{ background: "#c9791d" }} /> Critical</span>}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
+      {viewMode === "epics" && <EpicRollupView epics={epics} deps={deps} />}
+
       {/* Baseline save dialog */}
-      {showBaselineSave && (
-        <div className="px-6 py-3 border-b border-amber-200 bg-amber-50 flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-          <span className="text-sm font-medium text-amber-800">Name this baseline:</span>
+      {viewMode === "resource" && showBaselineSave && (
+        <div className="px-6 py-3 border-b border-[#ddd8c9] bg-[#fdf1de] flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+          <span className="text-[12.5px] font-semibold text-[#c9791d]">Name this baseline:</span>
           <input
             autoFocus
             type="text"
@@ -918,37 +965,43 @@ export default function TimelineClient({
             onChange={(e) => setBaselineNameInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleSaveBaseline(); if (e.key === "Escape") { setShowBaselineSave(false); setBaselineNameInput(""); } }}
             placeholder={`Baseline ${new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
-            className="rounded-lg border border-amber-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white w-64"
+            className="rounded-[5px] border border-[#ddd8c9] px-3 py-1.5 text-[12.5px] focus:outline-none focus:ring-2 focus:ring-[#c9791d] bg-[#f4f2eb] w-64"
           />
-          <button onClick={handleSaveBaseline} disabled={savingBaseline} className="rounded-lg bg-amber-600 text-white px-4 py-1.5 text-sm font-medium hover:bg-amber-700 disabled:opacity-50 transition">
+          <button
+            onClick={handleSaveBaseline}
+            disabled={savingBaseline}
+            className="rounded-[5px] px-4 py-1.5 text-[12.5px] font-semibold text-[#f2e9d8] disabled:opacity-50 transition-colors"
+            style={{ background: "#8c4632", backgroundImage: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" }}
+          >
             {savingBaseline ? "Saving…" : "Save"}
           </button>
-          <button onClick={() => { setShowBaselineSave(false); setBaselineNameInput(""); }} className="text-amber-600 hover:text-amber-800 text-sm">Cancel</button>
+          <button onClick={() => { setShowBaselineSave(false); setBaselineNameInput(""); }} className="text-[#c9791d] hover:text-[#c9791d] text-[12.5px]">Cancel</button>
         </div>
       )}
 
       {/* Timeline grid */}
+      {viewMode === "resource" && (
       <div className="flex-1 overflow-hidden flex flex-col min-h-0">
         <div className="flex-1 overflow-x-auto overflow-y-auto relative" ref={gridRef}>
           <div style={{ minWidth: COL_W + totalWidth, position: "relative" }}>
 
             {/* Header */}
             <div className="flex" style={{ height: HEADER_H }}>
-              <div className="shrink-0 border-r border-b border-neutral-200 bg-neutral-50 flex items-end px-4 pb-2" style={{ width: COL_W, position: "sticky", left: 0, zIndex: 20 }}>
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Team</span>
+              <div className="shrink-0 border-r border-b border-[#ddd8c9] bg-[#eae6da] flex items-end px-4 pb-2" style={{ width: COL_W, position: "sticky", left: 0, zIndex: 20 }}>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[#a19d90]">Team</span>
               </div>
-              <div className="relative border-b border-neutral-200 flex-1" style={{ width: totalWidth }}>
+              <div className="relative border-b border-[#ddd8c9] flex-1" style={{ width: totalWidth }}>
                 {sprintBands.map((s) => (
-                  <div key={s.id} className="absolute top-0 flex items-center px-2 overflow-hidden" style={{ left: s.left, width: s.width, height: 22, background: s.status === "active" ? "#eef2ff" : "#f8fafc", borderRight: "1px solid #e2e8f0" }}>
-                    <span className="text-[10px] font-semibold truncate" style={{ color: s.status === "active" ? "#4f46e5" : "#94a3b8" }}>
+                  <div key={s.id} className="absolute top-0 flex items-center px-2 overflow-hidden" style={{ left: s.left, width: s.width, height: 22, background: s.status === "active" ? "#f5e3dd" : "#f4f2eb", borderRight: "1px solid #ddd8c9" }}>
+                    <span className="text-[10px] font-semibold truncate" style={{ color: s.status === "active" ? "#8c4632" : "#a19d90" }}>
                       {s.status === "active" ? "● " : ""}{s.name}
                     </span>
                   </div>
                 ))}
                 <div className="absolute bottom-0 left-0 right-0 flex" style={{ height: 42 }}>
                   {weekHeaders.map((wh, i) => (
-                    <div key={i} className="border-r border-neutral-100 flex items-center px-2 shrink-0" style={{ width: dayWidth * 7, background: wh.isToday ? "#fefce8" : "transparent" }}>
-                      <span className={`text-[11px] font-medium ${wh.isToday ? "text-amber-700 font-semibold" : "text-neutral-500"}`}>{wh.label}</span>
+                    <div key={i} className="border-r border-[#e3ded0] flex items-center px-2 shrink-0" style={{ width: dayWidth * 7, background: wh.isToday ? "rgba(183,69,47,0.08)" : "transparent" }}>
+                      <span className={`text-[11px] font-medium ${wh.isToday ? "text-[#b7452f] font-semibold" : "text-[#726e60]"}`}>{wh.label}</span>
                     </div>
                   ))}
                 </div>
@@ -965,19 +1018,19 @@ export default function TimelineClient({
 
               return (
                 <div key={member.userId} className="flex" style={{ height: ROW_H, borderBottom: "1px solid #f1f5f9" }}>
-                  <div className="shrink-0 border-r border-neutral-200 flex items-center gap-2.5 px-4" style={{ width: COL_W, position: "sticky", left: 0, zIndex: 10, background: isHighlit ? "#eef2ff" : "white", transition: "background 0.15s" }}>
+                  <div className="shrink-0 border-r border-[#ddd8c9] flex items-center gap-2.5 px-4" style={{ width: COL_W, position: "sticky", left: 0, zIndex: 10, background: isHighlit ? "#f5e3dd" : "white", transition: "background 0.15s" }}>
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white shrink-0" style={{ background: ringColor, boxShadow: `0 0 0 2px white, 0 0 0 3px ${ringColor}` }}>
                       {member.initials}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-sm font-semibold text-neutral-900 truncate">{member.name}</div>
+                      <div className="text-sm font-semibold text-[#20201d] truncate">{member.name}</div>
                       <div className="text-[10px] font-medium" style={{ color: ringColor }}>{loadPct}% · {member.hoursPerWeek}h/wk</div>
                     </div>
                   </div>
 
                   <div className="relative flex-1" style={{ width: totalWidth, background: isHighlit ? "rgba(238,242,255,0.6)" : rowIdx % 2 === 0 ? "white" : "#fafafa", transition: "background 0.15s" }}>
                     {weekHeaders.map((wh, i) => (
-                      <div key={i} className="absolute top-0 bottom-0" style={{ left: i * dayWidth * 7, width: dayWidth * 7, borderRight: "1px solid #f1f5f9", background: wh.isToday ? "rgba(254,252,232,0.4)" : "transparent" }} />
+                      <div key={i} className="absolute top-0 bottom-0" style={{ left: i * dayWidth * 7, width: dayWidth * 7, borderRight: "1px solid #f1f5f9", background: wh.isToday ? "rgba(183,69,47,0.05)" : "transparent" }} />
                     ))}
 
                     {memberIssues.map((issue) => {
@@ -1034,12 +1087,12 @@ export default function TimelineClient({
                               background: color.bg,
                               border: isCritical
                                 ? `2px solid #f97316`
-                                : `1.5px solid ${isSelected ? "#6366f1" : color.border}`,
+                                : `1.5px solid ${isSelected ? "#b7452f" : color.border}`,
                               borderLeft: `4px solid ${isCritical ? "#f97316" : PRIORITY_COLORS[issue.priority]}`,
                               boxShadow: isCritical
                                 ? "0 0 0 2px #fed7aa, 0 2px 8px rgba(249,115,22,0.25)"
                                 : isSelected
-                                  ? "0 0 0 2px #6366f1, 0 2px 6px rgba(99,102,241,0.2)"
+                                  ? "0 0 0 2px #b7452f, 0 2px 6px rgba(183,69,47,0.2)"
                                   : "0 1px 3px rgba(0,0,0,0.06)",
                               opacity: isDimmed ? 0.3 : 1,
                               transition: "opacity 0.2s, box-shadow 0.1s",
@@ -1104,6 +1157,126 @@ export default function TimelineClient({
         </div>
 
         <UnscheduledTray issues={unscheduled} colorMap={colorMap} onSchedule={onScheduleUnscheduled} />
+      </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Epic rollup view (§isTimeline prototype: epic/issue table across an 8-week window) ──
+
+const EPIC_ROW_COLORS = ["#8c4632", "#3a6ea8", "#7a4fa0", "#3f7d4c", "#a1663f"];
+
+function EpicRollupView({ epics, deps }: { epics: TLEpic[]; deps: TLDependency[] }) {
+  const weekStart = new Date();
+  weekStart.setUTCHours(0, 0, 0, 0);
+  weekStart.setUTCDate(weekStart.getUTCDate() - weekStart.getUTCDay() + 1); // Monday of current week
+  const weeks = Array.from({ length: 8 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setUTCDate(d.getUTCDate() + i * 7);
+    return d;
+  });
+  const windowEnd = new Date(weekStart);
+  windowEnd.setUTCDate(windowEnd.getUTCDate() + 8 * 7);
+  const totalDays = 8 * 7;
+
+  function barPosition(startDate: string | null, dueDate: string | null) {
+    if (!startDate && !dueDate) return null;
+    const start = startDate ? new Date(startDate) : new Date(dueDate!);
+    const end = dueDate ? new Date(dueDate) : new Date(startDate!);
+    if (end < weekStart || start > windowEnd) return null;
+    const clampedStart = start < weekStart ? weekStart : start;
+    const clampedEnd = end > windowEnd ? windowEnd : end;
+    const left = Math.max(0, diffDays(weekStart, clampedStart) / totalDays) * 100;
+    const width = Math.max(2, (diffDays(clampedStart, clampedEnd) + 1) / totalDays * 100);
+    return { left, width };
+  }
+
+  const depByFrom = new Map(deps.map((d) => [d.fromIssueId, d]));
+
+  const rows: { key: string; label: string; isEpic: boolean; color: string; barLabel: string; startDate: string | null; dueDate: string | null }[] = [];
+  epics.forEach((epic, i) => {
+    const color = EPIC_ROW_COLORS[i % EPIC_ROW_COLORS.length];
+    rows.push({
+      key: epic.id,
+      label: epic.title,
+      isEpic: true,
+      color,
+      barLabel: `Epic · ${epic.doneChildren}/${epic.totalChildren}`,
+      startDate: epic.startDate,
+      dueDate: epic.dueDate,
+    });
+    epic.children.forEach((child) => {
+      if (child.status === "done") return;
+      const dep = depByFrom.get(child.id);
+      rows.push({
+        key: child.id,
+        label: child.title,
+        isEpic: false,
+        color,
+        barLabel: dep ? `waits on ${epic.children.find((c) => c.id === dep.toIssueId)?.key ?? child.key}` : child.key,
+        startDate: child.startDate,
+        dueDate: child.dueDate,
+      });
+    });
+  });
+
+  if (epics.length === 0) {
+    return (
+      <div className="flex-1 flex items-center justify-center px-6">
+        <p className="text-[12.5px] text-[#a19d90]">No epics yet — create an issue with type "Epic" to see it here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 overflow-auto px-6 py-3.5">
+      <div className="fw-card overflow-hidden" style={{ minWidth: 900 }}>
+        <div className="flex border-b border-[#e3ded0]" style={{ background: "#eae6da" }}>
+          <div className="w-[230px] shrink-0 px-3.5 py-2 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90] border-r border-[#e3ded0]">
+            Epic / issue
+          </div>
+          {weeks.map((w, i) => (
+            <div key={i} className="flex-1 py-2 text-center text-[10px] font-bold text-[#a19d90] border-r border-[#e3ded0] last:border-r-0">
+              {w.toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+            </div>
+          ))}
+        </div>
+        {rows.map((row, i) => {
+          const pos = barPosition(row.startDate, row.dueDate);
+          return (
+            <div
+              key={row.key}
+              className={`flex items-center py-[5px] ${i > 0 ? "border-t border-[#e3ded0]" : ""}`}
+              style={{ background: row.isEpic ? "#eae6da" : "transparent" }}
+            >
+              <div
+                className="w-[230px] shrink-0 overflow-hidden text-ellipsis whitespace-nowrap border-r border-[#e3ded0]"
+                style={{
+                  padding: `0 14px 0 ${row.isEpic ? 14 : 28}px`,
+                  fontSize: row.isEpic ? 12.5 : 12,
+                  fontWeight: row.isEpic ? 700 : 400,
+                  color: "#20201d",
+                }}
+              >
+                {row.label}
+              </div>
+              <div className="flex-1 relative" style={{ height: 26 }}>
+                {pos && (
+                  <div
+                    className="absolute flex items-center overflow-hidden whitespace-nowrap rounded"
+                    style={{
+                      top: 3, height: 20, left: `${pos.left}%`, width: `${pos.width}%`,
+                      background: row.color, padding: "0 8px", fontSize: 10, fontWeight: 700, color: "#fff",
+                    }}
+                  >
+                    {row.barLabel}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

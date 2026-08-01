@@ -10,6 +10,7 @@ import {
 } from "@/lib/services/members";
 import type { MembershipRole } from "@/lib/repositories/members";
 import { recordAudit } from "@/lib/audit";
+import { sendPasswordResetEmail } from "@/lib/services/notifications";
 import { canDo } from "@/lib/permissions";
 import { ctxCanDo } from "@/lib/rbac";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required, tenant context verified by getTenantContext (sec09)
@@ -100,6 +101,76 @@ export async function setJobTitlesAction(slug: string, membershipId: string, tit
     .eq("id", membershipId)
     .eq("tenant_id", ctx.tenant.id);
   if (error) throw error;
+  revalidatePath(`/${slug}/admin/members`);
+}
+
+export async function sendPasswordResetAction(slug: string, membershipId: string, userId: string) {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  assertAdmin(ctx);
+  const svc = createSupabaseServiceClient();
+
+  // Verify the target membership belongs to this tenant before touching the shared `users` row.
+  const { data: membership, error: membershipErr } = await svc
+    .from("memberships")
+    .select("user_id")
+    .eq("id", membershipId)
+    .eq("tenant_id", ctx.tenant.id)
+    .maybeSingle();
+  if (membershipErr) throw membershipErr;
+  if (!membership || membership.user_id !== userId) throw new Error("Membership not found in this workspace.");
+
+  const { data: userRow, error: userErr } = await svc.from("users").select("email").eq("id", userId).maybeSingle();
+  if (userErr) throw userErr;
+  if (!userRow?.email) throw new Error("This member has no email on file.");
+
+  // Generate the recovery link via the Supabase Admin API rather than calling
+  // supabase.auth.resetPasswordForEmail — that path depends on Supabase's own
+  // (unreliable, unconfigured-SMTP) email delivery. Sending the link ourselves
+  // through the app's existing Resend pipeline is the same mechanism real
+  // notification emails already use, and gives admins visibility into whether
+  // it actually sent instead of a blind "if it exists" success message.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "";
+  const { data: linkData, error: linkErr } = await svc.auth.admin.generateLink({
+    type: "recovery",
+    email: userRow.email,
+    options: { redirectTo: `${appUrl}/auth/reset-password` },
+  });
+  if (linkErr || !linkData?.properties?.action_link) {
+    throw new Error(linkErr?.message ?? "Failed to generate reset link.");
+  }
+
+  const sent = await sendPasswordResetEmail({
+    tenantId: ctx.tenant.id,
+    toEmail: userRow.email,
+    resetUrl: linkData.properties.action_link,
+  });
+  if (!sent) {
+    throw new Error("Resend isn't configured for this workspace — set an API key in Admin → Notifications, or share this link directly: " + linkData.properties.action_link);
+  }
+
+  await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "member.password_reset_sent", target: membershipId });
+}
+
+export async function setMemberNameAction(slug: string, membershipId: string, userId: string, name: string) {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  assertAdmin(ctx);
+  const svc = createSupabaseServiceClient();
+  // Verify the target membership belongs to this tenant before touching the shared `users` row.
+  const { data: membership, error: membershipErr } = await svc
+    .from("memberships")
+    .select("user_id")
+    .eq("id", membershipId)
+    .eq("tenant_id", ctx.tenant.id)
+    .maybeSingle();
+  if (membershipErr) throw membershipErr;
+  if (!membership || membership.user_id !== userId) throw new Error("Membership not found in this workspace.");
+  const trimmed = name.trim();
+  if (!trimmed) throw new Error("Name cannot be empty.");
+  const { error } = await svc.from("users").update({ name: trimmed }).eq("id", userId);
+  if (error) throw error;
+  await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "member.name_change", target: membershipId });
   revalidatePath(`/${slug}/admin/members`);
 }
 

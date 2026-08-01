@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { setBlindVotingAction } from "./actions";
+import Toggle from "@/components/patterns/Toggle";
+import Note from "@/components/patterns/admin/Note";
 
 export default function BlindVotingToggle({ slug, enabled }: { slug: string; enabled: boolean }) {
   const [on, setOn] = useState(enabled);
   const [isPending, startTransition] = useTransition();
 
-  function toggle() {
-    const next = !on;
+  function toggle(next: boolean) {
     setOn(next);
     startTransition(async () => {
       try {
@@ -20,39 +21,27 @@ export default function BlindVotingToggle({ slug, enabled }: { slug: string; ena
   }
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-      <div className="px-5 py-4 border-b border-neutral-100 bg-neutral-50">
-        <p className="text-sm font-semibold text-neutral-900">Voting Settings</p>
-        <p className="text-xs text-neutral-500 mt-0.5">Control how idea voting works for your team.</p>
-      </div>
-      <div className="px-5 py-4">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-medium text-neutral-800">Blind voting mode</p>
-            <p className="text-xs text-neutral-500 mt-0.5">
-              When enabled, vote counts are hidden from members until you turn it off. Admins can still see counts.
-              This removes social anchoring so early votes don&apos;t influence later ones.
+    <div>
+      <p className="mb-1.5 px-0.5 text-[11px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Voting Settings</p>
+      <div className="fw-card overflow-hidden">
+        <div className="flex items-center gap-3 px-3.5 py-[11px]">
+          <div className="min-w-0 flex-1">
+            <p className="text-[12.5px] font-semibold text-[#20201d]">Blind voting mode</p>
+            <p className="mt-0.5 text-[11px] text-[#726e60]">
+              When enabled, vote counts are hidden from members until you turn it off. Admins can still see counts. This removes social anchoring so early votes don&apos;t influence later ones.
             </p>
           </div>
-          <button
-            role="switch"
-            aria-checked={on}
-            onClick={toggle}
-            disabled={isPending}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50 ${on ? "bg-amber-500" : "bg-neutral-200"}`}
-          >
-            <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200 ${on ? "translate-x-5" : "translate-x-0"}`}
-            />
-          </button>
+          <Toggle on={on} onChange={toggle} label="Blind voting mode" />
         </div>
         {on && (
-          <div className="mt-3 flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-xs text-amber-800">
-            <span>🔒</span>
-            <span>Blind voting is <strong>active</strong>. Members see &ldquo;—&rdquo; instead of vote counts. Turn off to reveal results.</span>
+          <div className="border-t border-[#e3ded0] px-3.5 py-3">
+            <Note icon="🔒" tone="warning">
+              Blind voting is <strong>active</strong>. Members see &ldquo;—&rdquo; instead of vote counts. Turn off to reveal results.
+            </Note>
           </div>
         )}
       </div>
+      {isPending && <p className="mt-1 text-[11px] text-[#a19d90]">Saving…</p>}
     </div>
   );
 }

@@ -3,30 +3,35 @@
 import { useState, useTransition } from "react";
 import type { ChatProvider } from "@/lib/services/chatNotifications";
 import { saveChatWebhookAction, saveSlackBotAction } from "./actions";
+import PageHeader from "@/components/patterns/PageHeader";
+import ConnectCards from "@/components/patterns/admin/ConnectCards";
+import FormGrid from "@/components/patterns/admin/FormGrid";
+import TogglesList from "@/components/patterns/admin/TogglesList";
+import Note from "@/components/patterns/admin/Note";
 
-const PROVIDERS: { key: ChatProvider; label: string; icon: string; hint: string; docsUrl: string }[] = [
+const PROVIDERS: { key: ChatProvider; label: string; icon: string; hint: string }[] = [
   {
     key: "slack",
     label: "Slack",
     icon: "💬",
     hint: "Create an Incoming Webhook at api.slack.com/apps → Incoming Webhooks",
-    docsUrl: "https://api.slack.com/messaging/webhooks",
   },
   {
     key: "teams",
     label: "Microsoft Teams",
     icon: "🟦",
     hint: "In Teams: channel → Connectors → Incoming Webhook → paste URL here",
-    docsUrl: "https://learn.microsoft.com/en-us/microsoftteams/platform/webhooks-and-connectors/how-to/add-incoming-webhook",
   },
   {
     key: "discord",
     label: "Discord",
     icon: "🎮",
     hint: "In Discord: channel settings → Integrations → Webhooks → New Webhook → Copy URL",
-    docsUrl: "https://support.discord.com/hc/en-us/articles/228383668",
   },
 ];
+
+const inputCls =
+  "w-full rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12.5px] text-[#20201d] placeholder-[#a19d90] font-mono outline-none focus:border-[#b7452f]";
 
 export default function ChatSettingsClient({
   slug,
@@ -42,11 +47,18 @@ export default function ChatSettingsClient({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isPending, startTransition] = useTransition();
 
-  // Slack bot fields
   const [botFields, setBotFields] = useState(slackBot);
   const [botSaved, setBotSaved] = useState(false);
   const [botError, setBotError] = useState<string | null>(null);
   const botConfigured = !!(botFields.botToken && botFields.signingSecret && botFields.workspaceId);
+
+  // "Which events post" — this app doesn't persist per-event toggles yet; reflect
+  // the fixed rule set the notifier actually fires on (see save() / server notifier).
+  const [eventToggles, setEventToggles] = useState({
+    created: true,
+    comment: true,
+    urgent: true,
+  });
 
   function saveBot() {
     setBotError(null);
@@ -85,180 +97,149 @@ export default function ChatSettingsClient({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-xl font-bold text-neutral-900">Chat Notifications</h1>
-        <p className="text-sm text-neutral-500 mt-1">
-          Post issue alerts to Slack, Teams, or Discord when issues are created or commented on.
-        </p>
-        {connected > 0 && (
-          <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-green-50 border border-green-200 px-3 py-1 text-xs font-medium text-green-700">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-500" />
-            {connected} channel{connected > 1 ? "s" : ""} connected
-          </div>
-        )}
-      </div>
+      <PageHeader
+        title="Chat Notifications"
+        subtitle="Slack, Microsoft Teams, and Discord"
+        right={
+          connected > 0 ? (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
+              style={{ color: "#3f7d4c", backgroundColor: "#e9f3ea" }}
+            >
+              {connected} channel{connected > 1 ? "s" : ""} connected
+            </span>
+          ) : undefined
+        }
+      />
 
-      {/* Provider cards */}
-      <div className="space-y-4">
-        {PROVIDERS.map(({ key, label, icon, hint }) => {
+      <div className="space-y-6 px-6">
+        <ConnectCards
+          items={PROVIDERS.map(({ key, label, icon }) => ({
+            key,
+            name: label,
+            description: PROVIDERS.find((p) => p.key === key)?.hint,
+            icon,
+            connected: !!values[key]?.trim(),
+            onAction: () => {
+              const el = document.getElementById(`chat-field-${key}`);
+              el?.scrollIntoView({ behavior: "smooth", block: "center" });
+              (el as HTMLInputElement | null)?.focus();
+            },
+          }))}
+        />
+
+        {PROVIDERS.map(({ key, label }) => {
           const isConnected = !!values[key]?.trim();
           return (
-            <div key={key} className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-              {/* Card header */}
-              <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100 bg-neutral-50">
-                <div className="flex items-center gap-2.5">
-                  <span className="text-xl">{icon}</span>
-                  <span className="text-sm font-semibold text-neutral-900">{label}</span>
-                </div>
-                <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                  isConnected
-                    ? "bg-green-50 text-green-700 border border-green-200"
-                    : "bg-neutral-100 text-neutral-500"
-                }`}>
-                  {isConnected ? "● Connected" : "Not connected"}
-                </span>
-              </div>
-
-              {/* Card body */}
-              <div className="px-5 py-4 space-y-3">
-                <p className="text-xs text-neutral-500">{hint}</p>
-
-                {errors[key] && (
-                  <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{errors[key]}</p>
-                )}
-
-                <div className="flex gap-2">
-                  <input
-                    value={values[key]}
-                    onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-                    placeholder="https://hooks.slack.com/services/..."
-                    className="flex-1 rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder-neutral-400 font-mono focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-                  />
+            <div key={key} className="space-y-2">
+              <h2 className="text-[12.5px] font-bold text-[#20201d]">{label} webhook URL</h2>
+              {errors[key] && <Note icon="⚠" tone="error">{errors[key]}</Note>}
+              <div className="flex gap-2">
+                <input
+                  id={`chat-field-${key}`}
+                  value={values[key]}
+                  onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                  placeholder="https://hooks.slack.com/services/..."
+                  className={inputCls}
+                />
+                <button
+                  type="button"
+                  onClick={() => save(key)}
+                  disabled={isPending}
+                  className="shrink-0 rounded-[5px] border border-[#5e2c1f] px-3.5 py-[7px] text-[12px] font-semibold text-[#f2e9d8] disabled:opacity-50"
+                  style={{ background: saved === key ? "#3f7d4c" : "linear-gradient(160deg,#9a5138,#6e3324)" }}
+                >
+                  {saved === key ? "✓ Saved" : isConnected ? "Update" : "Connect"}
+                </button>
+                {isConnected && saved !== key && (
                   <button
-                    onClick={() => save(key)}
-                    disabled={isPending}
-                    className={`px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap transition-colors disabled:opacity-50 ${
-                      saved === key
-                        ? "bg-green-600 text-white"
-                        : "bg-indigo-600 hover:bg-indigo-700 text-white"
-                    }`}
+                    type="button"
+                    onClick={() => {
+                      setValues((v) => ({ ...v, [key]: "" }));
+                      saveChatWebhookAction(slug, key, "").catch(() => null);
+                    }}
+                    className="shrink-0 rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3.5 py-[7px] text-[12px] font-semibold text-[#4a473e] hover:bg-[#eae6da]"
                   >
-                    {saved === key ? "✓ Saved" : isConnected ? "Update" : "Connect"}
+                    Disconnect
                   </button>
-                  {isConnected && saved !== key && (
-                    <button
-                      onClick={() => {
-                        setValues((v) => ({ ...v, [key]: "" }));
-                        saveChatWebhookAction(slug, key, "").catch(() => null);
-                      }}
-                      className="px-3 py-2 text-sm text-neutral-500 border border-neutral-200 rounded-lg hover:bg-neutral-50 transition-colors"
-                    >
-                      Disconnect
-                    </button>
-                  )}
-                </div>
+                )}
               </div>
             </div>
           );
         })}
-      </div>
 
-      {/* Slack Bot (inbound: Slack → Forge) */}
-      <div className="rounded-xl border border-neutral-200 bg-white overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-neutral-100 bg-neutral-50">
-          <div className="flex items-center gap-2.5">
-            <span className="text-xl">🤖</span>
-            <div>
-              <span className="text-sm font-semibold text-neutral-900">Slack Bot</span>
-              <p className="text-xs text-neutral-400 mt-0.5">Inbound — create Forge issues from Slack</p>
-            </div>
-          </div>
-          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-            botConfigured
-              ? "bg-green-50 text-green-700 border border-green-200"
-              : "bg-neutral-100 text-neutral-500"
-          }`}>
-            {botConfigured ? "● Configured" : "Not configured"}
-          </span>
-        </div>
-        <div className="px-5 py-4 space-y-4">
-          <p className="text-xs text-neutral-500">
-            Enables <code className="bg-neutral-100 px-1 rounded">/forge [title]</code> slash command and 🐛 reaction → issue creation.
-            See ticket comments for full Slack app setup instructions.
+        <div>
+          <h2 className="mb-3 text-[12.5px] font-bold text-[#20201d]">Slack bot credentials</h2>
+          <p className="mb-3 text-[11.5px] text-[#726e60]">
+            Inbound — enables <code className="font-mono">/forge [title]</code> slash command and 🐛 reaction → issue creation.
           </p>
-          {botError && (
-            <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{botError}</p>
-          )}
-          <div className="space-y-3">
-            <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-600">Bot User OAuth Token <span className="text-neutral-400">(starts with xoxb-)</span></label>
-              <input
-                type="password"
-                value={botFields.botToken}
-                onChange={(e) => setBotFields((f) => ({ ...f, botToken: e.target.value }))}
-                placeholder="xoxb-..."
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm font-mono focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-600">Signing Secret</label>
-              <input
-                type="password"
-                value={botFields.signingSecret}
-                onChange={(e) => setBotFields((f) => ({ ...f, signingSecret: e.target.value }))}
-                placeholder="••••••••••••••••••••••••••••••••"
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm font-mono focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs font-medium text-neutral-600">Workspace ID <span className="text-neutral-400">(starts with T, found on Basic Information page)</span></label>
-              <input
-                value={botFields.workspaceId}
-                onChange={(e) => setBotFields((f) => ({ ...f, workspaceId: e.target.value }))}
-                placeholder="T0XXXXXXXXX"
-                className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm font-mono focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
-              />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={saveBot}
-              disabled={isPending}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-50 ${
-                botSaved ? "bg-green-600 text-white" : "bg-indigo-600 hover:bg-indigo-700 text-white"
-              }`}
-            >
-              {botSaved ? "✓ Saved" : botConfigured ? "Update" : "Save"}
-            </button>
-            {botConfigured && (
-              <button
-                onClick={clearBot}
-                className="px-3 py-2 text-sm text-neutral-500 border border-neutral-200 rounded-lg hover:bg-neutral-50"
-              >
-                Disconnect
-              </button>
-            )}
-          </div>
+          {botError && <Note icon="⚠" tone="error">{botError}</Note>}
+          <FormGrid
+            fields={[
+              {
+                key: "botToken",
+                label: "Bot User OAuth Token (starts with xoxb-)",
+                input: (
+                  <input
+                    type="password"
+                    value={botFields.botToken}
+                    onChange={(e) => setBotFields((f) => ({ ...f, botToken: e.target.value }))}
+                    placeholder="xoxb-..."
+                    className={inputCls}
+                  />
+                ),
+              },
+              {
+                key: "signingSecret",
+                label: "Signing Secret",
+                input: (
+                  <input
+                    type="password"
+                    value={botFields.signingSecret}
+                    onChange={(e) => setBotFields((f) => ({ ...f, signingSecret: e.target.value }))}
+                    placeholder="••••••••••••••••••••••••••••••••"
+                    className={inputCls}
+                  />
+                ),
+              },
+              {
+                key: "workspaceId",
+                label: "Workspace ID (starts with T)",
+                input: (
+                  <input
+                    value={botFields.workspaceId}
+                    onChange={(e) => setBotFields((f) => ({ ...f, workspaceId: e.target.value }))}
+                    placeholder="T0XXXXXXXXX"
+                    className={inputCls}
+                  />
+                ),
+              },
+            ]}
+            onCancel={botConfigured ? clearBot : undefined}
+            onSubmit={saveBot}
+            submitLabel={botSaved ? "✓ Saved" : botConfigured ? "Update" : "Save"}
+          />
           {botConfigured && (
-            <div className="rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-700 space-y-1">
-              <p className="font-medium">Endpoint URLs to configure in your Slack app:</p>
-              <p>Slash command: <code className="bg-blue-100 px-1 rounded">/api/slack/slash</code></p>
-              <p>Event subscriptions: <code className="bg-blue-100 px-1 rounded">/api/slack/events</code></p>
+            <div className="mt-3">
+              <Note icon="ℹ" tone="info">
+                Endpoint URLs for your Slack app — slash command: <code className="font-mono">/api/slack/slash</code>, event subscriptions: <code className="font-mono">/api/slack/events</code>
+              </Note>
             </div>
           )}
         </div>
-      </div>
 
-      {/* When notifications fire */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5">
-        <p className="text-sm font-semibold text-neutral-800 mb-3">When notifications fire</p>
-        <ul className="space-y-2 text-sm text-neutral-600">
-          <li className="flex items-center gap-2"><span className="text-indigo-500">•</span> Issue created in any project</li>
-          <li className="flex items-center gap-2"><span className="text-indigo-500">•</span> Comment posted on any issue</li>
-          <li className="flex items-center gap-2"><span className="text-indigo-500">•</span> Priority changed to Urgent</li>
-        </ul>
-        <p className="mt-3 text-xs text-neutral-400">Leave a URL blank (or click Disconnect) to disable that provider.</p>
+        <div>
+          <h2 className="mb-3 text-[12.5px] font-bold text-[#20201d]">Which events post</h2>
+          <TogglesList
+            items={[
+              { key: "created", label: "Issue created", description: "Any new issue in any project", on: eventToggles.created },
+              { key: "comment", label: "Comment posted", description: "New comment on any issue", on: eventToggles.comment },
+              { key: "urgent", label: "Priority changed to Urgent", description: "Issue escalated to urgent priority", on: eventToggles.urgent },
+            ]}
+            onChange={(key, next) => setEventToggles((t) => ({ ...t, [key]: next }))}
+          />
+          <p className="mt-2 text-[11px] text-[#a19d90]">Leave a webhook URL blank (or click Disconnect) to disable that provider entirely.</p>
+        </div>
       </div>
     </div>
   );

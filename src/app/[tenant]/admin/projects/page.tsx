@@ -6,6 +6,7 @@ import { listMembers } from "@/lib/services/members";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 // eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import PageHeader from "@/components/patterns/PageHeader";
 import ProjectTeamsManager from "./ProjectTeamsManager";
 
 export default async function AdminProjectsPage({ params }: { params: Promise<{ tenant: string }> }) {
@@ -30,18 +31,17 @@ export default async function AdminProjectsPage({ params }: { params: Promise<{ 
   const teamMap = Object.fromEntries(teams.map((t) => [t.projectId, t.memberIds]));
 
   return (
-    <section>
-      <h2 className="text-base font-semibold text-neutral-900">Projects &amp; teams</h2>
-      <p className="mt-1 text-sm text-neutral-500">
-        Set who works each project. Project teams are a subset of workspace members — add people from Members first.
-      </p>
-      <ProjectTeamsManager
-        slug={slug}
-        readOnly={readOnly}
-        projects={projects.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
-        members={members.map((m) => ({ userId: m.userId, label: m.name || m.email }))}
-        teamMap={teamMap}
-      />
-    </section>
+    <div className="space-y-6">
+      <PageHeader title="Projects & Teams" subtitle="Who can see and edit each project" />
+      <div className="px-6">
+        <ProjectTeamsManager
+          slug={slug}
+          readOnly={readOnly}
+          projects={projects.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
+          members={members.map((m) => ({ userId: m.userId, label: m.name || m.email }))}
+          teamMap={teamMap}
+        />
+      </div>
+    </div>
   );
 }

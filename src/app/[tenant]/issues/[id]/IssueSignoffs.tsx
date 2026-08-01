@@ -73,8 +73,8 @@ export function IssueSignoffsPanel({
           {signoffs.length > 0 && (
             <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold border ${
               allSigned
-                ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                : "bg-amber-50 text-amber-700 border-amber-200"
+                ? "bg-[#e9f3ea] text-[#3f7d4c] border-[#c7ddc9]"
+                : "bg-[#fdf1de] text-[#c9791d] border-[#f3ddb4]"
             }`}>
               {allSigned ? "✓ All approved" : `${unsingedCount} pending`}
             </span>
@@ -104,7 +104,7 @@ export function IssueSignoffsPanel({
             return (
               <li key={s.id} className="flex items-center gap-3 group">
                 <div className={`h-6 w-6 shrink-0 rounded-full flex items-center justify-center text-xs font-bold ${
-                  isSigned ? "bg-emerald-100 text-emerald-700" : "bg-neutral-100 text-neutral-400"
+                  isSigned ? "bg-[#e9f3ea] text-[#3f7d4c]" : "bg-neutral-100 text-neutral-400"
                 }`}>
                   {isSigned ? "✓" : "○"}
                 </div>
@@ -121,7 +121,7 @@ export function IssueSignoffsPanel({
                     <button
                       onClick={() => sign(s.id)}
                       disabled={pending}
-                      className="rounded px-2 py-1 text-[11px] font-medium bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200"
+                      className="rounded px-2 py-1 text-[11px] font-medium bg-[#e9f3ea] text-[#3f7d4c] hover:bg-[#dcecdd] border border-[#c7ddc9]"
                     >
                       Approve
                     </button>
@@ -164,7 +164,7 @@ export function IssueSignoffsPanel({
           <button
             onClick={addRole}
             disabled={pending || !newRole.trim()}
-            className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+            className="rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50" style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f", color: "#f2e9d8" }}
           >
             Add
           </button>

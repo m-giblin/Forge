@@ -37,7 +37,7 @@ function SortTh({
   const active = sortKey === col;
   return (
     <th
-      className="text-right px-4 py-3 text-xs font-medium text-neutral-500 cursor-pointer select-none hover:text-indigo-600"
+      className="text-right px-4 py-3 text-xs font-medium text-neutral-500 cursor-pointer select-none hover:text-[#b7452f]"
       onClick={() => onSort(col)}
     >
       {label} {active ? (sortAsc ? "↑" : "↓") : ""}
@@ -206,7 +206,7 @@ export default function RetroClient({
               <button
                 onClick={handleGenerate}
                 disabled={generating}
-                className="text-xs px-3 py-1.5 rounded-lg bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-50 font-medium transition"
+                className="text-xs px-3 py-1.5 rounded-lg bg-[#8c4632] text-white hover:bg-[#6e3324] disabled:opacity-50 font-medium transition"
               >
                 {generating ? "Generating…" : aiSummary ? "Regenerate" : "Generate AI Summary"}
               </button>
@@ -222,7 +222,7 @@ export default function RetroClient({
               )}
               {generating && (
                 <div className="flex items-center gap-2 text-sm text-neutral-500">
-                  <div className="h-3 w-3 rounded-full border-2 border-indigo-500 border-t-transparent animate-spin" />
+                  <div className="h-3 w-3 rounded-full border-2 border-[#b7452f] border-t-transparent animate-spin" />
                   Analyzing sprint data…
                 </div>
               )}
@@ -237,7 +237,7 @@ export default function RetroClient({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             {[
               { label: "Planned", value: fmtH(plannedMinutes), color: "text-neutral-700" },
-              { label: "Logged", value: fmtH(loggedMinutes), color: "text-indigo-600" },
+              { label: "Logged", value: fmtH(loggedMinutes), color: "text-[#b7452f]" },
               {
                 label: "Variance",
                 value: fmtDelta(variance),
@@ -260,19 +260,19 @@ export default function RetroClient({
               <thead>
                 <tr className="border-b border-neutral-200 bg-neutral-50">
                   <th
-                    className="text-left px-4 py-3 text-xs font-medium text-neutral-500 cursor-pointer select-none hover:text-indigo-600"
+                    className="text-left px-4 py-3 text-xs font-medium text-neutral-500 cursor-pointer select-none hover:text-[#b7452f]"
                     onClick={() => handleSort("key")}
                   >
                     Issue {sortKey === "key" ? (sortAsc ? "↑" : "↓") : ""}
                   </th>
                   <th
-                    className="text-left px-4 py-3 text-xs font-medium text-neutral-500 cursor-pointer select-none hover:text-indigo-600"
+                    className="text-left px-4 py-3 text-xs font-medium text-neutral-500 cursor-pointer select-none hover:text-[#b7452f]"
                     onClick={() => handleSort("title")}
                   >
                     Title {sortKey === "title" ? (sortAsc ? "↑" : "↓") : ""}
                   </th>
                   <th
-                    className="text-left px-4 py-3 text-xs font-medium text-neutral-500 cursor-pointer select-none hover:text-indigo-600"
+                    className="text-left px-4 py-3 text-xs font-medium text-neutral-500 cursor-pointer select-none hover:text-[#b7452f]"
                     onClick={() => handleSort("assigneeName")}
                   >
                     Assignee {sortKey === "assigneeName" ? (sortAsc ? "↑" : "↓") : ""}
@@ -322,7 +322,7 @@ export default function RetroClient({
                     <span className="w-32 shrink-0 truncate text-neutral-700 text-right text-xs">{name}</span>
                     <div className="flex-1 h-5 bg-neutral-100 rounded overflow-hidden">
                       <div
-                        className="h-full bg-indigo-500 rounded transition-all"
+                        className="h-full bg-[#b7452f] rounded transition-all"
                         style={{ width: `${(min / maxMemberMin) * 100}%` }}
                       />
                     </div>

@@ -18,9 +18,5 @@ export default async function SsoSettingsPage({ params }: { params: Promise<{ te
     getScimTokenStatus(ctx.tenant.id).catch(() => ({ configured: false, lastUsedAt: null })),
   ]);
 
-  return (
-    <div className="max-w-2xl mx-auto px-6 py-8">
-      <SsoSettingsClient slug={slug} initial={config} scimStatus={scimStatus} />
-    </div>
-  );
+  return <SsoSettingsClient slug={slug} initial={config} scimStatus={scimStatus} />;
 }

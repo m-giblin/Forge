@@ -33,18 +33,19 @@ export default function ConsensusPanel({ slug, ideaId, isViewer, commentCount }:
 
   if (!result) {
     return (
-      <div className="rounded-xl border border-teal-200 bg-teal-50/50 px-5 py-4">
+      <div className="rounded-xl border border-[#e4d4c4] bg-[#f4ece4]/50 px-5 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-medium text-teal-800">🤝 AI Consensus Builder</p>
-            <p className="mt-0.5 text-xs text-teal-600">
+            <p className="text-sm font-medium text-[#8c4632]">🤝 AI Consensus Builder</p>
+            <p className="mt-0.5 text-xs text-[#b7452f]">
               {commentCount} comments in this discussion — AI can synthesize areas of agreement, contention, and a recommended next step.
             </p>
           </div>
           <button
             onClick={handleRun}
             disabled={isPending}
-            className="shrink-0 rounded-lg bg-teal-700 px-4 py-1.5 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-50"
+            className="shrink-0 rounded-lg border border-[#5e2c1f] px-4 py-1.5 text-sm font-medium text-[#f2e9d8] disabled:opacity-50"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
           >
             {isPending ? "Synthesizing…" : "Build consensus"}
           </button>
@@ -57,21 +58,21 @@ export default function ConsensusPanel({ slug, ideaId, isViewer, commentCount }:
   }
 
   return (
-    <div className="rounded-xl border border-teal-200 bg-teal-50 overflow-hidden">
+    <div className="rounded-xl border border-[#e4d4c4] bg-[#f4ece4] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-5 py-3 border-b border-teal-100">
-        <p className="text-sm font-semibold text-teal-800">🤝 AI Consensus</p>
+      <div className="flex items-center justify-between px-5 py-3 border-b border-[#e4d4c4]">
+        <p className="text-sm font-semibold text-[#8c4632]">🤝 AI Consensus</p>
         <div className="flex gap-2">
           <button
             onClick={handleRun}
             disabled={isPending}
-            className="text-xs text-teal-600 hover:text-teal-900 disabled:opacity-50"
+            className="text-xs text-[#b7452f] hover:text-[#20201d] disabled:opacity-50"
           >
             {isPending ? "Re-synthesizing…" : "Re-run"}
           </button>
           <button
             onClick={() => setResult(null)}
-            className="text-xs text-teal-400 hover:text-teal-700"
+            className="text-xs text-[#b7452f]/60 hover:text-[#8c4632]"
           >
             Dismiss
           </button>
@@ -80,16 +81,16 @@ export default function ConsensusPanel({ slug, ideaId, isViewer, commentCount }:
 
       <div className="px-5 py-4 space-y-4">
         {/* Summary */}
-        <p className="text-sm text-teal-900 italic">{result.summary}</p>
+        <p className="text-sm text-[#20201d] italic">{result.summary}</p>
 
         {/* Agreement */}
         {result.agreement.length > 0 && (
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-teal-600 mb-1.5">Areas of agreement</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#b7452f] mb-1.5">Areas of agreement</p>
             <ul className="space-y-1">
               {result.agreement.map((item, i) => (
-                <li key={i} className="flex gap-2 text-sm text-teal-900">
-                  <span className="text-teal-400 shrink-0">✓</span>
+                <li key={i} className="flex gap-2 text-sm text-[#20201d]">
+                  <span className="text-[#b7452f]/60 shrink-0">✓</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -100,11 +101,11 @@ export default function ConsensusPanel({ slug, ideaId, isViewer, commentCount }:
         {/* Contention */}
         {result.contention.length > 0 && (
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-amber-600 mb-1.5">Unresolved tensions</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#c9791d] mb-1.5">Unresolved tensions</p>
             <ul className="space-y-1">
               {result.contention.map((item, i) => (
-                <li key={i} className="flex gap-2 text-sm text-amber-900">
-                  <span className="text-amber-400 shrink-0">⚡</span>
+                <li key={i} className="flex gap-2 text-sm text-[#8a5410]">
+                  <span className="text-[#c9791d] shrink-0">⚡</span>
                   <span>{item}</span>
                 </li>
               ))}
@@ -115,10 +116,10 @@ export default function ConsensusPanel({ slug, ideaId, isViewer, commentCount }:
         {/* Themes */}
         {result.themes.length > 0 && (
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide text-teal-600 mb-1.5">Key themes</p>
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#b7452f] mb-1.5">Key themes</p>
             <div className="flex flex-wrap gap-1.5">
               {result.themes.map((theme, i) => (
-                <span key={i} className="rounded-full bg-teal-100 px-2.5 py-0.5 text-xs text-teal-800">
+                <span key={i} className="rounded-full bg-[#e4d4c4] px-2.5 py-0.5 text-xs text-[#8c4632]">
                   {theme}
                 </span>
               ))}
@@ -128,14 +129,14 @@ export default function ConsensusPanel({ slug, ideaId, isViewer, commentCount }:
 
         {/* Recommended next step */}
         {result.recommended_next && (
-          <div className="rounded-lg border border-teal-200 bg-white px-4 py-3">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-teal-600 mb-1">Recommended next step</p>
-            <p className="text-sm font-medium text-teal-900">{result.recommended_next}</p>
+          <div className="rounded-lg border border-[#e4d4c4] bg-white px-4 py-3">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-[#b7452f] mb-1">Recommended next step</p>
+            <p className="text-sm font-medium text-[#20201d]">{result.recommended_next}</p>
           </div>
         )}
       </div>
 
-      <p className="border-t border-teal-100 px-5 py-2.5 text-[10px] text-teal-500">
+      <p className="border-t border-[#e4d4c4] px-5 py-2.5 text-[10px] text-[#a19d90]">
         AI synthesis — review with your team before acting.
       </p>
     </div>

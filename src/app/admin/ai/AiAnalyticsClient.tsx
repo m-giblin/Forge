@@ -2,6 +2,10 @@
 
 import { useMemo, useState } from "react";
 import type { UsageRow } from "./page";
+import StatsRow from "@/components/patterns/admin/StatsRow";
+import AdminTable, { type AdminTableCell } from "@/components/patterns/admin/AdminTable";
+import Note from "@/components/patterns/admin/Note";
+import { FilterRow, FilterPill } from "@/components/patterns/FilterRow";
 
 const FEATURE_LABELS: Record<string, string> = {
   pr_impact: "PR Impact / Risk Gates",
@@ -25,10 +29,10 @@ const FEATURE_LABELS: Record<string, string> = {
 };
 
 const MODEL_COLORS: Record<string, string> = {
-  "grok-3-mini": "#6366f1",
-  "gpt-4o": "#10b981",
-  "claude-sonnet-4-6": "#f59e0b",
-  "gemini-2.0-flash": "#3b82f6",
+  "grok-3-mini": "#c9791d",
+  "gpt-4o": "#3f7d4c",
+  "claude-sonnet-4-6": "#8a4f13",
+  "gemini-2.0-flash": "#3a6ea8",
 };
 
 type RangeKey = "7d" | "30d" | "90d" | "180d" | "ytd" | "life";
@@ -63,7 +67,6 @@ function bucketKey(iso: string, granularity: "day" | "week" | "month"): string {
   const d = new Date(iso);
   if (granularity === "day") return iso.slice(0, 10);
   if (granularity === "month") return iso.slice(0, 7);
-  // week: Monday-start ISO week, keyed by that Monday's date
   const day = d.getDay();
   const diff = (day === 0 ? -6 : 1) - day;
   const monday = new Date(d);
@@ -107,9 +110,6 @@ export default function AiAnalyticsClient({
   thinkTankEnabled: boolean;
 }) {
   const [range, setRange] = useState<RangeKey>("30d");
-
-  const card: React.CSSProperties = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" };
-  const sectionLabel: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 };
 
   const filtered = useMemo(() => {
     const cutoff = cutoffFor(range);
@@ -169,11 +169,12 @@ export default function AiAnalyticsClient({
     type Stat = {
       id: string; name: string; turns: number; tokensIn: number; tokensOut: number;
       platformCostCents: number; byoCalls: number; lastUsed: string | null; hasByoKey: boolean;
+      topFeature: string;
     };
-    const map = new Map<string, Stat>();
+    const map = new Map<string, Stat & { featureCounts: Record<string, number> }>();
     for (const r of filtered) {
       if (!map.has(r.tenantId)) {
-        map.set(r.tenantId, { id: r.tenantId, name: r.tenantName, turns: 0, tokensIn: 0, tokensOut: 0, platformCostCents: 0, byoCalls: 0, lastUsed: null, hasByoKey: false });
+        map.set(r.tenantId, { id: r.tenantId, name: r.tenantName, turns: 0, tokensIn: 0, tokensOut: 0, platformCostCents: 0, byoCalls: 0, lastUsed: null, hasByoKey: false, topFeature: "—", featureCounts: {} });
       }
       const s = map.get(r.tenantId)!;
       s.turns++;
@@ -182,233 +183,189 @@ export default function AiAnalyticsClient({
       if (r.keySource === "platform") s.platformCostCents += r.costCents;
       else { s.byoCalls++; s.hasByoKey = true; }
       if (!s.lastUsed || r.createdAt > s.lastUsed) s.lastUsed = r.createdAt;
+      s.featureCounts[r.feature] = (s.featureCounts[r.feature] ?? 0) + 1;
     }
-    return [...map.values()].sort((a, b) => b.platformCostCents - a.platformCostCents);
+    return [...map.values()]
+      .map((s) => {
+        const top = Object.entries(s.featureCounts).sort((a, b) => b[1] - a[1])[0];
+        return { ...s, topFeature: top ? (FEATURE_LABELS[top[0]] ?? top[0]) : "—" };
+      })
+      .sort((a, b) => b.platformCostCents - a.platformCostCents);
   }, [filtered]);
 
   const chartMax = Math.max(...chartData.map(([, v]) => v.cost), 0.0001);
   const rangeLabel = RANGE_OPTIONS.find((o) => o.key === range)?.label ?? range;
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+  const tenantColumns = [
+    { label: "Tenant", flex: true },
+    { label: "Calls", width: 130 },
+    { label: "Tokens", width: 140 },
+    { label: "Cost", width: 120 },
+    { label: "Top feature", width: 220 },
+  ];
+  const tenantRows: AdminTableCell[][] = tenantStats.map((t) => [
+    {
+      kind: "text",
+      value: (
+        <span className="truncate">
+          <span className="font-bold text-[#20201d]">{t.name}</span>
+          {t.hasByoKey && (
+            <span className="ml-1.5 rounded-full bg-[#e9f3ea] px-1.5 py-[1px] text-[10px] font-bold text-[#3f7d4c]">BYO</span>
+          )}
+        </span>
+      ),
+    },
+    { kind: "text", value: t.turns.toLocaleString() },
+    { kind: "text", value: fmtTokens(t.tokensIn + t.tokensOut) },
+    { kind: "bold", value: fmtCost(t.platformCostCents) },
+    { kind: "dim", value: t.topFeature },
+  ]);
 
+  return (
+    <div className="space-y-4">
       {aiDisabled && (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 9, fontSize: 12, color: "#991b1b" }}>
-          <span style={{ fontSize: 16 }}>⚠</span>
-          <strong>AI is globally disabled</strong> — all AI features are blocked across every tenant. Toggle off in Feature Flags → Kill Switches.
-        </div>
+        <Note icon="⚠" tone="error">
+          <strong>AI is globally disabled</strong> — all AI features are blocked across every tenant. Toggle off in Feature Access → Kill Switches.
+        </Note>
       )}
 
       {notYetMigrated && (
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 16px", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 9, fontSize: 12, color: "#92400e" }}>
-          <span style={{ fontSize: 16 }}>⏳</span>
+        <Note icon="⏳" tone="warning">
           <strong>Migration 0101_ai_usage_metering.sql hasn&apos;t been run yet</strong> — every number below will be zero until it is. AI features work fine in the meantime; they just aren&apos;t being logged.
-        </div>
+        </Note>
       )}
 
-      {/* Range selector */}
-      <div style={{ display: "flex", gap: 6 }}>
+      <FilterRow>
         {RANGE_OPTIONS.map((o) => (
-          <button
-            key={o.key}
-            onClick={() => setRange(o.key)}
-            style={{
-              padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, cursor: "pointer",
-              border: range === o.key ? "1px solid #4f46e5" : "1px solid #e5e7eb",
-              background: range === o.key ? "#eef2ff" : "#fff",
-              color: range === o.key ? "#4f46e5" : "#6b7280",
-            }}
-          >
+          <FilterPill key={o.key} active={range === o.key} onClick={() => setRange(o.key)}>
             {o.label}
-          </button>
+          </FilterPill>
         ))}
-      </div>
+      </FilterRow>
 
-      {/* KPI strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-        {[
-          { label: "Est. AI Cost (Platform)", value: fmtCost(totals.platformCostCents), sub: rangeLabel, color: "#111827", big: true },
-          { label: "Total AI Turns", value: totals.turns.toLocaleString(), sub: rangeLabel, color: "#111827" },
-          { label: "Total Tokens Used", value: fmtTokens(totals.tokensIn + totals.tokensOut), sub: "input + output", color: "#111827" },
-          { label: "Tenants Using AI", value: totals.tenantsUsingAI, sub: rangeLabel, color: totals.tenantsUsingAI > 0 ? "#4f46e5" : "#94a3b8" },
-          { label: "BYO Keys Active", value: byoKeyCount, sub: "tenant-supplied", color: byoKeyCount > 0 ? "#10b981" : "#94a3b8" },
-        ].map((k) => (
-          <div key={k.label} style={{ background: "#fff", border: k.big ? "1px solid #c7d2fe" : "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" }}>
-            <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>{k.label}</div>
-            <div style={{ fontSize: k.big ? 30 : 26, fontWeight: 900, color: k.big ? "#4f46e5" : k.color, margin: "4px 0 2px", lineHeight: 1 }}>{k.value}</div>
-            <div style={{ fontSize: 11, color: "#94a3b8" }}>{k.sub}</div>
-          </div>
-        ))}
-      </div>
+      <StatsRow
+        items={[
+          { label: "Calls (30d)", value: totals.turns.toLocaleString(), hint: rangeLabel },
+          { label: "Tokens in", value: fmtTokens(totals.tokensIn), hint: "input tokens" },
+          { label: "Tokens out", value: fmtTokens(totals.tokensOut), hint: "output tokens" },
+          { label: "Platform cost", value: fmtCost(totals.platformCostCents), hint: "BYO calls cost Forge nothing", color: "#c9791d" },
+        ]}
+      />
 
-      {/* Cost chart + model breakdown */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-
-        <div style={card}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>AI Cost — {rangeLabel}</span>
-          </div>
-          <div style={{ padding: "16px 16px 12px" }}>
-            {chartData.length === 0 ? (
-              <div style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", padding: "24px 0" }}>No AI usage in this range.</div>
-            ) : (
-              <div style={{ display: "flex", alignItems: "flex-end", gap: 2, height: 80 }}>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div className="fw-card px-3.5 py-3">
+          <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">AI Cost — {rangeLabel}</p>
+          {chartData.length === 0 ? (
+            <p className="py-6 text-center text-[12px] text-[#a19d90]">No AI usage in this range.</p>
+          ) : (
+            <>
+              <div className="flex h-20 items-end gap-[2px]">
                 {chartData.map(([key, v]) => (
                   <div
                     key={key}
                     title={`${key}: ${fmtCost(v.cost)} · ${v.turns} turn${v.turns !== 1 ? "s" : ""}`}
+                    className="flex-1 rounded-t-[2px]"
                     style={{
-                      flex: 1,
                       height: `${(v.cost / chartMax) * 100}%`,
                       minHeight: v.cost > 0 ? 3 : 0,
-                      background: v.cost > 0 ? "#6366f1" : "#f1f5f9",
-                      borderRadius: "2px 2px 0 0",
+                      backgroundColor: v.cost > 0 ? "#c9791d" : "#eae6da",
                     }}
                   />
                 ))}
               </div>
-            )}
-            {chartData.length > 0 && (
-              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6, fontSize: 10, color: "#cbd5e1" }}>
-                <span>{chartData[0][0]}</span><span>{chartData[chartData.length - 1][0]}</span>
+              <div className="mt-1.5 flex justify-between text-[10px] text-[#cfc9b9]">
+                <span>{chartData[0][0]}</span>
+                <span>{chartData[chartData.length - 1][0]}</span>
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
 
-        <div style={card}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid #f1f5f9", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>Model Breakdown</span>
-            <span style={{ fontSize: 11, color: "#94a3b8" }}>by turns · {rangeLabel}</span>
+        <div className="fw-card px-3.5 py-3">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Model breakdown</p>
+            <span className="text-[10.5px] text-[#a19d90]">by turns · {rangeLabel}</span>
           </div>
-          <div style={{ padding: "12px 16px" }}>
-            {modelTotals.length === 0 ? (
-              <div style={{ textAlign: "center", fontSize: 12, color: "#94a3b8", padding: "16px 0" }}>No AI turns recorded yet.</div>
-            ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                {modelTotals.map(([model, data]) => {
-                  const pct = totalModelTurns > 0 ? (data.turns / totalModelTurns) * 100 : 0;
-                  const color = MODEL_COLORS[model] ?? "#94a3b8";
-                  return (
-                    <div key={model}>
-                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4, fontSize: 12 }}>
-                        <span style={{ fontWeight: 600, color: "#111827" }}>{model}</span>
-                        <span style={{ color: "#6b7280" }}>{data.turns.toLocaleString()} turns · {fmtTokens(data.tokens)} tok · {fmtCost(data.costCents)}</span>
-                      </div>
-                      <div style={{ height: 6, background: "#f1f5f9", borderRadius: 3, overflow: "hidden" }}>
-                        <div style={{ height: "100%", width: `${pct}%`, background: color, borderRadius: 3 }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Cost by feature */}
-      <div>
-        <div style={sectionLabel}>Cost by Feature — {rangeLabel}</div>
-        <div style={card}>
-          {featureTotals.length === 0 ? (
-            <div style={{ padding: "24px", textAlign: "center", fontSize: 12, color: "#94a3b8" }}>No AI usage in this range.</div>
+          {modelTotals.length === 0 ? (
+            <p className="py-4 text-center text-[12px] text-[#a19d90]">No AI turns recorded yet.</p>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                  {["Feature", "Turns", "Platform Cost"].map((h) => (
-                    <th key={h} style={{ padding: "9px 14px", textAlign: h === "Platform Cost" ? "right" : "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {featureTotals.map(([feature, data], i) => (
-                  <tr key={feature} style={{ borderTop: i > 0 ? "1px solid #f1f5f9" : "none" }}>
-                    <td style={{ padding: "8px 14px", fontWeight: 600, color: "#111827" }}>{FEATURE_LABELS[feature] ?? feature}</td>
-                    <td style={{ padding: "8px 14px", color: "#6b7280" }}>{data.turns.toLocaleString()}</td>
-                    <td style={{ padding: "8px 14px", textAlign: "right", fontFamily: "ui-monospace, monospace", color: "#111827" }}>{fmtCost(data.costCents)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="space-y-2.5">
+              {modelTotals.map(([model, data]) => {
+                const pct = totalModelTurns > 0 ? (data.turns / totalModelTurns) * 100 : 0;
+                const color = MODEL_COLORS[model] ?? "#a19d90";
+                return (
+                  <div key={model}>
+                    <div className="mb-1 flex justify-between text-[11.5px]">
+                      <span className="font-semibold text-[#20201d]">{model}</span>
+                      <span className="text-[#726e60]">{data.turns.toLocaleString()} turns · {fmtTokens(data.tokens)} tok · {fmtCost(data.costCents)}</span>
+                    </div>
+                    <div className="h-1.5 overflow-hidden rounded-full bg-[#eae6da]">
+                      <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
 
-      {/* Feature state */}
       <div>
-        <div style={sectionLabel}>Platform AI Settings</div>
-        <div style={card}>
+        <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Cost by feature — {rangeLabel}</p>
+        <AdminTable
+          columns={[{ label: "Feature", flex: true }, { label: "Turns", width: 100 }, { label: "Platform cost", width: 130 }]}
+          rows={featureTotals.map(([feature, data]) => [
+            { kind: "bold", value: FEATURE_LABELS[feature] ?? feature },
+            { kind: "text", value: data.turns.toLocaleString() },
+            { kind: "bold", value: fmtCost(data.costCents) },
+          ])}
+        />
+      </div>
+
+      <div>
+        <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Platform AI settings</p>
+        <div className="fw-card overflow-hidden">
           {[
             {
               label: "AI Kill Switch",
               desc: "Globally disables all AI features across every tenant",
               status: aiDisabled ? "ACTIVE" : "off",
-              statusBg: aiDisabled ? "#fef2f2" : "#f8fafc",
-              statusColor: aiDisabled ? "#dc2626" : "#94a3b8",
+              on: aiDisabled,
             },
             {
               label: "Think Tank (AI Sounding Board)",
               desc: "Feature flag controlling AI-powered idea analysis",
               status: thinkTankEnabled ? "enabled" : "disabled",
-              statusBg: thinkTankEnabled ? "#f0fdf4" : "#f8fafc",
-              statusColor: thinkTankEnabled ? "#16a34a" : "#94a3b8",
+              on: thinkTankEnabled,
             },
           ].map((row, i) => (
-            <div key={row.label} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", borderTop: i > 0 ? "1px solid #f1f5f9" : "none" }}>
+            <div key={row.label} className={`flex items-center justify-between px-3.5 py-[11px] ${i > 0 ? "border-t border-[#e3ded0]" : ""}`}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{row.label}</div>
-                <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{row.desc}</div>
+                <p className="text-[12.5px] font-semibold text-[#20201d]">{row.label}</p>
+                <p className="mt-0.5 text-[11px] text-[#726e60]">{row.desc}</p>
               </div>
-              <span style={{ padding: "3px 10px", borderRadius: 9, fontSize: 11, fontWeight: 700, background: row.statusBg, color: row.statusColor }}>{row.status}</span>
+              <span
+                className="rounded-full px-2.5 py-[3px] text-[11px] font-bold"
+                style={row.on ? { color: "#c0392b", backgroundColor: "#fbeae8" } : { color: "#a19d90", backgroundColor: "#f1efe9" }}
+              >
+                {row.status}
+              </span>
             </div>
           ))}
         </div>
-        <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>Change these in <strong>Feature Access</strong> → Kill Switches.</p>
+        <p className="mt-1.5 text-[11px] text-[#a19d90]">Change these in <strong>Feature Access</strong> → Kill Switches.</p>
       </div>
 
-      {/* Per-tenant usage table */}
       <div>
-        <div style={sectionLabel}>Cost by Tenant — {rangeLabel}</div>
-        <div style={card}>
-          {tenantStats.length === 0 ? (
-            <div style={{ padding: "40px 24px", textAlign: "center", fontSize: 13, color: "#94a3b8" }}>
-              No AI usage recorded in this range.
-            </div>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                  {["Tenant", "Turns", "Tokens In", "Tokens Out", "Platform Cost", "BYO Calls", "Last Used"].map((h) => (
-                    <th key={h} style={{ padding: "9px 14px", textAlign: h === "Platform Cost" ? "right" : "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {tenantStats.map((t, i) => (
-                  <tr key={t.id} style={{ borderTop: i > 0 ? "1px solid #f1f5f9" : "none" }}>
-                    <td style={{ padding: "10px 14px" }}>
-                      <span style={{ fontWeight: 600, color: "#111827" }}>{t.name}</span>
-                      {t.hasByoKey && <span style={{ marginLeft: 6, padding: "1px 7px", borderRadius: 9, fontSize: 10, fontWeight: 700, background: "#f0fdf4", color: "#16a34a" }}>BYO</span>}
-                    </td>
-                    <td style={{ padding: "10px 14px", color: "#374151", fontWeight: 600 }}>{t.turns.toLocaleString()}</td>
-                    <td style={{ padding: "10px 14px", color: "#6b7280" }}>{fmtTokens(t.tokensIn)}</td>
-                    <td style={{ padding: "10px 14px", color: "#6b7280" }}>{fmtTokens(t.tokensOut)}</td>
-                    <td style={{ padding: "10px 14px", textAlign: "right", fontWeight: 700, color: "#111827", fontFamily: "ui-monospace, monospace" }}>{fmtCost(t.platformCostCents)}</td>
-                    <td style={{ padding: "10px 14px", color: "#6b7280" }}>{t.byoCalls || "—"}</td>
-                    <td style={{ padding: "10px 14px", color: "#94a3b8", fontSize: 12 }}>{timeAgo(t.lastUsed)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-        <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 6 }}>
+        <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Cost by tenant — {rangeLabel}</p>
+        <AdminTable columns={tenantColumns} rows={tenantRows} minWidth={700} />
+        <p className="mt-1.5 text-[11px] text-[#a19d90]">
           &quot;Platform Cost&quot; is Forge&apos;s own xAI spend — BYO calls are billed to the tenant&apos;s own key and cost Forge nothing.
         </p>
+        {byoKeyCount > 0 && (
+          <p className="mt-0.5 text-[11px] text-[#a19d90]">{byoKeyCount} tenant BYO key{byoKeyCount === 1 ? "" : "s"} active.</p>
+        )}
       </div>
-
     </div>
   );
 }

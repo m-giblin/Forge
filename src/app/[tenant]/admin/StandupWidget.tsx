@@ -9,7 +9,7 @@ const SECTION_META: Record<StandupEntry["section"], { emoji: string; label: stri
   shipped: { emoji: "✅", label: "Shipped", color: "text-green-700 bg-green-50 border-green-200" },
   in_progress: { emoji: "🔄", label: "In Progress", color: "text-blue-700 bg-blue-50 border-blue-200" },
   blocked: { emoji: "🚨", label: "Blocked", color: "text-red-700 bg-red-50 border-red-200" },
-  needs_triage: { emoji: "⚠️", label: "Needs Triage", color: "text-amber-700 bg-amber-50 border-amber-200" },
+  needs_triage: { emoji: "⚠️", label: "Needs Triage", color: "text-[#c9791d] bg-[#fdf1de] border-[#f3ddb4]" },
 };
 
 export default function StandupWidget({
@@ -84,7 +84,7 @@ export default function StandupWidget({
 
         {isPending && (
           <div className="text-center py-5">
-            <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+            <div className="inline-block h-5 w-5 animate-spin rounded-full border-2 border-[#b7452f] border-t-transparent" />
             <p className="mt-2 text-sm text-neutral-500">Generating digest with AI…</p>
           </div>
         )}
@@ -97,7 +97,7 @@ export default function StandupWidget({
                 { label: "Shipped", value: digest.stats.shipped_today, color: "text-green-600" },
                 { label: "In Progress", value: digest.stats.in_progress, color: "text-blue-600" },
                 { label: "Blocked", value: digest.stats.blocked, color: digest.stats.blocked > 0 ? "text-red-600" : "text-neutral-900" },
-                { label: "Unassigned", value: digest.stats.unassigned, color: digest.stats.unassigned > 5 ? "text-amber-600" : "text-neutral-900" },
+                { label: "Unassigned", value: digest.stats.unassigned, color: digest.stats.unassigned > 5 ? "text-[#c9791d]" : "text-neutral-900" },
               ].map((k) => (
                 <div key={k.label} className="rounded-lg bg-neutral-50 px-2 py-2 text-center">
                   <p className={`text-xl font-bold ${k.color}`}>{k.value}</p>
@@ -109,7 +109,7 @@ export default function StandupWidget({
             {/* AI summary */}
             {digest.ai_summary && (
               <div>
-                <p className="text-sm text-neutral-700 leading-relaxed italic border-l-2 border-indigo-300 pl-3">
+                <p className="text-sm text-neutral-700 leading-relaxed italic border-l-2 border-[#c9a68f] pl-3">
                   {digest.ai_summary}
                 </p>
                 <AiDisclosureFooter model="Grok (xAI)" />

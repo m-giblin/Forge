@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { avatarColor, initials as initialsOf } from "@/lib/ui/avatar";
 
 export type CalIssue = {
   id: string;
@@ -30,24 +31,21 @@ export type CalMember = {
   initials: string;
 };
 
-const PROJECT_COLORS = [
-  { bg: "#eef2ff", border: "#818cf8", text: "#3730a3" },
-  { bg: "#f5f3ff", border: "#a78bfa", text: "#4c1d95" },
-  { bg: "#f0fdfa", border: "#2dd4bf", text: "#134e4a" },
-  { bg: "#fffbeb", border: "#fbbf24", text: "#78350f" },
-  { bg: "#fff1f2", border: "#fb7185", text: "#881337" },
-  { bg: "#ecfdf5", border: "#34d399", text: "#064e3b" },
-  { bg: "#f0f9ff", border: "#38bdf8", text: "#0c4a6e" },
-  { bg: "#fff7ed", border: "#fb923c", text: "#7c2d12" },
-];
-
-const SPRINT_COLORS = ["#6366f1", "#8b5cf6", "#14b8a6", "#f59e0b", "#f43f5e", "#10b981", "#0ea5e9", "#f97316"];
+// Ember Rust status colors (HANDOFF.md §3) — used for issue chips instead of
+// an invented per-project palette.
+const STATUS_COLORS: Record<string, { bg: string; fg: string }> = {
+  backlog: { fg: "#a19d90", bg: "#f1efe9" },
+  todo: { fg: "#3a6ea8", bg: "#eaf1f8" },
+  in_progress: { fg: "#c9791d", bg: "#fdf1de" },
+  in_review: { fg: "#7a4fa0", bg: "#f4ecfa" },
+  done: { fg: "#3f7d4c", bg: "#e9f3ea" },
+};
 
 const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 const PRIORITY_DOT: Record<string, string> = {
-  urgent: "#ef4444", high: "#f97316", medium: "#6366f1", low: "#94a3b8",
+  urgent: "#c0392b", high: "#c9791d", medium: "#3a6ea8", low: "#a19d90",
 };
 
 function toUTCDate(iso: string): Date {
@@ -77,17 +75,6 @@ export default function CalendarClient({
   const [month, setMonth] = useState(now.getUTCMonth()); // 0-indexed
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null);
   const [hoveredIssueId, setHoveredIssueId] = useState<string | null>(null);
-
-  // Project color map
-  const projectColorMap = useMemo(() => {
-    const ids = [...new Set(issues.map((i) => i.projectId))];
-    return new Map(ids.map((id, i) => [id, PROJECT_COLORS[i % PROJECT_COLORS.length]]));
-  }, [issues]);
-
-  // Sprint color map
-  const sprintColorMap = useMemo(() => {
-    return new Map(sprints.map((s, i) => [s.id, SPRINT_COLORS[i % SPRINT_COLORS.length]]));
-  }, [sprints]);
 
   // Build calendar grid
   const firstDay = new Date(Date.UTC(year, month, 1));
@@ -140,87 +127,86 @@ export default function CalendarClient({
   const goToday = () => { setYear(now.getUTCFullYear()); setMonth(now.getUTCMonth()); };
 
   return (
-    <div className="flex flex-col h-full min-h-0 bg-white">
+    <div className="flex flex-col h-full min-h-0 bg-[#eeece4]">
       {/* Header */}
-      <div className="flex items-center justify-between px-6 py-3 border-b border-neutral-200 shrink-0 flex-wrap gap-3">
-        <div className="flex items-center gap-3">
-          <h1 className="text-base font-semibold text-neutral-900">
+      <div className="shrink-0 bg-[#eeece4] border-b border-[#ddd8c9] px-6 pt-4 pb-[13px]">
+        <div className="flex items-center gap-3 flex-wrap">
+          <h1 className="font-[family-name:var(--font-manrope)] text-[21px] font-extrabold text-[#20201d]">
             {MONTHS[month]} {year}
           </h1>
-          <div className="flex items-center gap-1">
-            <button onClick={goBack} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition">←</button>
-            <button onClick={goToday} className="rounded-lg border border-neutral-200 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 transition">Today</button>
-            <button onClick={goForward} className="rounded-lg border border-neutral-200 px-2.5 py-1.5 text-sm text-neutral-600 hover:bg-neutral-50 transition">→</button>
+          <div className="flex items-center gap-[5px]">
+            <button onClick={goBack} className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-2.5 py-1.5 text-xs font-bold text-[#4a473e] hover:bg-[#eae6da] transition-colors">←</button>
+            <button onClick={goToday} className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[11.5px] font-bold text-[#4a473e] hover:bg-[#eae6da] transition-colors">Today</button>
+            <button onClick={goForward} className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-2.5 py-1.5 text-xs font-bold text-[#4a473e] hover:bg-[#eae6da] transition-colors">→</button>
           </div>
-        </div>
 
-        {/* Assignee filter */}
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-[11px] text-neutral-400 font-medium uppercase tracking-wide">Filter:</span>
-          <button
-            onClick={() => setFilterMemberId(null)}
-            className={`rounded-full px-3 py-1 text-xs font-medium transition ${!filterMemberId ? "bg-neutral-900 text-white" : "border border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
-          >
-            All
-          </button>
-          {members.map((m) => (
+          <div className="flex-1" />
+
+          {/* Assignee filter */}
+          <span className="text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Filter</span>
+          <div className="flex items-center gap-2 flex-wrap">
             <button
-              key={m.userId}
-              onClick={() => setFilterMemberId(filterMemberId === m.userId ? null : m.userId)}
-              className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition ${filterMemberId === m.userId ? "bg-indigo-600 text-white" : "border border-neutral-200 text-neutral-600 hover:bg-neutral-50"}`}
+              onClick={() => setFilterMemberId(null)}
+              className={`rounded-full px-3 py-1 text-[11.5px] font-semibold transition-colors ${!filterMemberId ? "bg-[#8c4632] text-[#f2e9d8]" : "border border-[#ddd8c9] bg-[#f4f2eb] text-[#4a473e] hover:bg-[#eae6da]"}`}
             >
-              <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold ${filterMemberId === m.userId ? "bg-white/20 text-white" : "bg-indigo-100 text-indigo-700"}`}>
-                {m.initials}
-              </span>
-              {m.name.split(" ")[0]}
+              All
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Sprint bands */}
-      {visibleSprints.length > 0 && (
-        <div className="px-4 py-2 border-b border-neutral-100 bg-neutral-50 flex flex-wrap gap-2">
-          {visibleSprints.map((s) => {
-            const color = sprintColorMap.get(s.id) ?? "#6366f1";
-            return (
-              <div
-                key={s.id}
-                className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium text-white"
-                style={{ background: color }}
+            {members.map((m) => (
+              <button
+                key={m.userId}
+                onClick={() => setFilterMemberId(filterMemberId === m.userId ? null : m.userId)}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[11.5px] font-semibold transition-colors ${filterMemberId === m.userId ? "bg-[#8c4632] text-[#f2e9d8]" : "border border-[#ddd8c9] bg-[#f4f2eb] text-[#4a473e] hover:bg-[#eae6da]"}`}
               >
-                {s.status === "active" && <span className="w-1.5 h-1.5 rounded-full bg-white/70 inline-block" />}
-                {s.name}
-                {s.startDate && s.endDate && (
-                  <span className="opacity-70">
-                    {toUTCDate(s.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
-                    {" – "}
-                    {toUTCDate(s.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
-                  </span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Day-of-week headers */}
-      <div className="grid grid-cols-7 border-b border-neutral-200 shrink-0">
-        {DAYS.map((d) => (
-          <div key={d} className="py-2 text-center text-[11px] font-semibold uppercase tracking-wide text-neutral-400">
-            {d}
+                <span
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+                  style={{ background: filterMemberId === m.userId ? "rgba(255,255,255,0.2)" : avatarColor(m.userId) }}
+                >
+                  {m.initials || initialsOf(m.name)}
+                </span>
+                {m.name.split(" ")[0]}
+              </button>
+            ))}
           </div>
-        ))}
+        </div>
+
+        {/* Sprint bands */}
+        {visibleSprints.length > 0 && (
+          <div className="flex flex-wrap gap-[7px] mt-[11px]">
+            {visibleSprints.map((s) => {
+              const color = s.status === "active" ? "#8c4632" : "#726e60";
+              return (
+                <div
+                  key={s.id}
+                  className="flex items-center gap-1.5 rounded-full px-[11px] py-1 text-[11px] font-bold text-white"
+                  style={{ background: color }}
+                >
+                  {s.status === "active" && <span className="w-1.5 h-1.5 rounded-full bg-white/70 inline-block" />}
+                  {s.name}
+                  {s.startDate && s.endDate && (
+                    <span className="opacity-70">
+                      {toUTCDate(s.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+                      {" – "}
+                      {toUTCDate(s.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Calendar grid */}
-      <div className="flex-1 overflow-y-auto">
-        <div className="grid grid-cols-7 h-full" style={{ gridAutoRows: "minmax(120px, 1fr)" }}>
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-3.5 pb-6">
+        <div className="grid grid-cols-7 gap-px bg-[#ddd8c9] border border-[#ddd8c9] rounded-md overflow-hidden">
+          {DAYS.map((d) => (
+            <div key={d} className="bg-[#e3ded0] py-2 text-center text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#726e60]">
+              {d}
+            </div>
+          ))}
           {cells.map((date, idx) => {
             if (!date) {
-              return (
-                <div key={idx} className="border-b border-r border-neutral-100 bg-neutral-50/50" />
-              );
+              return <div key={idx} className="bg-[#eeece4] min-h-[96px]" />;
             }
 
             const iso = isoOf(date);
@@ -236,12 +222,18 @@ export default function CalendarClient({
             return (
               <div
                 key={idx}
-                className={`border-b border-r border-neutral-100 p-1 flex flex-col gap-0.5 ${isCurrentMonth ? "bg-white" : "bg-neutral-50/60"}`}
+                className="min-h-[96px] px-2 py-[7px]"
+                style={{ background: isCurrentMonth ? "#f4f2eb" : "#eeece4" }}
               >
                 {/* Date number */}
-                <div className="flex items-center justify-between mb-0.5">
+                <div className="flex items-center justify-between">
                   <span
-                    className={`text-xs font-semibold flex items-center justify-center w-6 h-6 rounded-full ${isToday ? "bg-indigo-600 text-white" : isCurrentMonth ? "text-neutral-700" : "text-neutral-300"}`}
+                    className="text-[11.5px] inline-flex items-center justify-center min-w-[20px] h-5 rounded-full"
+                    style={{
+                      fontWeight: isToday ? 800 : 600,
+                      color: isToday ? "#f2e9d8" : isCurrentMonth ? "#726e60" : "#a19d90",
+                      background: isToday ? "#8c4632" : "transparent",
+                    }}
                   >
                     {date.getUTCDate()}
                   </span>
@@ -253,7 +245,7 @@ export default function CalendarClient({
                           key={s.id}
                           title={s.name}
                           className="w-1.5 h-1.5 rounded-full"
-                          style={{ background: sprintColorMap.get(s.id) ?? "#6366f1" }}
+                          style={{ background: s.status === "active" ? "#8c4632" : "#a19d90" }}
                         />
                       ))}
                     </div>
@@ -261,9 +253,9 @@ export default function CalendarClient({
                 </div>
 
                 {/* Issue chips */}
-                <div className="flex flex-col gap-0.5 overflow-hidden">
+                <div className="flex flex-col gap-[3px] mt-[5px] overflow-hidden">
                   {dayIssues.slice(0, 4).map((issue) => {
-                    const color = projectColorMap.get(issue.projectId) ?? PROJECT_COLORS[0];
+                    const color = STATUS_COLORS[issue.status] ?? STATUS_COLORS.backlog;
                     const isHovered = hoveredIssueId === issue.id;
                     return (
                       <Link
@@ -271,21 +263,22 @@ export default function CalendarClient({
                         href={`/${slug}/issues/${issue.id}`}
                         onMouseEnter={() => setHoveredIssueId(issue.id)}
                         onMouseLeave={() => setHoveredIssueId(null)}
-                        className="flex items-center gap-1 rounded px-1 py-0.5 text-[10px] font-medium truncate transition"
+                        className="flex items-center gap-1 rounded px-1 py-0.5 text-[11px] font-semibold truncate transition-colors"
                         style={{
-                          background: isHovered ? color.border + "40" : color.bg,
+                          background: color.bg,
                           borderLeft: `2.5px solid ${PRIORITY_DOT[issue.priority]}`,
-                          color: color.text,
+                          color: color.fg,
+                          filter: isHovered ? "brightness(0.96)" : undefined,
                         }}
                         title={`${issue.key}: ${issue.title}`}
                       >
                         <span className="font-mono shrink-0">{issue.key}</span>
-                        <span className="truncate text-neutral-600">{issue.title}</span>
+                        <span className="truncate">{issue.title}</span>
                       </Link>
                     );
                   })}
                   {dayIssues.length > 4 && (
-                    <span className="text-[10px] text-neutral-400 pl-1">+{dayIssues.length - 4} more</span>
+                    <span className="text-[11px] text-[#a19d90] pl-1">+{dayIssues.length - 4} more</span>
                   )}
                 </div>
               </div>

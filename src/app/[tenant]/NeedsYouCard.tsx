@@ -18,7 +18,7 @@ const TAG_STYLE: Record<string, { label: string; cls: string }> = {
   BLOCKED:    { label: "BLOCKED",    cls: "bg-red-100 text-red-700" },
   UNASSIGNED: { label: "UNASSIGNED", cls: "bg-orange-100 text-orange-700" },
   IN_REVIEW:  { label: "IN REVIEW",  cls: "bg-purple-100 text-purple-700" },
-  STALE:      { label: "STALE",      cls: "bg-amber-100 text-amber-700" },
+  STALE:      { label: "STALE",      cls: "bg-[#fdf1de] text-[#c9791d]" },
   ASSIGNED:   { label: "ASSIGNED",   cls: "bg-sky-100 text-sky-700" },
 };
 
@@ -103,7 +103,7 @@ export default function NeedsYouCards({ slug, items, members }: {
               )}
             </div>
             <Link href={`/${slug}/issues/${a.issueId}`} className="block mt-1.5">
-              <p className="text-sm font-medium text-neutral-900 leading-snug hover:text-indigo-600">{a.title}</p>
+              <p className="text-sm font-medium text-[#20201d] leading-snug hover:text-[#b7452f]">{a.title}</p>
               <p className="text-xs text-neutral-500 mt-0.5">{a.meta}</p>
             </Link>
           </div>

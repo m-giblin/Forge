@@ -51,7 +51,7 @@ export default function SessionManagement({ lastSignIn }: { lastSignIn: string |
               can be revoked below.
             </p>
           </div>
-          <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+          <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-[#e9f3ea] px-2 py-0.5 text-[11px] font-semibold text-[#3f7d4c]">
             ● Active
           </span>
         </div>
@@ -63,7 +63,7 @@ export default function SessionManagement({ lastSignIn }: { lastSignIn: string |
           </p>
 
           {status === "done" ? (
-            <p className="text-sm text-emerald-600 font-medium">✓ All other sessions have been revoked.</p>
+            <p className="text-sm text-[#3f7d4c] font-medium">✓ All other sessions have been revoked.</p>
           ) : (
             <button
               onClick={revokeOtherSessions}

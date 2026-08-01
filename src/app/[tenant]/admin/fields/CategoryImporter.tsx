@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { importCategoriesAction } from "./actions";
+import Toggle from "@/components/patterns/Toggle";
 
 type Project = { id: string; key: string; name: string };
 type PreviewRow = { name: string; parent_name: string };
@@ -98,7 +99,7 @@ export default function CategoryImporter({
     return (
       <button
         onClick={() => setOpen(true)}
-        className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 transition"
+        className="rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#f4f2eb] transition"
       >
         ↑ Import CSV
       </button>
@@ -106,31 +107,31 @@ export default function CategoryImporter({
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-4 space-y-4">
+    <div className="fw-card mt-4 space-y-4 p-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-neutral-800">Import categories from CSV</h3>
-        <button onClick={() => { setOpen(false); reset(); }} className="text-xs text-neutral-400 hover:text-neutral-700">✕ Close</button>
+        <h3 className="text-[12.5px] font-bold text-[#20201d]">Import categories from CSV</h3>
+        <button onClick={() => { setOpen(false); reset(); }} className="text-[11px] text-[#a19d90] hover:text-[#4a473e]">✕ Close</button>
       </div>
 
       {/* Download template */}
       <div className="flex items-center gap-3">
         <button
           onClick={downloadTemplate}
-          className="rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-neutral-50 transition"
+          className="rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#f4f2eb] transition"
         >
           ↓ Download template
         </button>
-        <span className="text-xs text-neutral-400">Two columns: <code className="bg-neutral-100 px-1 rounded">name</code> and <code className="bg-neutral-100 px-1 rounded">parent_name</code>. Leave parent_name blank for top-level categories.</span>
+        <span className="text-[11px] text-[#a19d90]">Two columns: <code className="rounded bg-[#f1efe9] px-1">name</code> and <code className="rounded bg-[#f1efe9] px-1">parent_name</code>. Leave parent_name blank for top-level categories.</span>
       </div>
 
       {/* Project picker — only shown when no default project */}
       {!defaultProjectId && projects.length > 1 && (
         <div>
-          <label className="block text-xs font-medium text-neutral-600 mb-1">Target project</label>
+          <label className="mb-1 block text-[11px] font-semibold text-[#726e60]">Target project</label>
           <select
             value={projectId}
             onChange={(e) => { setProjectId(e.target.value); reset(); }}
-            className="rounded-lg border border-neutral-300 px-3 py-2 text-sm"
+            className="rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-2 text-[12.5px] text-[#20201d] outline-none focus:border-[#b7452f]"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>{p.key} — {p.name}</option>
@@ -142,33 +143,33 @@ export default function CategoryImporter({
       {/* File upload */}
       {!preview && !result && (
         <div>
-          <label className="block text-xs font-medium text-neutral-600 mb-1">Upload CSV file</label>
+          <label className="mb-1 block text-[11px] font-semibold text-[#726e60]">Upload CSV file</label>
           <input
             ref={fileRef}
             type="file"
             accept=".csv,text/csv"
             onChange={handleFile}
-            className="text-sm text-neutral-700 file:mr-3 file:rounded-lg file:border file:border-neutral-300 file:bg-white file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-neutral-700 file:hover:bg-neutral-50 file:cursor-pointer"
+            className="text-[12.5px] text-[#4a473e] file:mr-3 file:rounded-[5px] file:border file:border-[#ddd8c9] file:bg-white file:px-3 file:py-1.5 file:text-[11px] file:font-semibold file:text-[#4a473e] file:hover:bg-[#f4f2eb] file:cursor-pointer"
           />
         </div>
       )}
 
       {parseError && (
-        <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{parseError}</p>
+        <p className="rounded-[6px] border border-[#f0cfc9] bg-[#fbeae8] px-3 py-2 text-[11.5px] text-[#a13a2f]">{parseError}</p>
       )}
 
       {/* Preview tree */}
       {preview && (
         <div className="space-y-3">
-          <p className="text-xs font-semibold text-neutral-600">
+          <p className="text-[11.5px] font-semibold text-[#726e60]">
             Preview — {tops.length} top-level, {preview.length - tops.length} sub-categories
           </p>
-          <div className="max-h-64 overflow-y-auto rounded-lg border border-neutral-200 bg-white p-3 space-y-2">
+          <div className="max-h-64 space-y-2 overflow-y-auto rounded-[6px] border border-[#e3ded0] bg-white p-3">
             {tops.map((cat) => (
               <div key={cat.name}>
-                <p className="text-sm font-medium text-neutral-800">{cat.name}</p>
+                <p className="text-[12.5px] font-semibold text-[#20201d]">{cat.name}</p>
                 {subsOf(cat.name).map((sub) => (
-                  <p key={sub.name} className="ml-4 text-xs text-neutral-500 border-l border-neutral-200 pl-2 mt-0.5">
+                  <p key={sub.name} className="ml-4 mt-0.5 border-l border-[#e3ded0] pl-2 text-[11px] text-[#726e60]">
                     — {sub.name}
                   </p>
                 ))}
@@ -176,13 +177,8 @@ export default function CategoryImporter({
             ))}
           </div>
 
-          <label className="flex items-center gap-2 text-xs text-neutral-600 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={replace}
-              onChange={(e) => setReplace(e.target.checked)}
-              className="rounded border-neutral-300"
-            />
+          <label className="flex items-center gap-2.5 text-[11.5px] text-[#4a473e]">
+            <Toggle on={replace} onChange={setReplace} label="Replace existing categories" />
             <span>Replace existing categories for this project (deletes current ones first)</span>
           </label>
 
@@ -190,11 +186,12 @@ export default function CategoryImporter({
             <button
               onClick={handleImport}
               disabled={isPending}
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 transition"
+              className="rounded-[5px] border border-[#5e2c1f] px-3.5 py-[7px] text-[12px] font-semibold text-[#f2e9d8] disabled:opacity-50 transition"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
             >
               {isPending ? "Importing…" : `Confirm import (${preview.length} rows)`}
             </button>
-            <button onClick={reset} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50 transition">
+            <button onClick={reset} className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3.5 py-[7px] text-[12px] font-semibold text-[#4a473e] hover:bg-[#eae6da] transition">
               Cancel
             </button>
           </div>
@@ -203,14 +200,17 @@ export default function CategoryImporter({
 
       {/* Result */}
       {result && (
-        <div className={`rounded-lg border px-4 py-3 text-sm space-y-1 ${result.errors.length > 0 ? "border-amber-200 bg-amber-50" : "border-green-200 bg-green-50"}`}>
-          <p className={result.errors.length > 0 ? "text-amber-800 font-medium" : "text-green-800 font-medium"}>
+        <div
+          className="space-y-1 rounded-[6px] border px-4 py-3 text-[12px]"
+          style={result.errors.length > 0 ? { borderColor: "#f0dcb8", backgroundColor: "#fdf1de" } : { borderColor: "#d7e3d3", backgroundColor: "#e3ecdf" }}
+        >
+          <p className="font-semibold" style={{ color: result.errors.length > 0 ? "#c9791d" : "#3f6b43" }}>
             {result.created} categories imported successfully.
           </p>
           {result.errors.map((e, i) => (
-            <p key={i} className="text-amber-700 text-xs">{e}</p>
+            <p key={i} className="text-[11px]" style={{ color: "#c9791d" }}>{e}</p>
           ))}
-          <button onClick={() => { reset(); setOpen(false); }} className="mt-1 text-xs underline text-neutral-600 hover:text-neutral-900">Done</button>
+          <button onClick={() => { reset(); setOpen(false); }} className="mt-1 text-[11px] font-semibold text-[#726e60] underline hover:text-[#20201d]">Done</button>
         </div>
       )}
     </div>

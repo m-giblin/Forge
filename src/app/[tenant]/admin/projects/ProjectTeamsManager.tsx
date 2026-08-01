@@ -4,9 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { addProjectMemberAction, removeProjectMemberAction, deleteProjectAction } from "./actions";
 import { createProjectAction } from "@/app/[tenant]/actions";
+import FormGrid from "@/components/patterns/admin/FormGrid";
 
 type Project = { id: string; key: string; name: string };
 type Member = { userId: string; label: string };
+
+const inputClass =
+  "rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12.5px] text-[#20201d] outline-none focus:border-[#b7452f]";
 
 function deriveKey(name: string): string {
   return name
@@ -102,99 +106,86 @@ export default function ProjectTeamsManager({
   }
 
   return (
-    <div className="mt-5 space-y-4">
-
-      {/* New project button / form */}
+    <div className="space-y-4">
+      {/* New project trigger / form */}
       {!readOnly && (
         <div>
           {!showForm ? (
             <button
               onClick={() => setShowForm(true)}
-              className="rounded-lg border border-dashed border-neutral-300 px-4 py-2 text-sm font-medium text-neutral-500 hover:border-neutral-400 hover:text-neutral-700"
+              className="rounded-[5px] border border-dashed border-[#ddd8c9] bg-[#f4f2eb] px-3.5 py-[7px] text-[11.5px] font-semibold text-[#726e60] hover:border-[#b7452f]/40 hover:text-[#4a473e]"
             >
               + New project
             </button>
           ) : (
-            <div className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-neutral-900">New project</h3>
-              <div className="flex flex-wrap gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-neutral-500">Project name <span className="text-red-500">*</span></label>
-                  <input
-                    autoFocus
-                    value={newName}
-                    onChange={(e) => handleNameChange(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && submitNewProject()}
-                    placeholder="e.g. Mobile App"
-                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-neutral-500">Key <span className="text-neutral-400">(auto)</span></label>
-                  <input
-                    value={newKey}
-                    onChange={(e) => setNewKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
-                    placeholder="MOB"
-                    className="w-24 rounded-lg border border-neutral-300 px-3 py-2 font-mono text-sm uppercase outline-none focus:border-neutral-900"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-neutral-500">Owner</label>
-                  <select
-                    value={newOwner}
-                    onChange={(e) => setNewOwner(e.target.value)}
-                    className="rounded-lg border border-neutral-300 px-2 py-2 text-sm"
-                  >
-                    <option value="">— none —</option>
-                    {members.map((m) => (
-                      <option key={m.userId} value={m.userId}>{m.label}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-neutral-500">Start date</label>
-                  <input
-                    type="date"
-                    value={newStart}
-                    onChange={(e) => setNewStart(e.target.value)}
-                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-                  />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs text-neutral-500">Target go-live</label>
-                  <input
-                    type="date"
-                    value={newGoLive}
-                    onChange={(e) => setNewGoLive(e.target.value)}
-                    className="rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-                  />
-                </div>
-              </div>
-              {formError && <p className="mt-2 text-sm text-red-600">{formError}</p>}
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={submitNewProject}
-                  disabled={creating || !newName.trim()}
-                  className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
-                >
-                  {creating ? "Creating…" : "Create project"}
-                </button>
-                <button
-                  onClick={() => { setShowForm(false); setFormError(null); }}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-100"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
+            <FormGrid
+              fields={[
+                {
+                  key: "name",
+                  label: "Project name *",
+                  input: (
+                    <input
+                      autoFocus
+                      value={newName}
+                      onChange={(e) => handleNameChange(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && submitNewProject()}
+                      placeholder="e.g. Mobile App"
+                      className={inputClass}
+                    />
+                  ),
+                },
+                {
+                  key: "key",
+                  label: "Key (auto)",
+                  input: (
+                    <input
+                      value={newKey}
+                      onChange={(e) => setNewKey(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8))}
+                      placeholder="MOB"
+                      className={`${inputClass} font-mono uppercase`}
+                    />
+                  ),
+                },
+                {
+                  key: "owner",
+                  label: "Owner",
+                  input: (
+                    <select value={newOwner} onChange={(e) => setNewOwner(e.target.value)} className={inputClass}>
+                      <option value="">— none —</option>
+                      {members.map((m) => (
+                        <option key={m.userId} value={m.userId}>{m.label}</option>
+                      ))}
+                    </select>
+                  ),
+                },
+                {
+                  key: "start",
+                  label: "Start date",
+                  input: (
+                    <input type="date" value={newStart} onChange={(e) => setNewStart(e.target.value)} className={inputClass} />
+                  ),
+                },
+                {
+                  key: "golive",
+                  label: "Target go-live",
+                  input: (
+                    <input type="date" value={newGoLive} onChange={(e) => setNewGoLive(e.target.value)} className={inputClass} />
+                  ),
+                },
+              ]}
+              onCancel={() => { setShowForm(false); setFormError(null); }}
+              onSubmit={submitNewProject}
+              submitLabel={creating ? "Creating…" : "Create project"}
+            />
           )}
+          {formError && <p className="mt-2 text-[11.5px] text-[#a13a2f]">{formError}</p>}
         </div>
       )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-[11.5px] text-[#a13a2f]">{error}</p>}
 
       {initialProjects.length === 0 && !showForm && (
-        <p className="text-sm text-neutral-400">No projects yet — create one above.</p>
+        <p className="text-[11.5px] text-[#a19d90]">No projects yet — create one above.</p>
       )}
 
       {/* Project team cards */}
@@ -202,15 +193,15 @@ export default function ProjectTeamsManager({
         const team = teams[p.id] ?? [];
         const available = members.filter((m) => !team.includes(m.userId));
         return (
-          <div key={p.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+          <div key={p.id} className="fw-card p-3.5">
             <div className="flex items-center gap-2">
-              <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">{p.key}</span>
-              <span className="font-medium text-neutral-900">{p.name}</span>
-              <span className="ml-auto text-xs text-neutral-400">{team.length} member{team.length === 1 ? "" : "s"}</span>
+              <span className="rounded-[4px] bg-[#f1efe9] px-2 py-0.5 font-mono text-[11px] font-semibold text-[#726e60]">{p.key}</span>
+              <span className="text-[12.5px] font-semibold text-[#20201d]">{p.name}</span>
+              <span className="ml-auto text-[11px] text-[#a19d90]">{team.length} member{team.length === 1 ? "" : "s"}</span>
               {!readOnly && (
                 deletingId === p.id ? (
-                  <div className="flex items-center gap-2 ml-2">
-                    <span className="text-xs text-red-600 font-medium">Delete this project and all its issues?</span>
+                  <div className="ml-2 flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-[#a13a2f]">Delete this project and all its issues?</span>
                     <button
                       onClick={() => {
                         startTransition(async () => {
@@ -220,13 +211,13 @@ export default function ProjectTeamsManager({
                         });
                       }}
                       disabled={pending}
-                      className="rounded px-2 py-1 text-xs font-medium bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                      className="rounded-[4px] bg-[#a13a2f] px-2 py-1 text-[11px] font-semibold text-white hover:bg-[#8a3126] disabled:opacity-50"
                     >
                       Yes, delete
                     </button>
                     <button
                       onClick={() => setDeletingId(null)}
-                      className="rounded px-2 py-1 text-xs text-neutral-500 hover:bg-neutral-100"
+                      className="rounded-[4px] px-2 py-1 text-[11px] text-[#726e60] hover:bg-[#f1efe9]"
                     >
                       Cancel
                     </button>
@@ -234,7 +225,7 @@ export default function ProjectTeamsManager({
                 ) : (
                   <button
                     onClick={() => setDeletingId(p.id)}
-                    className="ml-2 rounded px-2 py-1 text-xs text-neutral-400 hover:bg-red-50 hover:text-red-600 transition"
+                    className="ml-2 rounded-[4px] px-2 py-1 text-[11px] text-[#a19d90] transition hover:bg-[#f5e3df] hover:text-[#a13a2f]"
                     title="Delete project"
                   >
                     Delete
@@ -244,15 +235,15 @@ export default function ProjectTeamsManager({
             </div>
 
             <div className="mt-3 flex flex-wrap gap-2">
-              {team.length === 0 && <span className="text-xs text-neutral-400">No one assigned yet.</span>}
+              {team.length === 0 && <span className="text-[11px] text-[#a19d90]">No one assigned yet.</span>}
               {team.map((uid) => (
-                <span key={uid} className="flex items-center gap-1.5 rounded-full bg-neutral-100 px-2.5 py-1 text-xs text-neutral-700">
+                <span key={uid} className="flex items-center gap-1.5 rounded-full bg-[#f1efe9] px-2.5 py-1 text-[11px] text-[#4a473e]">
                   {labelFor(uid)}
                   {!readOnly && (
                     <button
                       onClick={() => remove(p.id, uid)}
                       disabled={pending}
-                      className="text-neutral-400 hover:text-red-600 disabled:opacity-40"
+                      className="text-[#a19d90] hover:text-[#a13a2f] disabled:opacity-40"
                       aria-label={`Remove ${labelFor(uid)}`}
                     >
                       ✕
@@ -268,7 +259,7 @@ export default function ProjectTeamsManager({
                   defaultValue=""
                   disabled={pending}
                   onChange={(e) => { add(p.id, e.target.value); e.target.value = ""; }}
-                  className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
+                  className={inputClass}
                 >
                   <option value="" disabled>+ Add person…</option>
                   {available.map((m) => (

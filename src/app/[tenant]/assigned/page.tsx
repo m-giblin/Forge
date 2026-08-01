@@ -1,50 +1,8 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-
-const STATUS_COLORS: Record<string, string> = {
-  todo: "bg-neutral-100 text-neutral-600",
-  in_progress: "bg-blue-100 text-blue-700",
-  in_review: "bg-purple-100 text-purple-700",
-  done: "bg-green-100 text-green-700",
-  blocked: "bg-red-100 text-red-700",
-};
-
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "bg-red-100 text-red-700",
-  high: "bg-orange-100 text-orange-700",
-  medium: "bg-yellow-100 text-yellow-700",
-  low: "bg-neutral-100 text-neutral-600",
-};
-
-const PRIORITY_ORDER = ["urgent", "high", "medium", "low"];
-
-function statusLabel(s: string) {
-  return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-}
-
-function relativeTime(date: string) {
-  const diff = Date.now() - new Date(date).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
-type AssignedIssue = {
-  id: string;
-  number: number;
-  title: string;
-  status: string;
-  priority: string | null;
-  type: string | null;
-  due_date: string | null;
-  created_at: string;
-  updated_at: string;
-  project: { key: string; name: string } | null;
-};
+import PageHeader from "@/components/patterns/PageHeader";
+import AssignedWorkList, { type AssignedIssue } from "./AssignedWorkList";
 
 export default async function AssignedPage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant: slug } = await params;
@@ -55,7 +13,7 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
 
   const sevenDaysAgo = new Date(new Date().setDate(new Date().getDate() - 7)).toISOString();
 
-  const [openRes, doneRes] = await Promise.all([
+  const [openRes, doneRes, meRes] = await Promise.all([
     supabase
       .from("issues")
       .select("id, number, title, status, priority, type, due_date, created_at, updated_at, project:project_id(key, name)")
@@ -70,128 +28,46 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
       .eq("tenant_id", ctx.tenant.id)
       .eq("status", "done")
       .gte("updated_at", sevenDaysAgo),
+    supabase.from("users").select("full_name, email").eq("id", ctx.appUserId).maybeSingle(),
   ]);
 
   const issues = (openRes.data ?? []) as unknown as AssignedIssue[];
   const completedThisWeek = doneRes.count ?? 0;
+  const assigneeLabel = meRes.data?.full_name || meRes.data?.email || ctx.email || "Me";
 
   const openCount = issues.filter((i) => i.status === "todo").length;
   const inProgressCount = issues.filter((i) => i.status === "in_progress").length;
 
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Bucket by urgency (an issue can land in Overdue AND Blocked at once — each
-  // filter is independent; Upcoming is only what's left over from the rest).
-  const overdueIssues = issues.filter((i) => i.due_date && new Date(i.due_date) < today);
-  const blockedIssues = issues.filter((i) => i.status === "blocked");
-  const inProgressIssues = issues.filter((i) => i.status === "in_progress" || i.status === "in_review");
-  const upcomingIssues = issues.filter(
-    (i) => !overdueIssues.includes(i) && !blockedIssues.includes(i) && !inProgressIssues.includes(i)
-  );
-
-  const priorityRank = (i: AssignedIssue) => {
-    const idx = i.priority ? PRIORITY_ORDER.indexOf(i.priority) : -1;
-    return idx === -1 ? PRIORITY_ORDER.length : idx;
-  };
-  const byPriority = (a: AssignedIssue, b: AssignedIssue) => priorityRank(a) - priorityRank(b);
-
-  const buckets: { key: string; label: string; accent: string; issues: AssignedIssue[] }[] = [
-    { key: "overdue", label: "Overdue", accent: "text-red-600", issues: [...overdueIssues].sort(byPriority) },
-    { key: "blocked", label: "Blocked", accent: "text-red-600", issues: [...blockedIssues].sort(byPriority) },
-    { key: "inprogress", label: "In progress / review", accent: "text-orange-600", issues: [...inProgressIssues].sort(byPriority) },
-    { key: "upcoming", label: "Upcoming", accent: "text-blue-600", issues: [...upcomingIssues].sort(byPriority) },
-  ];
-
   return (
-    <main className="w-full px-3 py-4 sm:px-6 sm:py-6">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-neutral-900">My Work</h1>
-        <p className="mt-1 text-sm text-neutral-500">Everything assigned to you, across every project — {issues.length} issue{issues.length === 1 ? "" : "s"}.</p>
-      </div>
+    <main className="flex h-[calc(100vh-56px)] flex-col overflow-hidden md:h-screen">
+      <PageHeader
+        title="My Work"
+        subtitle={`Everything assigned to you, across every project — ${issues.length} issue${issues.length === 1 ? "" : "s"}`}
+        right={
+          <div className="flex items-center gap-5">
+            <div className="text-right">
+              <div className="font-[family-name:var(--font-manrope)] text-[20px] font-extrabold leading-none text-[#20201d]">
+                {openCount}
+              </div>
+              <div className="text-[10.5px] text-[#a19d90]">open</div>
+            </div>
+            <div className="text-right">
+              <div className="font-[family-name:var(--font-manrope)] text-[20px] font-extrabold leading-none text-[#c9791d]">
+                {inProgressCount}
+              </div>
+              <div className="text-[10.5px] text-[#a19d90]">in progress</div>
+            </div>
+            <div className="text-right">
+              <div className="font-[family-name:var(--font-manrope)] text-[20px] font-extrabold leading-none text-[#3f7d4c]">
+                {completedThisWeek}
+              </div>
+              <div className="text-[10.5px] text-[#a19d90]">done this week</div>
+            </div>
+          </div>
+        }
+      />
 
-      {/* Stats bar */}
-      <div className="mb-6 flex flex-wrap gap-4 rounded-xl border border-neutral-200 bg-white px-4 py-3 text-sm">
-        <span className="text-neutral-700">
-          <span className="font-semibold text-neutral-900">{openCount}</span> open
-        </span>
-        <span className="text-neutral-300">·</span>
-        <span className="text-neutral-700">
-          <span className="font-semibold text-neutral-900">{inProgressCount}</span> in progress
-        </span>
-        <span className="text-neutral-300">·</span>
-        <span className="text-neutral-700">
-          <span className="font-semibold text-neutral-900">{completedThisWeek}</span> completed this week
-        </span>
-      </div>
-
-      {issues.length === 0 ? (
-        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-16 text-center">
-          <p className="text-sm text-neutral-500">Nothing assigned to you right now. 🎉</p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {buckets.map((bucket) => {
-            if (bucket.issues.length === 0) return null;
-            return (
-              <section key={bucket.key}>
-                <h2 className={`mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider ${bucket.accent}`}>
-                  {bucket.label}
-                  <span className="font-normal text-neutral-400">({bucket.issues.length})</span>
-                </h2>
-                <div className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white">
-                  {bucket.issues.map((issue) => {
-                    const dueDate = issue.due_date ? new Date(issue.due_date) : null;
-                    const isOverdue = dueDate && dueDate < today;
-                    return (
-                      <Link
-                        key={issue.id}
-                        href={`/${slug}/issues/${issue.id}`}
-                        className="flex items-start gap-3 px-4 py-3 hover:bg-neutral-50 transition-colors"
-                      >
-                        <span className="mt-0.5 shrink-0 rounded-md bg-neutral-100 px-1.5 py-0.5 text-xs font-mono font-medium text-neutral-600">
-                          {issue.project?.key ?? "?"}-{issue.number}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div
-                            className="block truncate text-sm font-medium text-neutral-800 hover:underline"
-                          >
-                            {issue.title}
-                          </div>
-                          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_COLORS[issue.status] ?? "bg-neutral-100 text-neutral-600"}`}>
-                              {statusLabel(issue.status)}
-                            </span>
-                            {issue.priority && (
-                              <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${PRIORITY_COLORS[issue.priority] ?? "bg-neutral-100 text-neutral-600"}`}>
-                                {issue.priority.charAt(0).toUpperCase() + issue.priority.slice(1)}
-                              </span>
-                            )}
-                            {issue.project && (
-                              <span className="text-neutral-400">{issue.project.name}</span>
-                            )}
-                            {dueDate && (
-                              <>
-                                <span className="text-neutral-300">·</span>
-                                <span className={isOverdue ? "font-medium text-red-600" : "text-neutral-400"}>
-                                  Due {dueDate.toLocaleDateString()}
-                                  {isOverdue && " (overdue)"}
-                                </span>
-                              </>
-                            )}
-                            <span className="text-neutral-300">·</span>
-                            <span>{relativeTime(issue.updated_at)}</span>
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      )}
+      <AssignedWorkList slug={slug} issues={issues} assigneeLabel={assigneeLabel} assigneeId={ctx.appUserId} />
     </main>
   );
 }

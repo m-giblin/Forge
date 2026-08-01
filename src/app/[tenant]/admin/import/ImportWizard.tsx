@@ -3,6 +3,10 @@
 import { useMemo, useState, useTransition } from "react";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { importIssuesAction, type ImportRow, type NewCategory, type ImportResult } from "./actions";
+import PageHeader from "@/components/patterns/PageHeader";
+import StatsRow from "@/components/patterns/admin/StatsRow";
+import AdminTable from "@/components/patterns/admin/AdminTable";
+import Note from "@/components/patterns/admin/Note";
 
 type Project = { id: string; key: string; name: string };
 
@@ -258,94 +262,98 @@ export default function ImportWizard({
     setSelectedCats(new Set()); setResult(null); setError(null);
   }
 
-  const selectCls = "rounded-lg border border-neutral-300 px-2 py-1.5 text-sm";
+  const selectCls = "rounded-[5px] border border-[#ddd8c9] bg-white px-2 py-1.5 text-[12.5px] outline-none focus:border-[#8c4632]";
   const willImport = (analysis?.mappedRows.length ?? 0) - skippedByCat;
 
   const STEP_LABELS = ["Upload", "Map columns", "Review & import"];
 
   return (
-    <div className="max-w-2xl">
-      {/* Step indicator */}
-      <div className="mb-6 flex items-center gap-3 text-xs">
-        {STEP_LABELS.map((label, i) => {
-          const active = step === i + 1 || (step === "done" && i === 2);
-          return (
-            <span key={i} className="flex items-center gap-1.5">
-              <span className={`flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold ${active ? "bg-neutral-900 text-white" : "bg-neutral-200 text-neutral-500"}`}>
-                {i + 1}
+    <div className="space-y-6">
+      <PageHeader title="Import Issues" subtitle="Bring work in from CSV or another tracker" />
+
+      <div className="max-w-3xl space-y-6 px-6">
+        {/* Step indicator */}
+        <div className="flex items-center gap-3 text-[11.5px]">
+          {STEP_LABELS.map((label, i) => {
+            const active = step === i + 1 || (step === "done" && i === 2);
+            return (
+              <span key={i} className="flex items-center gap-1.5">
+                <span
+                  className="flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold"
+                  style={active ? { background: "#8c4632", color: "#f2e9d8" } : { background: "#e3ded0", color: "#a19d90" }}
+                >
+                  {i + 1}
+                </span>
+                <span className={active ? "font-semibold text-[#20201d]" : "text-[#a19d90]"}>{label}</span>
+                {i < 2 && <span className="text-[#cfc9b9]">→</span>}
               </span>
-              <span className={active ? "font-semibold text-neutral-900" : "text-neutral-400"}>{label}</span>
-              {i < 2 && <span className="text-neutral-300">→</span>}
-            </span>
-          );
-        })}
-      </div>
-
-      {error && (
-        <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>
-      )}
-
-      {/* ── Step 1: Upload ── */}
-      {step === 1 && (
-        <div>
-          {projects.length > 1 && (
-            <label className="mb-4 flex flex-col gap-1 text-xs text-neutral-500">
-              Import into project
-              <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className={selectCls}>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>{p.key} — {p.name}</option>
-                ))}
-              </select>
-            </label>
-          )}
-          <label
-            className="flex cursor-pointer flex-col items-center gap-4 rounded-xl border-2 border-dashed border-neutral-300 px-6 py-12 text-center transition hover:border-neutral-400 hover:bg-neutral-50"
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
-          >
-            <svg className="h-9 w-9 text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-            </svg>
-            <div>
-              <p className="text-sm font-medium text-neutral-700">Drop a CSV here, or click to choose a file</p>
-              <p className="mt-1 text-xs text-neutral-400">
-                Supported columns: title, description, status, priority, type, category, subcategory, external_id
-                {customFields.length > 0 && `, plus ${customFields.length} custom field${customFields.length !== 1 ? "s" : ""}`}
-              </p>
-            </div>
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
-            />
-          </label>
+            );
+          })}
         </div>
-      )}
 
-      {/* ── Step 2: Map columns ── */}
-      {step === 2 && (
-        <div>
-          <p className="mb-4 text-sm text-neutral-500">
-            Your CSV has <strong>{headers.length} columns</strong> and <strong>{dataRows.length} data rows</strong>.
-            Map each column to an issue field, or ignore it.
-          </p>
-          <table className="mb-5 w-full text-sm">
-            <thead>
-              <tr className="border-b border-neutral-200 text-left text-xs text-neutral-400">
-                <th className="pb-2 pr-4 font-medium">CSV column</th>
-                <th className="pb-2 pr-4 font-medium">Sample</th>
-                <th className="pb-2 font-medium">Maps to</th>
-              </tr>
-            </thead>
-            <tbody>
-              {headers.map((h, i) => (
-                <tr key={i} className="border-b border-neutral-100">
-                  <td className="py-2 pr-4 font-mono text-xs text-neutral-700">{h}</td>
-                  <td className="max-w-[160px] truncate py-2 pr-4 text-xs text-neutral-400">
-                    {dataRows[0]?.[i] ?? "—"}
-                  </td>
-                  <td className="py-2">
+        {error && (
+          <p className="rounded-[6px] border border-[#f0cfc9] bg-[#fbeae8] px-3 py-2 text-[12px] text-[#a3372a]">{error}</p>
+        )}
+
+        {/* ── Step 1: Upload ── */}
+        {step === 1 && (
+          <div>
+            {projects.length > 1 && (
+              <label className="mb-4 flex flex-col gap-1 text-[11.5px] text-[#726e60]">
+                Import into project
+                <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className={selectCls}>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>{p.key} — {p.name}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label
+              className="fw-card flex cursor-pointer flex-col items-center gap-4 border-dashed px-6 py-12 text-center transition hover:border-[#8c4632]/40"
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+            >
+              <svg className="h-9 w-9 text-[#cfc9b9]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+              </svg>
+              <div>
+                <p className="text-[12.5px] font-semibold text-[#4a473e]">Drop a CSV here, or click to choose a file</p>
+                <p className="mt-1 text-[11px] text-[#a19d90]">
+                  Supported columns: title, description, status, priority, type, category, subcategory, external_id
+                  {customFields.length > 0 && `, plus ${customFields.length} custom field${customFields.length !== 1 ? "s" : ""}`}
+                </p>
+              </div>
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
+              />
+            </label>
+          </div>
+        )}
+
+        {/* ── Step 2: Map columns ── */}
+        {step === 2 && (
+          <div>
+            <p className="mb-4 text-[12.5px] text-[#726e60]">
+              Your CSV has <strong className="text-[#20201d]">{headers.length} columns</strong> and{" "}
+              <strong className="text-[#20201d]">{dataRows.length} data rows</strong>. Map each column to an issue field, or ignore it.
+            </p>
+            <h2 className="mb-3 text-[12.5px] font-bold text-[#20201d]">Column mapping</h2>
+            <AdminTable
+              minWidth={520}
+              columns={[
+                { label: "CSV column", flex: true },
+                { label: "Sample value", flex: true },
+                { label: "Maps to", width: 200 },
+              ]}
+              rows={headers.map((h, i) => [
+                { kind: "mono", value: h },
+                { kind: "dim", value: dataRows[0]?.[i] ?? "—" },
+                {
+                  kind: "text",
+                  value: (
                     <select
                       value={mapping[i] ?? ""}
                       onChange={(e) => setMapping((m) => ({ ...m, [i]: e.target.value }))}
@@ -355,153 +363,150 @@ export default function ImportWizard({
                         <option key={f.key} value={f.key}>{f.label}</option>
                       ))}
                     </select>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {!Object.values(mapping).includes("title") && (
-            <p className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Map at least one column to <strong>Title *</strong> to continue.
-            </p>
-          )}
-          <div className="flex gap-2">
-            <button onClick={() => setStep(1)} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50">
-              ← Back
-            </button>
-            <button
-              onClick={goToReview}
-              disabled={!Object.values(mapping).includes("title")}
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
-            >
-              Next →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 3: Review ── */}
-      {step === 3 && analysis && (
-        <div>
-          {/* New categories panel */}
-          {analysis.newCats.length > 0 && (
-            <div className="mb-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
-              <p className="mb-1 text-sm font-semibold text-amber-900">
-                {analysis.newCats.length} new {analysis.newCats.length === 1 ? "category" : "categories"} found in your CSV
-              </p>
-              <p className="mb-3 text-xs text-amber-700">
-                Select which to create. Rows belonging to unchecked categories will be skipped.
-              </p>
-              <div className="flex flex-col gap-2">
-                {analysis.newCats.map((cat) => (
-                  <label key={cat.key} className="flex cursor-pointer items-center gap-2.5 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={selectedCats.has(cat.key)}
-                      onChange={() => toggleCat(cat.key, cat)}
-                      className="h-4 w-4 rounded border-amber-400 accent-amber-600"
-                    />
-                    <span className="text-amber-900">
-                      {cat.sub ? (
-                        <><span className="text-amber-600">{cat.parent}</span> → {cat.sub}</>
-                      ) : (
-                        cat.parent
-                      )}
-                    </span>
-                  </label>
-                ))}
+                  ),
+                },
+              ])}
+            />
+            {!Object.values(mapping).includes("title") && (
+              <div className="mt-3">
+                <Note icon="⚠" tone="warning">
+                  Map at least one column to <strong>Title *</strong> to continue.
+                </Note>
               </div>
-              {skippedByCat > 0 && (
-                <p className="mt-3 text-xs text-amber-700">
-                  {skippedByCat} row{skippedByCat !== 1 ? "s" : ""} will be skipped (their category won&apos;t be created).
+            )}
+            <div className="mt-4 flex gap-2">
+              <button onClick={() => setStep(1)} className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-4 py-2 text-[12px] font-semibold text-[#4a473e] hover:bg-[#eae6da]">
+                ← Back
+              </button>
+              <button
+                onClick={goToReview}
+                disabled={!Object.values(mapping).includes("title")}
+                className="rounded-[5px] border border-[#5e2c1f] px-4 py-2 text-[12px] font-semibold text-[#f2e9d8] disabled:opacity-40"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+              >
+                Next →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3: Review ── */}
+        {step === 3 && analysis && (
+          <div>
+            {/* New categories panel */}
+            {analysis.newCats.length > 0 && (
+              <div className="fw-card mb-5 p-4">
+                <p className="mb-1 text-[12.5px] font-semibold text-[#20201d]">
+                  {analysis.newCats.length} new {analysis.newCats.length === 1 ? "category" : "categories"} found in your CSV
                 </p>
-              )}
-            </div>
-          )}
-
-          {/* Summary counts */}
-          <div className="mb-5 grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-xl bg-green-50 p-3">
-              <p className="text-2xl font-bold text-green-700">{willImport}</p>
-              <p className="text-xs text-green-600">will import</p>
-            </div>
-            <div className="rounded-xl bg-neutral-100 p-3">
-              <p className="text-2xl font-bold text-neutral-500">{skippedByCat}</p>
-              <p className="text-xs text-neutral-400">will skip</p>
-            </div>
-            <div className="rounded-xl bg-red-50 p-3">
-              <p className="text-2xl font-bold text-red-600">{analysis.rowErrors.length}</p>
-              <p className="text-xs text-red-500">row errors</p>
-            </div>
-          </div>
-
-          {/* Row errors */}
-          {analysis.rowErrors.length > 0 && (
-            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3">
-              <p className="mb-2 text-xs font-semibold text-red-700">Rows with errors (will be skipped):</p>
-              <ul className="space-y-1">
-                {analysis.rowErrors.slice(0, 10).map((e, i) => (
-                  <li key={i} className="text-xs text-red-600">Row {e.row}: {e.message}</li>
-                ))}
-                {analysis.rowErrors.length > 10 && (
-                  <li className="text-xs text-red-400">…and {analysis.rowErrors.length - 10} more</li>
+                <p className="mb-3 text-[11.5px] text-[#726e60]">
+                  Select which to create. Rows belonging to unchecked categories will be skipped.
+                </p>
+                <div className="flex flex-col gap-2">
+                  {analysis.newCats.map((cat) => (
+                    <label key={cat.key} className="flex cursor-pointer items-center gap-2.5 text-[12.5px]">
+                      <input
+                        type="checkbox"
+                        checked={selectedCats.has(cat.key)}
+                        onChange={() => toggleCat(cat.key, cat)}
+                        className="h-4 w-4 rounded border-[#ddd8c9] accent-[#8c4632]"
+                      />
+                      <span className="text-[#20201d]">
+                        {cat.sub ? (
+                          <><span className="text-[#8c4632]">{cat.parent}</span> → {cat.sub}</>
+                        ) : (
+                          cat.parent
+                        )}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {skippedByCat > 0 && (
+                  <p className="mt-3 text-[11.5px] text-[#726e60]">
+                    {skippedByCat} row{skippedByCat !== 1 ? "s" : ""} will be skipped (their category won&apos;t be created).
+                  </p>
                 )}
-              </ul>
-            </div>
-          )}
+              </div>
+            )}
 
-          <div className="flex gap-2">
-            <button onClick={() => setStep(2)} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50">
-              ← Back
-            </button>
-            <button
-              onClick={doImport}
-              disabled={pending || willImport === 0}
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-40"
-            >
-              {pending ? "Importing…" : `Import ${willImport} issue${willImport !== 1 ? "s" : ""}`}
+            {/* Summary counts */}
+            <StatsRow
+              items={[
+                { label: "Rows detected", value: dataRows.length },
+                { label: "Will import", value: willImport, color: "#2f6e35" },
+                { label: "Skipped", value: skippedByCat, color: "#726e60" },
+                { label: "Errors", value: analysis.rowErrors.length, color: analysis.rowErrors.length > 0 ? "#a3372a" : undefined },
+              ]}
+            />
+
+            {/* Row errors */}
+            {analysis.rowErrors.length > 0 && (
+              <div className="mt-5">
+                <Note icon="⚠" tone="warning">
+                  <span className="font-semibold">{analysis.rowErrors.length} row{analysis.rowErrors.length !== 1 ? "s" : ""} with errors</span> will be skipped —
+                  Row {analysis.rowErrors[0].row}: {analysis.rowErrors[0].message}
+                  {analysis.rowErrors.length > 1 && ` (and ${analysis.rowErrors.length - 1} more)`}
+                </Note>
+                <ul className="mt-2 space-y-1 pl-1">
+                  {analysis.rowErrors.slice(0, 10).map((e, i) => (
+                    <li key={i} className="text-[11px] text-[#a3372a]">Row {e.row}: {e.message}</li>
+                  ))}
+                  {analysis.rowErrors.length > 10 && (
+                    <li className="text-[11px] text-[#c98b82]">…and {analysis.rowErrors.length - 10} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+
+            <div className="mt-5 flex gap-2">
+              <button onClick={() => setStep(2)} className="rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-4 py-2 text-[12px] font-semibold text-[#4a473e] hover:bg-[#eae6da]">
+                ← Back
+              </button>
+              <button
+                onClick={doImport}
+                disabled={pending || willImport === 0}
+                className="rounded-[5px] border border-[#5e2c1f] px-4 py-2 text-[12px] font-semibold text-[#f2e9d8] disabled:opacity-40"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+              >
+                {pending ? "Importing…" : `Import ${willImport} issue${willImport !== 1 ? "s" : ""}`}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Done ── */}
+        {step === "done" && result && (
+          <div>
+            <StatsRow
+              items={[
+                { label: "Created", value: result.created, color: "#2f6e35" },
+                { label: "Skipped", value: result.skipped, color: "#726e60" },
+                { label: "Errors", value: result.errors.length, color: result.errors.length > 0 ? "#a3372a" : undefined },
+              ]}
+            />
+
+            {result.errors.length > 0 && (
+              <div className="mt-5">
+                <Note icon="⚠" tone="warning">
+                  {result.errors.length} error{result.errors.length !== 1 ? "s" : ""} during import — Row {result.errors[0].row}: {result.errors[0].message}
+                </Note>
+                <ul className="mt-2 space-y-1 pl-1">
+                  {result.errors.slice(0, 15).map((e, i) => (
+                    <li key={i} className="text-[11px] text-[#a3372a]">Row {e.row}: {e.message}</li>
+                  ))}
+                  {result.errors.length > 15 && (
+                    <li className="text-[11px] text-[#c98b82]">…and {result.errors.length - 15} more</li>
+                  )}
+                </ul>
+              </div>
+            )}
+
+            <button onClick={reset} className="mt-5 rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-4 py-2 text-[12px] font-semibold text-[#4a473e] hover:bg-[#eae6da]">
+              Import another file
             </button>
           </div>
-        </div>
-      )}
-
-      {/* ── Done ── */}
-      {step === "done" && result && (
-        <div>
-          <div className="mb-5 grid grid-cols-3 gap-3 text-center">
-            <div className="rounded-xl bg-green-50 p-4">
-              <p className="text-3xl font-bold text-green-700">{result.created}</p>
-              <p className="text-xs text-green-600">created</p>
-            </div>
-            <div className="rounded-xl bg-neutral-100 p-4">
-              <p className="text-3xl font-bold text-neutral-500">{result.skipped}</p>
-              <p className="text-xs text-neutral-400">skipped (already exist)</p>
-            </div>
-            <div className="rounded-xl bg-red-50 p-4">
-              <p className="text-3xl font-bold text-red-600">{result.errors.length}</p>
-              <p className="text-xs text-red-500">errors</p>
-            </div>
-          </div>
-
-          {result.errors.length > 0 && (
-            <div className="mb-5 rounded-lg border border-red-200 bg-red-50 p-3">
-              <p className="mb-2 text-xs font-semibold text-red-700">Errors during import:</p>
-              <ul className="space-y-1">
-                {result.errors.slice(0, 15).map((e, i) => (
-                  <li key={i} className="text-xs text-red-600">Row {e.row}: {e.message}</li>
-                ))}
-                {result.errors.length > 15 && (
-                  <li className="text-xs text-red-400">…and {result.errors.length - 15} more</li>
-                )}
-              </ul>
-            </div>
-          )}
-
-          <button onClick={reset} className="rounded-lg border border-neutral-300 px-4 py-2 text-sm text-neutral-600 hover:bg-neutral-50">
-            Import another file
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

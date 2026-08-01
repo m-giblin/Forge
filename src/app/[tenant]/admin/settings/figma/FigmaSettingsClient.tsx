@@ -3,6 +3,13 @@
 import { useState, useTransition } from "react";
 import { saveFigmaConfigAction } from "./actions";
 import type { FigmaConfig } from "@/lib/services/figmaIntegration";
+import PageHeader from "@/components/patterns/PageHeader";
+import ConnectCards from "@/components/patterns/admin/ConnectCards";
+import FormGrid from "@/components/patterns/admin/FormGrid";
+import Note from "@/components/patterns/admin/Note";
+
+const inputCls =
+  "w-full rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12.5px] text-[#20201d] placeholder-[#a19d90] outline-none focus:border-[#b7452f]";
 
 export default function FigmaSettingsClient({ slug, config }: { slug: string; config: FigmaConfig }) {
   const [enabled, setEnabled] = useState(config.enabled);
@@ -25,52 +32,55 @@ export default function FigmaSettingsClient({ slug, config }: { slug: string; co
   }
 
   return (
-    <div>
-      <h1 className="text-xl font-bold text-neutral-900">Figma</h1>
-      <p className="mt-0.5 text-sm text-neutral-500">
-        Connect your team&apos;s Figma workspace so designers and engineers share one link. Linking specific design
-        files to issues isn&apos;t built yet — this just turns the connection on and points at your team.
-      </p>
+    <div className="space-y-6">
+      <PageHeader title="Figma" subtitle="Attach design files to issues" />
 
-      <div className="mt-6 rounded-xl border border-neutral-200 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="font-medium text-neutral-900">Connect Figma</p>
-            <p className="text-xs text-neutral-500">Show a Figma link in the gear menu.</p>
-          </div>
-          <button
-            role="switch"
-            aria-checked={enabled}
-            onClick={() => setEnabled((e) => !e)}
-            className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${enabled ? "bg-neutral-900" : "bg-neutral-200"}`}
-          >
-            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-5" : "translate-x-0.5"}`} />
-          </button>
-        </div>
+      <div className="space-y-6 px-6">
+        <ConnectCards
+          items={[
+            {
+              key: "figma",
+              name: "Figma",
+              icon: "🎨",
+              description: enabled
+                ? "Connected. A Figma link is shown in the gear menu."
+                : "Show a Figma link in the gear menu for this workspace.",
+              connected: enabled,
+              onAction: () => setEnabled((e) => !e),
+            },
+          ]}
+        />
 
-        <div className="mt-4">
-          <label className="mb-1.5 block text-sm font-medium text-neutral-700">Figma team URL</label>
-          <input
-            type="url"
-            value={teamUrl}
-            onChange={(e) => setTeamUrl(e.target.value)}
-            placeholder="https://www.figma.com/files/team/..."
-            className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+        {error && <Note icon="⚠" tone="error">{error}</Note>}
+        {saved && !error && <Note icon="✓" tone="info">Saved.</Note>}
+
+        <div>
+          <h2 className="mb-3 text-[12.5px] font-bold text-[#20201d]">Configuration</h2>
+          <FormGrid
+            fields={[
+              {
+                key: "teamUrl",
+                label: "Figma team URL",
+                input: (
+                  <input
+                    type="url"
+                    value={teamUrl}
+                    onChange={(e) => setTeamUrl(e.target.value)}
+                    placeholder="https://www.figma.com/files/team/..."
+                    className={inputCls}
+                  />
+                ),
+              },
+            ]}
+            onSubmit={save}
+            submitLabel={pending ? "Saving…" : "Save"}
           />
         </div>
 
-        {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-        {saved && !error && <p className="mt-3 text-sm text-emerald-700">Saved.</p>}
-
-        <div className="mt-4">
-          <button
-            onClick={save}
-            disabled={pending}
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
-          >
-            {pending ? "Saving…" : "Save"}
-          </button>
-        </div>
+        <p className="text-[11px] text-[#a19d90]">
+          Linking specific design files to individual issues isn&apos;t built yet — this just turns the connection
+          on and points at your team.
+        </p>
       </div>
     </div>
   );

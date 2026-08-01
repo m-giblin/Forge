@@ -146,7 +146,7 @@ export default function NewIssueForm({
                     if (matchPri) setPriority(matchPri.key);
                     setShowTemplates(false);
                   }}
-                  className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-indigo-50 hover:border-indigo-200 hover:text-indigo-700 transition-colors"
+                  className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-700 hover:bg-[#f5e3dd] hover:border-[#e8c9bd] hover:text-[#8c4632] transition-colors"
                 >
                   {t.name}
                 </button>
@@ -158,7 +158,7 @@ export default function NewIssueForm({
       {aiMode ? (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold text-indigo-600">✨ Describe the issue in plain English</p>
+            <p className="text-xs font-semibold text-[#b7452f]">✨ Describe the issue in plain English</p>
             <button onClick={() => setAiMode(false)} className="text-xs text-neutral-400 hover:text-neutral-700">Cancel</button>
           </div>
           <textarea
@@ -167,13 +167,13 @@ export default function NewIssueForm({
             onChange={(e) => setAiDescription(e.target.value)}
             placeholder="e.g. The login button on mobile doesn't work when the keyboard is open — it gets pushed off screen and clicking elsewhere closes the keyboard..."
             rows={3}
-            className="w-full rounded-lg border border-indigo-300 px-3 py-2 text-sm outline-none focus:border-indigo-500 resize-none"
+            className="w-full rounded-lg border border-[#e8c9bd] px-3 py-2 text-sm outline-none focus:border-[#b7452f] resize-none"
           />
           <div className="flex gap-2">
             <button
               onClick={draftWithAI}
               disabled={aiPending || !aiDescription.trim()}
-              className="rounded-lg bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-lg bg-[#b7452f] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#8c4632] disabled:opacity-50"
             >
               {aiPending ? "Drafting…" : "Generate fields →"}
             </button>
@@ -238,7 +238,8 @@ export default function NewIssueForm({
           <button
             onClick={submit}
             disabled={pending || !title.trim()}
-            className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+            className="rounded-lg border border-[#5e2c1f] px-4 py-2 text-sm font-medium text-[#f2e9d8] disabled:opacity-50"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
           >
             {pending ? "Creating…" : "Create"}
           </button>
@@ -246,7 +247,7 @@ export default function NewIssueForm({
             onClick={() => setShowTemplates((s) => !s)}
             type="button"
             title="Start from a template"
-            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${showTemplates ? "border-indigo-300 bg-indigo-50 text-indigo-700" : "border-neutral-200 text-neutral-500 hover:bg-neutral-50"}`}
+            className={`rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${showTemplates ? "border-[#e8c9bd] bg-[#f5e3dd] text-[#8c4632]" : "border-neutral-200 text-neutral-500 hover:bg-neutral-50"}`}
           >
             📋 Templates
           </button>
@@ -254,7 +255,7 @@ export default function NewIssueForm({
             onClick={() => { setAiMode(true); setError(null); }}
             type="button"
             title="Describe the issue in plain English and let AI fill the fields"
-            className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-medium text-indigo-600 hover:bg-indigo-100 transition-colors"
+            className="rounded-lg border border-[#e8c9bd] bg-[#f5e3dd] px-3 py-2 text-sm font-medium text-[#b7452f] hover:bg-[#efd6cc] transition-colors"
           >
             ✨ AI Draft
           </button>

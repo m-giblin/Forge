@@ -12,7 +12,7 @@ export default async function AdvancedSearchPage({
   if (!ctx) redirect("/");
 
   return (
-    <main className="w-full px-6 py-8">
+    <main className="w-full">
       <AdvancedSearchClient slug={slug} readOnly={ctx.role === "viewer"} />
     </main>
   );

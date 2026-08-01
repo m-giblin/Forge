@@ -10,13 +10,6 @@ export default async function ApiKeysPage({ params }: { params: Promise<{ tenant
   const readOnly = !(ctx.role === "owner" || ctx.role === "admin");
 
   return (
-    <section>
-      <h2 className="text-base font-semibold text-neutral-900">API keys</h2>
-      <p className="mt-1 text-sm text-neutral-500">
-        Tenant-scoped keys for the integration API. Keys can only access this workspace, and you
-        choose their permissions. The full key is shown once at creation.
-      </p>
-      <ApiKeysManager slug={slug} initialKeys={await listApiKeys(ctx.tenant.id, ctx.impersonating)} readOnly={readOnly} />
-    </section>
+    <ApiKeysManager slug={slug} initialKeys={await listApiKeys(ctx.tenant.id, ctx.impersonating)} readOnly={readOnly} />
   );
 }

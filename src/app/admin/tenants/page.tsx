@@ -1,21 +1,11 @@
 import Link from "next/link";
 import { listTenants } from "@/lib/services/platform";
 import { getSdkSuspensionWindows } from "@/lib/services/sdkFallbackAlerts";
-import { adminStyles as S } from "../page";
 import AdminProvisionForm from "./AdminProvisionForm";
 import SdkSuspensionWindowsSetting from "./SdkSuspensionWindowsSetting";
-
-function healthScore(t: { member_count: number; issue_count: number; status: string }) {
-  let score = 0;
-  if (t.status === "active") score += 25;
-  if (t.member_count >= 2) score += 25;
-  else if (t.member_count === 1) score += 10;
-  if (t.issue_count >= 10) score += 30;
-  else if (t.issue_count >= 3) score += 20;
-  else if (t.issue_count >= 1) score += 10;
-  if (t.member_count > 0 && t.issue_count > 0) score += 20;
-  return Math.min(score, 100);
-}
+import PageHeader from "@/components/patterns/PageHeader";
+import AdminTable, { type AdminTableCell } from "@/components/patterns/admin/AdminTable";
+import Note from "@/components/patterns/admin/Note";
 
 export default async function TenantsPage({
   searchParams,
@@ -23,116 +13,58 @@ export default async function TenantsPage({
   searchParams: Promise<{ deleted?: string }>;
 }) {
   const [tenants, sdkSuspensionWindows, sp] = await Promise.all([listTenants(), getSdkSuspensionWindows(), searchParams]);
-  const scored = tenants.map((t) => ({ ...t, health: healthScore(t) }));
+
+  const columns = [
+    { label: "Tenant", flex: true },
+    { label: "Slug", width: 150 },
+    { label: "Plan", width: 120 },
+    { label: "Created", width: 140 },
+    { label: "Status", width: 130 },
+    { label: "", width: 230 },
+  ];
+
+  const rows: AdminTableCell[][] = tenants.map((t) => [
+    { kind: "bold", value: t.name },
+    { kind: "mono", value: `/${t.slug}` },
+    { kind: "chip", value: t.plan ?? "basic", chipFg: "#5a4a2f", chipBg: "#f4ead4" },
+    { kind: "dim", value: new Date(t.created_at).toLocaleDateString() },
+    {
+      kind: "chip",
+      value: t.status,
+      chipFg: t.status === "active" ? "#3f7d4c" : "#c0392b",
+      chipBg: t.status === "active" ? "#e9f3ea" : "#fbeae8",
+    },
+    {
+      kind: "text",
+      value: (
+        <div className="flex justify-end">
+          <Link href={`/admin/tenants/${t.id}`} className="text-[11.5px] font-semibold text-[#c9791d] hover:underline">
+            Manage{t.status === "suspended" ? " · Reactivate" : " · Suspend"}
+          </Link>
+        </div>
+      ),
+    },
+  ]);
 
   return (
-    <main style={{ padding: "24px 28px", maxWidth: 1100 }}>
-      <Link href="/admin" style={S.backLink}>← Dashboard</Link>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={S.pageTitle}>Tenants</h1>
-        <p style={S.pageSub}>Every workspace on the platform. Provision, manage, or suspend access.</p>
-      </div>
+    <main className="px-6 py-5">
+      <PageHeader title="Tenants" subtitle="Provision, suspend and impersonate" />
 
-      {sp.deleted && (
-        <div style={{
-          marginBottom: 18, padding: "10px 14px", borderRadius: 8,
-          background: "#f0fdf4", border: "1px solid #bbf7d0",
-          fontSize: 12.5, color: "#059669", fontWeight: 600,
-        }}>
-          ✓ {sp.deleted} was permanently deleted.
-        </div>
-      )}
+      <div className="mt-4 space-y-4">
+        {sp.deleted && <Note icon="✓" tone="info">{sp.deleted} was permanently deleted.</Note>}
 
-      {/* Provision */}
-      <div style={{ ...S.card, marginBottom: 18 }}>
-        <div style={S.cardHeader}>
-          <span style={S.cardTitle}>Provision New Workspace</span>
-        </div>
-        <div style={{ padding: "14px 16px" }}>
+        <div className="fw-card px-3.5 py-3">
+          <h2 className="mb-3 text-[12.5px] font-bold text-[#20201d]">Provision New Workspace</h2>
           <AdminProvisionForm />
         </div>
-      </div>
 
-      {/* SDK suspension grace period */}
-      <div style={{ ...S.card, marginBottom: 18 }}>
-        <div style={S.cardHeader}>
-          <span style={S.cardTitle}>SDK Intake After Suspension</span>
-        </div>
-        <div style={{ padding: "14px 16px" }}>
+        <div className="fw-card px-3.5 py-3">
+          <h2 className="mb-2 text-[12.5px] font-bold text-[#20201d]">SDK Intake After Suspension</h2>
           <SdkSuspensionWindowsSetting notifyDays={sdkSuspensionWindows.notifyDays} graceDays={sdkSuspensionWindows.graceDays} />
         </div>
-      </div>
 
-      {/* Tenant table */}
-      <div style={S.card}>
-        <div style={S.cardHeader}>
-          <span style={S.cardTitle}>All Tenants ({tenants.length})</span>
-        </div>
-        <table style={S.table}>
-          <thead>
-            <tr>
-              {["Tenant", "Health", "Members", "Issues", "Plan", "Status", ""].map((h) => (
-                <th key={h} style={{
-                  padding: "9px 14px", textAlign: "left", fontSize: 10,
-                  fontWeight: 700, color: "#94a3b8", textTransform: "uppercase",
-                  letterSpacing: ".07em", borderBottom: "1px solid #f1f5f9",
-                }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {scored.map((t) => {
-              const hc = t.health >= 70 ? "#059669" : t.health >= 40 ? "#d97706" : "#dc2626";
-              const hbg = t.health >= 70 ? "#f0fdf4" : t.health >= 40 ? "#fffbeb" : "#fef2f2";
-              return (
-                <tr key={t.id} style={{ borderBottom: "1px solid #f8fafc" }}>
-                  <td style={{ padding: "10px 14px" }}>
-                    <div style={{ fontWeight: 600, fontSize: 13, color: "#111827" }}>{t.name}</div>
-                    <div style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>/{t.slug}</div>
-                  </td>
-                  <td style={{ padding: "10px 14px" }}>
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", gap: 5,
-                      padding: "3px 10px", borderRadius: 8,
-                      background: hbg, fontSize: 12, fontWeight: 700, color: hc,
-                    }}>
-                      <span style={{ width: 7, height: 7, borderRadius: "50%", background: hc, display: "inline-block" }} />
-                      {t.health}
-                    </span>
-                  </td>
-                  <td style={{ padding: "10px 14px", fontSize: 12, color: "#6b7280" }}>{t.member_count}</td>
-                  <td style={{ padding: "10px 14px", fontSize: 12, color: "#6b7280" }}>{t.issue_count}</td>
-                  <td style={{ padding: "10px 14px" }}>
-                    <span style={{
-                      display: "inline-flex", padding: "2px 8px", borderRadius: 9,
-                      fontSize: 10, fontWeight: 700,
-                      background: "#ede9fe", color: "#4f46e5",
-                    }}>{t.plan ?? "basic"}</span>
-                  </td>
-                  <td style={{ padding: "10px 14px" }}>
-                    <span style={{
-                      display: "inline-flex", padding: "2px 8px", borderRadius: 9,
-                      fontSize: 10, fontWeight: 700,
-                      background: t.status === "active" ? "#d1fae5" : "#fee2e2",
-                      color: t.status === "active" ? "#059669" : "#dc2626",
-                    }}>{t.status}</span>
-                  </td>
-                  <td style={{ padding: "10px 14px", textAlign: "right" }}>
-                    <Link
-                      href={`/admin/tenants/${t.id}`}
-                      style={{ fontSize: 11, fontWeight: 600, color: "#4f46e5", textDecoration: "none" }}
-                    >
-                      View →
-                    </Link>
-                  </td>
-                </tr>
-              );
-            })}
-            {scored.length === 0 && (
-              <tr><td colSpan={7} style={{ padding: 24, textAlign: "center", color: "#94a3b8", fontSize: 12 }}>No tenants yet. Provision your first workspace above.</td></tr>
-            )}
-          </tbody>
-        </table>
+        <h2 className="text-[13px] font-bold text-[#20201d]">All Tenants ({tenants.length})</h2>
+        <AdminTable columns={columns} rows={rows} minWidth={900} />
       </div>
     </main>
   );

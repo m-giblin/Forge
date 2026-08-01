@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import type { FeatureFlag, TenantOverride } from "@/lib/repositories/featureFlags";
 import { setGlobalFlagAction, setTenantOverrideAction, setPlatformSettingAction } from "./actions";
+import TogglesList from "@/components/patterns/admin/TogglesList";
+import Note from "@/components/patterns/admin/Note";
 
 type Tenant = { id: string; name: string; slug: string };
 
@@ -17,27 +19,6 @@ const KILL_SWITCHES: Array<{ key: string; label: string; desc: string }> = [
   { key: "maintenance_mode", label: "Maintenance Mode",    desc: "Blocks all tenant access with a maintenance banner" },
   { key: "ai_disabled",      label: "Disable AI Globally", desc: "Kills all AI features across every workspace" },
 ];
-
-function Toggle({ on, disabled, onToggle, danger }: { on: boolean; disabled: boolean; onToggle: () => void; danger?: boolean }) {
-  return (
-    <button
-      onClick={onToggle}
-      disabled={disabled}
-      aria-label="toggle"
-      style={{
-        position: "relative", width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", flexShrink: 0,
-        background: on ? (danger ? "#ef4444" : "#10b981") : "#d1d5db",
-        opacity: disabled ? .5 : 1, transition: "background .15s",
-      }}
-    >
-      <span style={{
-        position: "absolute", top: 2, width: 20, height: 20, borderRadius: "50%",
-        background: "#fff", transition: "left .15s",
-        left: on ? 22 : 2,
-      }} />
-    </button>
-  );
-}
 
 export default function FeatureFlagsConsole({
   flags,
@@ -64,88 +45,84 @@ export default function FeatureFlagsConsole({
     });
   }
 
-  const card: React.CSSProperties = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" };
-  const sectionLabel: React.CSSProperties = { fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 10 };
-
   return (
-    <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 28 }}>
-      {error && <div style={{ padding: "9px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, fontSize: 12, color: "#dc2626" }}>{error}</div>}
+    <div className="mt-4 space-y-6">
+      {error && <Note icon="⚠" tone="error">{error}</Note>}
 
       {/* Kill switches */}
       <section>
-        <div style={{ ...sectionLabel, color: "#ef4444" }}>Platform Kill Switches</div>
-        <p style={{ fontSize: 11, color: "#94a3b8", marginBottom: 10 }}>These affect the entire platform immediately. Use with caution.</p>
-        <div style={{ background: "#fff5f5", border: "1px solid #fecaca", borderRadius: 10, overflow: "hidden" }}>
-          {KILL_SWITCHES.map((ks, i) => {
-            const active = platformSettings[ks.key] === "true";
-            return (
-              <div key={ks.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "12px 16px", borderTop: i > 0 ? "1px solid #fee2e2" : "none" }}>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 13, fontWeight: 600, color: "#991b1b" }}>{ks.label}</span>
-                    {active && <span style={{ padding: "1px 7px", borderRadius: 9, background: "#ef4444", color: "#fff", fontSize: 9, fontWeight: 700 }}>ACTIVE</span>}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#b91c1c", marginTop: 2 }}>{ks.desc}</div>
-                </div>
-                <Toggle on={active} disabled={isPending} danger onToggle={() => run(() => setPlatformSettingAction(ks.key, active ? "false" : "true"))} />
-              </div>
-            );
-          })}
-        </div>
+        <p className="mb-1 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#c0392b]">Platform Kill Switches</p>
+        <p className="mb-2.5 text-[11px] text-[#a19d90]">These affect the entire platform immediately. Use with caution.</p>
+        <TogglesList
+          platform
+          items={KILL_SWITCHES.map((ks) => ({
+            key: ks.key,
+            label: ks.label,
+            description: ks.desc,
+            on: platformSettings[ks.key] === "true",
+            tag: platformSettings[ks.key] === "true" ? (
+              <span className="rounded-full bg-[#8a4f13] px-2 py-[2px] text-[10px] font-bold text-white">ACTIVE</span>
+            ) : undefined,
+          }))}
+          onChange={(key) => {
+            const active = platformSettings[key] === "true";
+            run(() => setPlatformSettingAction(key, active ? "false" : "true"));
+          }}
+        />
       </section>
 
       {flags.length === 0 ? (
-        <div style={{ padding: "16px 18px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, fontSize: 13, color: "#92400e" }}>
-          No feature flags found — run migration <code style={{ fontFamily: "monospace" }}>0032_feature_flags.sql</code> to create and seed them.
-        </div>
+        <Note icon="⚠" tone="warning">
+          No feature flags found — run migration <code className="font-mono">0032_feature_flags.sql</code> to create and seed them.
+        </Note>
       ) : (
         <>
           {/* Global defaults */}
           <section>
-            <div style={sectionLabel}>Global Defaults</div>
-            <div style={card}>
-              {flags.map((f, i) => (
-                <div key={f.key} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, padding: "12px 16px", borderTop: i > 0 ? "1px solid #f1f5f9" : "none" }}>
-                  <div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>{f.label}</span>
-                      <code style={{ fontSize: 10, color: "#94a3b8", fontFamily: "monospace" }}>{f.key}</code>
-                    </div>
-                    <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>{FLAG_DESCRIPTIONS[f.key] ?? f.description ?? ""}</div>
-                  </div>
-                  <Toggle on={f.enabled} disabled={isPending} onToggle={() => run(() => setGlobalFlagAction(f.key, !f.enabled))} />
-                </div>
-              ))}
-            </div>
-            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>New tenants follow the global default. Existing tenants were seeded with full access via overrides below.</p>
+            <p className="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Global Defaults</p>
+            <TogglesList
+              platform
+              items={flags.map((f) => ({
+                key: f.key,
+                label: f.label,
+                description: FLAG_DESCRIPTIONS[f.key] ?? f.description ?? undefined,
+                on: f.enabled,
+                tag: <code className="font-mono text-[10px] text-[#a19d90]">{f.key}</code>,
+              }))}
+              onChange={(key) => {
+                const f = flags.find((x) => x.key === key)!;
+                run(() => setGlobalFlagAction(key, !f.enabled));
+              }}
+            />
+            <p className="mt-2 text-[11px] text-[#a19d90]">New tenants follow the global default. Existing tenants were seeded with full access via overrides below.</p>
           </section>
 
           {/* Per-tenant overrides */}
           <section>
-            <div style={sectionLabel}>Per-Tenant Overrides</div>
-            <div style={{ ...card, overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <p className="mb-2.5 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Per-Tenant Overrides</p>
+            <div className="fw-card overflow-auto">
+              <table className="w-full min-w-[600px] border-collapse text-[12.5px]">
                 <thead>
-                  <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                    <th style={{ padding: "9px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>Tenant</th>
+                  <tr className="border-b border-[#ddd8c9] bg-[#eae6da]">
+                    <th className="px-3.5 py-2 text-left text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Tenant</th>
                     {flags.map((f) => (
-                      <th key={f.key} style={{ padding: "9px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>{f.label}</th>
+                      <th key={f.key} className="px-3.5 py-2 text-left text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">{f.label}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
                   {tenants.map((t, ti) => (
-                    <tr key={t.id} style={{ borderTop: ti > 0 ? "1px solid #f1f5f9" : "none" }}>
-                      <td style={{ padding: "10px 14px", fontWeight: 500, color: "#111827" }}>
-                        {t.name} <span style={{ fontFamily: "monospace", fontSize: 11, color: "#94a3b8" }}>/{t.slug}</span>
+                    <tr key={t.id} className={ti > 0 ? "border-t border-[#e3ded0]" : ""}>
+                      <td className="px-3.5 py-[10px] font-semibold text-[#20201d]">
+                        {t.name} <span className="font-mono text-[11px] text-[#a19d90]">/{t.slug}</span>
                       </td>
                       {flags.map((f) => {
                         const has = overrideMap.has(`${t.id}:${f.key}`);
                         const value: "default" | "on" | "off" = !has ? "default" : overrideMap.get(`${t.id}:${f.key}`) ? "on" : "off";
                         const effective = has ? value === "on" : globalMap.get(f.key);
                         return (
-                          <td key={f.key} style={{ padding: "10px 14px" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <td key={f.key} className="px-3.5 py-[10px]">
+                            <div className="flex items-center gap-2">
                               <select
                                 value={value}
                                 disabled={isPending}
@@ -153,13 +130,13 @@ export default function FeatureFlagsConsole({
                                   const v = e.target.value;
                                   run(() => setTenantOverrideAction(t.id, f.key, v === "default" ? null : v === "on"));
                                 }}
-                                style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #e5e7eb", background: "#fff", fontSize: 12, color: "#374151", outline: "none" }}
+                                className="rounded-md border border-[#ddd8c9] bg-white px-2 py-[3px] text-[11.5px] text-[#4a473e] outline-none"
                               >
                                 <option value="default">Default ({globalMap.get(f.key) ? "on" : "off"})</option>
                                 <option value="on">On</option>
                                 <option value="off">Off</option>
                               </select>
-                              <span style={{ fontSize: 12, color: effective ? "#10b981" : "#d1d5db" }}>{effective ? "●" : "○"}</span>
+                              <span className="text-[12px]" style={{ color: effective ? "#c9791d" : "#cfc9b9" }}>{effective ? "●" : "○"}</span>
                             </div>
                           </td>
                         );
@@ -169,7 +146,7 @@ export default function FeatureFlagsConsole({
                 </tbody>
               </table>
             </div>
-            <p style={{ fontSize: 11, color: "#94a3b8", marginTop: 8 }}>{'● = feature is effectively on for that tenant. "Default" follows the global toggle above.'}</p>
+            <p className="mt-2 text-[11px] text-[#a19d90]">{'● = feature is effectively on for that tenant. "Default" follows the global toggle above.'}</p>
           </section>
         </>
       )}

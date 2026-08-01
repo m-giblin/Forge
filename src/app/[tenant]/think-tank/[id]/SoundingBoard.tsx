@@ -143,7 +143,7 @@ export default function SoundingBoard({ slug, ideaId, isViewer, initialTurns, cu
           <div className="border-t border-neutral-100 px-5 py-4">
             {/* Data residency disclosure */}
             {!disclosureDismissed && (
-              <div className="mb-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">
+              <div className="mb-4 flex items-start gap-3 rounded-lg border border-[#f0d9b0] bg-[#fdf1de] px-3 py-2.5 text-xs text-[#c9791d]">
                 <span className="mt-0.5 shrink-0">⚠️</span>
                 <span className="flex-1">
                   Your idea content will be sent to <strong>Grok (xAI)</strong> for analysis. Do not include information you are not authorized to share externally.
@@ -170,7 +170,7 @@ export default function SoundingBoard({ slug, ideaId, isViewer, initialTurns, cu
                     disabled={isPending}
                     className={`rounded-full px-3 py-1 text-xs font-medium transition disabled:opacity-50 ${
                       selectedPills.includes(pill.id)
-                        ? "bg-neutral-900 text-white"
+                        ? "bg-[#8c4632] text-[#f2e9d8]"
                         : "border border-neutral-200 text-neutral-600 hover:border-neutral-400"
                     }`}
                   >
@@ -194,7 +194,7 @@ export default function SoundingBoard({ slug, ideaId, isViewer, initialTurns, cu
             {error && (
               <div
                 className={`mb-3 rounded-lg px-3 py-2 text-sm ${
-                  isRateLimit ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-700"
+                  isRateLimit ? "bg-[#fdf1de] text-[#c9791d]" : "bg-[#fbeae8] text-[#c0392b]"
                 }`}
               >
                 {error}
@@ -206,7 +206,7 @@ export default function SoundingBoard({ slug, ideaId, isViewer, initialTurns, cu
               <button
                 onClick={handleSubmit}
                 disabled={!canSubmit || isPending}
-                className="rounded-lg bg-neutral-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                className="rounded-lg bg-[#8c4632] px-4 py-1.5 text-sm font-medium text-white hover:bg-[#6e3324] disabled:opacity-50"
               >
                 {isPending ? "Thinking…" : hasTurns ? "Send follow-up" : "Ask AI"}
               </button>

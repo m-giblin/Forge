@@ -1169,6 +1169,12 @@ export const DOC_GUIDES: DocGuide[] = [
             title: 'Scopes are narrow by design',
             text: 'API keys only ever carry `issues:read` and/or `issues:write` — there is no broader "admin" or settings-changing scope for a key to hold. A leaked key cannot change member roles, delete a project, or touch billing. The blast radius of any single leaked key is capped at issue data, on purpose.',
           },
+          {
+            type: 'callout',
+            variant: 'info',
+            title: 'New endpoints work with your existing key — no regeneration needed',
+            text: 'When Forge ships a new API endpoint, it becomes available to every existing key automatically as long as that key already carries the required scope. You never need to create a new key or rotate an old one just because a new endpoint shipped. The attachment-download endpoint below, for example, only requires `issues:read` — any key that already has that scope can call it today.',
+          },
           { type: 'heading', level: 2, text: 'Creating and managing a key' },
           {
             type: 'steps',
@@ -1320,7 +1326,24 @@ export const DOC_GUIDES: DocGuide[] = [
           },
           {
             type: 'paragraph',
-            text: '`GET /api/v1/issues/{id}/attachments` lists an issue\'s attachment metadata (filename, content type, size, upload date) — it returns pointers, not the file bytes. Download URLs are short-lived signed URLs fetched separately; the list response tells you an attachment exists, not how to display it inline.',
+            text: '`GET /api/v1/issues/{id}/attachments` lists an issue\'s attachment metadata (filename, content type, size, upload date) — it returns pointers, not the file bytes. To fetch the actual file, use the dedicated download endpoint below.',
+          },
+          { type: 'heading', level: 3, text: 'Attachments: download' },
+          {
+            type: 'paragraph',
+            text: '`GET /api/v1/issues/{id}/attachments/{attachmentId}/download` fetches the actual file bytes for one attachment. It requires only `issues:read`. Because the underlying storage bucket is private, this endpoint doesn\'t stream the file itself — it generates a short-lived signed URL (valid for 60 seconds) and responds with a 302 redirect to it. Most HTTP clients (curl with `-L`, browsers, standard fetch libraries) follow the redirect automatically and hand you the file with no extra step.',
+          },
+          {
+            type: 'code',
+            label: 'Download an attachment (curl follows the redirect with -L)',
+            language: 'bash',
+            code: 'curl -sL "https://acme.forgeapp.com/api/v1/issues/<issue-id>/attachments/<attachment-id>/download" \\\n  -H "Authorization: Bearer $FORGE_API_KEY" \\\n  -o downloaded-file.png',
+          },
+          {
+            type: 'callout',
+            variant: 'warning',
+            title: "Don't cache or reuse the signed URL",
+            text: 'The signed URL you\'re redirected to expires 60 seconds after it\'s generated. Don\'t store it or reuse it later — always call the download endpoint fresh each time you need the file, and let it mint a new signed URL for you.',
           },
           { type: 'heading', level: 3, text: 'Session Replay (FORGE-71) — no extra endpoint, one specific detail' },
           {

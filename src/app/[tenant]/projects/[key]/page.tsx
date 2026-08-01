@@ -18,16 +18,16 @@ import CategoryImporter from "@/app/[tenant]/admin/fields/CategoryImporter";
 import { fieldConfigRepo } from "@/lib/repositories/fieldConfig";
 
 const HEALTH_META: Record<Health, { label: string; cls: string; dot: string }> = {
-  on_track: { label: "On track", cls: "bg-emerald-100 text-emerald-700", dot: "●" },
-  at_risk: { label: "At risk", cls: "bg-amber-100 text-amber-700", dot: "●" },
-  off_track: { label: "Off track", cls: "bg-red-100 text-red-700", dot: "●" },
+  on_track: { label: "On track", cls: "bg-[#e9f3ea] text-[#3f7d4c]", dot: "●" },
+  at_risk: { label: "At risk", cls: "bg-[#fdf1de] text-[#c9791d]", dot: "●" },
+  off_track: { label: "Off track", cls: "bg-[#fbeae8] text-[#c0392b]", dot: "●" },
   not_started: { label: "Not started", cls: "bg-neutral-100 text-neutral-500", dot: "○" },
 };
 const GOLIVE_CLS: Record<string, string> = {
   neutral: "bg-neutral-100 text-neutral-500",
-  good: "bg-emerald-100 text-emerald-700",
-  warn: "bg-amber-100 text-amber-700",
-  bad: "bg-red-100 text-red-700",
+  good: "bg-[#e9f3ea] text-[#3f7d4c]",
+  warn: "bg-[#fdf1de] text-[#c9791d]",
+  bad: "bg-[#fbeae8] text-[#c0392b]",
 };
 
 export default async function ProjectDetailPage({
@@ -124,7 +124,7 @@ export default async function ProjectDetailPage({
           >
             📊 Export PPT
           </a>
-          <Link href={`/${slug}/board?project=${data.project.key}`} className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">
+          <Link href={`/${slug}/board?project=${data.project.key}`} className="rounded-[5px] border border-[#5e2c1f] px-4 py-2 text-sm font-bold text-[#f2e9d8]" style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}>
             Open board →
           </Link>
         </div>

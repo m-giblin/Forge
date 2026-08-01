@@ -3,12 +3,25 @@
 import { useState, useTransition } from "react";
 import type { SlaPolicy, SlaTier } from "@/lib/repositories/slaPolicies";
 import { createSlaPolicyAction, updateSlaPolicyAction, deleteSlaPolicyAction } from "./actions";
+import PageHeader from "@/components/patterns/PageHeader";
+import AdminTable, { type AdminTableCell } from "@/components/patterns/admin/AdminTable";
+import FormGrid from "@/components/patterns/admin/FormGrid";
 
 const PRIORITIES = ["critical", "high", "medium", "low"];
 const TIER_TYPES = ["response", "resolution"] as const;
+const ACTIONS = ["notify", "reassign"] as const;
+
+const inputCls =
+  "w-full rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12.5px] text-[#20201d] placeholder-[#a19d90] outline-none focus:border-[#b7452f]";
 
 function emptyPolicy(): { name: string; conditions: { priority: string[] }; tiers: SlaTier[] } {
   return { name: "", conditions: { priority: [] }, tiers: [] };
+}
+
+function tierSummary(tiers: SlaTier[], type: SlaTier["type"]): string {
+  const hits = tiers.filter((t) => t.type === type);
+  if (hits.length === 0) return "—";
+  return hits.map((t) => `${t.hours}h`).join(", ");
 }
 
 function TierRow({
@@ -21,11 +34,11 @@ function TierRow({
   onRemove: () => void;
 }) {
   return (
-    <div className="flex gap-2 items-center">
+    <div className="flex flex-wrap items-center gap-2">
       <select
         value={tier.type}
         onChange={(e) => onChange({ ...tier, type: e.target.value as SlaTier["type"] })}
-        className="bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-sm text-white"
+        className={`${inputCls} w-auto`}
       >
         {TIER_TYPES.map((t) => (
           <option key={t} value={t}>
@@ -38,14 +51,25 @@ function TierRow({
         min={1}
         value={tier.hours}
         onChange={(e) => onChange({ ...tier, hours: Number(e.target.value) })}
-        className="w-20 bg-zinc-900 border border-zinc-700 rounded px-2 py-1 text-sm text-white"
+        className={`${inputCls} w-20`}
         placeholder="Hours"
       />
-      <span className="text-xs text-zinc-500">h → notify</span>
+      <span className="text-[11px] text-[#a19d90]">h →</span>
+      <select
+        value={tier.action}
+        onChange={(e) => onChange({ ...tier, action: e.target.value as SlaTier["action"] })}
+        className={`${inputCls} w-auto`}
+      >
+        {ACTIONS.map((a) => (
+          <option key={a} value={a}>
+            {a === "notify" ? "notify" : "reassign"}
+          </option>
+        ))}
+      </select>
       <button
         type="button"
         onClick={onRemove}
-        className="text-xs text-red-400 hover:text-red-300"
+        className="text-[11.5px] font-semibold text-[#b7452f] hover:underline"
       >
         remove
       </button>
@@ -57,10 +81,14 @@ function PolicyForm({
   initial,
   onSave,
   onCancel,
+  saving,
+  submitLabel,
 }: {
   initial: ReturnType<typeof emptyPolicy>;
   onSave: (v: typeof initial) => void;
   onCancel: () => void;
+  saving: boolean;
+  submitLabel: string;
 }) {
   const [form, setForm] = useState(initial);
 
@@ -87,70 +115,73 @@ function PolicyForm({
     setForm((f) => ({ ...f, tiers: f.tiers.filter((_, idx) => idx !== i) }));
   }
 
+  const canSave = form.name.trim().length > 0 && form.tiers.length > 0;
+
   return (
-    <div className="space-y-4 border border-zinc-700 rounded-lg p-5 bg-zinc-800/40">
-      <div>
-        <label className="block text-xs text-zinc-400 mb-1">Policy name</label>
-        <input
-          value={form.name}
-          onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-          placeholder="P0 Response SLA"
-          className="w-full bg-zinc-900 border border-zinc-700 rounded px-3 py-1.5 text-sm text-white"
-        />
-      </div>
-
-      <div>
-        <label className="block text-xs text-zinc-400 mb-2">Apply to priorities (leave empty for all)</label>
-        <div className="flex gap-2 flex-wrap">
-          {PRIORITIES.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => togglePriority(p)}
-              className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
-                form.conditions.priority.includes(p)
-                  ? "bg-indigo-600 border-indigo-500 text-white"
-                  : "border-zinc-600 text-zinc-400 hover:border-zinc-400"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="block text-xs text-zinc-400">SLA tiers</label>
-        {form.tiers.map((t, i) => (
-          <TierRow key={i} tier={t} onChange={(v) => updateTier(i, v)} onRemove={() => removeTier(i)} />
-        ))}
-        <button
-          type="button"
-          onClick={addTier}
-          className="text-xs text-indigo-400 hover:text-indigo-300"
-        >
-          + Add tier
-        </button>
-      </div>
-
-      <div className="flex gap-2 pt-2">
-        <button
-          type="button"
-          onClick={() => onSave(form)}
-          disabled={!form.name.trim() || form.tiers.length === 0}
-          className="px-4 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white rounded-md"
-        >
-          Save policy
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="px-4 py-1.5 text-sm bg-zinc-700 hover:bg-zinc-600 text-white rounded-md"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
+    <FormGrid
+      fields={[
+        {
+          key: "name",
+          label: "Policy name",
+          input: (
+            <input
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+              placeholder="P0 Response SLA"
+              className={inputCls}
+            />
+          ),
+        },
+        {
+          key: "priorities",
+          label: "Priorities (leave empty for all)",
+          input: (
+            <div className="flex flex-wrap gap-1.5 py-1">
+              {PRIORITIES.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => togglePriority(p)}
+                  className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition ${
+                    form.conditions.priority.includes(p)
+                      ? "border-[#5e2c1f] text-[#f2e9d8]"
+                      : "border-[#ddd8c9] bg-white text-[#726e60] hover:border-[#b7452f]/50"
+                  }`}
+                  style={
+                    form.conditions.priority.includes(p)
+                      ? { background: "linear-gradient(160deg,#9a5138,#6e3324)" }
+                      : undefined
+                  }
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          ),
+        },
+        {
+          key: "tiers",
+          label: "SLA tiers",
+          input: (
+            <div className="space-y-2">
+              {form.tiers.map((t, i) => (
+                <TierRow key={i} tier={t} onChange={(v) => updateTier(i, v)} onRemove={() => removeTier(i)} />
+              ))}
+              <button
+                type="button"
+                onClick={addTier}
+                className="text-[11.5px] font-semibold text-[#b7452f] hover:underline"
+              >
+                + Add tier
+              </button>
+            </div>
+          ),
+        },
+      ]}
+      onCancel={onCancel}
+      onSubmit={canSave && !saving ? () => onSave(form) : undefined}
+      submitLabel={saving ? "Saving…" : submitLabel}
+    />
   );
 }
 
@@ -182,115 +213,109 @@ export default function SlaSettingsClient({ slug, policies: initial }: { slug: s
   }
 
   function handleDelete(id: string) {
+    if (!confirm("Delete this SLA policy?")) return;
     startTransition(async () => {
       await deleteSlaPolicyAction(slug, id);
       setPolicies((ps) => ps.filter((p) => p.id !== id));
     });
   }
 
+  const editingPolicy = editId ? policies.find((p) => p.id === editId) : null;
+
+  const rows: AdminTableCell[][] = policies.map((p) => [
+    { kind: "bold", value: p.name },
+    {
+      kind: "dim",
+      value: (p.conditions.priority ?? []).length > 0 ? (p.conditions.priority ?? []).join(", ") : "All priorities",
+    },
+    { kind: "mono", value: tierSummary(p.tiers, "response") },
+    { kind: "mono", value: tierSummary(p.tiers, "resolution") },
+    {
+      kind: "chip",
+      value: p.enabled ? "Active" : "Disabled",
+      chipFg: p.enabled ? "#2f6b33" : "#726e60",
+      chipBg: p.enabled ? "#e3efe1" : "#eae6da",
+      onClick: () => handleToggle(p.id, !p.enabled),
+    },
+    { kind: "link", value: "Edit", onClick: () => setEditId(p.id) },
+  ]);
+
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h2 className="text-lg font-semibold text-white">SLA Policies</h2>
-          <p className="text-sm text-zinc-400 mt-0.5">
-            Define response and resolution deadlines. Breaches fire a Slack notification and are logged to the issue timeline.
-          </p>
-        </div>
-        {!creating && (
-          <button
-            onClick={() => setCreating(true)}
-            className="px-4 py-1.5 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-md whitespace-nowrap"
-          >
-            + New policy
-          </button>
-        )}
-      </div>
-
-      {creating && (
-        <PolicyForm
-          initial={emptyPolicy()}
-          onSave={handleCreate}
-          onCancel={() => setCreating(false)}
-        />
-      )}
-
-      {policies.length === 0 && !creating && (
-        <div className="border border-zinc-800 rounded-lg p-8 text-center text-zinc-500 text-sm">
-          No SLA policies yet. Create one to start tracking response and resolution times.
-        </div>
-      )}
-
-      <div className="space-y-3">
-        {policies.map((p) =>
-          editId === p.id ? (
-            <PolicyForm
-              key={p.id}
-              initial={{ name: p.name, conditions: { priority: p.conditions.priority ?? [] }, tiers: p.tiers }}
-              onSave={(form) => handleUpdate(p.id, form)}
-              onCancel={() => setEditId(null)}
-            />
-          ) : (
-            <div key={p.id} className={`border rounded-lg p-4 ${p.enabled ? "border-green-700 bg-green-950/30" : "border-zinc-600 bg-zinc-800/60"}`}>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <span className={`h-2.5 w-2.5 rounded-full flex-shrink-0 ${p.enabled ? "bg-green-400" : "bg-zinc-500"}`} />
-                  <span className="text-sm font-medium text-white truncate">{p.name}</span>
-                  {(p.conditions.priority ?? []).length > 0 && (
-                    <div className="flex gap-1 flex-shrink-0">
-                      {(p.conditions.priority ?? []).map((pr) => (
-                        <span key={pr} className="px-2 py-0.5 bg-zinc-600 text-xs text-zinc-200 rounded-full">
-                          {pr}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <button
-                    onClick={() => handleToggle(p.id, !p.enabled)}
-                    disabled={isPending}
-                    className={`px-3 py-1 text-xs rounded-md font-medium transition ${
-                      p.enabled
-                        ? "bg-zinc-600 hover:bg-zinc-500 text-white"
-                        : "bg-green-600 hover:bg-green-500 text-white"
-                    }`}
-                  >
-                    {p.enabled ? "Disable" : "Enable"}
-                  </button>
-                  <button
-                    onClick={() => setEditId(p.id)}
-                    className="px-3 py-1 text-xs rounded-md font-medium bg-zinc-600 hover:bg-zinc-500 text-white transition"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(p.id)}
-                    disabled={isPending}
-                    className="px-3 py-1 text-xs rounded-md font-medium bg-red-900/60 hover:bg-red-800 text-red-300 hover:text-red-200 transition"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-              <div className="mt-3 flex gap-2 flex-wrap">
-                {p.tiers.map((t, i) => (
-                  <span key={i} className="text-xs text-zinc-300 bg-zinc-700 px-2.5 py-1 rounded-md">
-                    {t.type === "response" ? "Assign" : "Resolve"} within {t.hours}h
-                  </span>
-                ))}
-              </div>
-            </div>
+      <PageHeader
+        title="SLA Policies"
+        subtitle="Response and resolution targets by priority"
+        right={
+          !creating &&
+          !editId && (
+            <button
+              onClick={() => setCreating(true)}
+              className="rounded-[5px] border border-[#5e2c1f] px-3.5 py-[7px] text-[12px] font-semibold text-[#f2e9d8] whitespace-nowrap"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+            >
+              + New policy
+            </button>
           )
-        )}
-      </div>
+        }
+      />
 
-      <div className="border border-zinc-800 rounded-lg p-4 text-xs text-zinc-500 space-y-1">
-        <p className="font-semibold text-zinc-400">How it works</p>
-        <p>• A cron job checks every 5 minutes for SLA breaches across all open issues</p>
-        <p>• On breach: Slack alert fires (if configured) + a comment is posted to the issue timeline</p>
-        <p>• Each breach fires once — won&apos;t spam on every cron tick</p>
-        <p>• SLA timer chip appears on issue cards and the detail page</p>
+      <div className="space-y-6 px-6">
+        {editingPolicy && (
+          <div className="space-y-1">
+            <p className="px-0.5 text-[12.5px] font-bold text-[#20201d]">Edit policy</p>
+            <PolicyForm
+              key={editingPolicy.id}
+              initial={{
+                name: editingPolicy.name,
+                conditions: { priority: editingPolicy.conditions.priority ?? [] },
+                tiers: editingPolicy.tiers,
+              }}
+              onSave={(form) => handleUpdate(editingPolicy.id, form)}
+              onCancel={() => setEditId(null)}
+              saving={isPending}
+              submitLabel="Save changes"
+            />
+          </div>
+        )}
+
+        {creating && (
+          <div className="space-y-1">
+            <p className="px-0.5 text-[12.5px] font-bold text-[#20201d]">New policy</p>
+            <PolicyForm
+              initial={emptyPolicy()}
+              onSave={handleCreate}
+              onCancel={() => setCreating(false)}
+              saving={isPending}
+              submitLabel="Save policy"
+            />
+          </div>
+        )}
+
+        {policies.length === 0 && !creating ? (
+          <div className="fw-card px-8 py-10 text-center text-[12.5px] text-[#a19d90]">
+            No SLA policies yet. Create one to start tracking response and resolution times.
+          </div>
+        ) : (
+          <AdminTable
+            columns={[
+              { label: "Policy", flex: true },
+              { label: "Applies to", width: 190 },
+              { label: "Response", width: 140 },
+              { label: "Resolution", width: 140 },
+              { label: "Status", width: 120 },
+              { label: "", width: 90 },
+            ]}
+            rows={rows}
+          />
+        )}
+
+        <div className="fw-card px-4 py-3.5 text-[11.5px] text-[#726e60] space-y-1">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">How it works</p>
+          <p>A cron job checks every 5 minutes for SLA breaches across all open issues.</p>
+          <p>On breach: a Slack alert fires (if configured) and a comment is posted to the issue timeline.</p>
+          <p>Each breach fires once — it won&apos;t spam on every cron tick.</p>
+          <p>An SLA timer chip appears on issue cards and the detail page.</p>
+        </div>
       </div>
     </div>
   );

@@ -26,15 +26,16 @@ export default async function SpacesPage({ params }: { params: Promise<{ tenant:
 
   // Recent pages across all visible spaces
   const spaceIds = visible.map((s) => s.id);
-  const { data: recentPages } = spaceIds.length
+  const { data: recentPagesRaw } = spaceIds.length
     ? await svc
         .from("pages")
-        .select("id, space_id, title, icon, updated_at, updated_by")
+        .select("id, space_id, title, icon, updated_at, updated_by, spaces(name), updated_by_user:users!pages_updated_by_fkey(name, email)")
         .in("space_id", spaceIds)
         .eq("status", "active")
         .order("updated_at", { ascending: false })
         .limit(8)
     : { data: [] };
+  const recentPages = (recentPagesRaw ?? []) as unknown as RecentPageRow[];
 
   return (
     <SpacesHubClient
@@ -58,4 +59,15 @@ export type SpaceRow = {
   archived_at: string | null;
   updated_at: string;
   projects?: { key: string; name: string } | null;
+};
+
+export type RecentPageRow = {
+  id: string;
+  space_id: string;
+  title: string;
+  icon: string | null;
+  updated_at: string;
+  updated_by: string | null;
+  spaces?: { name: string } | null;
+  updated_by_user?: { name: string | null; email: string | null } | null;
 };

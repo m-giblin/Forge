@@ -39,10 +39,9 @@ export default async function ProjectsPage({ params }: { params: Promise<{ tenan
   }
 
   return (
-    <main className="w-full px-6 py-8">
+    <main className="flex h-[calc(100vh-56px)] flex-col overflow-hidden md:h-screen">
       <ProjectsLanding
         slug={slug}
-        tenantName={ctx.tenant.name}
         isAdmin={isAdmin}
         canCreate={isAdmin}
         projects={projects}

@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { saveNotificationPrefsAction } from "./actions";
+import Toggle from "@/components/patterns/Toggle";
 
 const NOTIF_TYPES = [
   { key: "issue_assigned",    label: "Issue assigned to me" },
@@ -51,21 +52,7 @@ export default function NotificationPrefsClient({
         {NOTIF_TYPES.map(({ key, label }) => (
           <div key={key} className="flex items-center justify-between px-4 py-3">
             <span className="text-sm text-neutral-700">{label}</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isEnabled(key)}
-              onClick={() => toggle(key)}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                isEnabled(key) ? "bg-neutral-900" : "bg-neutral-200"
-              }`}
-            >
-              <span
-                className={`inline-block h-3.5 w-3.5 translate-x-0.5 transform rounded-full bg-white shadow transition-transform ${
-                  isEnabled(key) ? "translate-x-[18px]" : ""
-                }`}
-              />
-            </button>
+            <Toggle on={isEnabled(key)} onChange={() => toggle(key)} label={label} />
           </div>
         ))}
       </div>
@@ -74,7 +61,7 @@ export default function NotificationPrefsClient({
         <button
           onClick={handleSave}
           disabled={isPending}
-          className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+          className="rounded-lg bg-[#8c4632] px-4 py-2 text-sm font-medium text-white hover:bg-[#6e3324] disabled:opacity-50"
         >
           {isPending ? "Saving…" : "Save preferences"}
         </button>

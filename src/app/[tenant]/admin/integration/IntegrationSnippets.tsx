@@ -96,30 +96,32 @@ export default function IntegrationSnippets({
   const code = snippets(baseUrl, projectKey)[lang];
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+    <div className="fw-card px-4 py-4">
       {projects.length > 1 && (
         <div className="mb-3 flex items-center gap-2">
-          <label className="text-xs font-medium text-neutral-500">Target project</label>
+          <label className="text-[11px] font-semibold text-[#726e60]">Target project</label>
           <select
             value={selectedKey}
             onChange={(e) => { setSelectedKey(e.target.value); setCopied(false); }}
-            className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm"
+            className="rounded-[5px] border border-[#ddd8c9] bg-white px-2 py-[5px] text-[12px] text-[#20201d] outline-none focus:border-[#b7452f]"
           >
             {projects.map((p) => (
               <option key={p.key} value={p.key}>{p.key} — {p.name}</option>
             ))}
           </select>
-          <span className="text-xs text-neutral-400">Snippet updates when you switch.</span>
+          <span className="text-[11px] text-[#a19d90]">Snippet updates when you switch.</span>
         </div>
       )}
       <div className="mb-3 flex flex-wrap gap-1">
         {LANGS.map((l) => (
           <button
             key={l}
+            type="button"
             onClick={() => { setLang(l); setCopied(false); }}
-            className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-              lang === l ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-100"
+            className={`rounded-[5px] px-3 py-1.5 text-[12px] font-semibold transition ${
+              lang === l ? "text-[#f2e9d8]" : "text-[#726e60] hover:bg-[#f4f2eb]"
             }`}
+            style={lang === l ? { background: "linear-gradient(160deg,#9a5138,#6e3324)" } : undefined}
           >
             {l}
           </button>
@@ -127,12 +129,13 @@ export default function IntegrationSnippets({
       </div>
       <div className="relative">
         <button
+          type="button"
           onClick={() => { navigator.clipboard.writeText(code); setCopied(true); }}
-          className="absolute right-2 top-2 rounded-md bg-neutral-800 px-2.5 py-1 text-xs font-medium text-white hover:bg-neutral-700"
+          className="absolute right-2 top-2 rounded-[5px] bg-[#2b2924] px-2.5 py-1 text-[11px] font-semibold text-[#f2e9d8] hover:bg-[#3a3730]"
         >
           {copied ? "Copied" : "Copy"}
         </button>
-        <pre className="overflow-x-auto rounded-lg bg-neutral-950 p-4 text-xs leading-relaxed text-neutral-100">
+        <pre className="overflow-x-auto rounded-[6px] bg-[#20201d] p-4 text-[11px] leading-relaxed text-[#e8e4d8]">
           <code>{code}</code>
         </pre>
       </div>

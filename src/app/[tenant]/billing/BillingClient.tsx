@@ -156,11 +156,11 @@ export default function BillingClient({ slug, tenant, isOwner }: BillingClientPr
             ? "border-red-200 bg-red-50"
             : trialDaysLeft <= 3
             ? "border-orange-200 bg-orange-50"
-            : "border-indigo-200 bg-indigo-50"
+            : "border-[#e8c9bd] bg-[#f5e3dd]"
         }`}>
           <div>
             <p className={`font-semibold text-sm ${
-              trialDaysLeft <= 1 ? "text-red-800" : trialDaysLeft <= 3 ? "text-orange-800" : "text-indigo-800"
+              trialDaysLeft <= 1 ? "text-red-800" : trialDaysLeft <= 3 ? "text-orange-800" : "text-[#8c4632]"
             }`}>
               {trialDaysLeft <= 0
                 ? "Your trial has ended."
@@ -169,7 +169,7 @@ export default function BillingClient({ slug, tenant, isOwner }: BillingClientPr
                 : `⏰ ${trialDaysLeft} days left on your Premium trial.`}
             </p>
             <p className={`text-xs mt-0.5 ${
-              trialDaysLeft <= 1 ? "text-red-600" : trialDaysLeft <= 3 ? "text-orange-600" : "text-indigo-600"
+              trialDaysLeft <= 1 ? "text-red-600" : trialDaysLeft <= 3 ? "text-orange-600" : "text-[#b7452f]"
             }`}>
               Activate a plan below to keep Premium access without interruption.
             </p>
@@ -205,7 +205,7 @@ export default function BillingClient({ slug, tenant, isOwner }: BillingClientPr
       </div>
 
       {!isOwner && (
-        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+        <div className="mb-6 rounded-xl border border-[#f3ddb4] bg-[#fdf1de] px-5 py-4 text-sm text-[#8a5a12]">
           Only workspace owners can change the billing plan. Contact your workspace owner.
         </div>
       )}
@@ -226,12 +226,12 @@ export default function BillingClient({ slug, tenant, isOwner }: BillingClientPr
                 tier.comingSoon
                   ? "border-neutral-200 bg-neutral-50 opacity-60 cursor-not-allowed"
                   : isSelected
-                  ? "border-indigo-500 bg-indigo-50 ring-1 ring-indigo-500/50"
+                  ? "border-[#b7452f] bg-[#f5e3dd] ring-1 ring-[#b7452f]/50"
                   : "border-neutral-200 bg-white hover:border-neutral-300 cursor-pointer"
               }`}
             >
               {tier.highlight && (
-                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-indigo-600 px-3 py-0.5 text-xs font-bold text-white">
+                <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#b7452f] px-3 py-0.5 text-xs font-bold text-white">
                   Most Popular
                 </span>
               )}
@@ -262,7 +262,7 @@ export default function BillingClient({ slug, tenant, isOwner }: BillingClientPr
               <ul className="space-y-1 flex-1">
                 {tier.features.map((f) => (
                   <li key={f} className="flex items-start gap-1.5 text-xs text-neutral-600">
-                    <span className="text-indigo-500 mt-0.5 shrink-0">✓</span>
+                    <span className="text-[#b7452f] mt-0.5 shrink-0">✓</span>
                     {f}
                   </li>
                 ))}
@@ -294,7 +294,7 @@ export default function BillingClient({ slug, tenant, isOwner }: BillingClientPr
                   max={500}
                   value={seats}
                   onChange={(e) => setSeats(Math.max(1, Math.min(500, parseInt(e.target.value) || 1)))}
-                  className="w-16 rounded-lg border border-neutral-200 px-3 py-1.5 text-center text-sm font-bold text-neutral-900 focus:border-indigo-500 focus:outline-none"
+                  className="w-16 rounded-lg border border-neutral-200 px-3 py-1.5 text-center text-sm font-bold text-neutral-900 focus:border-[#b7452f] focus:outline-none"
                 />
                 <button
                   type="button"
@@ -333,7 +333,8 @@ export default function BillingClient({ slug, tenant, isOwner }: BillingClientPr
                 type="button"
                 onClick={handleActivate}
                 disabled={loading}
-                className="w-full rounded-xl bg-indigo-600 py-3 text-sm font-bold text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                className="w-full rounded-xl border border-[#5e2c1f] py-3 text-sm font-bold text-[#f2e9d8] transition-colors disabled:opacity-50"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 {loading ? "Submitting…" : `Activate ${TIERS.find(t => t.key === selectedTier)?.name ?? ""} — ${seats} seat${seats !== 1 ? "s" : ""}`}
               </button>
@@ -349,7 +350,7 @@ export default function BillingClient({ slug, tenant, isOwner }: BillingClientPr
       <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-5 py-4">
         <p className="text-sm font-semibold text-neutral-700">Need Pro or Enterprise?</p>
         <p className="text-xs text-neutral-500 mt-0.5">
-          <a href="mailto:hello@forge-worx.com?subject=Pro/Enterprise%20Inquiry" className="text-indigo-600 hover:underline">
+          <a href="mailto:hello@forge-worx.com?subject=Pro/Enterprise%20Inquiry" className="text-[#b7452f] hover:underline">
             Email us
           </a>{" "}
           and we&apos;ll get you set up with SSO, volume pricing, and dedicated onboarding.

@@ -131,7 +131,8 @@ function ScoreEditor({ slug, idea, onSave, onClose }: ScoreEditorProps) {
         <button
           onClick={save}
           disabled={isPending}
-          className="flex-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+          className="flex-1 rounded-lg border border-[#5e2c1f] px-3 py-1.5 text-xs font-medium text-[#f2e9d8] disabled:opacity-50"
+          style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
         >
           {isPending ? "Saving…" : "Save scores"}
         </button>
@@ -276,7 +277,7 @@ export default function ImpactEffortMatrix({ slug, ideas: initialIdeas }: Props)
       {/* Quick link to list view */}
       <div className="text-xs text-neutral-400 flex items-center gap-1.5">
         <span>Idea titles link to the detail page.</span>
-        <Link href={`/${slug}/think-tank`} className="text-indigo-500 hover:underline">Back to list view</Link>
+        <Link href={`/${slug}/think-tank`} className="text-[#b7452f] hover:underline">Back to list view</Link>
       </div>
     </div>
   );

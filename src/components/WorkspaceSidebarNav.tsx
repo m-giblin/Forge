@@ -1,7 +1,6 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import SidebarSearchButton from "./SidebarSearchButton";
 import SidebarNavItem from "./SidebarNavItem";
 import AdminNavGroups from "./AdminNavGroups";
 
@@ -23,12 +22,6 @@ export default function WorkspaceSidebarNav({
 
   return (
     <>
-      {!isAdminSection && (
-        <div className="shrink-0 px-2 py-2 border-b border-[var(--fw-sidebar-border)]">
-          <SidebarSearchButton />
-        </div>
-      )}
-
       <nav className="flex-1 overflow-y-auto px-2 py-3 space-y-4 min-w-0">
         {isAdminSection ? (
           <AdminNavGroups slug={slug} />
@@ -45,16 +38,14 @@ export default function WorkspaceSidebarNav({
               <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-[var(--fw-text-dimmer)]">Execution</p>
               <div className="space-y-0.5">
                 <SidebarNavItem href={`/${slug}/assigned`} icon="📌" label="My Work" />
-                <SidebarNavItem href={`/${slug}/code-review`} icon="🔀" label="Code Review" />
-                <SidebarNavItem href={`/${slug}/watching`} icon="👁" label="Watching" />
                 <SidebarNavItem href={`/${slug}/inbox`} icon="📥" label="Inbox" badge={unreadCount > 0 ? unreadCount : undefined} />
                 <SidebarNavItem href={`/${slug}/me/today`} icon="🎯" label="My Day" />
                 <SidebarNavItem href={`/${slug}/board`} icon="🏃" label="Sprint board" badge={visibleProjects > 1 ? visibleProjects : undefined} badgeColor="rust" />
+                <SidebarNavItem href={`/${slug}/calendar`} icon="🗓️" label="Calendar" />
+                <SidebarNavItem href={`/${slug}/timeline`} icon="📅" label="Timeline" />
+                {opsLayer && <SidebarNavItem href={`/${slug}/time`} icon="⏱️" label="My Time" />}
                 <SidebarNavItem href={`/${slug}/backlog`} icon="🧹" label="Backlog" />
                 <SidebarNavItem href={`/${slug}/issues`} icon="🐛" label="Table" />
-                <SidebarNavItem href={`/${slug}/timeline`} icon="📅" label="Timeline" />
-                <SidebarNavItem href={`/${slug}/calendar`} icon="🗓️" label="Calendar" />
-                {opsLayer && <SidebarNavItem href={`/${slug}/time`} icon="⏱️" label="My Time" />}
               </div>
             </div>
 
@@ -95,6 +86,15 @@ export default function WorkspaceSidebarNav({
                 <SidebarNavItem href={`/${slug}/customers`} icon="🏢" label="Customers" />
                 <SidebarNavItem href={`/${slug}/stakeholder`} icon="📈" label="Stakeholder" />
                 <SidebarNavItem href={`/${slug}/changelog`} icon="📋" label="Changelog" />
+              </div>
+            </div>
+
+            {/* Review */}
+            <div>
+              <p className="mb-1 px-2.5 text-[10px] font-semibold uppercase tracking-widest text-[var(--fw-text-dimmer)]">Review</p>
+              <div className="space-y-0.5">
+                <SidebarNavItem href={`/${slug}/code-review`} icon="🔀" label="Code Review" />
+                <SidebarNavItem href={`/${slug}/watching`} icon="👁" label="Watching" />
               </div>
             </div>
           </>

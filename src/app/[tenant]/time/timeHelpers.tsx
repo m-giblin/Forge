@@ -46,8 +46,8 @@ export function fmtWeekRange(weekStart: string): string {
   const start = new Date(dates[0] + "T00:00:00");
   const end = new Date(dates[6] + "T00:00:00");
   const startStr = start.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  const endStr = end.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-  return `${startStr} – ${endStr}`;
+  const endStr = end.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return `Week of ${startStr} – ${endStr}`;
 }
 
 export function todayStr(): string {
@@ -76,7 +76,7 @@ export const TAG_PRESETS = ["Development", "Review", "Meetings", "Testing", "Des
 export function TagSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-xs font-medium text-neutral-700">Tag <span className="text-neutral-400 font-normal">(optional)</span></label>
+      <label className="block text-[11px] font-medium text-[#4a473e]">Tag <span className="text-[#a19d90] font-normal">(optional)</span></label>
       <div className="flex flex-wrap gap-1.5">
         {TAG_PRESETS.map((t) => (
           <button
@@ -85,8 +85,8 @@ export function TagSelector({ value, onChange }: { value: string; onChange: (v: 
             onClick={() => onChange(value === t ? "" : t)}
             className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium border transition-colors ${
               value === t
-                ? "bg-indigo-600 text-white border-indigo-600"
-                : "bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-400"
+                ? "border-[#5e2c1f] bg-[#8c4632] text-[#f2e9d8]"
+                : "border-[#ddd8c9] bg-[#f4f2eb] text-[#4a473e] hover:bg-[#eae6da]"
             }`}
           >
             {t}
@@ -98,7 +98,7 @@ export function TagSelector({ value, onChange }: { value: string; onChange: (v: 
         placeholder="or custom…"
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-neutral-200 px-3 py-1.5 text-sm text-neutral-900 placeholder:text-neutral-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+        className="w-full rounded-[5px] border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[12.5px] text-[#20201d] placeholder:text-[#a19d90] focus:outline-none focus:ring-2 focus:ring-[#8c4632]/40"
       />
     </div>
   );

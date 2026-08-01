@@ -431,7 +431,8 @@ export default function WhiteboardEditor({ slug, projectId, projectKey, whiteboa
             <button
               onClick={save}
               disabled={saving}
-              className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50"
+              className="rounded-[5px] border border-[#5e2c1f] px-3 py-1.5 text-xs font-bold text-[#f2e9d8] disabled:opacity-50"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
             >
               {saving ? "Saving…" : saved ? "Saved" : "Save"}
             </button>

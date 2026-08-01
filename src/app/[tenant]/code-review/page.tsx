@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role required: cross-project queue, not scoped to caller's own issues (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import PageHeader from "@/components/patterns/PageHeader";
+import SectionGroup from "@/components/patterns/SectionGroup";
 
 type PrRow = {
   id: string;
@@ -16,42 +18,62 @@ type PrRow = {
   assigneeId: string | null;
 };
 
-const STATE_BADGE: Record<string, { label: string; cls: string }> = {
-  merged: { label: "Merged", cls: "bg-purple-100 text-purple-700" },
-  open: { label: "Open", cls: "bg-green-100 text-green-700" },
-  closed: { label: "Closed", cls: "bg-neutral-100 text-neutral-500" },
+// Ember Rust status colors (HANDOFF.md §3). The prototype's PR states are
+// open/draft/merged; real pr_state data is open/closed/merged, so "closed"
+// reuses the neutral (draft) color — no new hex was invented for it.
+const STATE_CHIP: Record<string, { label: string; fg: string; bg: string }> = {
+  open: { label: "Open", fg: "#3f7d4c", bg: "#e9f3ea" },
+  merged: { label: "Merged", fg: "#7a4fa0", bg: "#f4ecfa" },
+  closed: { label: "Closed", fg: "#a19d90", bg: "#f1efe9" },
 };
 
-function PrList({ rows, slug, emptyLabel }: { rows: PrRow[]; slug: string; emptyLabel: string }) {
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-8 text-center text-sm text-neutral-400">
-        {emptyLabel}
-      </div>
-    );
-  }
+function PrSection({
+  label,
+  color,
+  rows,
+  slug,
+  emptyLabel,
+}: {
+  label: string;
+  color: string;
+  rows: PrRow[];
+  slug: string;
+  emptyLabel: string;
+}) {
   return (
-    <div className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white">
-      {rows.map((r) => {
-        const badge = STATE_BADGE[r.prState] ?? STATE_BADGE.open;
-        return (
-          <a
-            key={r.id}
-            href={`/${slug}/issues/${r.issueId}`}
-            className="flex items-center gap-3 px-4 py-3 hover:bg-neutral-50 transition-colors"
-          >
-            <span className="mt-0.5 shrink-0 rounded-md bg-neutral-100 px-1.5 py-0.5 text-xs font-mono font-medium text-neutral-600">
-              {r.issueKey}
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-neutral-800">{r.prTitle ?? r.issueTitle}</p>
-              <p className="text-xs text-neutral-400 font-mono">{r.repoFullName} #{r.prNumber}</p>
-            </div>
-            <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${badge.cls}`}>{badge.label}</span>
-          </a>
-        );
-      })}
-    </div>
+    <SectionGroup label={label} color={color} count={rows.length}>
+      {rows.length === 0 ? (
+        <div className="p-[22px] text-center text-[12px] text-[#c3bda9]">{emptyLabel}</div>
+      ) : (
+        rows.map((r, i) => {
+          const state = STATE_CHIP[r.prState] ?? STATE_CHIP.open;
+          return (
+            // Whole-row link (matches the pre-restyle behavior) — hand-rolled
+            // rather than the ListRow pattern component, since ListRow's
+            // click target is a button/div, not an anchor spanning the row.
+            <a
+              key={r.id}
+              href={`/${slug}/issues/${r.issueId}`}
+              className={`flex w-full items-center gap-3 px-3.5 py-[11px] transition-colors hover:bg-[#eae6da]/50 ${i === 0 ? "" : "border-t border-[#e3ded0]"}`}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[13px] text-[#20201d]">{r.prTitle ?? r.issueTitle}</p>
+                <p className="mt-0.5 font-mono text-[11px] text-[#a19d90]">
+                  {r.repoFullName} #{r.prNumber}
+                </p>
+              </div>
+              <span className="shrink-0 text-[11px] text-[#726e60]">{r.issueKey}</span>
+              <span
+                className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold"
+                style={{ color: state.fg, backgroundColor: state.bg }}
+              >
+                {state.label}
+              </span>
+            </a>
+          );
+        })
+      )}
+    </SectionGroup>
   );
 }
 
@@ -125,34 +147,37 @@ export default async function CodeReviewPage({ params }: { params: Promise<{ ten
   const recentlyMerged = allPrs.filter((r) => r.prState === "merged").slice(0, 20);
 
   return (
-    <main className="w-full px-3 py-4 sm:px-6 sm:py-6">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-neutral-900">Code Review</h1>
-        <p className="mt-1 text-sm text-neutral-500">Pull requests linked to issues across every project.</p>
+    <div className="flex flex-1 flex-col">
+      <PageHeader
+        title="Code Review"
+        subtitle="Pull requests linked to issues across every project"
+      />
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-[18px]">
+        <div className="flex max-w-[1000px] flex-col gap-5">
+          <PrSection
+            label="Waiting on your review"
+            color="#c9791d"
+            rows={waitingOnYou}
+            slug={slug}
+            emptyLabel="Nothing waiting on you."
+          />
+          <PrSection
+            label="Your open PRs"
+            color="#3a6ea8"
+            rows={yourOpenPrs}
+            slug={slug}
+            emptyLabel="You have no open PRs."
+          />
+          <PrSection
+            label="Recently merged"
+            color="#7a4fa0"
+            rows={recentlyMerged}
+            slug={slug}
+            emptyLabel="Nothing merged recently."
+          />
+        </div>
       </div>
-
-      <div className="flex flex-col gap-6">
-        <section>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-orange-600">
-            Waiting on your review <span className="font-normal text-neutral-400">({waitingOnYou.length})</span>
-          </h2>
-          <PrList rows={waitingOnYou} slug={slug} emptyLabel="Nothing waiting on you." />
-        </section>
-
-        <section>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-600">
-            Your open PRs <span className="font-normal text-neutral-400">({yourOpenPrs.length})</span>
-          </h2>
-          <PrList rows={yourOpenPrs} slug={slug} emptyLabel="You have no open PRs." />
-        </section>
-
-        <section>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-purple-600">
-            Recently merged <span className="font-normal text-neutral-400">({recentlyMerged.length})</span>
-          </h2>
-          <PrList rows={recentlyMerged} slug={slug} emptyLabel="Nothing merged recently." />
-        </section>
-      </div>
-    </main>
+    </div>
   );
 }

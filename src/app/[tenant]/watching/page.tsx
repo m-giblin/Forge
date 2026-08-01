@@ -1,22 +1,26 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role required: issue_watchers RLS blocks user JWT reads
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import PageHeader from "@/components/patterns/PageHeader";
+import SectionGroup from "@/components/patterns/SectionGroup";
+import WatchingRow from "./WatchingRow";
 
-const STATUS_COLORS: Record<string, string> = {
-  todo: "bg-neutral-100 text-neutral-600",
-  in_progress: "bg-blue-100 text-blue-700",
-  in_review: "bg-purple-100 text-purple-700",
-  done: "bg-green-100 text-green-700",
-  blocked: "bg-red-100 text-red-700",
+// Ember Rust status colors (HANDOFF.md §3) — section dot per status group.
+const STATUS_DOT: Record<string, string> = {
+  backlog: "#a19d90",
+  todo: "#3a6ea8",
+  in_progress: "#c9791d",
+  in_review: "#7a4fa0",
+  blocked: "#c0392b",
+  done: "#3f7d4c",
 };
 
-const PRIORITY_COLORS: Record<string, string> = {
-  urgent: "bg-red-100 text-red-700",
-  high: "bg-orange-100 text-orange-700",
-  medium: "bg-yellow-100 text-yellow-700",
-  low: "bg-neutral-100 text-neutral-600",
+const PRIORITY_FG: Record<string, string> = {
+  low: "#a19d90",
+  medium: "#3a6ea8",
+  high: "#c9791d",
+  urgent: "#c0392b",
 };
 
 const STATUS_ORDER = ["in_progress", "in_review", "blocked", "todo", "done"];
@@ -98,65 +102,44 @@ export default async function WatchingPage({ params }: { params: Promise<{ tenan
   }
 
   return (
-    <main className="w-full px-3 py-4 sm:px-6 sm:py-6">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-neutral-900">Watching</h1>
-        <p className="mt-1 text-sm text-neutral-500">Issues you&apos;re subscribed to.</p>
-      </div>
+    <div className="flex flex-1 flex-col">
+      <PageHeader
+        title="Watching"
+        subtitle={`${issues.length} issue${issues.length === 1 ? "" : "s"} you're subscribed to, across every project`}
+      />
 
-      {issues.length === 0 ? (
-        <div className="rounded-xl border border-neutral-200 bg-white px-6 py-16 text-center">
-          <p className="text-sm text-neutral-500">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+        {issues.length === 0 ? (
+          <div className="fw-card p-8 text-center text-[12.5px] text-[#726e60]">
             You&apos;re not watching any issues yet. Open an issue and click Watch to subscribe.
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-6">
-          {STATUS_ORDER.map((status) => {
-            const group = grouped.get(status) ?? [];
-            if (group.length === 0) return null;
-            return (
-              <section key={status}>
-                <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-neutral-400">
-                  {statusLabel(status)} ({group.length})
-                </h2>
-                <div className="divide-y divide-neutral-100 rounded-xl border border-neutral-200 bg-white">
-                  {group.map((issue) => (
-                    <div key={issue.id} className="flex items-start gap-3 px-4 py-3 hover:bg-neutral-50">
-                      <span className="mt-0.5 shrink-0 rounded-md bg-neutral-100 px-1.5 py-0.5 text-xs font-mono font-medium text-neutral-600">
-                        {issue.project?.key ?? "?"}-{issue.number}
-                      </span>
-                      <div className="min-w-0 flex-1">
-                        <Link
-                          href={`/${slug}/issues/${issue.id}`}
-                          className="block truncate text-sm font-medium text-neutral-800 hover:text-neutral-900 hover:underline"
-                        >
-                          {issue.title}
-                        </Link>
-                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-neutral-500">
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${STATUS_COLORS[issue.status] ?? "bg-neutral-100 text-neutral-600"}`}>
-                            {statusLabel(issue.status)}
-                          </span>
-                          {issue.priority && (
-                            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${PRIORITY_COLORS[issue.priority] ?? "bg-neutral-100 text-neutral-600"}`}>
-                              {issue.priority}
-                            </span>
-                          )}
-                          {issue.assignee_id && (
-                            <span className="text-neutral-400">{memberMap[issue.assignee_id] ?? "Unknown"}</span>
-                          )}
-                          <span className="text-neutral-300">·</span>
-                          <span>{relativeTime(issue.updated_at)}</span>
-                        </div>
-                      </div>
-                    </div>
+          </div>
+        ) : (
+          <div className="flex max-w-[1000px] flex-col gap-5">
+            {STATUS_ORDER.map((status) => {
+              const group = grouped.get(status) ?? [];
+              if (group.length === 0) return null;
+              return (
+                <SectionGroup key={status} label={statusLabel(status)} color={STATUS_DOT[status] ?? "#a19d90"} count={group.length}>
+                  {group.map((issue, i) => (
+                    <WatchingRow
+                      key={issue.id}
+                      slug={slug}
+                      issueId={issue.id}
+                      issueKey={`${issue.project?.key ?? "?"}-${issue.number}`}
+                      title={issue.title}
+                      priorityLabel={issue.priority}
+                      priorityColor={issue.priority ? PRIORITY_FG[issue.priority] ?? "#a19d90" : "#a19d90"}
+                      assigneeLabel={issue.assignee_id ? memberMap[issue.assignee_id] ?? "Unknown" : "Unassigned"}
+                      updatedLabel={relativeTime(issue.updated_at)}
+                      first={i === 0}
+                    />
                   ))}
-                </div>
-              </section>
-            );
-          })}
-        </div>
-      )}
-    </main>
+                </SectionGroup>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

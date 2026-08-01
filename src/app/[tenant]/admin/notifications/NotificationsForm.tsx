@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { saveNotificationSettingsAction } from "./actions";
+import FormGrid from "@/components/patterns/admin/FormGrid";
+import AdminList from "@/components/patterns/admin/AdminList";
 
 type Settings = {
   resendApiKey: string;
@@ -10,6 +12,9 @@ type Settings = {
   emailFromName: string;
   standupEmailRecipients: string;
 };
+
+const fieldClass =
+  "w-full rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-[7px] text-[12px] text-[#20201d] outline-none focus:border-[#b7452f]";
 
 export default function NotificationsForm({
   slug,
@@ -47,130 +52,127 @@ export default function NotificationsForm({
       : form.resendApiKey;
 
   return (
-    <div className="mt-6 max-w-xl space-y-5">
-
-      {/* Email provider — platform-level */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5">
-        <h3 className="text-sm font-semibold text-neutral-900">Email provider</h3>
-        <p className="mt-1 text-xs text-neutral-500">
-          Forge uses{" "}
-          <a href="https://resend.com" className="underline" target="_blank" rel="noreferrer">Resend</a>
-          {" "}to send assignment notifications. Leave blank to disable emails.
-        </p>
-        <label className="mt-4 block text-xs font-medium text-neutral-700">
-          Resend API key
-          <input
-            type="password"
-            value={form.resendApiKey}
-            onChange={(e) => set("resendApiKey", e.target.value)}
-            placeholder="re_••••••••••••••••••••••"
-            className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono outline-none focus:border-neutral-900"
-          />
-          {form.resendApiKey && (
-            <span className="mt-1 block text-xs text-neutral-400">Stored as: {keyPreview}</span>
-          )}
-        </label>
-      </div>
-
-      {/* Per-tenant email branding */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5">
-        <h3 className="text-sm font-semibold text-neutral-900">Email branding</h3>
-        <p className="mt-1 text-xs text-neutral-500">
-          Customize how notification emails appear to your team. These settings apply only to this workspace.
-        </p>
-        <div className="mt-4 space-y-3">
-          <label className="block text-xs font-medium text-neutral-700">
-            Display name
-            <span className="ml-1 font-normal text-neutral-400">— shown in email header and footer</span>
-            <input
-              type="text"
-              value={form.emailDisplayName}
-              onChange={(e) => set("emailDisplayName", e.target.value)}
-              placeholder="e.g. Travli Engineering"
-              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-            />
-          </label>
-          <label className="block text-xs font-medium text-neutral-700">
-            Sender name
-            <span className="ml-1 font-normal text-neutral-400">— appears as the &ldquo;From&rdquo; name in email clients</span>
-            <input
-              type="text"
-              value={form.emailFromName}
-              onChange={(e) => set("emailFromName", e.target.value)}
-              placeholder="e.g. Travli via Forge"
-              className="mt-1 w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
-            />
-          </label>
-          <label className="block text-xs font-medium text-neutral-700">
-            Primary color
-            <span className="ml-1 font-normal text-neutral-400">— email header background</span>
-            <div className="mt-1 flex items-center gap-2">
-              <input
-                type="color"
-                value={form.emailPrimaryColor || "#111827"}
-                onChange={(e) => set("emailPrimaryColor", e.target.value)}
-                className="h-9 w-14 cursor-pointer rounded-lg border border-neutral-300 p-1"
-              />
-              <input
-                type="text"
-                value={form.emailPrimaryColor}
-                onChange={(e) => set("emailPrimaryColor", e.target.value)}
-                placeholder="#111827"
-                className="w-28 rounded-lg border border-neutral-300 px-3 py-2 text-sm font-mono outline-none focus:border-neutral-900"
-              />
-              <span className="text-xs text-neutral-400">hex value</span>
-            </div>
-          </label>
-        </div>
-      </div>
-
-      {/* Standup digest email recipients */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5 space-y-3">
-        <div>
-          <h3 className="text-sm font-semibold text-neutral-900">Daily Standup Digest — Email Recipients</h3>
-          <p className="text-xs text-neutral-500 mt-0.5">
-            Standup digests are generated daily at 9 AM UTC. Add comma-separated email addresses to receive them.
-            Leave blank to send to Slack only.
-          </p>
-        </div>
-        <textarea
-          rows={3}
-          value={form.standupEmailRecipients}
-          onChange={(e) => set("standupEmailRecipients", e.target.value)}
-          placeholder="cto@company.com, team@company.com"
-          className="w-full rounded-lg border border-neutral-200 px-3 py-2 text-sm outline-none focus:border-neutral-400 focus:ring-1 focus:ring-neutral-200 resize-none"
+    <div className="max-w-2xl space-y-6">
+      <div>
+        <h2 className="mb-2 text-[12.5px] font-bold text-[#20201d]">Email sender</h2>
+        <FormGrid
+          submitLabel={pending ? "Saving…" : "Save"}
+          onSubmit={save}
+          fields={[
+            {
+              key: "resendApiKey",
+              label: "Provider API key",
+              input: (
+                <div>
+                  <input
+                    type="password"
+                    value={form.resendApiKey}
+                    onChange={(e) => set("resendApiKey", e.target.value)}
+                    placeholder="re_••••••••••••••••••••••"
+                    className={`${fieldClass} font-mono`}
+                  />
+                  {form.resendApiKey && (
+                    <span className="mt-1 block text-[10.5px] text-[#a19d90]">Stored as: {keyPreview}</span>
+                  )}
+                </div>
+              ),
+            },
+            {
+              key: "emailFromName",
+              label: "From name",
+              input: (
+                <input
+                  type="text"
+                  value={form.emailFromName}
+                  onChange={(e) => set("emailFromName", e.target.value)}
+                  placeholder="e.g. Forge Engineering"
+                  className={fieldClass}
+                />
+              ),
+            },
+            {
+              key: "emailDisplayName",
+              label: "Display name",
+              input: (
+                <input
+                  type="text"
+                  value={form.emailDisplayName}
+                  onChange={(e) => set("emailDisplayName", e.target.value)}
+                  placeholder="Shown in email header and footer"
+                  className={fieldClass}
+                />
+              ),
+            },
+            {
+              key: "emailPrimaryColor",
+              label: "Brand color",
+              input: (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={form.emailPrimaryColor || "#111827"}
+                    onChange={(e) => set("emailPrimaryColor", e.target.value)}
+                    className="h-[30px] w-11 shrink-0 cursor-pointer rounded-[5px] border border-[#ddd8c9] p-1"
+                  />
+                  <input
+                    type="text"
+                    value={form.emailPrimaryColor}
+                    onChange={(e) => set("emailPrimaryColor", e.target.value)}
+                    placeholder="#111827"
+                    className={`${fieldClass} font-mono`}
+                  />
+                </div>
+              ),
+            },
+            {
+              key: "standupEmailRecipients",
+              label: "Digest recipients",
+              wide: true,
+              input: (
+                <textarea
+                  rows={2}
+                  value={form.standupEmailRecipients}
+                  onChange={(e) => set("standupEmailRecipients", e.target.value)}
+                  placeholder="cto@company.com, team@company.com"
+                  className={`${fieldClass} resize-none`}
+                />
+              ),
+            },
+          ]}
         />
       </div>
 
-      {/* What triggers emails */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5">
-        <h3 className="text-sm font-semibold text-neutral-900">Triggers</h3>
-        <ul className="mt-2 space-y-2 text-sm text-neutral-600">
-          <li className="flex items-start gap-2.5">
-            <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neutral-900 text-[9px] text-white">✓</span>
-            <span><strong>Assignment</strong> — ticket assigned to someone → email with their full open queue + unassigned count.</span>
-          </li>
-          <li className="flex items-start gap-2.5">
-            <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[9px] text-neutral-400">—</span>
-            <span className="text-neutral-400">SLA breach alerts — coming soon.</span>
-          </li>
-          <li className="flex items-start gap-2.5">
-            <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-neutral-200 text-[9px] text-neutral-400">—</span>
-            <span className="text-neutral-400">Comment @mentions — coming soon.</span>
-          </li>
-        </ul>
+      <div>
+        <h2 className="mb-2 text-[12.5px] font-bold text-[#20201d]">What we send</h2>
+        <AdminList
+          items={[
+            {
+              key: "assignment",
+              title: "Assignment emails",
+              subline: "Sent when a ticket is assigned — includes their full open queue and unassigned count.",
+              badge: <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#8c4632] text-[9px] text-white">✓</span>,
+              meta: "Active",
+            },
+            {
+              key: "sla",
+              title: "SLA breach alerts",
+              subline: "Coming soon.",
+              badge: <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#e3ded0] text-[9px] text-[#a19d90]">—</span>,
+              meta: "Planned",
+            },
+            {
+              key: "mentions",
+              title: "Comment @mentions",
+              subline: "Coming soon.",
+              badge: <span className="flex h-4 w-4 items-center justify-center rounded-full bg-[#e3ded0] text-[9px] text-[#a19d90]">—</span>,
+              meta: "Planned",
+            },
+          ]}
+        />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
-      {saved && <p className="text-sm text-green-600">Saved ✓</p>}
-
-      <button
-        onClick={save}
-        disabled={pending}
-        className="rounded-lg bg-neutral-900 px-5 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
-      >
-        {pending ? "Saving…" : "Save settings"}
-      </button>
+      {error && <p className="text-[12px] font-semibold text-[#c0392b]">{error}</p>}
+      {saved && <p className="text-[12px] font-semibold text-[#4b7a4f]">Saved ✓</p>}
     </div>
   );
 }

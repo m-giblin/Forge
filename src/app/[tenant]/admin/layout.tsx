@@ -18,7 +18,7 @@ export default async function AdminLayout({
   return (
     <div className="flex min-h-full flex-1 flex-col">
       {!isAdmin && ctx.impersonating && (
-        <div className="bg-amber-50 px-5 py-2 text-sm text-amber-800 border-b border-amber-200">
+        <div className="bg-[#fdf1de] px-5 py-2 text-sm text-[#8a5a12] border-b border-[#f3ddb4]">
           Support view — read-only. Changes are disabled.
         </div>
       )}

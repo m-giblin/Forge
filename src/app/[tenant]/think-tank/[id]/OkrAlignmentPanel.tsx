@@ -123,7 +123,7 @@ export default function OkrAlignmentPanel({ slug, ideaId, isViewer, initialResul
             <button
               onClick={() => setShowPicker(!showPicker)}
               disabled={isPending}
-              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium disabled:opacity-50"
+              className="text-xs text-[#b7452f] hover:text-[#8c4632] font-medium disabled:opacity-50"
             >
               + Link OKR
             </button>
@@ -144,7 +144,7 @@ export default function OkrAlignmentPanel({ slug, ideaId, isViewer, initialResul
               key={r.okr.id}
               onClick={() => handleLink(r.okr.id)}
               disabled={isPending}
-              className="w-full text-left rounded-lg border border-neutral-200 px-3 py-2 text-sm hover:border-indigo-300 hover:bg-indigo-50 transition disabled:opacity-50"
+              className="w-full text-left rounded-lg border border-[#ddd8c9] px-3 py-2 text-sm hover:border-[#b7452f] hover:bg-[#f4f2eb] transition disabled:opacity-50"
             >
               <span className="font-medium text-neutral-800">{r.okr.title}</span>
               {r.okr.quarter && (
@@ -165,7 +165,7 @@ export default function OkrAlignmentPanel({ slug, ideaId, isViewer, initialResul
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-neutral-800 truncate">{r.okr.title}</span>
                     {r.okr.quarter && (
-                      <span className="shrink-0 rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] text-indigo-600 font-medium">
+                      <span className="shrink-0 rounded-full bg-[#f4f2eb] px-2 py-0.5 text-[10px] text-[#b7452f] font-medium">
                         {r.okr.quarter}
                       </span>
                     )}
@@ -188,7 +188,7 @@ export default function OkrAlignmentPanel({ slug, ideaId, isViewer, initialResul
                     <button
                       onClick={() => handleScoreOkr(r.okr.id)}
                       disabled={isPending || scoringId === r.okr.id}
-                      className="rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                      className="rounded-lg bg-[#b7452f] px-2.5 py-1 text-xs font-medium text-white hover:bg-[#8c4632] disabled:opacity-50"
                     >
                       {scoringId === r.okr.id ? "Scoring…" : r.score !== null ? "Re-score" : "AI Score"}
                     </button>
@@ -211,7 +211,7 @@ export default function OkrAlignmentPanel({ slug, ideaId, isViewer, initialResul
           {!isViewer && (
             <button
               onClick={() => setShowPicker(true)}
-              className="text-indigo-600 hover:text-indigo-800 font-medium"
+              className="text-[#b7452f] hover:text-[#8c4632] font-medium"
             >
               Link one above.
             </button>

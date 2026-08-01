@@ -116,8 +116,8 @@ export default function IdeaCreateForm({ slug, thinkTankId, members, tenantTempl
           className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 focus:ring-1 focus:ring-neutral-900"
         />
         {similarIdeas.length > 0 && (
-          <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-3">
-            <p className="mb-1.5 text-xs font-medium text-amber-700">Similar ideas already exist — check before creating:</p>
+          <div className="mt-2 rounded-lg border border-[#f0d9b0] bg-[#fdf1de] p-3">
+            <p className="mb-1.5 text-xs font-medium text-[#c9791d]">Similar ideas already exist — check before creating:</p>
             <ul className="space-y-1">
               {similarIdeas.map((s) => (
                 <li key={s.id}>
@@ -125,13 +125,13 @@ export default function IdeaCreateForm({ slug, thinkTankId, members, tenantTempl
                     href={`/${slug}/think-tank/${s.id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-xs text-amber-800 hover:underline"
+                    className="flex items-center gap-2 text-xs text-[#c9791d] hover:underline"
                   >
                     <span className="font-medium">{s.title}</span>
-                    <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-amber-600">
+                    <span className="rounded-full bg-[#fdf1de] px-1.5 py-0.5 text-[#c9791d]">
                       {STATUS_LABELS[s.status] ?? s.status}
                     </span>
-                    <span className="text-amber-400">↗</span>
+                    <span className="text-[#c9791d]">↗</span>
                   </a>
                 </li>
               ))}
@@ -335,7 +335,7 @@ export default function IdeaCreateForm({ slug, thinkTankId, members, tenantTempl
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-lg bg-neutral-900 px-5 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+          className="rounded-lg bg-[#8c4632] px-5 py-2 text-sm font-medium text-white hover:bg-[#6e3324] disabled:opacity-50"
         >
           {isPending ? "Creating…" : "Create idea"}
         </button>

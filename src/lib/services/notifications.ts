@@ -129,6 +129,48 @@ export async function sendAssignedEmail(opts: {
 }
 
 // ---------------------------------------------------------------------------
+// Admin-triggered password reset — sent via the app's own Resend pipeline
+// rather than Supabase Auth's built-in (unconfigured-SMTP) email delivery.
+// ---------------------------------------------------------------------------
+
+export async function sendPasswordResetEmail(opts: {
+  tenantId?: string;
+  toEmail: string;
+  resetUrl: string;
+}): Promise<boolean> {
+  const [resend, branding] = await Promise.all([
+    getResendClient(),
+    opts.tenantId
+      ? getTenantSettings(opts.tenantId, ["email_display_name", "email_primary_color", "email_from_name"])
+      : Promise.resolve({} as Record<string, string>),
+  ]);
+  if (!resend) return false;
+
+  const tenantName = branding["email_display_name"] || "Forge-Worx";
+  const primaryColor = branding["email_primary_color"] || "#b7452f";
+  const fromName = branding["email_from_name"] || `${tenantName}${opts.tenantId ? " via Forge-Worx" : ""}`;
+
+  await resend.emails.send({
+    from: `${fromName} <notifications@forge.app>`,
+    to: opts.toEmail,
+    subject: `Reset your ${tenantName} password`,
+    html: `
+      <div style="font-family:-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+        <h2 style="color:${primaryColor};margin:0 0 12px;">Reset your password</h2>
+        <p style="color:#333;font-size:14px;line-height:1.5;">
+          An admin at ${tenantName} requested a password reset for your account. Click below to choose a new password.
+        </p>
+        <p style="margin:24px 0;">
+          <a href="${opts.resetUrl}" style="background:${primaryColor};color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Reset password</a>
+        </p>
+        <p style="color:#999;font-size:12px;">If you didn't expect this, you can safely ignore this email.</p>
+      </div>
+    `,
+  });
+  return true;
+}
+
+// ---------------------------------------------------------------------------
 // Think Tank notifications — in-app only (no email in Phase 2)
 // ---------------------------------------------------------------------------
 

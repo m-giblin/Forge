@@ -3,6 +3,9 @@ import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role required: usage is admin-only cross-user aggregate; all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { membersRepo } from "@/lib/repositories/members";
+import PageHeader from "@/components/patterns/PageHeader";
+import StatsRow from "@/components/patterns/admin/StatsRow";
+import Bars from "@/components/patterns/admin/Bars";
 
 // Storage caps by purchased tier — mirrors the marketing copy in
 // src/app/[tenant]/billing/BillingClient.tsx's TIERS list ("5 GB storage" /
@@ -21,6 +24,11 @@ function fmtBytes(b: number): string {
   return `${(b / 1024 / 1024 / 1024).toFixed(2)} GB`;
 }
 
+function fmtCents(hundredthCents: number): string {
+  const dollars = hundredthCents / 100_000;
+  return `$${dollars.toFixed(dollars < 1 ? 3 : 2)}`;
+}
+
 export default async function UsageSeatsPage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant: slug } = await params;
   const ctx = await getTenantContext(slug);
@@ -31,11 +39,12 @@ export default async function UsageSeatsPage({ params }: { params: Promise<{ ten
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-  const [members, tenantRow, storageRes, apiCallsRes] = await Promise.all([
+  const [members, tenantRow, storageRes, apiCallsRes, aiUsageRes] = await Promise.all([
     membersRepo(svc).list(ctx.tenant.id),
     svc.from("tenants").select("subscription_tier, subscription_seats").eq("id", ctx.tenant.id).single(),
     svc.from("issue_attachments").select("size_bytes").eq("tenant_id", ctx.tenant.id),
     svc.from("api_call_events").select("id", { count: "exact", head: true }).eq("tenant_id", ctx.tenant.id).gte("created_at", thirtyDaysAgo.toISOString()),
+    svc.from("ai_usage_events").select("feature, est_cost_hundredth_cents").eq("tenant_id", ctx.tenant.id).gte("created_at", thirtyDaysAgo.toISOString()),
   ]);
 
   const seatsUsed = members.length;
@@ -47,47 +56,56 @@ export default async function UsageSeatsPage({ params }: { params: Promise<{ ten
 
   const apiCalls30d = apiCallsRes.count ?? 0;
 
+  const aiEvents = (aiUsageRes.data ?? []) as { feature: string; est_cost_hundredth_cents: number }[];
+  const aiSpendHundredthCents = aiEvents.reduce((s, r) => s + r.est_cost_hundredth_cents, 0);
+  const aiByFeature = Object.entries(
+    aiEvents.reduce<Record<string, number>>((acc, r) => {
+      acc[r.feature] = (acc[r.feature] ?? 0) + r.est_cost_hundredth_cents;
+      return acc;
+    }, {})
+  )
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([feature, cents]) => ({ label: feature, value: cents, hint: fmtCents(cents) }));
+
+  const seatsOver = seatsUsed > seatsTotal;
+  const storageOver = storageCapBytes != null && storageUsedBytes > storageCapBytes;
+
   return (
-    <section>
-      <h2 className="text-base font-semibold text-neutral-900">Usage &amp; seats</h2>
-      <p className="mt-1 text-sm text-neutral-500">What this workspace is actually using against what it&apos;s provisioned for.</p>
+    <div className="space-y-6">
+      <PageHeader title="Usage & Seats" subtitle="Consumption against your plan limits" />
 
-      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="rounded-xl border border-neutral-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Seats</p>
-          <p className="mt-1 text-2xl font-semibold text-neutral-900">
-            {seatsUsed} <span className="text-base font-normal text-neutral-400">/ {seatsTotal}</span>
-          </p>
-          <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
-            <div className={`h-full rounded-full ${seatsUsed > seatsTotal ? "bg-red-500" : "bg-indigo-500"}`} style={{ width: `${Math.min(100, (seatsUsed / Math.max(1, seatsTotal)) * 100)}%` }} />
+      <div className="space-y-6 px-6">
+        <StatsRow
+          items={[
+            {
+              label: "Seats",
+              value: `${seatsUsed} / ${seatsTotal}`,
+              hint: seatsOver ? "over your purchased count" : "provisioned",
+              color: seatsOver ? "#b7452f" : undefined,
+            },
+            { label: "API Calls", value: apiCalls30d.toLocaleString(), hint: "last 30 days" },
+            {
+              label: "Storage",
+              value: storageCapBytes != null ? `${fmtBytes(storageUsedBytes)} / ${fmtBytes(storageCapBytes)}` : fmtBytes(storageUsedBytes),
+              hint: storageCapBytes != null ? (storageOver ? "over your plan limit" : "of plan limit") : "unlimited on your plan",
+              color: storageOver ? "#b7452f" : undefined,
+            },
+            { label: "AI Spend", value: fmtCents(aiSpendHundredthCents), hint: "last 30 days, platform keys" },
+          ]}
+        />
+
+        {aiByFeature.length > 0 && (
+          <div>
+            <h2 className="mb-3 text-[12.5px] font-bold text-[#20201d]">AI spend by feature (30d)</h2>
+            <Bars items={aiByFeature} color="#3a6ea8" />
           </div>
-          {seatsUsed > seatsTotal && <p className="mt-2 text-xs font-medium text-red-600">Over your purchased seat count — add seats in Billing.</p>}
-        </div>
+        )}
 
-        <div className="rounded-xl border border-neutral-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">API calls</p>
-          <p className="mt-1 text-2xl font-semibold text-neutral-900">{apiCalls30d.toLocaleString()}</p>
-          <p className="mt-2 text-xs text-neutral-400">Last 30 days, across all API keys</p>
-        </div>
-
-        <div className="rounded-xl border border-neutral-200 bg-white p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Storage</p>
-          <p className="mt-1 text-2xl font-semibold text-neutral-900">
-            {fmtBytes(storageUsedBytes)} {storageCapBytes != null && <span className="text-base font-normal text-neutral-400">/ {fmtBytes(storageCapBytes)}</span>}
-          </p>
-          {storageCapBytes != null ? (
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-neutral-100">
-              <div className={`h-full rounded-full ${storageUsedBytes > storageCapBytes ? "bg-red-500" : "bg-indigo-500"}`} style={{ width: `${Math.min(100, (storageUsedBytes / storageCapBytes) * 100)}%` }} />
-            </div>
-          ) : (
-            <p className="mt-2 text-xs text-neutral-400">Unlimited on your plan</p>
-          )}
-        </div>
+        <p className="text-[11px] text-[#a19d90]">
+          Storage counts issue attachments currently stored (not a rolling upload allowance — see Fields &amp; Labels for the separate monthly upload quota). API call volume started being tracked when this page shipped; earlier calls aren&apos;t counted.
+        </p>
       </div>
-
-      <p className="mt-4 text-xs text-neutral-400">
-        Storage counts issue attachments currently stored (not a rolling upload allowance — see Fields &amp; Labels for the separate monthly upload quota). API call volume started being tracked when this page shipped; earlier calls aren&apos;t counted.
-      </p>
-    </section>
+    </div>
   );
 }

@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { setPlanTierFeatureAction, setPlanActiveAction, applyPlanToTenantsAction } from "./actions";
+import Toggle from "@/components/patterns/Toggle";
+import Note from "@/components/patterns/admin/Note";
 
 type Tier = { key: string; label: string; description: string | null; monthly_cents: number | null; is_active: boolean; display_order: number };
 type Flag = { key: string; label: string; description: string | null };
@@ -68,91 +70,73 @@ export default function PlansConsole({
     });
   }
 
-  const card: React.CSSProperties = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" };
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-      {error && (
-        <div style={{ padding: "9px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, fontSize: 12, color: "#dc2626" }}>{error}</div>
-      )}
+    <div className="space-y-5">
+      {error && <Note icon="⚠" tone="error">{error}</Note>}
       {applyResult && (
-        <div style={{ padding: "9px 14px", background: "#f0fdf4", border: "1px solid #bbf7d0", borderRadius: 7, fontSize: 12, color: "#166534" }}>
+        <Note icon="✓" tone="info">
           <strong>{applyResult.feature}</strong> applied to <strong>{applyResult.applied}</strong> tenant{applyResult.applied !== 1 ? "s" : ""}.
           {applyResult.skipped > 0 && ` ${applyResult.skipped} skipped (have custom super-admin overrides).`}
-        </div>
+        </Note>
       )}
 
-      {/* Plan tabs */}
-      <div style={{ display: "flex", gap: 8 }}>
+      {/* Plan cards — select which plan to edit below */}
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
         {tiers.map((t) => {
           const active = t.key === activePlan;
           const isOn = localActive[t.key];
+          const count = tenantCountByPlan[t.key] ?? 0;
           return (
             <button
               key={t.key}
+              type="button"
               onClick={() => { setActivePlan(t.key); setApplyResult(null); }}
-              style={{
-                padding: "8px 18px", borderRadius: 8, border: "1px solid",
-                borderColor: active ? "#4f46e5" : "#e5e7eb",
-                background: active ? "#4f46e5" : "#fff",
-                color: active ? "#fff" : "#374151",
-                fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 7,
-              }}
+              className="fw-card px-3.5 py-3 text-left transition-colors"
+              style={active ? { borderColor: "#c9791d", boxShadow: "0 0 0 1px #c9791d" } : undefined}
             >
-              {t.label}
-              {!isOn && (
-                <span style={{ fontSize: 9, fontWeight: 700, background: "#fde68a", color: "#92400e", padding: "1px 5px", borderRadius: 5 }}>INACTIVE</span>
-              )}
+              <div className="flex items-center gap-2">
+                <span className="text-[14px] font-extrabold font-[family-name:var(--font-manrope)] text-[#20201d]">{t.label}</span>
+                {!isOn && (
+                  <span className="rounded-[5px] bg-[#f4ead4] px-[6px] py-[1px] text-[9px] font-bold text-[#8a4f13]">INACTIVE</span>
+                )}
+              </div>
+              <p className="mt-0.5 text-[12px] text-[#726e60]">{fmtPrice(t.monthly_cents)}</p>
+              {t.description && <p className="mt-1 text-[11px] text-[#a19d90]">{t.description}</p>}
+              <p className="mt-2 text-[11.5px] font-semibold text-[#c9791d]">{count} tenant{count === 1 ? "" : "s"} →</p>
             </button>
           );
         })}
       </div>
 
-      {/* Plan header card */}
-      <div style={card}>
-        <div style={{ padding: "14px 18px", display: "flex", alignItems: "center", gap: 16, borderBottom: "1px solid #f1f5f9" }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ fontSize: 16, fontWeight: 800, color: "#111827" }}>{tier.label}</span>
-              <span style={{ fontSize: 12, color: "#6b7280" }}>{fmtPrice(tier.monthly_cents)}</span>
+      {/* Plan editor */}
+      <div className="fw-card overflow-hidden">
+        <div className="flex items-center gap-4 border-b border-[#e3ded0] px-4 py-3.5">
+          <div className="flex-1">
+            <div className="flex items-center gap-2.5">
+              <span className="text-[16px] font-extrabold font-[family-name:var(--font-manrope)] text-[#20201d]">{tier.label}</span>
+              <span className="text-[12px] text-[#726e60]">{fmtPrice(tier.monthly_cents)}</span>
             </div>
-            {tier.description && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 2 }}>{tier.description}</div>}
+            {tier.description && <p className="mt-0.5 text-[11px] text-[#a19d90]">{tier.description}</p>}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 11, color: "#94a3b8" }}>Tenants on this plan</div>
-              <div style={{ fontSize: 18, fontWeight: 800, color: "#111827" }}>{tenantCount}</div>
-              {overrideCount > 0 && <div style={{ fontSize: 10, color: "#94a3b8" }}>{overrideCount} with custom overrides</div>}
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <p className="text-[11px] text-[#a19d90]">Tenants on this plan</p>
+              <p className="text-[18px] font-extrabold text-[#20201d]">{tenantCount}</p>
+              {overrideCount > 0 && <p className="text-[10px] text-[#a19d90]">{overrideCount} with custom overrides</p>}
             </div>
             <div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".06em", marginBottom: 4 }}>Plan Active</div>
-              <button
-                onClick={() => togglePlanActive(tier.key, !localActive[tier.key])}
-                disabled={isPending}
-                style={{
-                  position: "relative", width: 44, height: 24, borderRadius: 12, border: "none",
-                  cursor: "pointer", flexShrink: 0,
-                  background: localActive[tier.key] ? "#10b981" : "#d1d5db",
-                  opacity: isPending ? .5 : 1, transition: "background .15s",
-                }}
-              >
-                <span style={{
-                  position: "absolute", top: 2, width: 20, height: 20, borderRadius: "50%",
-                  background: "#fff", transition: "left .15s",
-                  left: localActive[tier.key] ? 22 : 2,
-                }} />
-              </button>
+              <p className="mb-1 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Plan active</p>
+              <Toggle platform on={localActive[tier.key]} onChange={(next) => togglePlanActive(tier.key, next)} label="Plan active" />
             </div>
           </div>
         </div>
 
         {/* Always-on features (table stakes) */}
-        <div style={{ padding: "10px 18px 4px", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 6 }}>Always Included (Table Stakes)</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", paddingBottom: 10 }}>
+        <div className="border-b border-[#e3ded0] bg-[#f4f2eb] px-4 py-2.5">
+          <p className="mb-1.5 text-[10px] font-extrabold uppercase tracking-[0.07em] text-[#a19d90]">Always included (table stakes)</p>
+          <div className="flex flex-wrap gap-2">
             {ALWAYS_ON.map((k) => (
-              <span key={k} style={{ padding: "3px 10px", borderRadius: 9, fontSize: 11, fontWeight: 600, background: "#d1fae5", color: "#059669" }}>
+              <span key={k} className="rounded-full bg-[#e9f3ea] px-2.5 py-[3px] text-[11px] font-semibold text-[#3f7d4c]">
                 ✓ {ALWAYS_ON_LABELS[k]}
               </span>
             ))}
@@ -161,51 +145,34 @@ export default function PlansConsole({
 
         {/* Feature rows */}
         <div>
-          <div style={{ display: "flex", padding: "8px 18px", background: "#f8fafc", borderBottom: "1px solid #f1f5f9" }}>
-            <span style={{ flex: 1, fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>Feature</span>
-            <span style={{ width: 80, textAlign: "center", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>Included</span>
-            <span style={{ width: 200, textAlign: "center", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>Apply to Tenants</span>
+          <div className="flex items-center gap-3 border-b border-[#e3ded0] bg-[#f4f2eb] px-4 py-2">
+            <span className="flex-1 text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Feature</span>
+            <span className="w-20 text-center text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Included</span>
+            <span className="w-[200px] text-center text-[10px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Apply to tenants</span>
           </div>
           {flags.map((f, i) => {
             const included = localMatrix[activePlan]?.[f.key] ?? false;
             return (
-              <div key={f.key} style={{ display: "flex", alignItems: "center", padding: "10px 18px", borderTop: i > 0 ? "1px solid #f8fafc" : "none" }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "#111827" }}>{f.label}</div>
-                  {f.description && <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 1 }}>{f.description}</div>}
+              <div key={f.key} className={`flex items-center gap-3 px-4 py-[11px] ${i > 0 ? "border-t border-[#e3ded0]" : ""}`}>
+                <div className="flex-1">
+                  <p className="text-[12.5px] font-semibold text-[#20201d]">{f.label}</p>
+                  {f.description && <p className="mt-0.5 text-[11px] text-[#726e60]">{f.description}</p>}
                 </div>
-                <div style={{ width: 80, display: "flex", justifyContent: "center" }}>
-                  <button
-                    onClick={() => toggleFeature(f.key, !included)}
-                    disabled={isPending}
-                    style={{
-                      position: "relative", width: 44, height: 24, borderRadius: 12, border: "none",
-                      cursor: "pointer", background: included ? "#10b981" : "#d1d5db",
-                      opacity: isPending ? .5 : 1, transition: "background .15s",
-                    }}
-                  >
-                    <span style={{
-                      position: "absolute", top: 2, width: 20, height: 20, borderRadius: "50%",
-                      background: "#fff", transition: "left .15s", left: included ? 22 : 2,
-                    }} />
-                  </button>
+                <div className="flex w-20 justify-center">
+                  <Toggle platform on={included} onChange={(next) => toggleFeature(f.key, next)} label={f.label} />
                 </div>
-                <div style={{ width: 200, display: "flex", justifyContent: "center" }}>
+                <div className="flex w-[200px] justify-center">
                   {tenantCount > 0 ? (
                     <button
                       onClick={() => applyToTenants(f.key, f.label, included)}
                       disabled={isPending}
-                      style={{
-                        padding: "4px 12px", borderRadius: 6, border: "1px solid #e5e7eb",
-                        background: "#fff", fontSize: 11, fontWeight: 600,
-                        color: included ? "#059669" : "#dc2626", cursor: "pointer",
-                        opacity: isPending ? .4 : 1,
-                      }}
+                      className="rounded-md border border-[#ddd8c9] bg-white px-3 py-1 text-[11px] font-semibold disabled:opacity-40"
+                      style={{ color: included ? "#3f7d4c" : "#c0392b" }}
                     >
                       {included ? "▲ Push On" : "▼ Push Off"} to {tenantCount}
                     </button>
                   ) : (
-                    <span style={{ fontSize: 11, color: "#cbd5e1" }}>No tenants</span>
+                    <span className="text-[11px] text-[#cfc9b9]">No tenants</span>
                   )}
                 </div>
               </div>
@@ -214,7 +181,7 @@ export default function PlansConsole({
         </div>
       </div>
 
-      <p style={{ fontSize: 11, color: "#94a3b8" }}>
+      <p className="text-[11px] text-[#a19d90]">
         Toggling a feature here updates the <strong>plan default</strong> — new tenants on this plan get it automatically.
         Use <strong>&quot;Push On/Off to N&quot;</strong> to immediately update existing tenants (skips any with super-admin overrides).
       </p>

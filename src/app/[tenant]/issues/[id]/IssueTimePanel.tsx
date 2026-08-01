@@ -152,10 +152,10 @@ export default function IssueTimePanel({
   const remainingMinutes = estimate != null ? estimate - totalMinutes : null;
   const pct = estimate && estimate > 0 ? Math.round((totalMinutes / estimate) * 100) : null;
   const barColor =
-    pct == null ? "bg-indigo-400"
-    : pct <= 80 ? "bg-emerald-500"
-    : pct <= 110 ? "bg-amber-400"
-    : "bg-red-500";
+    pct == null ? "bg-[#b7452f]"
+    : pct <= 80 ? "bg-[#3f7d4c]"
+    : pct <= 110 ? "bg-[#c9791d]"
+    : "bg-[#c0392b]";
 
   // ── Handlers ─────────────────────────────────────────────────────────────
 
@@ -251,14 +251,14 @@ export default function IssueTimePanel({
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white divide-y divide-neutral-100">
+    <div className="rounded-xl border border-[#ddd8c9] bg-white divide-y divide-[#ddd8c9]">
 
       {/* ── Section 1: Estimate vs Actual ── */}
       <div className="p-4 space-y-2">
         <div className="flex items-start justify-between gap-3">
           {/* Estimate */}
           <div className="min-w-0">
-            <p className="text-xs font-medium text-neutral-500 mb-0.5">Estimate</p>
+            <p className="text-xs font-medium text-[#726e60] mb-0.5">Estimate</p>
             {editingEstimate ? (
               <div className="flex items-center gap-1">
                 <input
@@ -273,9 +273,9 @@ export default function IssueTimePanel({
                     if (e.key === "Enter") saveEstimate();
                     if (e.key === "Escape") setEditingEstimate(false);
                   }}
-                  className="w-16 rounded border border-indigo-300 px-1.5 py-0.5 text-sm font-semibold text-neutral-900 outline-none focus:border-indigo-500"
+                  className="w-16 rounded border border-[#b7452f] px-1.5 py-0.5 text-sm font-semibold text-[#20201d] outline-none focus:border-[#8c4632]"
                 />
-                <span className="text-xs text-neutral-400">h</span>
+                <span className="text-xs text-[#a19d90]">h</span>
               </div>
             ) : (
               <button
@@ -283,11 +283,11 @@ export default function IssueTimePanel({
                 className="group flex items-center gap-1"
                 disabled={readOnly}
               >
-                <span className="text-sm font-semibold text-neutral-800">
+                <span className="text-sm font-semibold text-[#20201d]">
                   {estimate != null ? fmtMinutes(estimate) : "—"}
                 </span>
                 {!readOnly && (
-                  <span className="text-neutral-300 group-hover:text-neutral-500 transition-colors text-xs">✏</span>
+                  <span className="text-[#a19d90] group-hover:text-[#726e60] transition-colors text-xs">✏</span>
                 )}
               </button>
             )}
@@ -295,8 +295,8 @@ export default function IssueTimePanel({
 
           {/* Logged */}
           <div className="text-right">
-            <p className="text-xs font-medium text-neutral-500 mb-0.5">Logged</p>
-            <p className="text-sm font-semibold text-neutral-800">
+            <p className="text-xs font-medium text-[#726e60] mb-0.5">Logged</p>
+            <p className="text-sm font-semibold text-[#20201d]">
               {totalMinutes > 0 ? fmtMinutes(totalMinutes) : "—"}
             </p>
           </div>
@@ -304,12 +304,12 @@ export default function IssueTimePanel({
           {/* Remaining */}
           {estimate != null && (
             <div className="text-right">
-              <p className="text-xs font-medium text-neutral-500 mb-0.5">Remaining</p>
+              <p className="text-xs font-medium text-[#726e60] mb-0.5">Remaining</p>
               <p
                 className={`text-sm font-semibold ${
                   remainingMinutes != null && remainingMinutes < 0
-                    ? "text-red-600"
-                    : "text-neutral-800"
+                    ? "text-[#c0392b]"
+                    : "text-[#20201d]"
                 }`}
               >
                 {remainingMinutes != null ? fmtMinutes(Math.abs(remainingMinutes)) + (remainingMinutes < 0 ? " over" : "") : "—"}
@@ -321,28 +321,28 @@ export default function IssueTimePanel({
         {/* Progress bar */}
         {estimate != null && estimate > 0 && (
           <div>
-            <div className="h-1.5 rounded-full bg-neutral-100 overflow-hidden">
+            <div className="h-1.5 rounded-full bg-[#f4f2eb] overflow-hidden">
               <div
                 className={`h-full rounded-full transition-all ${barColor}`}
                 style={{ width: `${Math.min(pct ?? 0, 100)}%` }}
               />
             </div>
-            <p className="text-xs text-neutral-400 mt-0.5 text-right">{pct}%</p>
+            <p className="text-xs text-[#a19d90] mt-0.5 text-right">{pct}%</p>
           </div>
         )}
       </div>
 
       {/* ── Budget Alert Banners ── */}
       {estimate != null && estimate > 0 && pct != null && pct >= 90 && pct < 100 && !dismissedAlerts.has(`warn-${issueId}`) && (
-        <div className="mx-4 mb-0 mt-0 flex items-start justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
-          <p className="text-xs text-amber-800">⚠ Approaching estimate — {pct}% used</p>
-          <button onClick={() => dismissAlert(`warn-${issueId}`)} className="text-amber-400 hover:text-amber-700 text-xs shrink-0">✕</button>
+        <div className="mx-4 mb-0 mt-0 flex items-start justify-between gap-2 rounded-lg border border-[#f1d9ae] bg-[#fdf1de] px-3 py-2">
+          <p className="text-xs text-[#c9791d]">⚠ Approaching estimate — {pct}% used</p>
+          <button onClick={() => dismissAlert(`warn-${issueId}`)} className="text-[#c9791d] hover:text-[#a3630f] text-xs shrink-0">✕</button>
         </div>
       )}
       {estimate != null && estimate > 0 && pct != null && pct >= 100 && !dismissedAlerts.has(`over-${issueId}`) && (
-        <div className="mx-4 mb-0 mt-0 flex items-start justify-between gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-          <p className="text-xs text-red-800">⚠ Over estimate by {fmtMinutes(totalMinutes - estimate)} — consider updating the estimate or flagging scope creep</p>
-          <button onClick={() => dismissAlert(`over-${issueId}`)} className="text-red-400 hover:text-red-700 text-xs shrink-0">✕</button>
+        <div className="mx-4 mb-0 mt-0 flex items-start justify-between gap-2 rounded-lg border border-[#f0c3bd] bg-[#fbeae8] px-3 py-2">
+          <p className="text-xs text-[#c0392b]">⚠ Over estimate by {fmtMinutes(totalMinutes - estimate)} — consider updating the estimate or flagging scope creep</p>
+          <button onClick={() => dismissAlert(`over-${issueId}`)} className="text-[#c0392b] hover:text-[#a3291b] text-xs shrink-0">✕</button>
         </div>
       )}
 
@@ -352,15 +352,15 @@ export default function IssueTimePanel({
           {timerStartedAt ? (
             <div className="flex items-center justify-between gap-3">
               <div>
-                <p className="text-xs font-medium text-neutral-500 mb-0.5">Running</p>
-                <p className="text-2xl font-bold tabular-nums text-neutral-900 tracking-tight">
+                <p className="text-xs font-medium text-[#726e60] mb-0.5">Running</p>
+                <p className="text-2xl font-bold tabular-nums text-[#20201d] tracking-tight">
                   {elapsed}
                 </p>
               </div>
               <button
                 onClick={stopTimer}
                 disabled={isPending}
-                className="flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50 transition-colors shrink-0"
+                className="flex items-center gap-1.5 rounded-lg bg-[#c0392b] px-4 py-2 text-sm font-semibold text-white hover:bg-[#a3291b] disabled:opacity-50 transition-colors shrink-0"
               >
                 <span>⏹</span>
                 <span>Stop &amp; Log</span>
@@ -368,18 +368,18 @@ export default function IssueTimePanel({
             </div>
           ) : (
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-neutral-400">No active timer</p>
+              <p className="text-xs text-[#a19d90]">No active timer</p>
               <button
                 onClick={startTimer}
                 disabled={isPending}
-                className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors shrink-0"
+                className="flex items-center gap-1.5 rounded-lg bg-[#b7452f] px-4 py-2 text-sm font-semibold text-white hover:bg-[#8c4632] disabled:opacity-50 transition-colors shrink-0"
               >
                 <span>▶</span>
                 <span>Start Timer</span>
               </button>
             </div>
           )}
-          {timerError && <p className="mt-1.5 text-xs text-red-600">{timerError}</p>}
+          {timerError && <p className="mt-1.5 text-xs text-[#c0392b]">{timerError}</p>}
         </div>
       )}
 
@@ -388,7 +388,7 @@ export default function IssueTimePanel({
         <div className="p-4">
           <button
             onClick={() => setShowForm((s) => !s)}
-            className="text-xs font-medium text-indigo-600 hover:text-indigo-800 transition-colors"
+            className="text-xs font-medium text-[#b7452f] hover:text-[#8c4632] transition-colors"
           >
             {showForm ? "− Hide manual log" : "+ Log time manually"}
           </button>
@@ -404,9 +404,9 @@ export default function IssueTimePanel({
                     placeholder="0"
                     value={hoursInput}
                     onChange={(e) => setHoursInput(e.target.value)}
-                    className="w-14 rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-center outline-none focus:border-indigo-400"
+                    className="w-14 rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs text-center outline-none focus:border-[#b7452f]"
                   />
-                  <span className="text-xs text-neutral-400">hr</span>
+                  <span className="text-xs text-[#a19d90]">hr</span>
                 </div>
                 <div className="flex items-center gap-1">
                   <input
@@ -416,9 +416,9 @@ export default function IssueTimePanel({
                     placeholder="0"
                     value={minutesInput}
                     onChange={(e) => setMinutesInput(e.target.value)}
-                    className="w-14 rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-center outline-none focus:border-indigo-400"
+                    className="w-14 rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs text-center outline-none focus:border-[#b7452f]"
                   />
-                  <span className="text-xs text-neutral-400">min</span>
+                  <span className="text-xs text-[#a19d90]">min</span>
                 </div>
               </div>
 
@@ -429,12 +429,12 @@ export default function IssueTimePanel({
                 value={noteInput}
                 onChange={(e) => setNoteInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && submitLog()}
-                className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs outline-none focus:border-indigo-400"
+                className="w-full rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs outline-none focus:border-[#b7452f]"
               />
 
               {/* Tag chips */}
               <div className="space-y-1.5">
-                <p className="text-xs text-neutral-500">Tag</p>
+                <p className="text-xs text-[#726e60]">Tag</p>
                 <div className="flex flex-wrap gap-1">
                   {["Development","Review","Meetings","Testing","Design","Planning","Support"].map((t) => (
                     <button
@@ -443,8 +443,8 @@ export default function IssueTimePanel({
                       onClick={() => setTagInput(tagInput === t ? "" : t)}
                       className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium border transition-colors ${
                         tagInput === t
-                          ? "bg-indigo-600 text-white border-indigo-600"
-                          : "bg-neutral-50 text-neutral-600 border-neutral-200 hover:border-neutral-400"
+                          ? "bg-[#b7452f] text-white border-[#b7452f]"
+                          : "bg-[#f4f2eb] text-[#4a473e] border-[#ddd8c9] hover:border-[#a19d90]"
                       }`}
                     >
                       {t}
@@ -456,7 +456,7 @@ export default function IssueTimePanel({
                   placeholder="or type custom tag…"
                   value={tagInput}
                   onChange={(e) => setTagInput(e.target.value)}
-                  className="w-full rounded-lg border border-neutral-200 px-2 py-1 text-xs outline-none focus:border-indigo-400"
+                  className="w-full rounded-lg border border-[#ddd8c9] px-2 py-1 text-xs outline-none focus:border-[#b7452f]"
                 />
               </div>
 
@@ -466,18 +466,18 @@ export default function IssueTimePanel({
                   type="checkbox"
                   checked={billable}
                   onChange={(e) => setBillable(e.target.checked)}
-                  className="rounded border-neutral-300 text-indigo-600 focus:ring-indigo-400"
+                  className="rounded border-[#ddd8c9] text-[#b7452f] focus:ring-[#b7452f]"
                 />
-                <span className="text-xs text-neutral-600">Billable</span>
+                <span className="text-xs text-[#4a473e]">Billable</span>
               </label>
 
-              {formError && <p className="text-xs text-red-600">{formError}</p>}
+              {formError && <p className="text-xs text-[#c0392b]">{formError}</p>}
 
               <div className="flex items-center gap-2">
                 <button
                   onClick={submitLog}
                   disabled={isPending}
-                  className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                  className="rounded-lg bg-[#b7452f] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#8c4632] disabled:opacity-50 transition-colors"
                 >
                   Log
                 </button>
@@ -486,7 +486,7 @@ export default function IssueTimePanel({
                     setShowForm(false);
                     setFormError(null);
                   }}
-                  className="text-xs text-neutral-400 hover:text-neutral-600 transition-colors"
+                  className="text-xs text-[#a19d90] hover:text-[#4a473e] transition-colors"
                 >
                   Cancel
                 </button>
@@ -498,34 +498,34 @@ export default function IssueTimePanel({
 
       {/* ── Section 4: Log History ── */}
       <div className="p-4">
-        <p className="text-xs font-semibold text-neutral-500 mb-2">Time log</p>
+        <p className="text-xs font-semibold text-[#726e60] mb-2">Time log</p>
         {logs.length === 0 ? (
-          <p className="text-xs text-neutral-400">No time logged yet.</p>
+          <p className="text-xs text-[#a19d90]">No time logged yet.</p>
         ) : (
           <ul className="space-y-2 max-h-[200px] overflow-y-auto pr-0.5">
             {logs.map((l) => (
               <li key={l.id} className="flex items-start gap-2 text-xs">
-                <span className="font-bold text-neutral-800 shrink-0 tabular-nums">
+                <span className="font-bold text-[#20201d] shrink-0 tabular-nums">
                   {fmtMinutes(l.minutes)}
                 </span>
                 <div className="flex-1 min-w-0">
                   {l.note ? (
-                    <span className="text-neutral-700 truncate block">{l.note}</span>
+                    <span className="text-[#4a473e] truncate block">{l.note}</span>
                   ) : (
-                    <span className="text-neutral-400 italic">no note</span>
+                    <span className="text-[#a19d90] italic">no note</span>
                   )}
                   <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    <span className="text-neutral-400">{relativeDate(l.logged_at)}</span>
+                    <span className="text-[#a19d90]">{relativeDate(l.logged_at)}</span>
                     {l.user_name && (
-                      <span className="text-neutral-400">· {l.user_name}</span>
+                      <span className="text-[#a19d90]">· {l.user_name}</span>
                     )}
                     {(l as TimeLog & { billable?: boolean }).billable && (
-                      <span className="inline-flex items-center rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
+                      <span className="inline-flex items-center rounded-full bg-[#e9f3ea] px-1.5 py-0.5 text-[10px] font-medium text-[#3f7d4c] border border-[#c7e0cb]">
                         billable
                       </span>
                     )}
                     {(l as TimeLog & { tag?: string | null }).tag && (
-                      <span className="inline-flex items-center rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-medium text-neutral-600 border border-neutral-200">
+                      <span className="inline-flex items-center rounded-full bg-[#f4f2eb] px-1.5 py-0.5 text-[10px] font-medium text-[#4a473e] border border-[#ddd8c9]">
                         {(l as TimeLog & { tag?: string | null }).tag}
                       </span>
                     )}
@@ -535,7 +535,7 @@ export default function IssueTimePanel({
                   <button
                     onClick={() => removeLog(l.id)}
                     disabled={isPending}
-                    className="text-neutral-300 hover:text-red-500 transition-colors shrink-0 mt-0.5"
+                    className="text-[#a19d90] hover:text-[#c0392b] transition-colors shrink-0 mt-0.5"
                     aria-label="Delete log"
                   >
                     ✕

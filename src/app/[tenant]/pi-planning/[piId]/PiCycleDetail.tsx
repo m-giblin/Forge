@@ -2,6 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { addPiObjectiveAction, deletePiObjectiveAction, castPiVoteAction } from "../actions";
+import PageHeader from "@/components/patterns/PageHeader";
+import SectionGroup from "@/components/patterns/SectionGroup";
+import StatCard from "@/components/patterns/StatCard";
 
 type Project = { id: string; key: string; name: string };
 type Member = { userId: string; label: string };
@@ -18,8 +21,8 @@ function ConfidenceDots({ value, onRate, readOnly }: { value: number; onRate?: (
           disabled={readOnly}
           onClick={() => onRate?.(n)}
           className={`h-3.5 w-3.5 rounded-full border transition-colors ${
-            n <= value ? "border-amber-400 bg-amber-400" : "border-neutral-300 bg-white"
-          } ${readOnly ? "cursor-default" : "cursor-pointer hover:border-amber-400"}`}
+            n <= value ? "border-[#b7452f] bg-[#b7452f]" : "border-[#ddd8c9] bg-white"
+          } ${readOnly ? "cursor-default" : "cursor-pointer hover:border-[#b7452f]"}`}
           title={`${n}`}
         />
       ))}
@@ -67,6 +70,17 @@ export default function PiCycleDetail({
     return groups;
   }, [objectives]);
 
+  const overallAvg = useMemo(() => {
+    if (votes.length === 0) return null;
+    return votes.reduce((s, v) => s + v.score, 0) / votes.length;
+  }, [votes]);
+
+  const teamsRepresented = useMemo(() => {
+    const s = new Set<string>();
+    for (const o of objectives) if (o.projectId) s.add(o.projectId);
+    return s.size;
+  }, [objectives]);
+
   function addObjective() {
     if (!title.trim()) return;
     setError(null);
@@ -105,85 +119,130 @@ export default function PiCycleDetail({
   }
 
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="mb-6 flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-neutral-900">{cycle.name}</h1>
-          <p className="text-sm text-neutral-500 mt-0.5">{cycle.startDate} → {cycle.endDate} · {cycle.status}</p>
-        </div>
-        {!showForm && (
-          <button onClick={() => setShowForm(true)} className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">
-            + Add objective
-          </button>
+    <div>
+      <PageHeader
+        title={cycle.name}
+        subtitle={`${cycle.startDate} → ${cycle.endDate} · ${cycle.status}`}
+        right={
+          !showForm ? (
+            <button
+              onClick={() => setShowForm(true)}
+              className="rounded-[5px] border border-[#5e2c1f] px-4 py-2 text-[12px] font-semibold text-[#f2e9d8]"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+            >
+              + Add objective
+            </button>
+          ) : undefined
+        }
+      />
+
+      <div className="mx-auto max-w-3xl space-y-5 px-6 py-5">
+        {error && <p className="rounded-[6px] bg-[#fbeae8] px-3.5 py-2.5 text-[12px] text-[#c0392b]">{error}</p>}
+
+        {objectives.length > 0 && (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <StatCard label="Objectives" value={objectives.length} hint={teamsRepresented > 0 ? `across ${teamsRepresented} teams` : undefined} />
+            <StatCard label="Avg confidence" value={overallAvg != null ? overallAvg.toFixed(1) : "—"} hint="of 5" />
+            <StatCard label="Votes cast" value={votes.length} />
+          </div>
         )}
-      </div>
 
-      {error && <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
-
-      {showForm && (
-        <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
-          <h3 className="mb-3 text-sm font-semibold text-neutral-900">New objective</h3>
-          <div className="space-y-2">
-            <input autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Objective title" className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900" />
-            <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description (optional)" rows={2} className="w-full rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900 resize-none" />
-            <select value={projectId} onChange={(e) => setProjectId(e.target.value)} className="rounded-lg border border-neutral-300 px-2 py-2 text-sm">
-              <option value="">No specific team</option>
-              {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </div>
-          <div className="mt-3 flex gap-2">
-            <button onClick={addObjective} disabled={pending || !title.trim()} className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50">Add</button>
-            <button onClick={() => setShowForm(false)} className="rounded-lg px-4 py-2 text-sm font-medium text-neutral-500 hover:bg-neutral-100">Cancel</button>
-          </div>
-        </div>
-      )}
-
-      {objectives.length === 0 && !showForm && (
-        <p className="text-sm text-neutral-400">No objectives yet — add one for each team&apos;s commitment this increment.</p>
-      )}
-
-      <div className="space-y-6">
-        {Array.from(grouped.entries()).map(([key, objs]) => (
-          <div key={key}>
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-neutral-400">
-              {key === "__none__" ? "Cross-cutting" : projectMap.get(key)?.name ?? "Unknown team"}
-            </p>
+        {showForm && (
+          <div className="fw-card px-4 py-4">
+            <h3 className="mb-3 text-[13px] font-extrabold font-[family-name:var(--font-manrope)] text-[#20201d]">New objective</h3>
             <div className="space-y-2">
-              {objs.map((o) => {
+              <input
+                autoFocus
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Objective title"
+                className="w-full rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-2 text-[12.5px] outline-none focus:border-[#b7452f]"
+              />
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Description (optional)"
+                rows={2}
+                className="w-full resize-none rounded-[5px] border border-[#ddd8c9] bg-white px-3 py-2 text-[12.5px] outline-none focus:border-[#b7452f]"
+              />
+              <select
+                value={projectId}
+                onChange={(e) => setProjectId(e.target.value)}
+                className="rounded-[5px] border border-[#ddd8c9] bg-white px-2 py-2 text-[12.5px] text-[#20201d]"
+              >
+                <option value="">No specific team</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button
+                onClick={addObjective}
+                disabled={pending || !title.trim()}
+                className="rounded-[5px] border border-[#5e2c1f] px-4 py-2 text-[12px] font-semibold text-[#f2e9d8] disabled:opacity-50"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+              >
+                Add
+              </button>
+              <button onClick={() => setShowForm(false)} className="rounded-[5px] px-4 py-2 text-[12px] font-semibold text-[#a19d90] hover:bg-[#eae6da]">
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {objectives.length === 0 && !showForm && (
+          <p className="text-[12.5px] text-[#a19d90]">No objectives yet — add one for each team&apos;s commitment this increment.</p>
+        )}
+
+        <div className="space-y-5">
+          {Array.from(grouped.entries()).map(([key, objs]) => (
+            <SectionGroup
+              key={key}
+              label={key === "__none__" ? "Cross-cutting" : projectMap.get(key)?.name ?? "Unknown team"}
+              color="#8c4632"
+              count={objs.length}
+            >
+              {objs.map((o, i) => {
                 const objVotes = votesByObjective.get(o.id) ?? [];
                 const avg = objVotes.length ? objVotes.reduce((s, v) => s + v.score, 0) / objVotes.length : null;
                 const myVote = objVotes.find((v) => v.userId === meUserId)?.score ?? 0;
                 return (
-                  <div key={o.id} className="rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+                  <div key={o.id} className={`px-3.5 py-3 ${i > 0 ? "border-t border-[#e3ded0]" : ""}`}>
                     <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-medium text-neutral-900">{o.title}</p>
-                        {o.description && <p className="mt-1 text-sm text-neutral-500">{o.description}</p>}
+                      <div className="min-w-0">
+                        <p className="text-[12.5px] font-semibold text-[#20201d]">{o.title}</p>
+                        {o.description && <p className="mt-0.5 text-[11.5px] text-[#726e60]">{o.description}</p>}
                       </div>
-                      <button onClick={() => removeObjective(o.id)} disabled={pending} className="shrink-0 text-xs text-red-500 hover:text-red-700 disabled:opacity-50">Delete</button>
+                      <button
+                        onClick={() => removeObjective(o.id)}
+                        disabled={pending}
+                        className="shrink-0 text-[11px] font-semibold text-[#c0392b] hover:underline disabled:opacity-50"
+                      >
+                        Delete
+                      </button>
                     </div>
-                    <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3">
+                    <div className="mt-2.5 flex items-center justify-between border-t border-[#e3ded0] pt-2.5">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-neutral-500">Your confidence:</span>
+                        <span className="text-[11px] text-[#726e60]">Your confidence:</span>
                         <ConfidenceDots value={myVote} onRate={(score) => vote(o.id, score)} />
                       </div>
-                      <span className="text-xs text-neutral-400">
+                      <span className="text-[11px] text-[#a19d90]">
                         {avg != null ? `Avg ${avg.toFixed(1)}/5 · ${objVotes.length} vote${objVotes.length === 1 ? "" : "s"}` : "No votes yet"}
                       </span>
                     </div>
                     {objVotes.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                         {objVotes.map((v) => (
-                          <span key={v.userId} className="text-[11px] text-neutral-400">{memberMap.get(v.userId) ?? "?"}: {v.score}</span>
+                          <span key={v.userId} className="text-[11px] text-[#a19d90]">{memberMap.get(v.userId) ?? "?"}: {v.score}</span>
                         ))}
                       </div>
                     )}
                   </div>
                 );
               })}
-            </div>
-          </div>
-        ))}
+            </SectionGroup>
+          ))}
+        </div>
       </div>
     </div>
   );

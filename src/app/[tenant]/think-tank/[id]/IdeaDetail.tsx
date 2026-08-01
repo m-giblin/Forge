@@ -146,7 +146,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
             {idea.assignee_name && <span>· assigned to {idea.assignee_name}</span>}
             {idea.review_by && <ReviewByChip reviewBy={idea.review_by} />}
             {(idea as IdeaRow & { linked_okr_id?: string | null; linked_okr_title?: string | null }).linked_okr_title && (
-              <span className="text-xs text-indigo-600">🎯 {(idea as IdeaRow & { linked_okr_title?: string | null }).linked_okr_title}</span>
+              <span className="text-xs text-[#b7452f]">🎯 {(idea as IdeaRow & { linked_okr_title?: string | null }).linked_okr_title}</span>
             )}
             {idea.tags.length > 0 && (
               <div className="flex flex-wrap gap-1">
@@ -167,7 +167,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         <div className="flex shrink-0 items-center gap-2">
           <Link
             href={`/${slug}/think-tank/${idea.id}/canvas`}
-            className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-sm font-medium text-violet-700 hover:bg-violet-100"
+            className="rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-sm font-medium text-[#b7452f] hover:bg-[#eee9db]"
             title="Brainstorm freely, then test the shape with AI before converting"
           >
             ✨ Canvas
@@ -269,7 +269,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
             <span className="text-sm text-neutral-700">🔒 Private</span>
           </label>
           <div className="flex gap-3 pt-1">
-            <button type="submit" disabled={isPending} className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50">
+            <button type="submit" disabled={isPending} className="rounded-lg px-4 py-2 text-sm font-medium text-[#f2e9d8] disabled:opacity-50" style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" }}>
               {isPending ? "Saving…" : "Save changes"}
             </button>
             <button type="button" onClick={() => setEditing(false)} className="text-sm text-neutral-500 hover:text-neutral-700">
@@ -293,7 +293,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         <div className="mb-6 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
           <p className="mb-3 text-xs font-medium uppercase tracking-wide text-neutral-400">Move idea forward</p>
           {(idea.status === "maturing" || idea.status === "ready") && !signoffsComplete && (
-            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+            <div className="mb-3 rounded-lg border border-[#f0d9b0] bg-[#fdf1de] px-3 py-2 text-xs text-[#c9791d]">
               {approvedSignoffs} of {SIGNOFF_ROLES.length} sign-offs collected
               {decisions.length === 0 && " · no decisions logged yet"} — you can still proceed, but alignment isn&apos;t complete.
             </div>
@@ -316,7 +316,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
                 className={`rounded-lg px-3 py-1.5 text-sm font-medium transition disabled:opacity-50 ${
                   opt.value === "archived"
                     ? "border border-neutral-200 text-neutral-500 hover:bg-neutral-50"
-                    : "bg-neutral-900 text-white hover:bg-neutral-800"
+                    : "bg-[#8c4632] text-[#f2e9d8] hover:bg-[#6e3324]"
                 }`}
               >
                 {opt.label}
@@ -477,7 +477,7 @@ export default function IdeaDetail({ slug, idea, canEdit, members, thinkTankName
         </div>
       )}
       {!isViewer && !isTerminal && recentAiTurns.length === 0 && activeCommentCount < 20 && daysSinceUpdate >= 14 && (
-        <div className="mb-4 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+        <div className="mb-4 rounded-xl border border-[#f0d9b0] bg-[#fdf1de] px-4 py-3 text-sm text-[#c9791d]">
           <span className="font-medium">🤖 AI suggestion:</span> This idea hasn&apos;t had AI input yet. Try the Sounding Board below — pick a lens to challenge or sharpen it.
         </div>
       )}

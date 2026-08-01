@@ -65,18 +65,7 @@ export default async function BoardPage({
   const boardIssues = selectedSprint ? issues.filter((i) => i.sprint_id === selectedSprint.id) : issues;
 
   return (
-    <main className="px-2 py-4">
-      {activeSprint && (
-        <div className="flex justify-end mb-2">
-          <a
-            href={`/${slug}/board/export/sprint-pdf/${activeSprint.id}`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50 hover:border-neutral-300 transition shadow-sm"
-          >
-            <span>📄</span>
-            Export Sprint Report
-          </a>
-        </div>
-      )}
+    <main className="flex h-[calc(100vh-56px)] flex-col overflow-hidden md:h-screen">
       <SprintPanel
         slug={slug}
         projectId={current.id}
@@ -99,6 +88,7 @@ export default async function BoardPage({
         initialIssues={boardIssues}
         sprints={allSprints}
         currentSprint={selectedSprint}
+        activeSprintId={activeSprint?.id ?? null}
         total={total}
         issueLimit={BOARD_LIMIT}
         projects={projects}

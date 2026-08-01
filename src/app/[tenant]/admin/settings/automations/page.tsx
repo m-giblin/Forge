@@ -14,9 +14,5 @@ export default async function AutomationsPage({ params }: { params: Promise<{ te
   const svc = createSupabaseServiceClient();
   const rules = await automationRulesRepo(svc).list(ctx.tenant.id).catch(() => []);
 
-  return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
-      <AutomationsClient slug={slug} rules={rules} />
-    </div>
-  );
+  return <AutomationsClient slug={slug} rules={rules} />;
 }

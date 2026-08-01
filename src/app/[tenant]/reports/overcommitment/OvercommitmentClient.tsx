@@ -14,8 +14,8 @@ export type OvercommitmentMember = {
 
 function loadColor(load: number): { ring: string; bg: string; text: string } {
   if (load >= 100) return { ring: "border-red-300", bg: "bg-red-500", text: "text-red-700" };
-  if (load >= 80) return { ring: "border-amber-300", bg: "bg-amber-400", text: "text-amber-700" };
-  return { ring: "border-emerald-300", bg: "bg-emerald-500", text: "text-emerald-700" };
+  if (load >= 80) return { ring: "border-[#f0d5ab]", bg: "bg-[#c9791d]", text: "text-[#c9791d]" };
+  return { ring: "border-[#bfe0c5]", bg: "bg-[#3f7d4c]", text: "text-[#3f7d4c]" };
 }
 
 function initials(name: string): string {
@@ -77,13 +77,13 @@ export default function OvercommitmentClient({
         <div className="flex rounded-lg border border-neutral-200 bg-white overflow-hidden text-sm">
           <button
             onClick={() => setFilter("all")}
-            className={`px-4 py-1.5 font-medium transition ${filter === "all" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`}
+            className={`px-4 py-1.5 font-medium transition ${filter === "all" ? "bg-[#8c4632] text-white" : "text-neutral-600 hover:bg-neutral-50"}`}
           >
             All members
           </button>
           <button
             onClick={() => setFilter("over")}
-            className={`px-4 py-1.5 font-medium transition ${filter === "over" ? "bg-neutral-900 text-white" : "text-neutral-600 hover:bg-neutral-50"}`}
+            className={`px-4 py-1.5 font-medium transition ${filter === "over" ? "bg-[#8c4632] text-white" : "text-neutral-600 hover:bg-neutral-50"}`}
           >
             Overcommitted only
           </button>
@@ -93,10 +93,10 @@ export default function OvercommitmentClient({
           <span className="flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-1 font-semibold text-red-700">
             {overCount} overcommitted
           </span>
-          <span className="flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-700">
+          <span className="flex items-center gap-1.5 rounded-full bg-[#fdf1de] px-2.5 py-1 font-semibold text-[#c9791d]">
             {atCount} at limit
           </span>
-          <span className="flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-700">
+          <span className="flex items-center gap-1.5 rounded-full bg-[#e9f3ea] px-2.5 py-1 font-semibold text-[#3f7d4c]">
             {okCount} OK
           </span>
         </div>
@@ -119,7 +119,7 @@ export default function OvercommitmentClient({
               >
                 <div className="flex items-center gap-3 mb-3">
                   <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${m.load >= 100 ? "bg-red-500" : m.load >= 80 ? "bg-amber-400" : "bg-emerald-500"}`}
+                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white ${m.load >= 100 ? "bg-red-500" : m.load >= 80 ? "bg-[#c9791d]" : "bg-[#3f7d4c]"}`}
                   >
                     {initials(m.name)}
                   </div>

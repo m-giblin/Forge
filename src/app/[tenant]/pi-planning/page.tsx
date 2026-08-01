@@ -12,7 +12,7 @@ export default async function PiPlanningPage({ params }: { params: Promise<{ ten
   const cycles = await listPiCycles(ctx.tenant.id);
 
   return (
-    <main className="w-full px-6 py-8">
+    <main className="w-full">
       <PiPlanningLanding
         slug={slug}
         cycles={cycles.map((c) => ({ id: c.id, name: c.name, startDate: c.startDate, endDate: c.endDate, status: c.status }))}

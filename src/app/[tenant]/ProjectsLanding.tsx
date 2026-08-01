@@ -7,20 +7,12 @@ import type { Project, ProjectStatus } from "@/lib/repositories/projects";
 import { STATUS_META } from "./projects/[key]/ProjectStatusControl";
 import { createProjectAction, applyProjectTemplateAction } from "./actions";
 import { PROJECT_TEMPLATES, type TemplateKey } from "@/lib/projectTemplates";
+import PageHeader from "@/components/patterns/PageHeader";
+import { FilterRow, FilterPill } from "@/components/patterns/FilterRow";
 
 type OwnerOption = { userId: string; label: string };
 
 export type ProjectStats = { total: number; done: number; blocked: number; members: number };
-
-/** Go-live status chip — "dates trigger everything", so surface it up front. */
-function goLiveChip(target: string | null) {
-  if (!target) return { text: "No go-live date", cls: "bg-neutral-100 text-neutral-500" };
-  const days = Math.ceil((new Date(target + "T00:00:00").getTime() - Date.now()) / 86_400_000);
-  if (days < 0) return { text: `Overdue ${-days}d`, cls: "bg-red-100 text-red-700" };
-  if (days === 0) return { text: "Go-live today", cls: "bg-amber-100 text-amber-700" };
-  if (days <= 14) return { text: `Go-live in ${days}d`, cls: "bg-amber-100 text-amber-700" };
-  return { text: `Go-live in ${days}d`, cls: "bg-emerald-100 text-emerald-700" };
-}
 
 function fmtDate(d: string | null) {
   return d ? new Date(d + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "—";
@@ -35,43 +27,91 @@ const FILTER_OPTIONS: { value: StatusFilter; label: string }[] = [
   { value: "all",     label: "All" },
 ];
 
-/** Blocked-count health signal, alongside (not replacing) the go-live date chip. */
+/** Status pill colors — reuse the shared status palette (no amber; STATUS_META's
+ *  own `cls` is ignored here since it's amber for on_hold in the shared file). */
+const PROJECT_STATUS_COLOR: Record<ProjectStatus, { fg: string; bg: string }> = {
+  active:   { fg: "#3f7d4c", bg: "#e9f3ea" },
+  on_hold:  { fg: "#c9791d", bg: "#fdf1de" },
+  closed:   { fg: "#a19d90", bg: "#f1efe9" },
+  archived: { fg: "#7a4fa0", bg: "#f4ecfa" },
+};
+
+/** Blocked-count health signal, shown as the top-right pill. */
 function issueHealth(blocked: number) {
-  if (blocked > 2) return { label: "At risk", dot: "bg-red-500", text: "text-red-700" };
-  if (blocked > 0) return { label: "Needs attention", dot: "bg-amber-500", text: "text-amber-700" };
-  return { label: "Healthy", dot: "bg-emerald-500", text: "text-emerald-700" };
+  if (blocked > 2) return { label: "At risk", fg: "#c0392b", bg: "#fbeae8" };
+  if (blocked > 0) return { label: "Needs attention", fg: "#c9791d", bg: "#fdf1de" };
+  return { label: "Healthy", fg: "#3f7d4c", bg: "#e9f3ea" };
+}
+
+function initialsOf(name: string) {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "?";
+  if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
 }
 
 function ProjectCard({ slug, p, stats }: { slug: string; p: Project; stats?: ProjectStats }) {
-  const chip = goLiveChip(p.target_go_live);
   const statusMeta = STATUS_META[p.status];
+  const statusColor = PROJECT_STATUS_COLOR[p.status];
   const health = stats ? issueHealth(stats.blocked) : null;
+  const pct = stats && stats.total > 0 ? Math.round((stats.done / stats.total) * 100) : 0;
+  const barColor = pct >= 75 ? "#3f7d4c" : pct >= 40 ? "#3a6ea8" : "#b7452f";
   return (
     <Link
       href={`/${slug}/projects/${p.key}`}
-      className="block rounded-xl border border-neutral-200 bg-white p-5 shadow-sm transition hover:border-neutral-300 hover:shadow"
+      className="fw-card block px-[18px] py-4 transition hover:border-[#c3bda9]"
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">{p.key}</span>
-          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${statusMeta.cls}`}>{statusMeta.label}</span>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          <span
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[6px] border border-[#5e2c1f] text-[11px] font-extrabold text-[#f2e9d8]"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+          >
+            {initialsOf(p.name)}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-[14px] font-bold text-[#20201d]">{p.name}</p>
+            <p className="font-mono text-[11px] text-[#a19d90]">{p.key}</p>
+          </div>
         </div>
-        <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${chip.cls}`}>{chip.text}</span>
+        {health ? (
+          <span
+            className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
+            style={{ color: health.fg, backgroundColor: health.bg }}
+          >
+            {health.label}
+          </span>
+        ) : (
+          <span
+            className="shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium"
+            style={{ color: statusColor.fg, backgroundColor: statusColor.bg }}
+          >
+            {statusMeta.label}
+          </span>
+        )}
       </div>
-      <p className="mt-2 font-medium text-neutral-900">{p.name}</p>
-      <p className="mt-2 text-xs text-neutral-400">
+
+      <p className="mt-2.5 text-[12px] text-[#726e60]">
         Start {fmtDate(p.start_date)} · Go-live {fmtDate(p.target_go_live)}
       </p>
-      {stats && health && (
-        <div className="mt-3 flex items-center justify-between border-t border-neutral-100 pt-3">
-          <div className="flex items-center gap-1.5">
-            <span className={`h-1.5 w-1.5 rounded-full ${health.dot}`} />
-            <span className={`text-xs font-medium ${health.text}`}>{health.label}</span>
+
+      {stats && (
+        <>
+          <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[#ddd8c9]">
+            <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: barColor }} />
           </div>
-          <span className="text-xs text-neutral-400">
-            {stats.total} issue{stats.total === 1 ? "" : "s"} · {stats.done} done · {stats.blocked} blocked · {stats.members} member{stats.members === 1 ? "" : "s"}
-          </span>
-        </div>
+          <div className="mt-2.5 flex items-center justify-between">
+            <span className="text-[11px] text-[#726e60]">
+              <span className="font-bold text-[#20201d]">{stats.done}</span>/{stats.total} done
+            </span>
+            {stats.blocked > 0 && (
+              <span className="text-[11px] text-[#c0392b]">{stats.blocked} blocked</span>
+            )}
+            <span className="ml-auto text-[11px] text-[#a19d90]">
+              {stats.members} member{stats.members === 1 ? "" : "s"}
+            </span>
+          </div>
+        </>
       )}
     </Link>
   );
@@ -79,7 +119,6 @@ function ProjectCard({ slug, p, stats }: { slug: string; p: Project; stats?: Pro
 
 export default function ProjectsLanding({
   slug,
-  tenantName,
   isAdmin = false,
   canCreate,
   projects,
@@ -88,7 +127,6 @@ export default function ProjectsLanding({
   stats = {},
 }: {
   slug: string;
-  tenantName: string;
   isAdmin?: boolean;
   canCreate: boolean;
   projects: Project[];
@@ -106,107 +144,94 @@ export default function ProjectsLanding({
     : projects.filter((p) => p.status === filter);
 
   return (
-    <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-semibold text-neutral-900">{tenantName} projects</h1>
-          <p className="mt-1 text-sm text-neutral-500">
-            Projects you can see. Open one to work its board.
-          </p>
-        </div>
-        {canCreate && (
-          <button
-            onClick={() => setShowForm((s) => !s)}
-            className="rounded-lg bg-neutral-900 px-3 py-2 text-sm font-medium text-white hover:bg-neutral-800"
-          >
-            {showForm ? "Cancel" : "+ New project"}
-          </button>
-        )}
-      </div>
-
-      {showForm && canCreate && (
-        <NewProjectForm
-          slug={slug}
-          members={members}
-          onDone={(key) => {
-            setShowForm(false);
-            router.push(`/${slug}/projects/${key}`);
-          }}
-        />
-      )}
-
-      {/* Status filter pills */}
-      {projects.length > 0 && (
-        <div className="mt-5 flex gap-2">
-          {FILTER_OPTIONS.map((o) => (
+    <div className="flex min-h-0 flex-1 flex-col">
+      <PageHeader
+        title="Projects"
+        subtitle="Every project in this workspace, with health and progress"
+        right={
+          canCreate ? (
             <button
-              key={o.value}
-              onClick={() => setFilter(o.value)}
-              className={`rounded-full px-3 py-1 text-xs font-medium transition ${
-                filter === o.value
-                  ? "bg-neutral-900 text-white"
-                  : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
-              }`}
+              type="button"
+              onClick={() => setShowForm((s) => !s)}
+              className="rounded-[5px] border border-[#5e2c1f] px-[13px] py-[7px] text-[12px] font-bold text-[#f2e9d8]"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
             >
-              {o.label}
-              {o.value !== "all" && (
-                <span className="ml-1 opacity-60">
-                  ({projects.filter((p) => p.status === o.value).length})
+              {showForm ? "Cancel" : "+ New project"}
+            </button>
+          ) : undefined
+        }
+      />
+
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-[18px] pb-7">
+        {showForm && canCreate && (
+          <NewProjectForm
+            slug={slug}
+            members={members}
+            onDone={(key) => {
+              setShowForm(false);
+              router.push(`/${slug}/projects/${key}`);
+            }}
+          />
+        )}
+
+        {/* Status filter pills */}
+        {projects.length > 0 && (
+          <FilterRow>
+            {FILTER_OPTIONS.map((o) => (
+              <FilterPill key={o.value} active={filter === o.value} onClick={() => setFilter(o.value)}>
+                {o.label}
+                {o.value !== "all" && ` (${projects.filter((p) => p.status === o.value).length})`}
+              </FilterPill>
+            ))}
+          </FilterRow>
+        )}
+
+        {visible.length === 0 ? (
+          <div className="fw-card mt-4 p-10 text-center text-[13px] text-[#726e60]">
+            {projects.length === 0
+              ? canCreate
+                ? "No projects yet. Create one to start filing issues."
+                : "You’re not on any project teams yet. An admin can add you to a project."
+              : `No ${filter === "all" ? "" : filter.replace("_", " ")} projects.`}
+          </div>
+        ) : (
+          <div className="mt-4 grid max-w-[1200px] grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3.5">
+            {visible.map((p) => (
+              <ProjectCard key={p.id} slug={slug} p={p} stats={stats[p.id]} />
+            ))}
+          </div>
+        )}
+
+        {/* Archive section — admin only */}
+        {isAdmin && (
+          <div className="mt-8">
+            <button
+              type="button"
+              onClick={() => setShowArchive((s) => !s)}
+              className="flex items-center gap-1.5 text-[12.5px] text-[#a19d90] hover:text-[#4a473e]"
+            >
+              <span>{showArchive ? "▾" : "▸"}</span>
+              Archive
+              {archivedProjects.length > 0 && (
+                <span className="rounded-full bg-[#eae6da] px-2 py-0.5 text-[11px] text-[#726e60]">
+                  {archivedProjects.length}
                 </span>
               )}
             </button>
-          ))}
-        </div>
-      )}
-
-      {visible.length === 0 ? (
-        <div className="mt-4 rounded-xl border border-dashed border-neutral-300 bg-white p-10 text-center text-sm text-neutral-500">
-          {projects.length === 0
-            ? canCreate
-              ? "No projects yet. Create one to start filing issues."
-              : "You’re not on any project teams yet. An admin can add you to a project."
-            : `No ${filter === "all" ? "" : filter.replace("_", " ")} projects.`}
-        </div>
-      ) : (
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
-          {visible.map((p) => (
-            <li key={p.id}>
-              <ProjectCard slug={slug} p={p} stats={stats[p.id]} />
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {/* Archive section — admin only */}
-      {isAdmin && (
-        <div className="mt-8">
-          <button
-            onClick={() => setShowArchive((s) => !s)}
-            className="flex items-center gap-1.5 text-sm text-neutral-400 hover:text-neutral-600"
-          >
-            <span>{showArchive ? "▾" : "▸"}</span>
-            Archive
-            {archivedProjects.length > 0 && (
-              <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs text-neutral-500">
-                {archivedProjects.length}
-              </span>
+            {showArchive && (
+              archivedProjects.length === 0 ? (
+                <p className="mt-3 text-[12.5px] text-[#a19d90]">No archived projects.</p>
+              ) : (
+                <div className="mt-3 grid max-w-[1200px] grid-cols-[repeat(auto-fill,minmax(300px,1fr))] gap-3.5">
+                  {archivedProjects.map((p) => (
+                    <ProjectCard key={p.id} slug={slug} p={p} />
+                  ))}
+                </div>
+              )
             )}
-          </button>
-          {showArchive && (
-            archivedProjects.length === 0 ? (
-              <p className="mt-3 text-sm text-neutral-400">No archived projects.</p>
-            ) : (
-              <ul className="mt-3 grid gap-3 sm:grid-cols-2">
-                {archivedProjects.map((p) => (
-                  <li key={p.id}>
-                    <ProjectCard slug={slug} p={p} />
-                  </li>
-                ))}
-              </ul>
-            )
-          )}
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -356,7 +381,8 @@ function NewProjectForm({
         <button
           type="submit"
           disabled={pending}
-          className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+          className="rounded-[6px] border border-[#5e2c1f] px-4 py-2 text-sm font-medium text-[#f2e9d8] disabled:opacity-50"
+          style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
         >
           {pending ? "Creating…" : "Create project"}
         </button>

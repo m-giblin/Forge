@@ -78,7 +78,7 @@ export default function AvailabilityPage() {
                 setHoursPerWeek(parseFloat(e.target.value) || 0);
                 setSaved(false);
               }}
-              className="w-24 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-indigo-400"
+              className="w-24 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-[#b7452f]"
             />
             <span className="text-sm text-neutral-500">hours / week</span>
           </div>
@@ -96,8 +96,8 @@ export default function AvailabilityPage() {
                   onClick={() => toggleDay(idx)}
                   className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
                     active
-                      ? "border-indigo-500 bg-indigo-600 text-white"
-                      : "border-neutral-300 bg-white text-neutral-600 hover:border-indigo-300"
+                      ? "border-[#5e2c1f] bg-[#8c4632] text-white"
+                      : "border-neutral-300 bg-white text-neutral-600 hover:border-[#b7452f]"
                   }`}
                 >
                   {label}
@@ -111,11 +111,12 @@ export default function AvailabilityPage() {
           <button
             onClick={save}
             disabled={isPending}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+            className="rounded-lg border border-[#5e2c1f] px-4 py-2 text-sm font-semibold text-[#f2e9d8] disabled:opacity-50 transition-colors"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
           >
             {isPending ? "Saving…" : "Save"}
           </button>
-          {saved && <p className="text-sm text-emerald-600">Saved.</p>}
+          {saved && <p className="text-sm text-[#3f7d4c]">Saved.</p>}
           {error && <p className="text-sm text-red-600">{error}</p>}
         </div>
       </div>

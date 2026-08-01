@@ -59,18 +59,18 @@ export default function TimeTracker({
   }
 
   return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-4">
+    <div className="rounded-xl border border-[#ddd8c9] bg-white p-4">
       <div className="flex items-center justify-between mb-3">
         <div>
-          <p className="text-xs font-semibold text-neutral-600">Time Logged</p>
-          <p className="text-lg font-bold text-neutral-900 mt-0.5">
+          <p className="text-xs font-semibold text-[#4a473e]">Time Logged</p>
+          <p className="text-lg font-bold text-[#20201d] mt-0.5">
             {totalMinutes > 0 ? fmtMinutes(totalMinutes) : "—"}
           </p>
         </div>
         {!readOnly && (
           <button
             onClick={() => setShowForm((s) => !s)}
-            className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-100"
+            className="rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-xs font-medium text-[#4a473e] hover:bg-[#ede9db]"
           >
             + Log time
           </button>
@@ -84,34 +84,35 @@ export default function TimeTracker({
               <input
                 type="number" min="0" placeholder="0h"
                 value={hoursInput} onChange={(e) => setHoursInput(e.target.value)}
-                className="w-14 rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-center outline-none focus:border-indigo-400"
+                className="w-14 rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs text-center outline-none focus:border-[#b7452f]"
               />
-              <span className="text-xs text-neutral-400">hr</span>
+              <span className="text-xs text-[#a19d90]">hr</span>
             </div>
             <div className="flex items-center gap-1">
               <input
                 type="number" min="0" max="59" placeholder="0m"
                 value={minutesInput} onChange={(e) => setMinutesInput(e.target.value)}
-                className="w-14 rounded-lg border border-neutral-300 px-2 py-1.5 text-xs text-center outline-none focus:border-indigo-400"
+                className="w-14 rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs text-center outline-none focus:border-[#b7452f]"
               />
-              <span className="text-xs text-neutral-400">min</span>
+              <span className="text-xs text-[#a19d90]">min</span>
             </div>
           </div>
           <input
             type="text" placeholder="Note (optional)"
             value={noteInput} onChange={(e) => setNoteInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
-            className="w-full rounded-lg border border-neutral-300 px-2 py-1.5 text-xs outline-none focus:border-indigo-400"
+            className="w-full rounded-lg border border-[#ddd8c9] px-2 py-1.5 text-xs outline-none focus:border-[#b7452f]"
           />
-          {error && <p className="text-xs text-red-600">{error}</p>}
+          {error && <p className="text-xs text-[#c0392b]">{error}</p>}
           <div className="flex gap-2">
             <button
               onClick={submit} disabled={isPending}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+              className="rounded-lg px-3 py-1.5 text-xs font-medium text-[#f2e9d8] disabled:opacity-50"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)", border: "1px solid #5e2c1f" }}
             >
               Log
             </button>
-            <button onClick={() => setShowForm(false)} className="text-xs text-neutral-400 hover:text-neutral-600">
+            <button onClick={() => setShowForm(false)} className="text-xs text-[#a19d90] hover:text-[#4a473e]">
               Cancel
             </button>
           </div>
@@ -121,12 +122,12 @@ export default function TimeTracker({
       {logs.length > 0 && (
         <ul className="space-y-1.5 max-h-40 overflow-y-auto">
           {logs.map((l) => (
-            <li key={l.id} className="flex items-start gap-2 text-xs text-neutral-600">
-              <span className="font-semibold text-neutral-800 shrink-0">{fmtMinutes(l.minutes)}</span>
-              <span className="flex-1 truncate">{l.note ?? <span className="text-neutral-400">no note</span>}</span>
-              <span className="text-neutral-400 shrink-0">{l.user_name ?? "—"}</span>
+            <li key={l.id} className="flex items-start gap-2 text-xs text-[#4a473e]">
+              <span className="font-semibold text-[#20201d] shrink-0">{fmtMinutes(l.minutes)}</span>
+              <span className="flex-1 truncate">{l.note ?? <span className="text-[#a19d90]">no note</span>}</span>
+              <span className="text-[#a19d90] shrink-0">{l.user_name ?? "—"}</span>
               {!readOnly && (
-                <button onClick={() => remove(l.id)} disabled={isPending} className="text-neutral-300 hover:text-red-500 shrink-0">✕</button>
+                <button onClick={() => remove(l.id)} disabled={isPending} className="text-[#ddd8c9] hover:text-[#c0392b] shrink-0">✕</button>
               )}
             </li>
           ))}

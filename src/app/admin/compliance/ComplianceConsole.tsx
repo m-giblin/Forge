@@ -2,6 +2,9 @@
 
 import { useState, useTransition } from "react";
 import { createComplianceRequestAction, updateComplianceStatusAction } from "./actions";
+import StatsRow from "@/components/patterns/admin/StatsRow";
+import AdminTable, { type AdminTableCell } from "@/components/patterns/admin/AdminTable";
+import Note from "@/components/patterns/admin/Note";
 
 type ComplianceRequest = {
   id: string;
@@ -17,13 +20,6 @@ type ComplianceRequest = {
 };
 
 type Tenant = { id: string; name: string; slug: string };
-
-const STATUS_STYLES: Record<string, React.CSSProperties> = {
-  pending:     { background: "#fffbeb", color: "#d97706" },
-  in_progress: { background: "#eff6ff", color: "#2563eb" },
-  completed:   { background: "#f0fdf4", color: "#16a34a" },
-  denied:      { background: "#fef2f2", color: "#dc2626" },
-};
 
 const TYPE_LABELS: Record<string, string> = {
   deletion:   "Data Deletion",
@@ -45,7 +41,7 @@ function thisMonth(iso: string): boolean {
   return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
 }
 
-const inputCls = "w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 outline-none focus:border-indigo-400";
+const inputCls = "w-full rounded-lg border border-[#ddd8c9] bg-white px-3 py-2 text-[12.5px] text-[#20201d] outline-none focus:border-[#c9791d]";
 
 export default function ComplianceConsole({ requests, tenants }: { requests: ComplianceRequest[]; tenants: Tenant[] }) {
   const [isPending, startTransition] = useTransition();
@@ -77,33 +73,24 @@ export default function ComplianceConsole({ requests, tenants }: { requests: Com
   const inProgressCount = requests.filter((r) => r.status === "in_progress").length;
   const completedThisMonth = requests.filter((r) => r.status === "completed" && r.completed_at && thisMonth(r.completed_at)).length;
 
-  const kpiCard: React.CSSProperties = { background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "14px 16px" };
-
   return (
-    <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 20 }}>
-      {error && <div style={{ padding: "9px 12px", background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 7, fontSize: 12, color: "#dc2626" }}>{error}</div>}
+    <div className="mt-4 space-y-5">
+      {error && <Note icon="⚠" tone="error">{error}</Note>}
 
-      {/* KPI strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-        <div style={kpiCard}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>Pending</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: pendingCount > 0 ? "#d97706" : "#111827", marginTop: 4 }}>{pendingCount}</div>
-        </div>
-        <div style={kpiCard}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>In Progress</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#111827", marginTop: 4 }}>{inProgressCount}</div>
-        </div>
-        <div style={kpiCard}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>Completed This Month</div>
-          <div style={{ fontSize: 28, fontWeight: 700, color: "#111827", marginTop: 4 }}>{completedThisMonth}</div>
-        </div>
-      </div>
+      <StatsRow
+        items={[
+          { label: "Pending", value: pendingCount, color: pendingCount > 0 ? "#c9791d" : undefined },
+          { label: "In progress", value: inProgressCount },
+          { label: "Completed this month", value: completedThisMonth, color: "#3f7d4c" },
+        ]}
+      />
 
       {/* New request toggle */}
       <div>
         <button
           onClick={() => setShowForm(!showForm)}
-          style={{ padding: "7px 16px", borderRadius: 7, border: "1px solid #e5e7eb", background: showForm ? "#f8fafc" : "#4f46e5", color: showForm ? "#374151" : "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+          className="rounded-md border border-[#ddd8c9] px-4 py-[7px] text-[12px] font-semibold"
+          style={showForm ? { background: "#f4f2eb", color: "#4a473e" } : { background: "#c9791d", color: "#fff", borderColor: "#c9791d" }}
         >
           {showForm ? "Cancel" : "New Request"}
         </button>
@@ -144,7 +131,7 @@ export default function ComplianceConsole({ requests, tenants }: { requests: Com
                 <textarea value={reqNotes} onChange={(e) => setReqNotes(e.target.value)} rows={3} placeholder="Context, case reference, etc." className={inputCls} style={{ resize: "none", fontFamily: "inherit" }} />
               </div>
             </div>
-            <button onClick={submitRequest} disabled={isPending} style={{ marginTop: 12, padding: "7px 16px", borderRadius: 7, border: "none", background: "#4f46e5", color: "#fff", fontSize: 12, fontWeight: 600, cursor: "pointer", opacity: isPending ? .5 : 1 }}>
+            <button onClick={submitRequest} disabled={isPending} className="mt-3 rounded-md border border-[#c9791d] bg-[#c9791d] px-4 py-[7px] text-[12px] font-semibold text-white disabled:opacity-50">
               Submit Request
             </button>
           </div>
@@ -153,56 +140,59 @@ export default function ComplianceConsole({ requests, tenants }: { requests: Com
 
       {/* Requests table */}
       {requests.length === 0 ? (
-        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, padding: "48px 24px", textAlign: "center", fontSize: 13, color: "#94a3b8" }}>
-          No compliance requests yet.
-        </div>
+        <div className="fw-card py-12 text-center text-[13px] text-[#a19d90]">No compliance requests yet.</div>
       ) : (
-        <div style={{ background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, overflow: "hidden" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ borderBottom: "1px solid #e5e7eb" }}>
-                {["Type", "Requester", "Tenant", "Status", "Regulation", "Created", "Actions"].map((h) => (
-                  <th key={h} style={{ padding: "9px 14px", textAlign: "left", fontSize: 10, fontWeight: 700, color: "#94a3b8", textTransform: "uppercase", letterSpacing: ".07em" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {requests.map((req) => (
-                <tr key={req.id} style={{ borderBottom: "1px solid #f1f5f9" }}>
-                  <td style={{ padding: "11px 14px", fontWeight: 600, color: "#111827" }}>{TYPE_LABELS[req.request_type] ?? req.request_type}</td>
-                  <td style={{ padding: "11px 14px", color: "#4b5563", fontSize: 12 }}>{req.requester_email}</td>
-                  <td style={{ padding: "11px 14px", color: "#6b7280" }}>{req.tenant_name ?? "—"}</td>
-                  <td style={{ padding: "11px 14px" }}>
-                    <span style={{ padding: "2px 8px", borderRadius: 9, fontSize: 11, fontWeight: 600, ...(STATUS_STYLES[req.status] ?? { background: "#f1f5f9", color: "#64748b" }) }}>
-                      {req.status}
-                    </span>
-                  </td>
-                  <td style={{ padding: "11px 14px", color: "#6b7280", fontSize: 12 }}>{req.regulation}</td>
-                  <td style={{ padding: "11px 14px", color: "#94a3b8", fontSize: 12 }}>{timeAgo(req.created_at)}</td>
-                  <td style={{ padding: "11px 14px" }}>
-                    <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                      {req.request_type === "export" && (
-                        <a href={`/api/admin/compliance/export?email=${encodeURIComponent(req.requester_email)}`} download style={{ fontSize: 12, fontWeight: 600, color: "#2563eb", textDecoration: "none" }}>Download</a>
-                      )}
-                      {req.request_type === "deletion" && req.status !== "completed" && req.status !== "denied" && (
-                        <button onClick={() => { if (!confirm(`Permanently erase all data for ${req.requester_email}?`)) return; run(async () => { const res = await fetch("/api/admin/compliance/erase", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: req.requester_email }) }); if (!res.ok) throw new Error((await res.json()).error ?? "Erasure failed"); await updateComplianceStatusAction(req.id, "completed", "Automated erasure completed."); }); }} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0, opacity: isPending ? .4 : 1 }}>Erase</button>
-                      )}
-                      {req.status === "pending" && (
-                        <button onClick={() => run(() => updateComplianceStatusAction(req.id, "in_progress"))} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, color: "#d97706", background: "none", border: "none", cursor: "pointer", padding: 0, opacity: isPending ? .4 : 1 }}>Start</button>
-                      )}
-                      {(req.status === "pending" || req.status === "in_progress") && (
-                        <>
-                          <button onClick={() => run(() => updateComplianceStatusAction(req.id, "completed"))} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, color: "#16a34a", background: "none", border: "none", cursor: "pointer", padding: 0, opacity: isPending ? .4 : 1 }}>Complete</button>
-                          <button onClick={() => run(() => updateComplianceStatusAction(req.id, "denied"))} disabled={isPending} style={{ fontSize: 12, fontWeight: 600, color: "#dc2626", background: "none", border: "none", cursor: "pointer", padding: 0, opacity: isPending ? .4 : 1 }}>Deny</button>
-                        </>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <AdminTable
+          minWidth={900}
+          columns={[
+            { label: "Type", width: 140 },
+            { label: "Requester", flex: true },
+            { label: "Tenant", width: 140 },
+            { label: "Status", width: 110 },
+            { label: "Regulation", width: 100 },
+            { label: "Created", width: 100 },
+            { label: "Actions", width: 190 },
+          ]}
+          rows={requests.map((req): AdminTableCell[] => {
+            const sc: Record<string, { fg: string; bg: string }> = {
+              pending: { fg: "#c9791d", bg: "#fdf1de" },
+              in_progress: { fg: "#3a6ea8", bg: "#eaf1f8" },
+              completed: { fg: "#3f7d4c", bg: "#e9f3ea" },
+              denied: { fg: "#c0392b", bg: "#fbeae8" },
+            };
+            const c = sc[req.status] ?? { fg: "#726e60", bg: "#f1efe9" };
+            return [
+              { kind: "bold", value: TYPE_LABELS[req.request_type] ?? req.request_type },
+              { kind: "text", value: req.requester_email },
+              { kind: "dim", value: req.tenant_name ?? "—" },
+              { kind: "chip", value: req.status, chipFg: c.fg, chipBg: c.bg },
+              { kind: "dim", value: req.regulation },
+              { kind: "dim", value: timeAgo(req.created_at) },
+              {
+                kind: "text",
+                value: (
+                  <div className="flex flex-wrap gap-2.5 text-[11.5px] font-semibold">
+                    {req.request_type === "export" && (
+                      <a href={`/api/admin/compliance/export?email=${encodeURIComponent(req.requester_email)}`} download className="text-[#3a6ea8] hover:underline">Download</a>
+                    )}
+                    {req.request_type === "deletion" && req.status !== "completed" && req.status !== "denied" && (
+                      <button onClick={() => { if (!confirm(`Permanently erase all data for ${req.requester_email}?`)) return; run(async () => { const res = await fetch("/api/admin/compliance/erase", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: req.requester_email }) }); if (!res.ok) throw new Error((await res.json()).error ?? "Erasure failed"); await updateComplianceStatusAction(req.id, "completed", "Automated erasure completed."); }); }} disabled={isPending} className="text-[#c0392b] disabled:opacity-40">Erase</button>
+                    )}
+                    {req.status === "pending" && (
+                      <button onClick={() => run(() => updateComplianceStatusAction(req.id, "in_progress"))} disabled={isPending} className="text-[#c9791d] disabled:opacity-40">Start</button>
+                    )}
+                    {(req.status === "pending" || req.status === "in_progress") && (
+                      <>
+                        <button onClick={() => run(() => updateComplianceStatusAction(req.id, "completed"))} disabled={isPending} className="text-[#3f7d4c] disabled:opacity-40">Complete</button>
+                        <button onClick={() => run(() => updateComplianceStatusAction(req.id, "denied"))} disabled={isPending} className="text-[#c0392b] disabled:opacity-40">Deny</button>
+                      </>
+                    )}
+                  </div>
+                ),
+              },
+            ];
+          })}
+        />
       )}
     </div>
   );

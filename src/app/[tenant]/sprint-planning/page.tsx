@@ -103,7 +103,7 @@ export default async function SprintPlanningPage({
   }
 
   return (
-    <main className="w-full px-6 py-8">
+    <main className="w-full">
       <SprintPlanningClient
         slug={slug}
         projects={projects}

@@ -1,72 +1,12 @@
 "use client";
 
-import type { EngHealthData, WeekBucket } from "./page";
-
-function KPI({
-  label,
-  value,
-  sub,
-  color = "text-neutral-900",
-  alert = false,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  color?: string;
-  alert?: boolean;
-}) {
-  return (
-    <div className={`rounded-xl border bg-white p-5 ${alert ? "border-red-200 bg-red-50" : "border-neutral-200"}`}>
-      <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{label}</p>
-      <p className={`mt-2 text-3xl font-bold ${color}`}>{value}</p>
-      {sub && <p className="mt-1 text-xs text-neutral-500">{sub}</p>}
-    </div>
-  );
-}
-
-function ThroughputBar({ buckets }: { buckets: WeekBucket[] }) {
-  const max = Math.max(1, ...buckets.map((b) => b.done));
-  return (
-    <div className="rounded-xl border border-neutral-200 bg-white p-5">
-      <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-neutral-400">Throughput — Issues done / week</p>
-      <div className="flex items-end gap-3 h-24">
-        {buckets.map((b, i) => {
-          const pct = Math.round((b.done / max) * 100);
-          const isLatest = i === buckets.length - 1;
-          return (
-            <div key={b.label} className="flex flex-1 flex-col items-center gap-1">
-              <span className="text-xs font-semibold text-neutral-600">{b.done}</span>
-              <div className="w-full flex items-end" style={{ height: "60px" }}>
-                <div
-                  className={`w-full rounded-t transition-all ${isLatest ? "bg-indigo-500" : "bg-neutral-200"}`}
-                  style={{ height: `${Math.max(4, pct)}%` }}
-                />
-              </div>
-              <span className="text-[10px] text-neutral-400">{b.label}</span>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function PriorityBar({ label, count, total, color }: { label: string; count: number; total: number; color: string }) {
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-  return (
-    <div className="flex items-center gap-3">
-      <span className="w-16 shrink-0 text-xs text-neutral-500">{label}</span>
-      <div className="flex-1 h-2 rounded-full bg-neutral-100 overflow-hidden">
-        <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
-      </div>
-      <span className="w-6 text-right text-xs font-medium text-neutral-700">{count}</span>
-    </div>
-  );
-}
+import type { EngHealthData } from "./page";
+import StatsRow from "@/components/patterns/admin/StatsRow";
+import Bars from "@/components/patterns/admin/Bars";
 
 function CycleSpark({ entries }: { entries: { days: number }[] }) {
   if (entries.length < 2) {
-    return <p className="text-xs text-neutral-400 italic">Not enough cycle data yet.</p>;
+    return <p className="text-[11.5px] italic text-[#a19d90]">Not enough cycle data yet.</p>;
   }
   const max = Math.max(1, ...entries.map((e) => e.days));
   const w = 300;
@@ -83,14 +23,7 @@ function CycleSpark({ entries }: { entries: { days: number }[] }) {
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height: 60 }}>
-      <polyline
-        points={pts}
-        fill="none"
-        stroke="#6366f1"
-        strokeWidth="2"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-      />
+      <polyline points={pts} fill="none" stroke="#b7452f" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
     </svg>
   );
 }
@@ -109,88 +42,72 @@ export default function EngineeringHealthDashboard({ data }: { data: EngHealthDa
     totalOpen,
   } = data;
 
-  const totalByPriority = Object.values(openByPriority).reduce((a, b) => a + b, 0);
+  const healthy = blockedP1 === 0 && wip <= 20;
 
   return (
-    <div className="space-y-6">
-      {/* KPI strip */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KPI
-          label="WIP"
-          value={wip}
-          sub="In progress + in review"
-          color={wip > 12 ? "text-amber-600" : "text-neutral-900"}
-          alert={wip > 20}
-        />
-        <KPI
-          label="Blocked P1s"
-          value={blockedP1}
-          sub="Urgent, unowned > 24h"
-          color={blockedP1 > 0 ? "text-red-600" : "text-green-600"}
-          alert={blockedP1 > 0}
-        />
-        <KPI
-          label="Avg cycle time"
-          value={avgCycleDays !== null ? `${avgCycleDays}d` : "—"}
-          sub={p50CycleDays !== null ? `p50 ${p50CycleDays}d` : "Not enough data"}
-        />
-        <KPI
-          label="Done this week"
-          value={`${throughputLast4Weeks[3]?.done ?? 0}`}
-          sub={`${percentDoneThisWeek}% of open pipeline`}
-          color="text-indigo-600"
-        />
-      </div>
+    <div className="space-y-5">
+      <StatsRow
+        items={[
+          { label: "WIP", value: wip, hint: "In progress + in review", color: wip > 20 ? "#c0392b" : wip > 12 ? "#c9791d" : undefined },
+          { label: "Blocked P1s", value: blockedP1, hint: "Urgent, unowned > 24h", color: blockedP1 > 0 ? "#c0392b" : "#3f7d4c" },
+          { label: "Avg cycle time", value: avgCycleDays !== null ? `${avgCycleDays}d` : "—", hint: p50CycleDays !== null ? `p50 ${p50CycleDays}d` : "Not enough data" },
+          { label: "Done this week", value: throughputLast4Weeks[3]?.done ?? 0, hint: `${percentDoneThisWeek}% of open pipeline`, color: "#b7452f" },
+        ]}
+      />
 
-      {/* Second row */}
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* Throughput chart */}
         <div className="lg:col-span-2">
-          <ThroughputBar buckets={throughputLast4Weeks} />
+          <Bars
+            color="#3f7d4c"
+            items={throughputLast4Weeks.map((b) => ({ label: b.label, value: b.done }))}
+          />
         </div>
 
-        {/* Open by priority */}
-        <div className="rounded-xl border border-neutral-200 bg-white p-5">
-          <p className="mb-4 text-xs font-semibold uppercase tracking-wide text-neutral-400">Open issues by priority</p>
-          <div className="space-y-3">
-            <PriorityBar label="Urgent" count={openByPriority.urgent} total={totalByPriority} color="bg-red-500" />
-            <PriorityBar label="High" count={openByPriority.high} total={totalByPriority} color="bg-orange-400" />
-            <PriorityBar label="Medium" count={openByPriority.medium} total={totalByPriority} color="bg-yellow-400" />
-            <PriorityBar label="Low" count={openByPriority.low} total={totalByPriority} color="bg-neutral-300" />
-          </div>
-          <p className="mt-4 text-xs text-neutral-400">{totalOpen} total open</p>
+        <div className="fw-card px-4 py-4">
+          <p className="mb-3 text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Open issues by priority</p>
+          <Bars
+            color="#8c4632"
+            items={[
+              { label: "Urgent", value: openByPriority.urgent },
+              { label: "High", value: openByPriority.high },
+              { label: "Medium", value: openByPriority.medium },
+              { label: "Low", value: openByPriority.low },
+            ]}
+          />
+          <p className="mt-3 text-[11px] text-[#a19d90]">{totalOpen} total open</p>
         </div>
       </div>
 
-      {/* Cycle time sparkline */}
-      <div className="rounded-xl border border-neutral-200 bg-white p-5">
-        <div className="flex items-baseline justify-between mb-3">
-          <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">Cycle time trend (last {cycleEntries.length} completed)</p>
+      <div className="fw-card px-4 py-4">
+        <div className="mb-3 flex items-baseline justify-between">
+          <p className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">Cycle time trend (last {cycleEntries.length} completed)</p>
           {longestOpenIssueDays > 0 && (
-            <span className="text-xs text-neutral-400">Oldest open issue: <strong className="text-neutral-700">{longestOpenIssueDays}d</strong></span>
+            <span className="text-[11px] text-[#a19d90]">Oldest open issue: <strong className="text-[#20201d]">{longestOpenIssueDays}d</strong></span>
           )}
         </div>
         <CycleSpark entries={cycleEntries} />
         {cycleEntries.length === 0 && (
-          <p className="text-xs text-neutral-400 italic mt-2">
+          <p className="mt-2 text-[11.5px] italic text-[#a19d90]">
             Cycle time is calculated from when an issue moves to in_progress until it&apos;s marked done. No completed cycles recorded yet.
           </p>
         )}
       </div>
 
-      {/* Health score summary */}
-      <div className={`rounded-xl border-2 p-5 ${blockedP1 > 0 || wip > 20 ? "border-amber-200 bg-amber-50" : "border-green-200 bg-green-50"}`}>
+      <div
+        className="rounded-[6px] border-2 px-5 py-4"
+        style={healthy ? { borderColor: "#c9d9c9", backgroundColor: "#e9f3ea" } : { borderColor: "#f0dcb8", backgroundColor: "#fdf1de" }}
+      >
         <div className="flex items-center gap-3">
-          <span className="text-2xl">{blockedP1 > 0 ? "⚠️" : wip > 20 ? "🟡" : "✅"}</span>
+          <span className="text-[22px]">{blockedP1 > 0 ? "⚠️" : wip > 20 ? "🟡" : "✅"}</span>
           <div>
-            <p className={`text-sm font-semibold ${blockedP1 > 0 || wip > 20 ? "text-amber-800" : "text-green-800"}`}>
+            <p className="text-[12.5px] font-bold" style={{ color: healthy ? "#3f7d4c" : "#c9791d" }}>
               {blockedP1 > 0
                 ? `${blockedP1} unowned urgent issue${blockedP1 > 1 ? "s" : ""} need attention`
                 : wip > 20
                 ? "WIP is high — consider limiting in-progress work"
                 : "Board looks healthy"}
             </p>
-            <p className={`text-xs mt-0.5 ${blockedP1 > 0 || wip > 20 ? "text-amber-600" : "text-green-600"}`}>
+            <p className="mt-0.5 text-[11px]" style={{ color: healthy ? "#3f7d4c" : "#c9791d" }}>
               {avgCycleDays !== null
                 ? `Average cycle time ${avgCycleDays}d · ${throughputLast4Weeks[3]?.done ?? 0} issues done this week`
                 : "Not enough historical data for cycle time yet."}

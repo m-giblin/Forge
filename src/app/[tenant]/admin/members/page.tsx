@@ -6,6 +6,7 @@ import { loadTenantFlags } from "@/lib/services/featureFlags";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { customRolesRepo } from "@/lib/repositories/customRoles";
 import MembersManager from "./MembersManager";
+import PageHeader from "@/components/patterns/PageHeader";
 
 export default async function MembersPage({ params }: { params: Promise<{ tenant: string }> }) {
   const { tenant: slug } = await params;
@@ -22,20 +23,26 @@ export default async function MembersPage({ params }: { params: Promise<{ tenant
       : Promise.resolve([]),
   ]);
 
+  const adminCount = members.filter((m) => m.role === "owner" || m.role === "admin").length;
+
   return (
-    <section>
-      <h2 className="text-base font-semibold text-neutral-900">Members</h2>
-      <p className="mt-1 text-sm text-neutral-500">People in this workspace and their roles. Invite teammates with a single-use link.</p>
-      <MembersManager
-        slug={slug}
-        currentUserId={ctx.appUserId}
-        members={members}
-        invites={invites}
-        readOnly={readOnly}
-        showJobTitles={flags.job_titles ?? false}
-        showRbac={flags.rbac ?? false}
-        customRoles={customRoles.map((r) => ({ id: r.id, name: r.name, color: r.color }))}
+    <div className="space-y-6">
+      <PageHeader
+        title="Members"
+        subtitle={`${members.length} member${members.length !== 1 ? "s" : ""} · ${adminCount} admin${adminCount !== 1 ? "s" : ""}`}
       />
-    </section>
+      <div className="px-6">
+        <MembersManager
+          slug={slug}
+          currentUserId={ctx.appUserId}
+          members={members}
+          invites={invites}
+          readOnly={readOnly}
+          showJobTitles={flags.job_titles ?? false}
+          showRbac={flags.rbac ?? false}
+          customRoles={customRoles.map((r) => ({ id: r.id, name: r.name, color: r.color }))}
+        />
+      </div>
+    </div>
   );
 }

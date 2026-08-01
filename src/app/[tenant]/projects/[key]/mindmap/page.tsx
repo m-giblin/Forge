@@ -22,6 +22,10 @@ export default async function MindMapPage({
   const tree = await buildProjectMindMapTree(svc, ctx.tenant.id, key, slug);
   if (!tree) notFound();
 
+  // Real mind map is project-scoped (Epic → Sprint → Issue tree with an
+  // interactive drag/drop canvas), unlike the prototype's flat static list —
+  // restyled the canvas chrome to Ember Rust tokens while preserving all
+  // existing drag, collapse, add-child, and bulk-move behavior.
   return (
     <div className="px-6 py-4">
       <MindMapCanvas slug={slug} projectKey={key} projectId={project.id} initialTree={tree} />

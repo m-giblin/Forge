@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role required: cross-project rollup, not scoped to caller's own projects (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import PageHeader from "@/components/patterns/PageHeader";
 
 type EpicProgress = { id: string; title: string; done: number; total: number };
 type ProjectRow = {
@@ -16,10 +17,10 @@ type ProjectRow = {
   epics: EpicProgress[];
 };
 
-function health(blocked: number): { label: string; dot: string; text: string } {
-  if (blocked > 2) return { label: "At risk", dot: "bg-red-500", text: "text-red-700" };
-  if (blocked > 0) return { label: "Needs attention", dot: "bg-amber-500", text: "text-amber-700" };
-  return { label: "Healthy", dot: "bg-emerald-500", text: "text-emerald-700" };
+function health(blocked: number): { label: string; fg: string; bg: string } {
+  if (blocked > 2) return { label: "At risk", fg: "#c0392b", bg: "#fbeae8" };
+  if (blocked > 0) return { label: "Needs attention", fg: "#c9791d", bg: "#fdf1de" };
+  return { label: "Healthy", fg: "#3f7d4c", bg: "#e9f3ea" };
 }
 
 export default async function PortfolioPage({ params }: { params: Promise<{ tenant: string }> }) {
@@ -84,61 +85,54 @@ export default async function PortfolioPage({ params }: { params: Promise<{ tena
   });
 
   return (
-    <main className="w-full px-3 py-4 sm:px-6 sm:py-6">
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold text-neutral-900">Portfolio</h1>
-        <p className="mt-1 text-sm text-neutral-500">Every project&apos;s health and epic progress, in one view.</p>
-      </div>
-
-      {rows.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-white px-6 py-16 text-center text-sm text-neutral-500">
-          No active projects yet.
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {rows.map((p) => {
-            const h = health(p.blocked);
-            return (
-              <Link
-                key={p.id}
-                href={`/${slug}/projects/${p.key}`}
-                className="block rounded-xl border border-neutral-200 bg-white p-4 transition hover:border-neutral-300 hover:shadow-sm"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="rounded bg-neutral-100 px-2 py-0.5 font-mono text-xs font-semibold text-neutral-600">{p.key}</span>
-                    <span className="font-medium text-neutral-900">{p.name}</span>
-                  </div>
-                  <div className="flex items-center gap-4 text-xs text-neutral-500">
-                    <span className="flex items-center gap-1.5">
-                      <span className={`h-1.5 w-1.5 rounded-full ${h.dot}`} />
-                      <span className={`font-medium ${h.text}`}>{h.label}</span>
+    <main className="flex h-[calc(100vh-56px)] flex-col overflow-hidden md:h-screen">
+      <PageHeader title="Portfolio" subtitle="Every project's health and epic progress, in one view" />
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-[18px] pb-7">
+        {rows.length === 0 ? (
+          <div className="fw-card px-6 py-16 text-center text-[13px] text-[#726e60]">No active projects yet.</div>
+        ) : (
+          <div className="flex max-w-[1100px] flex-col gap-3">
+            {rows.map((p) => {
+              const h = health(p.blocked);
+              return (
+                <Link key={p.id} href={`/${slug}/projects/${p.key}`} className="fw-card block p-4 sm:px-[18px] sm:py-4">
+                  <div className="flex flex-wrap items-center gap-2.5">
+                    <span className="rounded bg-[#eae6da] px-[7px] py-[3px] font-mono text-[11px] font-bold text-[#726e60]">{p.key}</span>
+                    <span className="text-[14px] font-bold text-[#20201d]">{p.name}</span>
+                    <div className="flex-1" />
+                    <span
+                      className="rounded-full px-2 py-0.5 text-[10px] font-bold"
+                      style={{ color: h.fg, backgroundColor: h.bg }}
+                    >
+                      {h.label}
                     </span>
-                    <span>{p.total} issues · {p.done} done · {p.blocked} blocked · {p.members} member{p.members === 1 ? "" : "s"}</span>
+                    <span className="text-[11.5px] text-[#726e60]">
+                      {p.total} issues · {p.done} done · {p.blocked} blocked · {p.members} member{p.members === 1 ? "" : "s"}
+                    </span>
                   </div>
-                </div>
 
-                {p.epics.length > 0 && (
-                  <div className="mt-3 flex flex-wrap gap-2 border-t border-neutral-100 pt-3">
-                    {p.epics.map((e) => {
-                      const pct = e.total > 0 ? Math.round((e.done / e.total) * 100) : 0;
-                      return (
-                        <div key={e.id} className="flex items-center gap-1.5 rounded-full bg-neutral-50 px-2.5 py-1 text-[11px]">
-                          <span className="max-w-[140px] truncate text-neutral-700">{e.title}</span>
-                          <div className="h-1 w-12 overflow-hidden rounded-full bg-neutral-200">
-                            <div className="h-full rounded-full bg-neutral-900" style={{ width: `${pct}%` }} />
+                  {p.epics.length > 0 && (
+                    <div className="mt-[13px] flex flex-wrap gap-2 border-t border-[#e3ded0] pt-[13px]">
+                      {p.epics.map((e) => {
+                        const pct = e.total > 0 ? Math.round((e.done / e.total) * 100) : 0;
+                        return (
+                          <div key={e.id} className="flex items-center gap-[7px] rounded-full bg-[#eae6da] px-2.5 py-1">
+                            <span className="max-w-[150px] truncate text-[11px] text-[#4a473e]">{e.title}</span>
+                            <div className="h-1 w-11 overflow-hidden rounded-full bg-[#e3ded0]">
+                              <div className="h-full rounded-full bg-[#8c4632]" style={{ width: `${pct}%` }} />
+                            </div>
+                            <span className="text-[10.5px] font-bold text-[#a19d90]">{pct}%</span>
                           </div>
-                          <span className="text-neutral-400">{e.done}/{e.total}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      )}
+                        );
+                      })}
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </main>
   );
 }

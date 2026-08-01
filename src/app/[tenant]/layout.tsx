@@ -22,6 +22,8 @@ import MobileSidebar from "@/components/MobileSidebar";
 import EmberWidget from "@/components/EmberWidget";
 import GearMenu from "@/components/GearMenu";
 import WorkspaceSidebarNav from "@/components/WorkspaceSidebarNav";
+import WorkspaceTopBar from "@/components/WorkspaceTopBar";
+import CollapsibleSidebarShell from "@/components/CollapsibleSidebarShell";
 import { getTenantSetting } from "@/lib/tenantSettings";
 
 function trialDaysRemaining(trialEndsAt: string | null): number | null {
@@ -105,7 +107,7 @@ export default async function TenantLayout({
   const initials = (ctx.email ?? "?").slice(0, 2).toUpperCase();
 
   return (
-    <div className="flex min-h-screen bg-neutral-50">
+    <div className="flex min-h-screen bg-[#f4f2eb]">
       {ctx.impersonating && <ImpersonationBanner tenantName={ctx.tenant.name} />}
 
       {/* ── Mobile nav (hamburger + drawer) — hidden on md+ ── */}
@@ -123,22 +125,38 @@ export default async function TenantLayout({
         figmaUrl={figmaUrl}
       />
 
-      {/* ── Desktop Sidebar — hidden on mobile ── */}
+      {/* ── Desktop Sidebar — hidden on mobile, collapses in Reports ── */}
+      <CollapsibleSidebarShell slug={slug}>
       <aside
-        className="sticky top-0 hidden md:flex h-screen w-56 shrink-0 flex-col font-[family-name:var(--font-inter)]"
+        className="sticky top-0 flex h-screen w-56 shrink-0 flex-col font-[family-name:var(--font-inter)]"
         style={{
           background: `linear-gradient(165deg, var(--fw-sidebar-1) 0%, var(--fw-sidebar-2) 55%, var(--fw-sidebar-3) 100%)`,
           borderRight: "1px solid var(--fw-sidebar-border)",
         }}
       >
-        {/* Logo + workspace */}
-        <div className="flex items-center gap-2.5 border-b border-[var(--fw-sidebar-border)] px-4 py-4 shrink-0">
-          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[var(--fw-sidebar-3)] overflow-hidden">
-            <img src="/logo-28.png" alt="Forge" className="h-7 w-7 object-cover" />
+        {/* Forge-Worx wordmark */}
+        <div className="flex items-center gap-2.5 border-b border-white/[0.06] px-[18px] py-4 shrink-0">
+          <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-md border border-[#3a3c33] bg-[var(--fw-sidebar-3)]">
+            <svg width="20" height="12.5" viewBox="0 0 64 40" aria-hidden="true">
+              <path d="M3,19 L17,11 L17,8 L50,8 L50,15 L41,15 L37,22 L46,22 L48,32 L35,32 Q31,27 27,32 L13,32 L15,22 L24,22 L20,15 L20,11 Z" fill="var(--fw-rust)" />
+            </svg>
           </div>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold text-[var(--fw-text-bright)] font-[family-name:var(--font-manrope)]">{ctx.tenant.name}</p>
-            <p className="text-[11px] text-[var(--fw-text-dimmer)] capitalize">{ctx.role}</p>
+          <p className="font-[family-name:var(--font-manrope)] text-[15.5px] font-extrabold uppercase tracking-[0.03em] text-[var(--fw-text-bright)]">
+            Forge<span className="text-[var(--fw-rust)]">-Worx</span>
+          </p>
+        </div>
+
+        {/* Workspace switcher */}
+        <div className="mx-3.5 my-3.5 flex shrink-0 items-center gap-2.5 rounded-[5px] border border-[#34362c] bg-[var(--fw-sidebar-2)] px-2.5 py-[9px]">
+          <div
+            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded border border-[#3a1e15] text-[11px] font-extrabold text-[#efe6d0]"
+            style={{ background: "linear-gradient(135deg,var(--fw-rust-dark),var(--fw-rust-border))" }}
+          >
+            {(ctx.tenant.name || "?").slice(0, 2).toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[12.5px] font-bold text-[var(--fw-text-bright)]">{ctx.tenant.name}</p>
+            <p className="truncate text-[10.5px] text-[var(--fw-text-dimmer)] capitalize">{ctx.role}</p>
           </div>
         </div>
 
@@ -172,14 +190,16 @@ export default async function TenantLayout({
           <SignOutButton className="mt-2 w-full rounded-lg px-3 py-1.5 text-left text-xs text-[var(--fw-text-dimmer)] hover:bg-[var(--fw-sidebar-2)] hover:text-[var(--fw-text-bright)] transition" />
         </div>
       </aside>
+      </CollapsibleSidebarShell>
 
       {/* ── Main content ── */}
       <div className="flex min-w-0 flex-1 flex-col pt-14 md:pt-0">
+        <WorkspaceTopBar slug={slug} />
         {/* Plan feature notification banners */}
         {(planNotifications as { id: string; title: string; feature_key: string | null }[]).length > 0 && (
           <div className="flex flex-col gap-0 shrink-0">
             {(planNotifications as { id: string; title: string; feature_key: string | null }[]).map((n) => (
-              <div key={n.id} className="flex items-center gap-3 px-4 py-2 bg-indigo-600 text-white text-xs font-medium">
+              <div key={n.id} className="flex items-center gap-3 px-4 py-2 bg-[#8c4632] text-white text-xs font-medium">
                 <span>✦</span>
                 <span className="flex-1">{n.title}</span>
                 <Link href={`/${slug}/admin/features`} className="shrink-0 underline font-semibold">View features →</Link>
@@ -192,10 +212,10 @@ export default async function TenantLayout({
         {isTrialing && trialDaysLeft !== null && !isOnBillingPage && (
           <div className={`flex items-center justify-between gap-3 px-4 py-2 text-xs font-semibold shrink-0 ${
             trialDaysLeft <= 1
-              ? "bg-red-600 text-white"
+              ? "bg-[#c0392b] text-white"
               : trialDaysLeft <= 3
-              ? "bg-orange-500 text-white"
-              : "bg-indigo-600 text-white"
+              ? "bg-[#c9791d] text-white"
+              : "bg-[#8c4632] text-white"
           }`}>
             <span>
               {trialDaysLeft <= 0

@@ -4,6 +4,7 @@ import { requireSuperAdmin } from "@/lib/super-admin";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import AdminSidebar from "./AdminSidebar";
+import PlatformTopBar from "./PlatformTopBar";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const sa = await requireSuperAdmin();
@@ -19,15 +20,16 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   const svc = createSupabaseServiceClient();
-  const { count: openTickets } = await svc
-    .from("support_tickets")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "open");
+  const [{ count: openTickets }, { count: tenantCount }] = await Promise.all([
+    svc.from("support_tickets").select("id", { count: "exact", head: true }).eq("status", "open"),
+    svc.from("tenants").select("id", { count: "exact", head: true }),
+  ]);
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc", fontFamily: "var(--font-inter), -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" }}>
       <AdminSidebar openTickets={openTickets ?? 0} />
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "auto", minWidth: 0 }}>
+        <PlatformTopBar tenantCount={tenantCount ?? 0} />
         {children}
       </div>
     </div>

@@ -4,7 +4,6 @@ import { requireSuperAdmin } from "@/lib/super-admin";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { platformRepo } from "@/lib/repositories/platform";
-import { adminStyles as S } from "../../page";
 import TenantDetailClient from "./TenantDetailClient";
 
 function healthScore(t: { member_count: number; issue_count: number; status: string }) {
@@ -107,8 +106,10 @@ export default async function TenantDetailPage({ params }: { params: Promise<{ i
   });
 
   return (
-    <main style={{ padding: "24px 28px", maxWidth: 1100 }}>
-      <Link href="/admin/tenants" style={S.backLink}>← All Tenants</Link>
+    <main className="px-6 py-5">
+      <Link href="/admin/tenants" className="mb-2 inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-[#c9791d] hover:underline">
+        ← All Tenants
+      </Link>
       <TenantDetailClient
         tenant={t}
         health={health}

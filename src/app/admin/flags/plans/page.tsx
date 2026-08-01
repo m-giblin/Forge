@@ -1,9 +1,9 @@
 import { redirect } from "next/navigation";
-import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/super-admin";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { adminStyles as S } from "../../page";
+import PageHeader from "@/components/patterns/PageHeader";
+import Note from "@/components/patterns/admin/Note";
 import PlansConsole from "./PlansConsole";
 
 export default async function PlansPage() {
@@ -63,17 +63,13 @@ export default async function PlansPage() {
   }
 
   return (
-    <main style={{ padding: "24px 28px", maxWidth: 1100 }}>
-      <Link href="/admin/flags" style={S.backLink}>← Feature Access</Link>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={S.pageTitle}>Plans</h1>
-        <p style={S.pageSub}>Define which features are included per plan tier. Changes apply immediately to the plan default — use "Apply to all tenants" to push to existing workspaces.</p>
-      </div>
-
+    <main className="px-6 py-5">
+      <PageHeader title="Plans" subtitle="Pricing tiers" />
+      <div className="mt-4">
       {(!tiers || tiers.length === 0) ? (
-        <div style={{ padding: "16px 18px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 10, fontSize: 13, color: "#92400e" }}>
-          Plan tiers not found — run migration <code style={{ fontFamily: "monospace" }}>0086_plan_tiers.sql</code> first.
-        </div>
+        <Note icon="⚠" tone="warning">
+          Plan tiers not found — run migration <code className="font-mono">0086_plan_tiers.sql</code> first.
+        </Note>
       ) : (
         <PlansConsole
           tiers={(tiers ?? []) as { key: string; label: string; description: string | null; monthly_cents: number | null; is_active: boolean; display_order: number }[]}
@@ -83,6 +79,7 @@ export default async function PlansPage() {
           overrideCountByPlan={overrideCountByPlan}
         />
       )}
+      </div>
     </main>
   );
 }

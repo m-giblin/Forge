@@ -96,7 +96,8 @@ export default function BulkSprintCreator({
 
       {!bulkPreview ? (
         <button onClick={generatePreview}
-          className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-700">
+          className="rounded-lg border border-[#5e2c1f] px-4 py-1.5 text-xs font-medium text-[#f2e9d8]"
+          style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}>
           Preview {bulkCount} sprint{bulkCount !== 1 ? "s" : ""}
         </button>
       ) : (
@@ -124,7 +125,8 @@ export default function BulkSprintCreator({
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex gap-2">
             <button onClick={() => createBulk(bulkPreview)} disabled={pending}
-              className="rounded-lg bg-neutral-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-neutral-700 disabled:opacity-50">
+              className="rounded-lg border border-[#5e2c1f] px-4 py-1.5 text-xs font-medium text-[#f2e9d8] disabled:opacity-50"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}>
               {pending ? "Creating…" : `Create ${bulkPreview.length} sprints`}
             </button>
             <button onClick={() => setBulkPreview(null)} className="rounded-lg border border-neutral-200 px-4 py-1.5 text-xs font-medium text-neutral-600 hover:bg-neutral-50">

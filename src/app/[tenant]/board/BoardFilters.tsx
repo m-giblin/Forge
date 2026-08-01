@@ -1,12 +1,22 @@
 "use client";
 
 import { type FieldOption, type Category } from "@/lib/repositories/fieldConfig";
+import { FilterRow, FilterPill } from "@/components/patterns/FilterRow";
+import Toggle from "@/components/patterns/Toggle";
 
 type Member = { userId: string; label: string };
+
+function Divider() {
+  return <span className="h-4 w-px shrink-0 bg-[var(--fw-cream-border)]" />;
+}
 
 export default function BoardFilters({
   search,
   setSearch,
+  onlyMine,
+  setOnlyMine,
+  showAging,
+  setShowAging,
   filterPriorities,
   setFilterPriorities,
   filterAssignee,
@@ -24,6 +34,10 @@ export default function BoardFilters({
 }: {
   search: string;
   setSearch: (v: string) => void;
+  onlyMine: boolean;
+  setOnlyMine: (v: boolean) => void;
+  showAging: boolean;
+  setShowAging: (v: boolean) => void;
   filterPriorities: Set<string>;
   setFilterPriorities: (fn: (prev: Set<string>) => Set<string>) => void;
   filterAssignee: string;
@@ -39,52 +53,81 @@ export default function BoardFilters({
   categories: Category[];
   members: Member[];
 }) {
-  const hasFilters = !!(search || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory);
+  const hasFilters = !!(search || onlyMine || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory);
 
   return (
-    <div className="mb-4 space-y-2">
-      <div className="flex gap-2">
+    <div className="border-b border-[var(--fw-cream-border)] bg-[var(--fw-cream-bg)] px-6 py-2.5">
+      <FilterRow>
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search…"
-          className="flex-1 min-w-0 rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+          style={{ width: 190 }}
+          className="shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-3 py-[6px] text-[11.5px] text-[#20201d] outline-none placeholder:text-[#a19d90] focus:border-[#8c4632]"
         />
-        <select
-          value={groupBy}
-          onChange={(e) => setGroupBy(e.target.value as "status" | "assignee" | "priority")}
-          className="rounded-lg border border-neutral-300 px-2 py-2 text-sm text-neutral-600 shrink-0"
-        >
-          <option value="status">By Status</option>
-          <option value="assignee">By Assignee</option>
-          <option value="priority">By Priority</option>
-        </select>
-      </div>
-      <div className="flex flex-wrap items-center gap-1.5">
+
+        <span className="flex shrink-0 items-center gap-1.5 text-[11.5px] font-medium text-[#4a473e]">
+          <Toggle on={onlyMine} onChange={setOnlyMine} label="Only my issues" />
+          Only my issues
+        </span>
+
+        <Divider />
+
+        <span className="flex shrink-0 items-center gap-1.5 text-[11.5px] font-medium text-[#4a473e]">
+          <Toggle on={showAging} onChange={setShowAging} label="Aging" />
+          Aging
+        </span>
+
+        <Divider />
+
+        {priorities.map((p) => {
+          const active = filterPriorities.has(p.key);
+          return (
+            <FilterPill
+              key={p.key}
+              active={active}
+              onClick={() =>
+                setFilterPriorities((prev) => {
+                  const next = new Set(prev);
+                  if (active) next.delete(p.key); else next.add(p.key);
+                  return next;
+                })
+              }
+            >
+              <span className="mr-1 inline-block h-1.5 w-1.5 rounded-full align-middle" style={{ backgroundColor: active ? "#f2e9d8" : (p.color ?? "#a19d90") }} />
+              {p.label}
+            </FilterPill>
+          );
+        })}
+
+        <Divider />
+
         <select
           value={filterAssignee}
           onChange={(e) => setFilterAssignee(e.target.value)}
-          className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+          className="shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none"
         >
-          <option value="">All assignees</option>
+          <option value="">Assignee</option>
           <option value="__unassigned">Unassigned</option>
           {members.map((m) => <option key={m.userId} value={m.userId}>{m.label}</option>)}
         </select>
+
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+          className="shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none"
         >
-          <option value="">All types</option>
+          <option value="">Types</option>
           {types.map((t) => <option key={t.key} value={t.key}>{t.label}</option>)}
         </select>
+
         {categories.length > 0 && (
           <select
             value={filterCategory}
             onChange={(e) => setFilterCategory(e.target.value)}
-            className="rounded-lg border border-neutral-300 px-2 py-1.5 text-sm text-neutral-600"
+            className="shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none"
           >
-            <option value="">All categories</option>
+            <option value="">Categories</option>
             {categories.filter((c) => !c.parent_id).flatMap((top) => [
               <option key={top.id} value={top.id}>{top.name}</option>,
               ...categories.filter((c) => c.parent_id === top.id).map((sub) => (
@@ -93,42 +136,35 @@ export default function BoardFilters({
             ])}
           </select>
         )}
-        {priorities.map((p) => {
-          const active = filterPriorities.has(p.key);
-          return (
-            <button
-              key={p.key}
-              onClick={() => setFilterPriorities((prev) => {
-                const next = new Set(prev);
-                active ? next.delete(p.key) : next.add(p.key);
-                return next;
-              })}
-              className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                active
-                  ? "border-neutral-900 bg-neutral-900 text-white"
-                  : "border-neutral-300 bg-white text-neutral-600 hover:border-neutral-400"
-              }`}
-            >
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: active ? "white" : (p.color ?? "#9CA3AF") }} />
-              {p.label}
-            </button>
-          );
-        })}
-      </div>
-      {hasFilters && (
-        <button
-          onClick={() => {
-            setSearch("");
-            setFilterPriorities(() => new Set());
-            setFilterAssignee("");
-            setFilterType("");
-            setFilterCategory("");
-          }}
-          className="text-xs text-neutral-400 hover:text-neutral-700"
+
+        <select
+          value={groupBy}
+          onChange={(e) => setGroupBy(e.target.value as "status" | "assignee" | "priority")}
+          className="shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none"
         >
-          Clear
-        </button>
-      )}
+          <option value="status">View: Status</option>
+          <option value="assignee">View: Assignee</option>
+          <option value="priority">View: Priority</option>
+        </select>
+
+        <span className="flex-1" />
+
+        {hasFilters && (
+          <button
+            onClick={() => {
+              setSearch("");
+              setOnlyMine(false);
+              setFilterPriorities(() => new Set());
+              setFilterAssignee("");
+              setFilterType("");
+              setFilterCategory("");
+            }}
+            className="shrink-0 whitespace-nowrap text-[11.5px] font-semibold text-[#b7452f] hover:text-[#8c4632]"
+          >
+            Clear filters
+          </button>
+        )}
+      </FilterRow>
     </div>
   );
 }

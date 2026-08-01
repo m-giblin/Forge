@@ -34,7 +34,7 @@ export default async function IdeaCanvasPage({
           Idea Canvas isn&apos;t set up yet — migration <code className="font-mono">0105_idea_canvas.sql</code> needs
           to be run first.
         </p>
-        <Link href={`/${slug}/think-tank/${ideaId}`} className="mt-3 inline-block text-xs text-indigo-600 hover:underline">
+        <Link href={`/${slug}/think-tank/${ideaId}`} className="mt-3 inline-block text-xs text-[#b7452f] hover:underline">
           ← Back to idea
         </Link>
       </div>
@@ -53,7 +53,7 @@ export default async function IdeaCanvasPage({
         {idea.linked_project_id && (
           <Link
             href={`/${slug}/think-tank/${ideaId}`}
-            className="text-xs font-medium text-indigo-600 hover:underline"
+            className="text-xs font-medium text-[#b7452f] hover:underline"
           >
             This idea is already converted — canvas is now historical context →
           </Link>

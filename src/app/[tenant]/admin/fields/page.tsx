@@ -5,6 +5,7 @@ import { listIssueTemplates } from "@/lib/services/issueTemplates";
 // eslint-disable-next-line no-restricted-imports -- admin page needs project list (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { projectsRepo } from "@/lib/repositories/projects";
+import PageHeader from "@/components/patterns/PageHeader";
 import FieldsManager from "./FieldsManager";
 import CategoryImporter from "./CategoryImporter";
 
@@ -22,22 +23,21 @@ export default async function FieldsPage({ params }: { params: Promise<{ tenant:
   ]);
 
   return (
-    <section>
-      <h2 className="text-base font-semibold text-neutral-900">Fields & categories</h2>
-      <p className="mt-1 text-sm text-neutral-500">
-        Customize the statuses, priorities, types, and categories used by issues in this workspace.
-      </p>
-      <FieldsManager slug={slug} schema={schema} templates={templates} readOnly={readOnly} />
-      {!readOnly && (
-        <div className="mt-6">
-          <h3 className="text-sm font-semibold text-neutral-800 mb-1">Bulk import categories</h3>
-          <p className="text-xs text-neutral-500 mb-3">Upload a CSV to populate categories for a specific project. Select the project, upload your file, preview the tree, then confirm.</p>
-          <CategoryImporter
-            slug={slug}
-            projects={projects.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
-          />
-        </div>
-      )}
-    </section>
+    <div className="space-y-6">
+      <PageHeader title="Fields & Labels" subtitle="Categories, components, custom fields and issue templates" />
+      <div className="space-y-4 px-6">
+        <FieldsManager slug={slug} schema={schema} templates={templates} readOnly={readOnly} />
+        {!readOnly && (
+          <div>
+            <h2 className="mb-1 text-[12.5px] font-bold text-[#20201d]">Bulk import categories</h2>
+            <p className="mb-3 text-[11.5px] text-[#726e60]">Upload a CSV to populate categories for a specific project. Select the project, upload your file, preview the tree, then confirm.</p>
+            <CategoryImporter
+              slug={slug}
+              projects={projects.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
+            />
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

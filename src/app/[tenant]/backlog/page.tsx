@@ -61,7 +61,7 @@ export default async function BacklogPage({
   const members = memberRows.map((m) => ({ userId: m.userId, label: m.name || m.email }));
 
   return (
-    <main className="w-full px-6 py-8">
+    <main className="flex min-h-[calc(100vh-56px)] w-full flex-col md:min-h-screen">
       <BacklogClient
         slug={slug}
         projects={projects}

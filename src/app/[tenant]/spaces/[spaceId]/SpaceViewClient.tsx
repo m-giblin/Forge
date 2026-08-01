@@ -187,7 +187,8 @@ export default function SpaceViewClient({
             {canEdit && (
               <button
                 onClick={() => createPage()}
-                className="mt-2 rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-700 transition"
+                className="mt-2 rounded-xl border border-[#5e2c1f] px-5 py-2.5 text-sm font-semibold text-[#f2e9d8] transition"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 + Create first page
               </button>
@@ -268,8 +269,8 @@ export default function SpaceViewClient({
               <button onClick={() => { setSharing(false); setShareError(null); }} className="text-neutral-400 hover:text-neutral-700">✕</button>
             </div>
 
-            <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-              <p className="font-semibold mb-1">🔐 Security notice</p>
+            <div className="mb-4 rounded-xl bg-[#f4f2eb] border border-[#ddd8c9] px-4 py-3 text-sm text-[#4a473e]">
+              <p className="font-semibold mb-1 text-[#20201d]">🔐 Security notice</p>
               <p>Guests must verify their company email address to access this page. Access is read-only and expires after 48 hours. You can revoke access at any time.</p>
             </div>
 
@@ -291,7 +292,8 @@ export default function SpaceViewClient({
                   <button
                     onClick={handleShare}
                     disabled={!shareDomain.trim()}
-                    className="rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-700 disabled:opacity-50 transition"
+                    className="rounded-xl border border-[#5e2c1f] px-4 py-2 text-sm font-semibold text-[#f2e9d8] disabled:opacity-50 transition"
+                    style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
                   >
                     Enable
                   </button>
@@ -303,9 +305,9 @@ export default function SpaceViewClient({
               </>
             ) : (
               <div className="space-y-3">
-                <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3">
-                  <p className="text-sm font-semibold text-emerald-800 mb-1">✓ Sharing active</p>
-                  <p className="text-sm text-emerald-700">
+                <div className="rounded-xl bg-[#e9f3ea] border border-[#3f7d4c]/30 px-4 py-3">
+                  <p className="text-sm font-semibold text-[#3f7d4c] mb-1">✓ Sharing active</p>
+                  <p className="text-sm text-[#3f7d4c]">
                     Anyone with a <strong>@{shareResult.allowed_domain}</strong> email can request a magic link to view this page.
                   </p>
                 </div>
@@ -346,7 +348,7 @@ function PageTreeItem({
   return (
     <div>
       <div
-        className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 cursor-pointer transition ${active ? "bg-indigo-50 text-indigo-700" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"}`}
+        className={`group flex items-center gap-1 rounded-lg px-2 py-1.5 cursor-pointer transition ${active ? "bg-[#f4ece4] text-[#b7452f]" : "text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"}`}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >

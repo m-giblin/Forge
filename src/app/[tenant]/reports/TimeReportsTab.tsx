@@ -97,16 +97,16 @@ function HorizBar({ label, value, max, billable }: { label: string; value: numbe
     <div className="flex items-center gap-3 py-2 border-b border-neutral-50 last:border-0">
       <span className="w-32 shrink-0 text-sm font-medium text-neutral-800 truncate" title={label}>{label}</span>
       <div className="flex-1 relative h-6 bg-neutral-100 rounded overflow-hidden">
-        <div className="absolute inset-y-0 left-0 bg-indigo-500 rounded" style={{ width: `${Math.min(pct, 100)}%` }} />
+        <div className="absolute inset-y-0 left-0 bg-[#b7452f] rounded" style={{ width: `${Math.min(pct, 100)}%` }} />
         {billable > 0 && (
-          <div className="absolute inset-y-0 left-0 bg-emerald-400 rounded opacity-60" style={{ width: `${Math.min((billable / (max || 1)) * 100, 100)}%` }} />
+          <div className="absolute inset-y-0 left-0 bg-[#3f7d4c] rounded opacity-60" style={{ width: `${Math.min((billable / (max || 1)) * 100, 100)}%` }} />
         )}
         <span className="absolute inset-0 flex items-center px-2 text-xs font-semibold text-white mix-blend-overlay">
           {fmtMins(value)}
         </span>
       </div>
       <span className="w-12 text-right text-xs text-neutral-500 tabular-nums">{pct}%</span>
-      <span className="w-16 text-right text-xs text-emerald-600 tabular-nums">
+      <span className="w-16 text-right text-xs text-[#3f7d4c] tabular-nums">
         {billable > 0 ? `${billPct}% bill.` : "—"}
       </span>
     </div>
@@ -127,11 +127,11 @@ function DailySparkline({ points }: { points: { date: string; minutes: number }[
       <svg viewBox={`0 0 ${W} ${H + 20}`} className="w-full">
         <line x1={PAD} y1={y(max)} x2={W - PAD} y2={y(max)} stroke="#f1f5f9" strokeWidth={1} />
         <line x1={PAD} y1={y(0)} x2={W - PAD} y2={y(0)} stroke="#f1f5f9" strokeWidth={1} />
-        <path d={`${path} L ${PAD + (points.length - 1) * xStep} ${H - PAD} L ${PAD} ${H - PAD} Z`} fill="#6366f1" fillOpacity={0.08} />
-        <path d={path} fill="none" stroke="#6366f1" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p, i) => <circle key={i} cx={PAD + i * xStep} cy={y(p.minutes)} r={3} fill="#6366f1" />)}
+        <path d={`${path} L ${PAD + (points.length - 1) * xStep} ${H - PAD} L ${PAD} ${H - PAD} Z`} fill="#b7452f" fillOpacity={0.08} />
+        <path d={path} fill="none" stroke="#b7452f" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        {points.map((p, i) => <circle key={i} cx={PAD + i * xStep} cy={y(p.minutes)} r={3} fill="#b7452f" />)}
         {points.length <= 14 && points.map((p, i) => (
-          <text key={i} x={PAD + i * xStep} y={H + 14} textAnchor="middle" fontSize={9} fill="#94a3b8">
+          <text key={i} x={PAD + i * xStep} y={H + 14} textAnchor="middle" fontSize={9} fill="#a19d90">
             {fmtDate(p.date)}
           </text>
         ))}
@@ -226,14 +226,14 @@ export default function TimeReportsTab({ slug, initialSprints, activeSprint }: P
       <div className="flex flex-wrap items-center gap-2">
         {(["sprint", "week", "month", "custom"] as Mode[]).map((m) => (
           <button key={m} onClick={() => handleModeChange(m)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${mode === m ? "bg-indigo-600 text-white shadow-sm" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}>
+            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${mode === m ? "bg-[#8c4632] text-[#f2e9d8] shadow-sm" : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"}`}>
             {m === "sprint" ? "Sprint" : m === "week" ? "This Week" : m === "month" ? "This Month" : "Custom"}
           </button>
         ))}
 
         {mode === "sprint" && (
           <select value={selectedSprintId ?? ""} onChange={(e) => handleSprintChange(e.target.value)}
-            className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+            className="rounded-lg border border-neutral-200 bg-white px-3 py-1.5 text-xs font-medium text-neutral-700 focus:outline-none focus:ring-1 focus:ring-[#b7452f]/50">
             {allSprints.length === 0 && <option value="">No sprints</option>}
             {allSprints.map((s) => (
               <option key={s.id} value={s.id}>{s.status === "active" ? "▶ " : ""}{s.name} ({s.projectKey})</option>
@@ -244,12 +244,12 @@ export default function TimeReportsTab({ slug, initialSprints, activeSprint }: P
         {mode === "custom" && (
           <div className="flex items-center gap-1.5">
             <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
-              className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+              className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-1 focus:ring-[#b7452f]/50" />
             <span className="text-xs text-neutral-400">→</span>
             <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
-              className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-1 focus:ring-indigo-400" />
+              className="rounded-lg border border-neutral-200 bg-white px-2.5 py-1.5 text-xs text-neutral-700 focus:outline-none focus:ring-1 focus:ring-[#b7452f]/50" />
             <button onClick={handleCustomApply} disabled={!customFrom || !customTo}
-              className="rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-40 hover:bg-indigo-700">
+              className="rounded-lg bg-[#8c4632] px-3 py-1.5 text-xs font-semibold text-[#f2e9d8] disabled:opacity-40 hover:bg-[#6e3324]">
               Apply
             </button>
           </div>
@@ -264,8 +264,8 @@ export default function TimeReportsTab({ slug, initialSprints, activeSprint }: P
       {data && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {[
-            { label: "Total Hours", value: fmtMins(totalMins), sub: `${filteredLogs.length} logs`, color: "text-indigo-700" },
-            { label: "Billable", value: fmtMins(billMins), sub: totalMins > 0 ? `${Math.round((billMins / totalMins) * 100)}% of total` : "0%", color: "text-emerald-700" },
+            { label: "Total Hours", value: fmtMins(totalMins), sub: `${filteredLogs.length} logs`, color: "text-[#8c4632]" },
+            { label: "Billable", value: fmtMins(billMins), sub: totalMins > 0 ? `${Math.round((billMins / totalMins) * 100)}% of total` : "0%", color: "text-[#3f7d4c]" },
             { label: "Non-Billable", value: fmtMins(totalMins - billMins), sub: totalMins > 0 ? `${Math.round(((totalMins - billMins) / totalMins) * 100)}% of total` : "0%", color: "text-neutral-700" },
             { label: "Contributors", value: String(filterMember ? 1 : (data.members.length)), sub: `${data.projects.length} project${data.projects.length !== 1 ? "s" : ""}`, color: "text-neutral-700" },
           ].map((tile) => (
@@ -297,7 +297,7 @@ export default function TimeReportsTab({ slug, initialSprints, activeSprint }: P
             <div className="flex gap-1">
               {([["user","By User"],["project","By Project"],["sprint","By Sprint"]] as [SubTab, string][]).map(([t, label]) => (
                 <button key={t} onClick={() => setSubTab(t)}
-                  className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${subTab === t ? "border-indigo-600 text-indigo-700" : "border-transparent text-neutral-500 hover:text-neutral-700"}`}>
+                  className={`px-4 py-2 text-sm font-medium transition border-b-2 -mb-px ${subTab === t ? "border-[#b7452f] text-[#8c4632]" : "border-transparent text-neutral-500 hover:text-neutral-700"}`}>
                   {label}
                 </button>
               ))}
@@ -310,7 +310,7 @@ export default function TimeReportsTab({ slug, initialSprints, activeSprint }: P
               {filterMember && (
                 <div className="flex items-center gap-2 text-xs">
                   <span className="text-neutral-500">Showing:</span>
-                  <span className="rounded-full bg-indigo-50 border border-indigo-200 px-3 py-1 text-indigo-700 font-semibold">
+                  <span className="rounded-full bg-[#fbeae8] border border-[#b7452f]/30 px-3 py-1 text-[#8c4632] font-semibold">
                     {data.members.find((m) => m.userId === filterMember)?.name}
                   </span>
                   <button onClick={() => setFilterMember(null)} className="text-neutral-400 hover:text-neutral-600">✕ Clear</button>
@@ -347,12 +347,12 @@ export default function TimeReportsTab({ slug, initialSprints, activeSprint }: P
                             <div className="ml-8 mb-2 space-y-1">
                               {[...byProject.entries()].sort((a,b) => b[1]-a[1]).map(([key, mins]) => (
                                 <div key={key} className="flex items-center gap-3 text-xs text-neutral-600">
-                                  <span className="w-16 font-mono text-indigo-600 shrink-0">{key}</span>
+                                  <span className="w-16 font-mono text-[#b7452f] shrink-0">{key}</span>
                                   <span>{fmtMins(mins)}</span>
                                 </div>
                               ))}
                               <button onClick={() => setFilterMember(m.userId)}
-                                className="text-xs text-indigo-600 hover:text-indigo-800 mt-1">View logs →</button>
+                                className="text-xs text-[#b7452f] hover:text-[#8c4632] mt-1">View logs →</button>
                             </div>
                           )}
                         </div>
@@ -390,12 +390,12 @@ export default function TimeReportsTab({ slug, initialSprints, activeSprint }: P
                         <td className="px-4 py-2.5 text-neutral-500 tabular-nums whitespace-nowrap">{fmtDate(log.loggedAt)}</td>
                         <td className="px-4 py-2.5 font-medium text-neutral-800">{log.userName}</td>
                         <td className="px-4 py-2.5">
-                          <span className="font-mono text-indigo-600 mr-1.5">{log.issueKey}</span>
+                          <span className="font-mono text-[#b7452f] mr-1.5">{log.issueKey}</span>
                           <span className="text-neutral-600 truncate max-w-[200px] inline-block align-bottom" title={log.issueTitle}>{log.issueTitle}</span>
                         </td>
                         <td className="px-4 py-2.5 font-medium text-neutral-800 tabular-nums">{fmtMins(log.minutes)}</td>
                         <td className="px-4 py-2.5">
-                          {log.billable ? <span className="rounded-full bg-emerald-50 border border-emerald-200 px-2 py-0.5 text-emerald-700 font-semibold">Bill.</span> : <span className="text-neutral-400">—</span>}
+                          {log.billable ? <span className="rounded-full bg-[#e9f3ea] border border-[#3f7d4c]/30 px-2 py-0.5 text-[#3f7d4c] font-semibold">Bill.</span> : <span className="text-neutral-400">—</span>}
                         </td>
                         <td className="px-4 py-2.5 text-neutral-500">{log.tag ?? "—"}</td>
                         <td className="px-4 py-2.5 text-neutral-400 max-w-[180px] truncate" title={log.note ?? ""}>{log.note ?? "—"}</td>
@@ -408,7 +408,7 @@ export default function TimeReportsTab({ slug, initialSprints, activeSprint }: P
                 </table>
                 {filteredLogs.length > 10 && (
                   <div className="border-t border-neutral-100 px-5 py-3 text-center">
-                    <button onClick={() => setExpandedLogs(!expandedLogs)} className="text-xs font-medium text-indigo-600 hover:text-indigo-800">
+                    <button onClick={() => setExpandedLogs(!expandedLogs)} className="text-xs font-medium text-[#b7452f] hover:text-[#8c4632]">
                       {expandedLogs ? "Show less" : `Show all ${filteredLogs.length} entries`}
                     </button>
                   </div>
@@ -466,7 +466,7 @@ export default function TimeReportsTab({ slug, initialSprints, activeSprint }: P
                     {sprintRollup.map((r) => (
                       <tr key={r.sprintId} className="border-t border-neutral-50 hover:bg-neutral-50">
                         <td className="px-4 py-2.5 font-medium text-neutral-800">{r.sprintName}</td>
-                        <td className="px-4 py-2.5 font-mono text-indigo-600">{r.projectKey}</td>
+                        <td className="px-4 py-2.5 font-mono text-[#b7452f]">{r.projectKey}</td>
                         <td className="px-4 py-2.5 text-neutral-500 whitespace-nowrap">
                           {r.startDate ? fmtDate(r.startDate) : "—"} → {r.endDate ? fmtDate(r.endDate) : "—"}
                         </td>

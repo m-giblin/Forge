@@ -15,9 +15,5 @@ export default async function SlaSettingsPage({ params }: { params: Promise<{ te
     .list(ctx.tenant.id)
     .catch(() => []);
 
-  return (
-    <div className="max-w-2xl mx-auto px-6 py-8">
-      <SlaSettingsClient slug={slug} policies={policies} />
-    </div>
-  );
+  return <SlaSettingsClient slug={slug} policies={policies} />;
 }

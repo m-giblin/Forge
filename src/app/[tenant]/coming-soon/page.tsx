@@ -43,18 +43,18 @@ export default async function ComingSoonPage({
 
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
-      <div className="rounded-2xl border border-neutral-200 bg-white p-10 text-center shadow-sm">
-        <span className="inline-block rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">Coming soon</span>
-        <h1 className="mt-4 text-3xl font-bold text-neutral-900">{feature ? feature.title : "More coming soon"}</h1>
-        <p className="mx-auto mt-3 max-w-md text-neutral-600">
+      <div className="fw-card p-10 text-center">
+        <span className="inline-block rounded-full border border-[var(--fw-cream-border)] bg-[#f1efe9] px-3 py-1 text-[11px] font-semibold text-[#726e60]">Coming soon</span>
+        <h1 className="mt-4 font-[family-name:var(--font-manrope)] text-3xl font-extrabold text-[#20201d]">{feature ? feature.title : "More coming soon"}</h1>
+        <p className="mx-auto mt-3 max-w-md text-[#726e60]">
           {feature ? feature.blurb : "We're building beyond bug tracking. This feature is on the way."}
         </p>
 
         {feature && (
           <ul className="mx-auto mt-6 max-w-sm space-y-2 text-left">
             {feature.bullets.map((b) => (
-              <li key={b} className="flex items-start gap-2 text-sm text-neutral-700">
-                <span className="mt-0.5 text-indigo-500">→</span>
+              <li key={b} className="flex items-start gap-2 text-sm text-[#4a473e]">
+                <span className="mt-0.5 text-[var(--fw-rust)]">→</span>
                 <span>{b}</span>
               </li>
             ))}
@@ -62,10 +62,14 @@ export default async function ComingSoonPage({
         )}
 
         <div className="mt-8 flex items-center justify-center gap-3">
-          <Link href={`/${slug}/board`} className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800">
+          <Link
+            href={`/${slug}/board`}
+            className="rounded-[5px] border border-[var(--fw-rust-border)] px-4 py-2 text-sm font-bold text-[#f2e9d8] transition"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+          >
             Go to the board
           </Link>
-          <Link href={`/${slug}/issues`} className="rounded-lg border border-neutral-200 px-4 py-2 text-sm font-medium text-neutral-700 hover:bg-neutral-50">
+          <Link href={`/${slug}/issues`} className="rounded-[5px] border border-[var(--fw-cream-border)] px-4 py-2 text-sm font-medium text-[#4a473e] hover:bg-[var(--fw-cream-bg)] transition">
             View issues
           </Link>
         </div>

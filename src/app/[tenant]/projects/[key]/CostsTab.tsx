@@ -37,7 +37,7 @@ export default function CostsTab({
   }
 
   const overBudget = data.budgetCents != null && data.spentCents > data.budgetCents;
-  const barColor = data.pct > 100 ? "bg-red-500" : data.pct > 90 ? "bg-red-500" : data.pct > 75 ? "bg-amber-500" : "bg-emerald-500";
+  const barColor = data.pct > 90 ? "bg-[#c0392b]" : data.pct > 75 ? "bg-[#c9791d]" : "bg-[#3f7d4c]";
 
   return (
     <div className="space-y-4">
@@ -68,7 +68,7 @@ export default function CostsTab({
               <button
                 onClick={() => run(() => setBudgetAction(slug, projectKey, budgetInput === "" ? null : Number(budgetInput)), () => setEditingBudget(false))}
                 disabled={isPending}
-                className="rounded-md bg-neutral-900 px-2 py-1 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+                className="rounded-[5px] border border-[#5e2c1f] px-2 py-1 text-xs font-bold text-[#f2e9d8] disabled:opacity-50" style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 Save
               </button>
@@ -81,12 +81,12 @@ export default function CostsTab({
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Spent</p>
           <p className="mt-1 text-2xl font-bold text-neutral-900">{fmt(data.spentCents)}</p>
-          {data.budgetCents != null && data.budgetCents > 0 && <p className={`text-xs ${overBudget ? "text-red-600" : "text-amber-600"}`}>{data.pct}% of budget</p>}
+          {data.budgetCents != null && data.budgetCents > 0 && <p className={`text-xs ${overBudget ? "text-[#c0392b]" : "text-[#c9791d]"}`}>{data.pct}% of budget</p>}
         </div>
         <div className="rounded-xl border border-neutral-200 bg-white p-4">
           <p className="text-xs font-medium uppercase tracking-wide text-neutral-400">Remaining</p>
           {data.budgetCents != null ? (
-            <p className={`mt-1 text-2xl font-bold ${overBudget ? "text-red-600" : "text-emerald-600"}`}>{fmt(data.remainingCents)}</p>
+            <p className={`mt-1 text-2xl font-bold ${overBudget ? "text-[#c0392b]" : "text-[#3f7d4c]"}`}>{fmt(data.remainingCents)}</p>
           ) : (
             <p className="mt-1 text-base font-normal italic text-neutral-400">Set a budget</p>
           )}
@@ -98,7 +98,7 @@ export default function CostsTab({
         <div className="rounded-xl border border-neutral-200 bg-white p-5">
           <div className="mb-2 flex items-center justify-between text-sm">
             <span className="font-medium text-neutral-700">Burn</span>
-            <span className="text-neutral-500">{fmt(data.spentCents)} / {fmt(data.budgetCents)}{overBudget && <span className="ml-1 font-semibold text-red-600">· over budget</span>}</span>
+            <span className="text-neutral-500">{fmt(data.spentCents)} / {fmt(data.budgetCents)}{overBudget && <span className="ml-1 font-semibold text-[#c0392b]">· over budget</span>}</span>
           </div>
           <div className="h-3 overflow-hidden rounded-full bg-neutral-100">
             <div className={`h-full ${barColor}`} style={{ width: `${Math.min(100, data.pct)}%` }} />
@@ -120,7 +120,7 @@ export default function CostsTab({
         <div className="mb-3 flex items-center justify-between">
           <h3 className="font-semibold text-neutral-900">Spend</h3>
           {canEdit && (
-            <button onClick={() => setShowAdd((s) => !s)} className="rounded-lg bg-neutral-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-neutral-800">
+            <button onClick={() => setShowAdd((s) => !s)} className="rounded-[5px] border border-[#5e2c1f] px-3 py-1.5 text-xs font-bold text-[#f2e9d8]" style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}>
               {showAdd ? "Close" : "+ Add spend"}
             </button>
           )}
@@ -196,7 +196,8 @@ function AddSpendForm({
           )
         }
         disabled={pending}
-        className="col-span-1 rounded-lg bg-neutral-900 text-xs font-medium text-white hover:bg-neutral-800 disabled:opacity-50"
+        className="col-span-1 rounded-[5px] border border-[#5e2c1f] text-xs font-bold text-[#f2e9d8] disabled:opacity-50"
+        style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
       >
         Add
       </button>

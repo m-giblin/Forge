@@ -21,14 +21,14 @@ interface Props {
 }
 
 const AVATAR_COLORS = [
-  "bg-indigo-500",
-  "bg-violet-500",
-  "bg-emerald-500",
-  "bg-amber-500",
-  "bg-rose-500",
-  "bg-blue-500",
-  "bg-teal-500",
-  "bg-orange-500",
+  "bg-[#b7452f]",
+  "bg-[#8c4632]",
+  "bg-[#3f7d4c]",
+  "bg-[#c9791d]",
+  "bg-[#c0392b]",
+  "bg-[#3a6ea8]",
+  "bg-[#7a4fa0]",
+  "bg-[#9a5138]",
 ];
 
 function avatarColor(name: string) {
@@ -97,7 +97,7 @@ export default function OnboardingWizard({
         <div className="mb-8">
           <div className="h-1.5 w-full rounded-full bg-neutral-200">
             <div
-              className="h-1.5 rounded-full bg-indigo-600 transition-all duration-300"
+              className="h-1.5 rounded-full bg-[#b7452f] transition-all duration-300"
               style={{ width: `${progressPct}%` }}
             />
           </div>
@@ -107,24 +107,27 @@ export default function OnboardingWizard({
         {/* Step 1 — Welcome */}
         {step === 1 && (
           <div className="space-y-6">
-            <div className="rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 p-8 text-white shadow-sm">
+            <div
+              className="rounded-xl p-8 text-[#f2e9d8] shadow-sm"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+            >
               <h1 className="text-3xl font-bold mb-2">👋 Hey {userName}!</h1>
-              <p className="text-indigo-100 text-lg">
-                You&apos;ve been invited to join <span className="font-semibold text-white">{tenantName}</span>&apos;s workspace.
+              <p className="text-[#f2e9d8]/80 text-lg">
+                You&apos;ve been invited to join <span className="font-semibold text-[#f2e9d8]">{tenantName}</span>&apos;s workspace.
               </p>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
               <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm text-center">
-                <div className="text-3xl font-bold text-indigo-600">{projects.length}</div>
+                <div className="text-3xl font-bold text-[#b7452f]">{projects.length}</div>
                 <div className="text-sm text-neutral-500 mt-1">Active projects</div>
               </div>
               <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm text-center">
-                <div className="text-3xl font-bold text-violet-600">{openIssueCount}</div>
+                <div className="text-3xl font-bold text-[#8c4632]">{openIssueCount}</div>
                 <div className="text-sm text-neutral-500 mt-1">Open issues</div>
               </div>
               <div className="rounded-xl border border-neutral-200 bg-white p-5 shadow-sm text-center">
-                <div className="text-3xl font-bold text-emerald-600">{members.length}</div>
+                <div className="text-3xl font-bold text-[#3f7d4c]">{members.length}</div>
                 <div className="text-sm text-neutral-500 mt-1">Teammates</div>
               </div>
             </div>
@@ -134,7 +137,7 @@ export default function OnboardingWizard({
               <ul className="space-y-2">
                 {teamPulse.map((bullet, i) => (
                   <li key={i} className="flex items-center gap-2 text-neutral-700">
-                    <span className="h-2 w-2 rounded-full bg-indigo-400 shrink-0" />
+                    <span className="h-2 w-2 rounded-full bg-[#b7452f] shrink-0" />
                     {bullet}
                   </li>
                 ))}
@@ -144,7 +147,8 @@ export default function OnboardingWizard({
             <div className="flex justify-end">
               <button
                 onClick={next}
-                className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+                className="rounded-[5px] border border-[#5e2c1f] px-6 py-2.5 text-sm font-bold text-[#f2e9d8] transition-colors"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 Next →
               </button>
@@ -171,8 +175,8 @@ export default function OnboardingWizard({
                     <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-xs font-medium text-neutral-600 capitalize">
                       {m.role}
                     </span>
-                    <span className="flex items-center gap-1 text-xs text-emerald-600">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                    <span className="flex items-center gap-1 text-xs text-[#3f7d4c]">
+                      <span className="h-1.5 w-1.5 rounded-full bg-[#3f7d4c]" />
                       Online now
                     </span>
                   </li>
@@ -192,7 +196,8 @@ export default function OnboardingWizard({
               </button>
               <button
                 onClick={next}
-                className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+                className="rounded-[5px] border border-[#5e2c1f] px-6 py-2.5 text-sm font-bold text-[#f2e9d8] transition-colors"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 Next →
               </button>
@@ -212,11 +217,11 @@ export default function OnboardingWizard({
                       onClick={() => setSelectedProject(p.key)}
                       className={`w-full text-left flex items-center gap-4 rounded-lg border p-4 transition-colors ${
                         selectedProject === p.key
-                          ? "border-indigo-500 bg-indigo-50"
-                          : "border-neutral-200 hover:border-indigo-300 hover:bg-neutral-50"
+                          ? "border-[#b7452f] bg-[#f4ecea]"
+                          : "border-neutral-200 hover:border-[#b7452f]/50 hover:bg-neutral-50"
                       }`}
                     >
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 font-bold text-lg">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#f4ecea] text-[#8c4632] font-bold text-lg">
                         {p.key[0]}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -251,7 +256,8 @@ export default function OnboardingWizard({
                 </button>
                 <button
                   onClick={next}
-                  className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors"
+                  className="rounded-[5px] border border-[#5e2c1f] px-6 py-2.5 text-sm font-bold text-[#f2e9d8] transition-colors"
+                  style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
                 >
                   Next →
                 </button>
@@ -271,14 +277,15 @@ export default function OnboardingWizard({
                 <button
                   onClick={handleComplete}
                   disabled={isPending}
-                  className="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                  className="rounded-[5px] border border-[#5e2c1f] px-6 py-2.5 text-sm font-bold text-[#f2e9d8] transition-colors disabled:opacity-60"
+                  style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
                 >
                   {isPending ? "Loading…" : "Go to my dashboard"}
                 </button>
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-4 py-3 text-sm text-emerald-800 font-medium">
+                <div className="rounded-lg bg-[#e9f3ea] border border-[#3f7d4c]/30 px-4 py-3 text-sm text-[#3f7d4c] font-medium">
                   🎯 We picked a good first issue for you
                 </div>
 
@@ -308,7 +315,8 @@ export default function OnboardingWizard({
                   <button
                     onClick={() => handleClaim(suggestedIssue!.id)}
                     disabled={isPending}
-                    className="flex-1 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-60"
+                    className="flex-1 rounded-[5px] border border-[#5e2c1f] px-5 py-2.5 text-sm font-bold text-[#f2e9d8] transition-colors disabled:opacity-60"
+                    style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
                   >
                     {isPending ? "Claiming…" : "Claim this issue"}
                   </button>
@@ -343,9 +351,9 @@ export default function OnboardingWizard({
                 key={dotStep}
                 className={`h-2.5 w-2.5 rounded-full transition-colors ${
                   dotStep === step
-                    ? "bg-indigo-600"
+                    ? "bg-[#b7452f]"
                     : dotStep < step
-                    ? "border-2 border-indigo-600 bg-white"
+                    ? "border-2 border-[#b7452f] bg-white"
                     : "bg-neutral-300"
                 }`}
               />

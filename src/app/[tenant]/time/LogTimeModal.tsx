@@ -58,7 +58,7 @@ export default function LogTimeModal({ slug, issueId, issueTitle, issueKey, date
         <div className="border-b border-neutral-100 px-5 py-4">
           <p className="text-[11px] font-semibold uppercase tracking-widest text-neutral-400 mb-0.5">Log time</p>
           <p className="text-sm font-semibold text-neutral-900 truncate">
-            {issueKey && <span className="text-indigo-600 mr-1.5">{issueKey}</span>}
+            {issueKey && <span className="text-[#b7452f] mr-1.5">{issueKey}</span>}
             {issueTitle}
           </p>
           <p className="text-xs text-neutral-500 mt-0.5">{displayDate}</p>
@@ -76,7 +76,7 @@ export default function LogTimeModal({ slug, issueId, issueTitle, issueKey, date
                   max={23}
                   value={hours}
                   onChange={e => setHours(Math.max(0, parseInt(e.target.value, 10) || 0))}
-                  className="w-16 rounded-lg border border-neutral-200 px-3 py-2 text-center text-sm font-medium text-neutral-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  className="w-16 rounded-lg border border-neutral-200 px-3 py-2 text-center text-sm font-medium text-neutral-900 focus:border-[#b7452f] focus:outline-none focus:ring-2 focus:ring-[#f4e3dc]"
                 />
                 <span className="text-xs text-neutral-500">h</span>
               </div>
@@ -87,7 +87,7 @@ export default function LogTimeModal({ slug, issueId, issueTitle, issueKey, date
                   max={59}
                   value={minutes}
                   onChange={e => setMinutes(Math.max(0, Math.min(59, parseInt(e.target.value, 10) || 0)))}
-                  className="w-16 rounded-lg border border-neutral-200 px-3 py-2 text-center text-sm font-medium text-neutral-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  className="w-16 rounded-lg border border-neutral-200 px-3 py-2 text-center text-sm font-medium text-neutral-900 focus:border-[#b7452f] focus:outline-none focus:ring-2 focus:ring-[#f4e3dc]"
                 />
                 <span className="text-xs text-neutral-500">m</span>
               </div>
@@ -105,7 +105,7 @@ export default function LogTimeModal({ slug, issueId, issueTitle, issueKey, date
               onChange={e => setNote(e.target.value)}
               rows={2}
               placeholder="What did you work on?"
-              className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-300 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+              className="w-full resize-none rounded-lg border border-neutral-200 px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-300 focus:border-[#b7452f] focus:outline-none focus:ring-2 focus:ring-[#f4e3dc]"
             />
           </div>
 
@@ -117,7 +117,7 @@ export default function LogTimeModal({ slug, issueId, issueTitle, issueKey, date
               type="checkbox"
               checked={billable}
               onChange={e => setBillable(e.target.checked)}
-              className="h-4 w-4 rounded border-neutral-300 text-indigo-600 focus:ring-indigo-500"
+              className="h-4 w-4 rounded border-neutral-300 text-[#b7452f] focus:ring-[#b7452f]"
             />
             <span className="text-sm text-neutral-700">Billable</span>
           </label>
@@ -149,7 +149,7 @@ export default function LogTimeModal({ slug, issueId, issueTitle, issueKey, date
               <button
                 type="submit"
                 disabled={saving || totalMins <= 0}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                className="rounded-lg bg-[#b7452f] px-4 py-2 text-sm font-medium text-white hover:bg-[#8c4632] transition-colors disabled:opacity-50"
               >
                 {saving ? "Saving…" : existingLog ? "Update" : "Log time"}
               </button>

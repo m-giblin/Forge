@@ -1,11 +1,10 @@
-import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/super-admin";
 import { redirect } from "next/navigation";
 // eslint-disable-next-line no-restricted-imports -- admin: service-role required (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { getSetting } from "@/lib/platformSettings";
 import SupportConsole from "./SupportConsole";
-import { adminStyles as S } from "../page";
+import PageHeader from "@/components/patterns/PageHeader";
 
 type TenantRow = { id: string; name: string; slug: string };
 
@@ -27,18 +26,11 @@ export default async function SupportPage() {
   const stalledDays = stalledSetting ? parseInt(stalledSetting, 10) : 3;
   const openCount = tickets.filter((t) => t.status === "open").length;
   return (
-    <main style={{ padding: "24px 28px", maxWidth: 1100 }}>
-      <Link href="/admin" style={S.backLink}>← Dashboard</Link>
-      <div style={{ marginBottom: 22 }}>
-        <h1 style={S.pageTitle}>Support Queue</h1>
-        <p style={S.pageSub}>
-          {openCount > 0
-            ? <span style={{ color: "#dc2626", fontWeight: 600 }}>{openCount} open ticket{openCount !== 1 ? "s" : ""}</span>
-            : "No open tickets"
-          }
-          {" "}· {tickets.length} total
-        </p>
-      </div>
+    <main className="px-6 py-5">
+      <PageHeader
+        title="Support"
+        subtitle={`Platform-wide ticket queue — ${openCount > 0 ? `${openCount} open ticket${openCount !== 1 ? "s" : ""}` : "no open tickets"} · ${tickets.length} total`}
+      />
       <SupportConsole tickets={tickets} stalledDays={stalledDays} />
     </main>
   );

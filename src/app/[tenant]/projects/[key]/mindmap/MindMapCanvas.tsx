@@ -24,22 +24,23 @@ import {
   createIssueFromMindMapAction,
   bulkMoveIssuesToSprintAction,
 } from "./actions";
+import PageHeader from "@/components/patterns/PageHeader";
 
-const KIND_STYLES: Record<MindMapNode["kind"], { border: string; label: string; labelText: string }> = {
-  idea: { border: "border-l-violet-500", label: "Idea", labelText: "text-violet-600" },
-  project: { border: "border-l-indigo-600", label: "Project", labelText: "text-indigo-600" },
-  epic: { border: "border-l-cyan-600", label: "Epic", labelText: "text-cyan-600" },
-  sprint: { border: "border-l-amber-600", label: "Sprint", labelText: "text-amber-700" },
-  issue: { border: "border-l-neutral-500", label: "Issue", labelText: "text-neutral-500" },
+const KIND_STYLES: Record<MindMapNode["kind"], { color: string; label: string }> = {
+  idea: { color: "#7a4fa0", label: "Idea" },
+  project: { color: "#20201d", label: "Project" },
+  epic: { color: "#8c4632", label: "Epic" },
+  sprint: { color: "#3a6ea8", label: "Sprint" },
+  issue: { color: "#a19d90", label: "Issue" },
 };
 
 const STATUS_DOT: Record<string, string> = {
-  done: "bg-emerald-500",
-  closed: "bg-emerald-500",
-  in_progress: "bg-blue-500",
-  progress: "bg-blue-500",
-  todo: "bg-neutral-300",
-  blocked: "bg-red-500",
+  done: "bg-[#3f7d4c]",
+  closed: "bg-[#3f7d4c]",
+  in_progress: "bg-[#3a6ea8]",
+  progress: "bg-[#3a6ea8]",
+  todo: "bg-[#ddd8c9]",
+  blocked: "bg-[#c0392b]",
 };
 
 const CHILD_KIND: Partial<Record<MindMapNode["kind"], { kind: string; label: string }>> = {
@@ -77,22 +78,25 @@ function MindMapCard({ data, selected }: NodeProps<Node<FlowNodeData>>) {
 
   return (
     <div className={`w-[220px] relative transition-opacity ${dimmed ? "opacity-25" : "opacity-100"}`}>
-      <Handle type="target" position={Position.Left} className="!bg-neutral-300" />
+      <Handle type="target" position={Position.Left} className="!bg-[#ddd8c9]" />
       <div
-        className={`rounded-lg border ${selected ? "border-indigo-500 ring-2 ring-indigo-200" : "border-neutral-200"} ${styles.border} border-l-4 bg-white shadow-sm px-3 py-2 cursor-pointer hover:shadow-md transition-shadow`}
+        className={`fw-card border-l-4 px-3 py-2 cursor-pointer hover:shadow-md transition-shadow ${selected ? "ring-2 ring-[#b7452f]" : ""}`}
+        style={{ borderLeftColor: styles.color }}
         onClick={() => onOpen(node)}
       >
         <div className="flex items-center justify-between gap-2 mb-0.5">
-          <span className={`text-[9.5px] font-bold uppercase tracking-wide ${styles.labelText}`}>{styles.label}</span>
+          <span className="text-[9.5px] font-extrabold uppercase tracking-wide" style={{ color: styles.color }}>
+            {styles.label}
+          </span>
           {node.status && (
-            <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[node.status] ?? "bg-neutral-300"}`} />
+            <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${STATUS_DOT[node.status] ?? "bg-[#ddd8c9]"}`} />
           )}
         </div>
-        <div className="text-[13px] font-semibold leading-snug text-neutral-900">{node.title}</div>
-        {node.meta && <div className="text-[10.5px] text-neutral-500 mt-1">{node.meta}</div>}
+        <div className="text-[13px] font-bold leading-snug text-[#20201d]">{node.title}</div>
+        {node.meta && <div className="text-[10.5px] text-[#a19d90] mt-1">{node.meta}</div>}
         {typeof node.progress === "number" && (
-          <div className="h-1 rounded bg-neutral-100 mt-1.5 overflow-hidden">
-            <div className="h-full rounded bg-emerald-500" style={{ width: `${node.progress}%` }} />
+          <div className="h-1 rounded bg-[#e3ded0] mt-1.5 overflow-hidden">
+            <div className="h-full rounded bg-[#3f7d4c]" style={{ width: `${node.progress}%` }} />
           </div>
         )}
       </div>
@@ -104,7 +108,7 @@ function MindMapCard({ data, selected }: NodeProps<Node<FlowNodeData>>) {
             e.stopPropagation();
             onToggle(node.id);
           }}
-          className="absolute -right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full border border-neutral-300 bg-white text-[11px] font-bold text-neutral-500 shadow-sm hover:border-indigo-400 hover:text-indigo-600 flex items-center justify-center"
+          className="absolute -right-2.5 top-1/2 -translate-y-1/2 h-5 w-5 rounded-full border border-[#ddd8c9] bg-[#f4f2eb] text-[11px] font-bold text-[#726e60] shadow-sm hover:border-[#b7452f] hover:text-[#8c4632] flex items-center justify-center"
           title={collapsed ? "Expand" : "Collapse"}
         >
           {collapsed ? "+" : "–"}
@@ -124,13 +128,14 @@ function MindMapCard({ data, selected }: NodeProps<Node<FlowNodeData>>) {
                   if (e.key === "Escape") setAdding(false);
                 }}
                 placeholder={`${childSpec.label} title`}
-                className="flex-1 min-w-0 rounded border border-neutral-300 px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-indigo-400"
+                className="flex-1 min-w-0 rounded border border-[#ddd8c9] bg-[#f4f2eb] px-2 py-1 text-[11px] text-[#20201d] focus:outline-none focus:ring-1 focus:ring-[#b7452f]"
               />
               <button
                 type="button"
                 disabled={pending}
                 onClick={submitAdd}
-                className="rounded bg-indigo-600 px-2 text-[11px] font-semibold text-white disabled:opacity-50"
+                className="rounded border border-[#5e2c1f] px-2 text-[11px] font-bold text-[#f2e9d8] disabled:opacity-50"
+                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 {pending ? "…" : "Add"}
               </button>
@@ -139,14 +144,14 @@ function MindMapCard({ data, selected }: NodeProps<Node<FlowNodeData>>) {
             <button
               type="button"
               onClick={() => setAdding(true)}
-              className="text-[10.5px] font-medium text-neutral-400 hover:text-indigo-600"
+              className="text-[10.5px] font-semibold text-[#a19d90] hover:text-[#8c4632]"
             >
               + Add {childSpec.label.toLowerCase()}
             </button>
           )}
         </div>
       )}
-      <Handle type="source" position={Position.Right} className="!bg-neutral-300" />
+      <Handle type="source" position={Position.Right} className="!bg-[#ddd8c9]" />
     </div>
   );
 }
@@ -392,9 +397,37 @@ function MindMapInner({
     setPresentIndex(null);
     fitView({ duration: 500 });
   }
+  function expandAll() {
+    setCollapsed(new Set());
+  }
 
   return (
-    <div className="h-[calc(100vh-220px)] min-h-[520px] w-full rounded-xl border border-neutral-200 bg-neutral-50 relative">
+    <div className="flex flex-col gap-3">
+      <PageHeader
+        title="Mind Map"
+        subtitle={`Epic → sprint → issue hierarchy · ${projectKey}`}
+        right={
+          <>
+            <button
+              type="button"
+              onClick={expandAll}
+              className="rounded-full border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da]"
+            >
+              Expand all
+            </button>
+            {!presenting && (
+              <button
+                type="button"
+                onClick={startPresenting}
+                className="rounded-full border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-1.5 text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da]"
+              >
+                Present
+              </button>
+            )}
+          </>
+        }
+      />
+    <div className="h-[calc(100vh-280px)] min-h-[480px] w-full fw-card relative overflow-hidden" style={{ background: "#eeece4" }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -402,34 +435,23 @@ function MindMapInner({
         onNodesChange={onNodesChange}
         fitView
         proOptions={{ hideAttribution: true }}
-        defaultEdgeOptions={{ style: { stroke: "#d4d4d8", strokeWidth: 1.75 } }}
+        defaultEdgeOptions={{ style: { stroke: "#ddd8c9", strokeWidth: 1.75 } }}
       >
-        <Background gap={22} color="#e4e4e7" />
+        <Background gap={22} color="#ddd8c9" />
         <Controls showInteractive={false} />
       </ReactFlow>
 
-      {/* Top-right: Present toggle. Hidden once bulk-selecting to avoid overlapping controls. */}
-      {!presenting && selectedIssueIds.length === 0 && (
-        <button
-          type="button"
-          onClick={startPresenting}
-          className="absolute top-3 right-3 z-10 rounded-lg border border-neutral-300 bg-white px-3 py-1.5 text-xs font-semibold text-neutral-700 shadow-sm hover:border-indigo-400 hover:text-indigo-600"
-        >
-          ▶ Present
-        </button>
-      )}
-
       {/* Presentation controls: step through every visible node in tree order. */}
       {presenting && (
-        <div className="absolute top-3 right-3 z-10 flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-2 py-1.5 shadow-sm">
-          <span className="text-xs text-neutral-500 px-1">
+        <div className="absolute top-3 right-3 z-10 flex items-center gap-2 rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-2 py-1.5 shadow-sm">
+          <span className="text-[11px] text-[#726e60] px-1">
             {presentIndex! + 1} / {walkOrder.length}
           </span>
           <button
             type="button"
             disabled={presentIndex === 0}
             onClick={() => setPresentIndex((i) => Math.max(0, (i ?? 0) - 1))}
-            className="rounded px-2 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 disabled:opacity-30"
+            className="rounded px-2 py-1 text-[11px] font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-30"
           >
             ← Prev
           </button>
@@ -437,14 +459,14 @@ function MindMapInner({
             type="button"
             disabled={presentIndex === walkOrder.length - 1}
             onClick={() => setPresentIndex((i) => Math.min(walkOrder.length - 1, (i ?? 0) + 1))}
-            className="rounded px-2 py-1 text-xs font-semibold text-neutral-600 hover:bg-neutral-100 disabled:opacity-30"
+            className="rounded px-2 py-1 text-[11px] font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-30"
           >
             Next →
           </button>
           <button
             type="button"
             onClick={stopPresenting}
-            className="rounded px-2 py-1 text-xs font-semibold text-red-600 hover:bg-red-50"
+            className="rounded px-2 py-1 text-[11px] font-semibold text-[#c0392b] hover:bg-[#fbeae8]"
           >
             Exit
           </button>
@@ -453,14 +475,14 @@ function MindMapInner({
 
       {/* Bulk actions: appears once at least one issue node is selected (shift/cmd-click, or marquee-drag while holding Shift). */}
       {selectedIssueIds.length > 0 && (
-        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-lg border border-neutral-300 bg-white px-3 py-2 shadow-md">
-          <span className="text-xs font-medium text-neutral-700">
+        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2 rounded-lg border border-[#ddd8c9] bg-[#f4f2eb] px-3 py-2 shadow-md">
+          <span className="text-[11px] font-semibold text-[#4a473e]">
             {selectedIssueIds.length} issue{selectedIssueIds.length === 1 ? "" : "s"} selected
           </span>
           <select
             value={targetSprintId}
             onChange={(e) => setTargetSprintId(e.target.value)}
-            className="rounded border border-neutral-300 px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-400"
+            className="rounded border border-[#ddd8c9] bg-[#f4f2eb] px-2 py-1 text-[11px] text-[#20201d] focus:outline-none focus:ring-1 focus:ring-[#b7452f]"
           >
             <option value="">Move to sprint…</option>
             {sprintOptions.map((s) => (
@@ -473,19 +495,21 @@ function MindMapInner({
             type="button"
             disabled={!targetSprintId || bulkPending}
             onClick={moveSelectedIssues}
-            className="rounded bg-indigo-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40"
+            className="rounded border border-[#5e2c1f] px-3 py-1 text-[11px] font-bold text-[#f2e9d8] disabled:opacity-40"
+            style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
           >
             {bulkPending ? "Moving…" : "Move"}
           </button>
           <button
             type="button"
             onClick={() => setSelectedIds(new Set())}
-            className="text-xs text-neutral-400 hover:text-neutral-600"
+            className="text-[11px] text-[#a19d90] hover:text-[#4a473e]"
           >
             Clear
           </button>
         </div>
       )}
+    </div>
     </div>
   );
 }

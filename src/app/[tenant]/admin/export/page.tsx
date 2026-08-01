@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
+import PageHeader from "@/components/patterns/PageHeader";
+import AdminList, { type AdminListItem } from "@/components/patterns/admin/AdminList";
+import Note from "@/components/patterns/admin/Note";
 
 type ExportRow = {
   id: string;
@@ -9,7 +12,6 @@ type ExportRow = {
   description: string;
   endpoint: (slug: string) => string;
   filename: string;
-  icon: string;
 };
 
 const EXPORTS: ExportRow[] = [
@@ -19,7 +21,6 @@ const EXPORTS: ExportRow[] = [
     description: "All issues including title, status, priority, type, assignee, dates, and source.",
     endpoint: (slug) => `/api/export/issues?slug=${slug}`,
     filename: "issues.csv",
-    icon: "🐛",
   },
   {
     id: "sprints",
@@ -27,7 +28,6 @@ const EXPORTS: ExportRow[] = [
     description: "All sprints with issue counts, velocity percentage, start/end dates, and goals.",
     endpoint: (slug) => `/api/export/sprints?slug=${slug}`,
     filename: "sprints.csv",
-    icon: "🏃",
   },
   {
     id: "time-logs",
@@ -35,11 +35,10 @@ const EXPORTS: ExportRow[] = [
     description: "Every time entry logged against issues — hours, who logged, and notes.",
     endpoint: (slug) => `/api/export/time-logs?slug=${slug}`,
     filename: "time-logs.csv",
-    icon: "⏱",
   },
 ];
 
-function DownloadButton({ slug, row }: { slug: string; row: ExportRow }) {
+function useDownload(slug: string, row: ExportRow) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
 
   async function download() {
@@ -65,58 +64,40 @@ function DownloadButton({ slug, row }: { slug: string; row: ExportRow }) {
   const label =
     status === "loading" ? "Preparing…" :
     status === "done" ? "Downloaded ✓" :
-    status === "error" ? "Failed — try again" :
-    "Download CSV";
+    status === "error" ? "Failed — retry" :
+    "Download";
 
-  return (
-    <button
-      onClick={download}
-      disabled={status === "loading"}
-      className={`rounded-lg px-4 py-2 text-sm font-medium transition shrink-0 ${
-        status === "done"
-          ? "bg-green-50 text-green-700 border border-green-200"
-          : status === "error"
-          ? "bg-red-50 text-red-700 border border-red-200"
-          : "bg-neutral-900 text-white hover:bg-neutral-700 disabled:opacity-50"
-      }`}
-    >
-      {label}
-    </button>
-  );
+  return { download, label, status };
 }
 
 export default function ExportPage() {
   const params = useParams();
   const slug = params.tenant as string;
 
+  // Hooks must run unconditionally, so build download handlers up-front.
+  const downloads = EXPORTS.map((row) => useDownload(slug, row));
+
+  const items: AdminListItem[] = EXPORTS.map((row, i) => ({
+    key: row.id,
+    title: row.label,
+    subline: row.description,
+    meta: "CSV",
+    actionLabel: downloads[i].label,
+    onAction: downloads[i].download,
+  }));
+
   return (
-    <div className="max-w-2xl">
-      <h2 className="text-base font-semibold text-neutral-900">Export Data</h2>
-      <p className="mt-1 text-sm text-neutral-500">
-        Download your workspace data as CSV files. All exports are scoped to this workspace only.
-      </p>
+    <div className="space-y-6">
+      <PageHeader title="Export Data" subtitle="Download workspace data as CSV" />
 
-      <div className="mt-6 space-y-3">
-        {EXPORTS.map((row) => (
-          <div
-            key={row.id}
-            className="flex items-center gap-4 rounded-xl border border-neutral-200 bg-white px-4 py-4"
-          >
-            <span className="text-2xl shrink-0">{row.icon}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-neutral-900">{row.label}</p>
-              <p className="text-xs text-neutral-500 mt-0.5">{row.description}</p>
-            </div>
-            <DownloadButton slug={slug} row={row} />
-          </div>
-        ))}
-      </div>
+      <div className="space-y-4 px-6">
+        <AdminList items={items} />
 
-      <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        <strong>Note:</strong> For programmatic access, use the{" "}
-        <code className="rounded bg-amber-100 px-1 font-mono text-xs">/api/v1/issues/export</code>{" "}
-        endpoint with an API key (Issues → <a href={`/${slug}/admin/api-keys`} className="underline font-medium">API Keys</a>).
-        It supports filtering by project, status, and priority.
+        <Note icon="ℹ" tone="info">
+          Exports are scoped to this workspace only. For programmatic access, use the{" "}
+          <code className="rounded bg-white/60 px-1 font-mono text-[11px]">/api/v1/issues/export</code> endpoint with an{" "}
+          <a href={`/${slug}/admin/api-keys`} className="font-semibold underline">API key</a> — it supports filtering by project, status, and priority.
+        </Note>
       </div>
     </div>
   );
