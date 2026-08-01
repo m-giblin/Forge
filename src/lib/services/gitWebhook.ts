@@ -7,8 +7,13 @@ import { logger } from "@/lib/logger";
 import { grokComplete } from "@/lib/services/grokAi";
 import { getRateLimiter } from "@/lib/providers/rate-limiter";
 
-// Parse issue keys like FORGE-123, WEB-42 from text
-const KEY_RE = /\b([A-Z]{2,10}-\d+)\b/g;
+// Parse issue keys like FORGE-123, WEB-42, or TRAV2-66 from text. Must match
+// the actual project-key format (src/lib/services/projects.ts KEY_RE:
+// /^[A-Z][A-Z0-9]{1,9}$/ — a letter, then letters/digits) rather than
+// letters-only, or a key like TRAV2 (digit embedded in the key itself) can
+// never be matched — silently, since no error results, the text just never
+// links to anything.
+const KEY_RE = /\b([A-Z][A-Z0-9]{1,9}-\d+)\b/g;
 
 // Commit AI summaries fire per commit with no natural ceiling — a busy repo,
 // or a scripted burst of commits, could otherwise generate unbounded AI spend
@@ -17,7 +22,7 @@ const KEY_RE = /\b([A-Z]{2,10}-\d+)\b/g;
 const COMMIT_SUMMARY_LIMIT = 50;
 const COMMIT_SUMMARY_WINDOW_MS = 60 * 60 * 1000;
 // Closing keywords that trigger auto-close on PR merge
-const CLOSE_RE = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:#|([A-Z]{2,10}-))?(\d+)/gi;
+const CLOSE_RE = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+(?:#|([A-Z][A-Z0-9]{1,9}-))?(\d+)/gi;
 
 function extractIssueKeys(text: string): string[] {
   return [...new Set([...(text.matchAll(KEY_RE) ?? [])].map((m) => m[1]))];
@@ -30,16 +35,16 @@ function extractClosingKeys(text: string): string[] {
   }
   // Also catch full-key pattern after close keywords
   const closeSection = text.replace(/\n/g, " ");
-  const closeMatch = closeSection.match(/(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+([A-Z]{2,10}-\d+)/gi) ?? [];
+  const closeMatch = closeSection.match(/(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+([A-Z][A-Z0-9]{1,9}-\d+)/gi) ?? [];
   for (const m of closeMatch) {
-    const key = m.match(/([A-Z]{2,10}-\d+)/)?.[1];
+    const key = m.match(/([A-Z][A-Z0-9]{1,9}-\d+)/)?.[1];
     if (key) keys.push(key);
   }
   return [...new Set(keys)];
 }
 
 async function resolveIssueByKey(svc: ReturnType<typeof createSupabaseServiceClient>, tenantId: string, key: string) {
-  const parts = key.match(/^([A-Z]{2,10})-(\d+)$/);
+  const parts = key.match(/^([A-Z][A-Z0-9]{1,9})-(\d+)$/);
   if (!parts) return null;
   const [, projectKey, num] = parts;
   const project = await projectsRepo(svc).listByTenant(tenantId).then((ps) => ps.find((p) => p.key === projectKey));
@@ -125,8 +130,11 @@ export async function handleGithubWebhook(
           const shortSha = (commit.id ?? "").slice(0, 7);
           const commitUrl = commit.url ?? `https://github.com/${repoFullName}/commit/${commit.id}`;
 
-          // Best-effort Grok summary — fire and forget per commit, capped per tenant/hour.
-          void (async () => {
+          // Best-effort Grok summary, capped per tenant/hour. Awaited (not fire-and-forget)
+          // — this whole function already runs post-response via the route's `after()`,
+          // so nothing here can delay the webhook ack. Fire-and-forget here would risk
+          // Vercel freezing the function mid-flight before the actual issue link is written.
+          await (async () => {
             try {
               const rl = getRateLimiter();
               const { allowed } = await rl.check(`commit-summary:${tenantId}`, COMMIT_SUMMARY_LIMIT, COMMIT_SUMMARY_WINDOW_MS);

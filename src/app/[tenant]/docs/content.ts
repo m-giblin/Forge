@@ -1797,13 +1797,33 @@ export const DOC_GUIDES: DocGuide[] = [
           { type: 'heading', level: 2, text: 'GitHub' },
           {
             type: 'paragraph',
-            text: 'Admin → Integrations → GitHub generates a webhook secret and a URL to paste into your GitHub repo\'s own webhook settings, subscribed to Pull Request and Push events. The connection is inbound from GitHub — there is no OAuth or personal-access-token flow on Forge\'s side. Mention an issue key like FORGE-123 in a PR title or body to link it automatically; use "closes FORGE-123" to auto-close the issue on merge.',
+            text: 'Admin → Integrations → GitHub generates a webhook secret and a URL to paste into your GitHub repo\'s own webhook settings (that repo\'s Settings → Webhooks → Add webhook), subscribed to Pull Request and Push events. The connection is inbound from GitHub — there is no OAuth or personal-access-token flow on Forge\'s side. Mention an issue key like FORGE-123 in a PR title/body OR a plain commit message to link it automatically; use "closes FORGE-123" (in a PR, on merge) to auto-close the issue.',
+          },
+          {
+            type: 'steps',
+            items: [
+              { title: 'Set Content type to application/json', detail: 'On GitHub\'s "Add webhook" form, the Content type dropdown defaults to application/x-www-form-urlencoded. Forge only accepts raw JSON — leaving it on the default means every delivery fails to parse. Change it to application/json before saving.' },
+              { title: 'Paste the secret immediately', detail: 'The webhook secret is shown exactly once, right after you click Connect on the Forge side. Copy it straight into GitHub\'s Secret field on the same visit — Forge cannot show it to you again afterward.' },
+              { title: 'Verify with Recent Deliveries, not a Forge test button', detail: 'There is no "send test event" button on the Forge side for this integration (unlike the outbound Chat webhooks). After saving, push a commit or open a PR, then check that same webhook\'s "Recent Deliveries" tab on GitHub — each attempt shows its response code. 200 means Forge accepted it; anything else, click into that delivery to see the exact error Forge returned, and use "Redeliver" to resend it after fixing a setting instead of needing a fresh commit.' },
+            ],
+          },
+          {
+            type: 'callout',
+            variant: 'warning',
+            title: 'Lost the secret before pasting it? Reconnect to get a new one',
+            text: 'Forge never stores the secret in a form it can show you again — there is no "reveal" option. If you missed copying it, click Manage → Disconnect, then Connect again to generate a fresh one, and paste it into GitHub immediately this time. Disconnecting does not remove any PR/commit links already made to issues.',
           },
           {
             type: 'example',
             label: 'A PR that links itself to an issue',
             scenario: 'A developer opens a PR titled "Fix checkout crash on Safari (FORGE-482)" against a repo with the webhook configured.',
             outcome: 'The PR appears automatically on issue FORGE-482\'s detail page (Git card) and on that issue\'s project\'s Code Review dashboard — no manual linking step on either side. If the PR body instead said "closes FORGE-482," merging it would also flip the issue to Done.',
+          },
+          {
+            type: 'example',
+            label: 'Linking a plain commit, no PR involved',
+            scenario: 'A developer commits directly with `git commit -m "FORGE-482: fix checkout crash on Safari"` and pushes straight to main, without opening a PR.',
+            outcome: 'The push event alone is enough — Forge scans every commit message in the push for issue keys, the same regex it uses on PR titles/bodies. The commit shows up on FORGE-482\'s Git card with an AI-generated one-line summary. Auto-close only happens through a merged PR\'s "closes/fixes" syntax, though — a plain commit mentioning the key links it, but never closes it automatically.',
           },
           {
             type: 'callout',

@@ -1,4 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
+import { after } from "next/server";
 import { createSupabaseServiceClient } from "@/lib/supabase/service"; // eslint-disable-line no-restricted-imports -- service-role: webhook ingest, no user session (sec09)
 import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
 import { handleGithubWebhook } from "@/lib/services/gitWebhook";
@@ -85,7 +86,12 @@ export async function POST(req: Request) {
     }
 
     const payload = JSON.parse(body);
-    void handleGithubWebhook(tenantId, connectionId, eventType, deliveryId, payload);
+    // Runs after the response below is sent — `after` (not a bare fire-and-forget
+    // call) is required on Vercel's serverless runtime, which can freeze/kill the
+    // function the instant a response goes out. Without it, this work (including
+    // the actual issue_code_links write) could silently never finish even though
+    // GitHub sees a successful 200 delivery.
+    after(() => handleGithubWebhook(tenantId, connectionId, eventType, deliveryId, payload));
 
     return new Response(JSON.stringify({ ok: true }), { status: 200 });
   } catch (e) {
