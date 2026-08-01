@@ -57,16 +57,22 @@ export function gitIntegrationRepo(supabase: SupabaseClient) {
     },
 
     async createConnection(tenantId: string, webhookSecret: string): Promise<GitConnection> {
+      // Upsert on (provider, installation_id) — installation_id is always the
+      // tenantId in this simple webhook model, so a tenant only ever has one
+      // git_connections row, ever. Disconnect only flips status to "revoked"
+      // (preserving history), which means a plain insert on reconnect always
+      // collides with that same row and fails with a 23505 unique violation.
+      // Upserting reactivates the existing row with a fresh secret instead.
       const { data, error } = await supabase
         .from("git_connections")
-        .insert({
+        .upsert({
           tenant_id: tenantId,
           provider: "github",
           installation_id: tenantId, // use tenantId as stable identifier for simple webhook model
           account_login: null,
           webhook_secret_enc: webhookSecret, // stored plaintext for simple model (not GitHub App)
           status: "active",
-        })
+        }, { onConflict: "provider,installation_id" })
         .select("id, tenant_id, provider, installation_id, account_login, status, created_at")
         .single();
       if (error) throw error;
