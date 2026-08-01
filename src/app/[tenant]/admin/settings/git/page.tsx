@@ -26,13 +26,18 @@ export default async function GitSettingsPage({ params }: { params: Promise<{ te
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100";
   const webhookUrl = `${appUrl}/api/v1/webhooks/github?tenant=${slug}`;
 
-  // Recent deployments (post-migration 0091)
+  // Recent deployments (post-migration 0091). Defensively caught like every
+  // other query on this page — this one alone lacked a fallback, so any
+  // transient failure here crashed the whole page (including the working
+  // GitHub connection/repo-link UI above it) instead of just showing an
+  // empty deployments list.
   const { data: deployments } = await svc
     .from("deployments")
     .select("id, environment, version, repo_full_name, deployed_by, status, commit_sha, deployed_at")
     .eq("tenant_id", ctx.tenant.id)
     .order("deployed_at", { ascending: false })
-    .limit(20);
+    .limit(20)
+    .then((r) => r, () => ({ data: [] as never[] }));
 
   return (
     <div className="space-y-6 pb-8">
