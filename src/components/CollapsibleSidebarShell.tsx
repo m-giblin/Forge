@@ -15,8 +15,8 @@ export default function CollapsibleSidebarShell({ slug, children }: { slug: stri
 
   return (
     <div
-      className="hidden md:block shrink-0 overflow-hidden transition-[width] duration-200 ease-out"
-      style={{ width: collapsed ? 0 : 224 }}
+      className="hidden md:block shrink-0 transition-[width] duration-200 ease-out"
+      style={{ width: collapsed ? 0 : 224, overflow: collapsed ? "hidden" : "visible" }}
     >
       <div className="w-56">{children}</div>
     </div>

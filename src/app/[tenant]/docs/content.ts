@@ -282,6 +282,53 @@ export const DOC_GUIDES: DocGuide[] = [
           },
         ],
       },
+      {
+        id: 'using-slack',
+        title: 'Using Slack with Forge',
+        description: 'Get notified in a channel, and create issues without leaving Slack',
+        icon: '💬',
+        roles: ['owner', 'admin', 'member', 'viewer'],
+        blocks: [
+          {
+            type: 'paragraph',
+            text: 'This covers using Slack day-to-day, not setting it up — an admin connects Slack once under Admin → Integrations → Chat. If nothing below is working for you, that\'s the first thing to check with them, not something you can turn on yourself.',
+          },
+          { type: 'heading', level: 2, text: 'Getting notified in Slack' },
+          {
+            type: 'paragraph',
+            text: 'If your workspace has a webhook connected, a message posts automatically to the configured channel whenever an issue is created, gets a new comment, or has its priority changed to Urgent. There\'s nothing to opt into personally — it\'s a channel-wide feed, not a per-user notification setting. If you want to stop seeing certain noise, that\'s a conversation with whoever owns the channel or the integration, not a Forge setting.',
+          },
+          { type: 'heading', level: 2, text: 'Creating an issue with /forge' },
+          {
+            type: 'steps',
+            items: [
+              { title: 'Type the command', detail: 'In the connected Slack channel, type /forge followed by a title — for example /forge Login button unresponsive on mobile Safari.' },
+              { title: 'Issue is created immediately', detail: 'Forge creates the issue right away and replies with a confirmation message — only you can see that reply, so it won\'t clutter the channel for everyone else.' },
+              { title: 'Fill in the rest from Forge', detail: '/forge only sets a title. Open the issue from the confirmation link to add a description, priority, type, or assignee — treat it as a fast way to capture something before it\'s forgotten, not a full issue-creation form.' },
+            ],
+          },
+          { type: 'heading', level: 2, text: 'Creating an issue by reacting with 🐛' },
+          {
+            type: 'steps',
+            items: [
+              { title: 'React to any message', detail: 'Add the 🐛 (bug) emoji reaction to a message in the connected channel — someone else\'s bug report, a screenshot, an error someone pasted, anything with useful text in it.' },
+              { title: 'Forge turns it into an issue', detail: 'The reacted message\'s text becomes the new issue\'s description automatically. Forge replies with an ephemeral confirmation and a link, the same way /forge does.' },
+            ],
+          },
+          {
+            type: 'example',
+            label: 'Turning a bug report thread into a tracked issue',
+            scenario: 'A teammate pastes "checkout button does nothing on iPad, tried twice" into Slack. It would otherwise get lost once the conversation moves on.',
+            outcome: 'React to that message with 🐛. Forge creates an issue with that text as the description and replies to you with a link — no copy-pasting into Forge by hand, and no need to interrupt the Slack conversation to do it.',
+          },
+          {
+            type: 'callout',
+            variant: 'warning',
+            title: '/forge or 🐛 not doing anything?',
+            text: 'Outbound notifications and inbound issue creation are two separate pieces of setup on the admin side — a channel can be receiving Forge notifications just fine while /forge and 🐛 are completely inactive, because those specifically need a Slack Bot connection (not just a webhook). If neither is responding, ask your admin whether the Slack Bot — not just the notification webhook — is actually connected.',
+          },
+        ],
+      },
     ],
   },
   {
@@ -470,6 +517,10 @@ export const DOC_GUIDES: DocGuide[] = [
               { title: 'Write a reason that\'s useful later', detail: 'Your reason is posted as a permanent system comment. On approval, note what you reviewed and confirmed was addressed. On denial, be specific about what needs to change — a vague denial just produces a round of back-and-forth instead of a fix.' },
               { title: 'When gates lift automatically', detail: 'If the developer re-runs the analysis and the new result drops to Medium or Low, the gate lifts on its own — no approval needed from you. A "gate lifted" system comment marks the change.' },
             ],
+          },
+          {
+            type: 'tip',
+            text: 'For a broader "what PRs are in flight right now" view that isn\'t limited to gated issues, check Code Review (left nav, under Review) — it lists every open and recently-merged PR linked to an issue across every project, useful for a quick status check before standup.',
           },
         ],
       },
@@ -950,6 +1001,60 @@ export const DOC_GUIDES: DocGuide[] = [
             label: 'Missing Roadmap dependency arc',
             scenario: 'Cross-project dependencies aren\'t showing up on the Roadmap even though the issues are clearly related.',
             outcome: 'Roadmap arcs only come from issue-level "Blocks" links between issues in two different projects — a same-project block, or a "Duplicate"/sub-issue relationship, never produces a roadmap arc, by design.',
+          },
+        ],
+      },
+      {
+        id: 'github-code-review',
+        title: 'GitHub PRs & the Code Review Dashboard',
+        description: 'Link a PR to an issue just by mentioning it, and track review status workspace-wide',
+        icon: '🔀',
+        roles: ['owner', 'admin', 'member'],
+        blocks: [
+          {
+            type: 'paragraph',
+            text: 'This section assumes an admin has already connected your repo under Admin → Integrations → GitHub — if PRs never show up on any issue, that\'s a setup problem to raise with them, not something to work around here. Once it\'s connected, everything below happens automatically from how you write your PR title or body — there is no Forge UI you visit to "link" a PR.',
+          },
+          { type: 'heading', level: 2, text: 'Linking a PR to an issue' },
+          {
+            type: 'steps',
+            items: [
+              { title: 'Mention the issue key', detail: 'Include the issue key — e.g. FORGE-482 — anywhere in the PR title or description. Forge picks it up from the webhook event and attaches the PR to that issue\'s Git card within seconds of the PR being opened or updated.' },
+              { title: 'Auto-close on merge (optional)', detail: 'Use "closes FORGE-482" or "fixes FORGE-482" instead of a bare mention if you want the issue to flip to Done automatically the moment the PR merges — skip this if you\'d rather close it yourself after verifying.' },
+              { title: 'Link multiple issues', detail: 'A single PR can mention more than one issue key — each gets its own link, so a PR that touches two related tickets shows up on both of their Git cards.' },
+            ],
+          },
+          {
+            type: 'example',
+            label: 'PR title that does both',
+            scenario: 'A developer\'s branch fixes a checkout bug and wants it linked and auto-closed.',
+            outcome: 'PR title: "fixes FORGE-482 — checkout crash on Safari 17". The PR shows up on FORGE-482\'s Git card immediately, and merging it moves FORGE-482 to Done with no manual step.',
+          },
+          { type: 'heading', level: 2, text: 'The Code Review dashboard' },
+          {
+            type: 'paragraph',
+            text: 'Code Review (left nav, under Review) is a single page listing every PR linked to an issue across every project in the workspace — not just yours. It\'s a tracking view, not a diff viewer: there\'s no code shown here, only PR metadata (repo, number, title, state) and the issue it\'s linked to. Click a row to open the Forge issue; open the PR itself on GitHub via the link on that issue\'s Git card.',
+          },
+          {
+            type: 'table',
+            headers: ['Section', 'What lands here'],
+            rows: [
+              ['Waiting on your review', 'Open PRs linked to issues assigned to someone else.'],
+              ['Your open PRs', 'Open PRs linked to issues assigned to you.'],
+              ['Recently merged', 'The last 20 merged PRs, most recent first.'],
+            ],
+          },
+          {
+            type: 'callout',
+            variant: 'warning',
+            title: '"Waiting on your review" is a proxy, not real reviewer data',
+            text: 'Forge doesn\'t sync GitHub\'s actual requested-reviewers list — that data isn\'t part of the webhook events it listens for. "Waiting on your review" really means "this PR\'s linked issue is assigned to someone other than you." If an issue is unassigned or assigned to the PR\'s own author, it can still land in this bucket even if GitHub never requested your review — treat it as a rough triage list, not a precise review queue.',
+          },
+          {
+            type: 'example',
+            label: 'A merged PR still shows as "Open"',
+            scenario: 'A PR was merged on GitHub minutes ago but the Code Review dashboard still shows it under an open bucket.',
+            outcome: 'PR state updates arrive via the same GitHub webhook as everything else — check Admin → Integrations → GitHub to confirm the webhook is still active and subscribed to Pull Request events; a disabled or misconfigured webhook is the usual cause of stale state here.',
           },
         ],
       },
@@ -1694,10 +1799,34 @@ export const DOC_GUIDES: DocGuide[] = [
             type: 'paragraph',
             text: 'Admin → Integrations → GitHub generates a webhook secret and a URL to paste into your GitHub repo\'s own webhook settings, subscribed to Pull Request and Push events. The connection is inbound from GitHub — there is no OAuth or personal-access-token flow on Forge\'s side. Mention an issue key like FORGE-123 in a PR title or body to link it automatically; use "closes FORGE-123" to auto-close the issue on merge.',
           },
+          {
+            type: 'example',
+            label: 'A PR that links itself to an issue',
+            scenario: 'A developer opens a PR titled "Fix checkout crash on Safari (FORGE-482)" against a repo with the webhook configured.',
+            outcome: 'The PR appears automatically on issue FORGE-482\'s detail page (Git card) and on that issue\'s project\'s Code Review dashboard — no manual linking step on either side. If the PR body instead said "closes FORGE-482," merging it would also flip the issue to Done.',
+          },
+          {
+            type: 'callout',
+            variant: 'info',
+            title: 'Where this shows up for your team',
+            text: 'Setting this up here is what makes the Developer Guide\'s "GitHub PRs & the Code Review Dashboard" section actually work day-to-day — worth pointing new developers there once the webhook is connected, rather than re-explaining the linking syntax yourself.',
+          },
           { type: 'heading', level: 2, text: 'Slack, Teams, or Discord' },
           {
             type: 'paragraph',
             text: 'Admin → Integrations → Chat accepts an incoming webhook URL per provider to notify the channel on issue creation, new comments, and priority changes to Urgent. Separately, a Slack Bot card enables inbound issue creation from Slack itself — a `/forge [title]` slash command and a 🐛 emoji reaction — if you supply a bot token, signing secret, and workspace ID.',
+          },
+          {
+            type: 'callout',
+            variant: 'warning',
+            title: 'Two separate toggles, easy to only do one',
+            text: 'The webhook URL and the Slack Bot fields are independent. A workspace with only the webhook filled in gets notifications posted into Slack but /forge and the 🐛 reaction won\'t do anything — those specifically require the bot token + signing secret + workspace ID to be filled in too. If a team reports "the slash command doesn\'t work," this is the first thing to check.',
+          },
+          {
+            type: 'callout',
+            variant: 'info',
+            title: 'Where this shows up for your team',
+            text: 'Once the Slack Bot is connected, point your team at the User Guide\'s "Using Slack with Forge" section — it covers /forge and the 🐛 reaction from the user\'s side, with examples, not setup.',
           },
           { type: 'heading', level: 2, text: 'Outbound webhooks' },
           {
