@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
+export type MergeWorkflow = "keyword_or_solo" | "always_close" | "link_only";
+
 export type GitConnection = {
   id: string;
   tenantId: string;
@@ -7,6 +9,7 @@ export type GitConnection = {
   installationId: string;
   accountLogin: string | null;
   status: "active" | "revoked";
+  mergeWorkflow: MergeWorkflow;
   createdAt: string;
 };
 
@@ -40,7 +43,7 @@ export function gitIntegrationRepo(supabase: SupabaseClient) {
     async getConnection(tenantId: string): Promise<GitConnection | null> {
       const { data } = await supabase
         .from("git_connections")
-        .select("id, tenant_id, provider, installation_id, account_login, status, created_at")
+        .select("id, tenant_id, provider, installation_id, account_login, status, merge_workflow, created_at")
         .eq("tenant_id", tenantId)
         .eq("status", "active")
         .maybeSingle();
@@ -52,6 +55,7 @@ export function gitIntegrationRepo(supabase: SupabaseClient) {
         installationId: data.installation_id,
         accountLogin: data.account_login,
         status: data.status,
+        mergeWorkflow: data.merge_workflow,
         createdAt: data.created_at,
       };
     },
@@ -73,7 +77,7 @@ export function gitIntegrationRepo(supabase: SupabaseClient) {
           webhook_secret_enc: webhookSecret, // stored plaintext for simple model (not GitHub App)
           status: "active",
         }, { onConflict: "provider,installation_id" })
-        .select("id, tenant_id, provider, installation_id, account_login, status, created_at")
+        .select("id, tenant_id, provider, installation_id, account_login, status, merge_workflow, created_at")
         .single();
       if (error) throw error;
       return {
@@ -83,8 +87,17 @@ export function gitIntegrationRepo(supabase: SupabaseClient) {
         installationId: data.installation_id,
         accountLogin: data.account_login,
         status: data.status,
+        mergeWorkflow: data.merge_workflow,
         createdAt: data.created_at,
       };
+    },
+
+    async setMergeWorkflow(tenantId: string, connectionId: string, mergeWorkflow: MergeWorkflow): Promise<void> {
+      await supabase
+        .from("git_connections")
+        .update({ merge_workflow: mergeWorkflow })
+        .eq("tenant_id", tenantId)
+        .eq("id", connectionId);
     },
 
     async getWebhookSecret(connectionId: string): Promise<string | null> {
@@ -135,7 +148,7 @@ export function gitIntegrationRepo(supabase: SupabaseClient) {
     async getConnectionByInstallation(installationId: string): Promise<(GitConnection & { webhookSecret: string | null }) | null> {
       const { data } = await supabase
         .from("git_connections")
-        .select("id, tenant_id, provider, installation_id, account_login, status, created_at, webhook_secret_enc")
+        .select("id, tenant_id, provider, installation_id, account_login, status, merge_workflow, created_at, webhook_secret_enc")
         .eq("installation_id", installationId)
         .eq("status", "active")
         .maybeSingle();
@@ -147,6 +160,7 @@ export function gitIntegrationRepo(supabase: SupabaseClient) {
         installationId: data.installation_id,
         accountLogin: data.account_login,
         status: data.status,
+        mergeWorkflow: data.merge_workflow,
         createdAt: data.created_at,
         webhookSecret: data.webhook_secret_enc as string | null,
       };
