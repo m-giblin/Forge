@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { GitConnection, GitRepoLink } from "@/lib/repositories/gitIntegration";
+import type { GitConnection, GitRepoLink, MergeWorkflow } from "@/lib/repositories/gitIntegration";
 import type { Project } from "@/lib/services/issues";
-import { connectGitHubAction, disconnectGitHubAction, addRepoLinkAction, removeRepoLinkAction } from "./actions";
+import { connectGitHubAction, disconnectGitHubAction, addRepoLinkAction, removeRepoLinkAction, setMergeWorkflowAction } from "./actions";
 import PageHeader from "@/components/patterns/PageHeader";
 import ConnectCards from "@/components/patterns/admin/ConnectCards";
 import AdminTable from "@/components/patterns/admin/AdminTable";
@@ -44,6 +44,14 @@ export default function GitSettingsClient({
   function disconnect() {
     if (!confirm("Disconnect GitHub? Existing code links will be preserved.")) return;
     startTransition(() => disconnectGitHubAction(slug));
+  }
+
+  function changeMergeWorkflow(value: string) {
+    startTransition(async () => {
+      try {
+        await setMergeWorkflowAction(slug, value as MergeWorkflow);
+      } catch (e) { setError(String(e)); }
+    });
   }
 
   function addRepo() {
@@ -101,6 +109,22 @@ export default function GitSettingsClient({
             <Note icon="ℹ" tone="info">
               Mention <code className="font-mono">FORGE-123</code> in a PR title/body to link it. Use <code className="font-mono">closes FORGE-123</code> or <code className="font-mono">fixes FORGE-123</code> to auto-close on merge.
             </Note>
+
+            <div className="fw-card px-4 py-4 space-y-2">
+              <p className="text-[11px] font-extrabold uppercase tracking-[0.06em] text-[#a19d90]">On PR merge</p>
+              <select
+                value={connection.mergeWorkflow}
+                onChange={(e) => changeMergeWorkflow(e.target.value)}
+                className={inputCls}
+              >
+                <option value="keyword_or_solo">Close on keyword, or if only one ticket is linked (default)</option>
+                <option value="always_close">Close every linked ticket, keyword not required</option>
+                <option value="link_only">Never auto-close — just link the PR to the ticket</option>
+              </select>
+              <p className="text-[11.5px] text-[#726e60]">
+                Controls what happens to a ticket when a linked pull request is merged. Applies to every repo connected here.
+              </p>
+            </div>
 
             <div>
               <h2 className="mb-3 text-[12.5px] font-bold text-[#20201d]">Linked repositories</h2>

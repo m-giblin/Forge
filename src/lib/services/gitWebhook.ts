@@ -94,6 +94,13 @@ export async function handleGithubWebhook(
       const closingKeys = isMerged ? extractClosingKeys(combined) : [];
       const mergedIssuesForEmail: Array<{ key: string; issueId: string; issueTitle: string; autoClosed: boolean }> = [];
 
+      // Tenant-configurable: how a merged PR should affect its linked ticket(s).
+      // Defaults to "keyword_or_solo" (the original hardcoded behavior) when no
+      // connection is found, which shouldn't happen since the webhook only fires
+      // for an active connection, but fail closed to the safest option regardless.
+      const connection = await repo.getConnection(tenantId);
+      const mergeWorkflow = connection?.mergeWorkflow ?? "keyword_or_solo";
+
       for (const key of allKeys) {
         const issue = await resolveIssueByKey(svc, tenantId, key);
         if (!issue) continue;
@@ -103,9 +110,12 @@ export async function handleGithubWebhook(
           prNumber, linkKind: "ref", prState, prTitle, prUrl,
         });
 
-        // Auto-close on merge if closing keyword used
+        // Auto-close on merge per the tenant's chosen workflow.
         let autoClosed = false;
-        if (isMerged && (closingKeys.includes(key) || closingKeys.length === 0 && allKeys.length === 1)) {
+        const shouldAutoClose =
+          isMerged && mergeWorkflow !== "link_only" &&
+          (mergeWorkflow === "always_close" || closingKeys.includes(key) || (closingKeys.length === 0 && allKeys.length === 1));
+        if (shouldAutoClose) {
           if (issue.status !== "done") {
             await issuesRepo(svc).update(tenantId, issue.id, { status: "done" });
             autoClosed = true;

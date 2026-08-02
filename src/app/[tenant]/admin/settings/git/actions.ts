@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role: git admin writes (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
+import { gitIntegrationRepo, type MergeWorkflow } from "@/lib/repositories/gitIntegration";
 import { recordAudit } from "@/lib/audit";
 
 async function adminCtx(slug: string) {
@@ -67,4 +67,18 @@ export async function removeRepoLinkAction(slug: string, linkId: string): Promis
   await gitIntegrationRepo(svc).removeRepoLink(ctx.tenant.id, linkId);
   revalidatePath(`/${slug}/admin/settings/git`);
   await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "github.repo_unlinked", target: linkId });
+}
+
+export async function setMergeWorkflowAction(slug: string, mergeWorkflow: MergeWorkflow): Promise<void> {
+  const ctx = await adminCtx(slug);
+  const svc = createSupabaseServiceClient();
+  const repo = gitIntegrationRepo(svc);
+  const conn = await repo.getConnection(ctx.tenant.id);
+  if (!conn) throw new Error("No active GitHub connection");
+  await repo.setMergeWorkflow(ctx.tenant.id, conn.id, mergeWorkflow);
+  revalidatePath(`/${slug}/admin/settings/git`);
+  await recordAudit({
+    tenantId: ctx.tenant.id, actorUserId: ctx.appUserId,
+    action: "github.merge_workflow_changed", metadata: { mergeWorkflow },
+  });
 }
