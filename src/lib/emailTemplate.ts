@@ -252,3 +252,175 @@ export function buildAssignmentEmail(d: EmailData): { subject: string; html: str
     html,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Merge notification — sent to tenant admins when a PR linked to a Forge
+// issue merges. Table-based layout, same conventions as the assignment email
+// above (tenant branding color, Forge footer).
+// ---------------------------------------------------------------------------
+
+export type MergedIssue = {
+  key: string;
+  title: string;
+  url: string;
+  autoClosed: boolean;
+};
+
+export type MergeEmailData = {
+  tenantDisplayName: string;
+  tenantPrimaryColor: string;
+  repoFullName: string;
+  prTitle: string;
+  prNumber: number;
+  prUrl: string;
+  mergedBy: string;
+  issues: MergedIssue[];
+};
+
+export function buildMergeNotificationEmail(d: MergeEmailData): { subject: string; html: string } {
+  const primary = d.tenantPrimaryColor || "#111827";
+  const closedCount = d.issues.filter((i) => i.autoClosed).length;
+  const keysLabel = d.issues.map((i) => i.key).join(", ");
+
+  const issueRows = d.issues
+    .map(
+      (i) => `
+        <tr style="border-bottom:1px solid #f3f4f6;">
+          <td style="padding:12px;font-family:monospace;font-size:13px;font-weight:600;color:${primary};white-space:nowrap;vertical-align:top;">
+            <a href="${i.url}" style="color:${primary};text-decoration:none;">${i.key}</a>
+          </td>
+          <td style="padding:12px;font-size:13px;color:#1f2937;vertical-align:top;">
+            ${truncate(i.title, 80)}
+          </td>
+          <td style="padding:12px;white-space:nowrap;vertical-align:top;">
+            ${i.autoClosed
+              ? `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;background:#d1fae5;color:#065f46;">✓ Closed</span>`
+              : `<span style="display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;background:#f3f4f6;color:#6b7280;">Linked</span>`
+            }
+          </td>
+        </tr>`
+    )
+    .join("");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Merged: ${d.prTitle}</title>
+</head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,Helvetica,sans-serif;">
+
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px;">
+<tr><td align="center">
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+  <!-- HEADER -->
+  <tr>
+    <td style="background:${primary};border-radius:12px 12px 0 0;padding:20px 28px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>
+            <span style="font-size:18px;font-weight:800;letter-spacing:-0.5px;color:#ffffff;">
+              FORGE
+            </span>
+          </td>
+          <td align="right">
+            <span style="font-size:13px;font-weight:500;color:rgba(255,255,255,0.75);">
+              ${d.tenantDisplayName}
+            </span>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- HERO -->
+  <tr>
+    <td style="background:#ffffff;padding:28px 28px 20px;">
+      <p style="margin:0 0 4px;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#7a4fa0;">
+        🔀 Pull request merged
+      </p>
+      <p style="margin:0 0 20px;font-size:20px;font-weight:700;color:#111827;line-height:1.3;">
+        ${truncate(d.prTitle, 90)}
+      </p>
+
+      <!-- PR card -->
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
+        <tr>
+          <td style="padding:14px 16px;background:#faf7fc;">
+            <p style="margin:0 0 2px;font-size:13px;color:#374151;">
+              <span style="font-family:monospace;font-weight:600;">${d.repoFullName}</span> #${d.prNumber}
+            </p>
+            <p style="margin:0;font-size:12px;color:#6b7280;">
+              Merged by <strong style="color:#374151;">${d.mergedBy}</strong>
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 16px 16px;">
+            <a href="${d.prUrl}"
+               style="display:inline-block;background:#ffffff;border:1px solid ${primary};color:${primary};text-decoration:none;font-size:13px;font-weight:700;padding:9px 18px;border-radius:7px;">
+              View on GitHub &rarr;
+            </a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- LINKED ISSUES -->
+  <tr>
+    <td style="background:#ffffff;padding:0 28px 28px;border-top:1px solid #f3f4f6;">
+      <p style="margin:20px 0 12px;font-size:12px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#6b7280;">
+        Linked issue${d.issues.length !== 1 ? "s" : ""} &nbsp;<span style="background:#f3f4f6;color:#374151;padding:1px 7px;border-radius:12px;font-size:11px;">${d.issues.length}</span>
+        ${closedCount > 0 ? `&nbsp;&middot;&nbsp;<span style="color:#059669;">${closedCount} auto-closed</span>` : ""}
+      </p>
+      <table width="100%" cellpadding="0" cellspacing="0"
+             style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;font-size:13px;">
+        <thead>
+          <tr style="background:#f9fafb;">
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Key</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Title</th>
+            <th style="padding:8px 12px;text-align:left;font-size:11px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.05em;">Status</th>
+          </tr>
+        </thead>
+        <tbody>${issueRows}</tbody>
+      </table>
+    </td>
+  </tr>
+
+  <!-- FOOTER -->
+  <tr>
+    <td style="background:#f9fafb;border-top:1px solid #e5e7eb;border-radius:0 0 12px 12px;padding:20px 28px;">
+      <table width="100%" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>
+            <p style="margin:0 0 2px;font-size:12px;font-weight:700;color:#374151;">
+              Forge &mdash; Issue tracking for ${d.tenantDisplayName}
+            </p>
+            <p style="margin:0;font-size:11px;color:#9ca3af;">
+              You received this as a workspace admin — a merged PR touched ${d.issues.length === 1 ? "an issue" : "issues"} this workspace tracks.
+            </p>
+          </td>
+          <td align="right" style="vertical-align:bottom;">
+            <span style="font-size:10px;font-weight:800;letter-spacing:0.05em;color:#d1d5db;">FORGE</span>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+</table>
+</td></tr>
+</table>
+
+</body>
+</html>`;
+
+  return {
+    subject: `🔀 Merged: ${truncate(d.prTitle, 60)} (${keysLabel})`,
+    html,
+  };
+}

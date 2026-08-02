@@ -7,6 +7,7 @@ import { logger } from "@/lib/logger";
 import { grokComplete } from "@/lib/services/grokAi";
 import { getRateLimiter } from "@/lib/providers/rate-limiter";
 import { recordAudit } from "@/lib/audit";
+import { sendMergeNotificationEmail } from "@/lib/services/notifications";
 
 // Parse issue keys like FORGE-123, WEB-42, or TRAV2-66 from text. Must match
 // the actual project-key format (src/lib/services/projects.ts KEY_RE:
@@ -50,7 +51,7 @@ async function resolveIssueByKey(svc: ReturnType<typeof createSupabaseServiceCli
   const [, projectKey, num] = parts;
   const project = await projectsRepo(svc).listByTenant(tenantId).then((ps) => ps.find((p) => p.key === projectKey));
   if (!project) return null;
-  const { data } = await svc.from("issues").select("id, status").eq("tenant_id", tenantId).eq("project_id", project.id).eq("number", parseInt(num)).maybeSingle();
+  const { data } = await svc.from("issues").select("id, title, status").eq("tenant_id", tenantId).eq("project_id", project.id).eq("number", parseInt(num)).maybeSingle();
   return data ?? null;
 }
 
@@ -91,6 +92,7 @@ export async function handleGithubWebhook(
       const combined = `${prTitle} ${prBody}`;
       const allKeys = extractIssueKeys(combined);
       const closingKeys = isMerged ? extractClosingKeys(combined) : [];
+      const mergedIssuesForEmail: Array<{ key: string; issueId: string; issueTitle: string; autoClosed: boolean }> = [];
 
       for (const key of allKeys) {
         const issue = await resolveIssueByKey(svc, tenantId, key);
@@ -102,9 +104,11 @@ export async function handleGithubWebhook(
         });
 
         // Auto-close on merge if closing keyword used
+        let autoClosed = false;
         if (isMerged && (closingKeys.includes(key) || closingKeys.length === 0 && allKeys.length === 1)) {
           if (issue.status !== "done") {
             await issuesRepo(svc).update(tenantId, issue.id, { status: "done" });
+            autoClosed = true;
             logger.info("Auto-closed issue on PR merge", { tenantId, issueId: issue.id, key });
             await recordAudit({
               tenantId, actorUserId: null, actorLabel: `GitHub (${actorLogin || "unknown"})`,
@@ -113,6 +117,32 @@ export async function handleGithubWebhook(
             });
           }
         }
+
+        if (isMerged) {
+          mergedIssuesForEmail.push({ key, issueId: issue.id, issueTitle: issue.title, autoClosed });
+        }
+      }
+
+      // Notify tenant admins once per merged PR, summarizing every issue it touched —
+      // not once per issue, which would spam admins on a PR closing several tickets.
+      if (isMerged && mergedIssuesForEmail.length > 0) {
+        const { data: tenant } = await svc.from("tenants").select("slug").eq("id", tenantId).maybeSingle();
+        const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100").replace(/\/$/, "");
+        const slug = tenant?.slug ?? tenantId;
+        await sendMergeNotificationEmail({
+          tenantId,
+          repoFullName,
+          prTitle,
+          prNumber,
+          prUrl,
+          mergedBy: actorLogin || "unknown",
+          issues: mergedIssuesForEmail.map((m) => ({
+            key: m.key,
+            title: m.issueTitle,
+            url: `${appUrl}/${slug}/issues/${m.issueId}`,
+            autoClosed: m.autoClosed,
+          })),
+        });
       }
     } else if (eventType === "push") {
       const commits: Array<{
@@ -227,7 +257,7 @@ Message: ${(commit.message ?? "").slice(0, 500)}`,
 
       if (version) {
         const svc = createSupabaseServiceClient();
-        await svc.from("deployments").insert({
+        const { error: depErr } = await svc.from("deployments").insert({
           tenant_id: tenantId,
           connection_id: connectionId,
           environment: "production",
@@ -238,12 +268,19 @@ Message: ${(commit.message ?? "").slice(0, 500)}`,
           commit_sha: sha,
           commit_url: sha ? `https://github.com/${repoFullName}/commit/${sha}` : null,
         });
-        logger.info("Deployment recorded", { tenantId, version, repoFullName });
-        await recordAudit({
-          tenantId, actorUserId: null, actorLabel: `GitHub (${actorLogin || "unknown"})`,
-          action: "deployment.recorded", target: repoFullName,
-          metadata: { version, sha },
-        });
+        // Only audit a success if the write actually succeeded — an audited
+        // "deployment.recorded" the deployments table doesn't actually have
+        // is worse than no audit entry at all.
+        if (depErr) {
+          logger.warn("Deployment record insert failed", { tenantId, version, repoFullName, err: depErr.message });
+        } else {
+          logger.info("Deployment recorded", { tenantId, version, repoFullName });
+          await recordAudit({
+            tenantId, actorUserId: null, actorLabel: `GitHub (${actorLogin || "unknown"})`,
+            action: "deployment.recorded", target: repoFullName,
+            metadata: { version, sha },
+          });
+        }
       }
     } else if (eventType === "deployment_status") {
       // GitHub Deployments API — update or insert a deployment record.
@@ -259,7 +296,7 @@ Message: ${(commit.message ?? "").slice(0, 500)}`,
       const actorLogin: string = payload.sender?.login ?? "";
 
       const svc = createSupabaseServiceClient();
-      await svc.from("deployments").upsert({
+      const { error: depErr } = await svc.from("deployments").upsert({
         tenant_id: tenantId,
         connection_id: connectionId,
         environment,
@@ -270,10 +307,12 @@ Message: ${(commit.message ?? "").slice(0, 500)}`,
         commit_sha: sha,
         deployed_at: deploymentStatus.created_at ?? new Date().toISOString(),
       }, { onConflict: "tenant_id,environment,version,repo_full_name", ignoreDuplicates: false });
-      // Only worth a permanent audit entry once the deploy actually settles —
-      // an "in_progress" status will be immediately followed by a second
-      // deployment_status event (success/failure) for the same deployment.
-      if (state === "success" || state === "failure") {
+      if (depErr) {
+        logger.warn("Deployment status upsert failed", { tenantId, version, repoFullName, err: depErr.message });
+      } else if (state === "success" || state === "failure") {
+        // Only worth a permanent audit entry once the deploy actually settles —
+        // an "in_progress" status will be immediately followed by a second
+        // deployment_status event (success/failure) for the same deployment.
         await recordAudit({
           tenantId, actorUserId: null, actorLabel: `GitHub (${actorLogin || "unknown"})`,
           action: state === "success" ? "deployment.recorded" : "deployment.failed",

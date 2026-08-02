@@ -2,7 +2,7 @@ import "server-only";
 import { Resend } from "resend";
 import { getSetting } from "@/lib/platformSettings";
 import { getTenantSettings } from "@/lib/tenantSettings";
-import { buildAssignmentEmail, type OpenTicket } from "@/lib/emailTemplate";
+import { buildAssignmentEmail, buildMergeNotificationEmail, type OpenTicket, type MergedIssue } from "@/lib/emailTemplate";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { notificationsRepo } from "@/lib/repositories/notifications";
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
@@ -173,6 +173,59 @@ export async function sendPasswordResetCodeEmail(opts: {
         <p style="color:#999;font-size:12px;">If you didn't request this, you can safely ignore this email — your password won't change unless this code is entered.</p>
       </div>
     `,
+  });
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Merge notification — emails every owner/admin in the tenant when a PR
+// linked to a Forge issue merges. Fires once per merged PR (not once per
+// linked issue), summarizing everything the merge touched.
+// ---------------------------------------------------------------------------
+
+export async function sendMergeNotificationEmail(opts: {
+  tenantId: string;
+  repoFullName: string;
+  prTitle: string;
+  prNumber: number;
+  prUrl: string;
+  mergedBy: string;
+  issues: MergedIssue[];
+}): Promise<boolean> {
+  if (opts.issues.length === 0) return false;
+
+  const svc = createSupabaseServiceClient();
+  const [resend, branding, adminIds] = await Promise.all([
+    getResendClient(),
+    getTenantSettings(opts.tenantId, ["email_display_name", "email_primary_color", "email_from_name"]),
+    membersRepo(svc).listAdminUserIds(opts.tenantId),
+  ]);
+  if (!resend || adminIds.length === 0) return false;
+
+  const { data: admins } = await svc.from("users").select("email").in("id", adminIds);
+  const adminEmails = (admins ?? []).map((a) => a.email as string).filter(Boolean);
+  if (adminEmails.length === 0) return false;
+
+  const tenantName = branding["email_display_name"] || "Forge-Worx";
+  const primaryColor = branding["email_primary_color"] || "#7a4fa0";
+  const fromName = branding["email_from_name"] || `${tenantName} via Forge-Worx`;
+
+  const { subject, html } = buildMergeNotificationEmail({
+    tenantDisplayName: tenantName,
+    tenantPrimaryColor: primaryColor,
+    repoFullName: opts.repoFullName,
+    prTitle: opts.prTitle,
+    prNumber: opts.prNumber,
+    prUrl: opts.prUrl,
+    mergedBy: opts.mergedBy,
+    issues: opts.issues,
+  });
+
+  await resend.emails.send({
+    from: `${fromName} <notifications@forge.app>`,
+    to: adminEmails,
+    subject,
+    html,
   });
   return true;
 }
