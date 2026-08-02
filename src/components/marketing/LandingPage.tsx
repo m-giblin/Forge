@@ -15,9 +15,35 @@ const FAQS = [
   },
 ];
 
+const SOFTWARE_APP_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "Forge-Worx",
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  description:
+    "Issue tracking that ties every ticket to the code that shipped it — sprint boards, backlog, roadmap, and reporting for teams who'd rather be delivering than configuring.",
+  offers: {
+    "@type": "Offer",
+    priceCurrency: "USD",
+  },
+};
+
+const FAQ_JSON_LD = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  mainEntity: FAQS.map((f) => ({
+    "@type": "Question",
+    name: f.q,
+    acceptedAnswer: { "@type": "Answer", text: f.a },
+  })),
+};
+
 export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[var(--fw-cream)] text-[#20201d] antialiased font-[family-name:var(--font-inter)]">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(SOFTWARE_APP_JSON_LD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }} />
 
       {/* ── NAV ─────────────────────────────────────────────────── */}
       <header className="fw-grunge sticky top-0 z-50 border-b border-[var(--fw-sidebar-border)] bg-[var(--fw-sidebar-3)]/95 backdrop-blur-md">

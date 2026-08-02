@@ -59,6 +59,12 @@ export async function updateSession(
   // /join must be reachable signed-out so a new invitee can create an account.
   const isPublic =
     path === "/" ||
+    // Next.js metadata routes served at the root — crawlers and browsers hit
+    // these with no session at all. Confirmed live: without this they 307'd
+    // to /login, silently defeating robots.txt/sitemap.xml/PWA installability.
+    path === "/robots.txt" ||
+    path === "/sitemap.xml" ||
+    path === "/manifest.json" ||
     path.startsWith("/login") ||
     path.startsWith("/signup") ||
     path.startsWith("/preview-landing") ||

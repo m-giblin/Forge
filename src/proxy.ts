@@ -73,7 +73,11 @@ export async function proxy(request: NextRequest) {
   // NOTE: /api/v1/ is excluded from the IP allowlist because machine API clients authenticate
   // via API keys which have their own rate limiting and scopes. Tenant admins configuring
   // an IP allowlist should be aware it does not restrict API key access.
-  const ALWAYS_SKIP = ["/api/v1/", "/api/scim/", "/api/auth/", "/api/cron/", "/api/signup", "/api/internal/", "/api/email/inbound", "/api/webhooks/", "/forge-sdk.js", "/rrweb-recorder.min.js", "/login", "/signup", "/preview-landing", "/join", "/shared", "/legal", "/feedback", "/auth/", "/_next"];
+  // robots.txt/sitemap.xml/manifest.json are Next.js metadata routes served at
+  // the root — they must be reachable by crawlers and browsers with no
+  // session at all. Without this they silently 307 to /login, which defeats
+  // their entire purpose (confirmed live: all three did exactly this).
+  const ALWAYS_SKIP = ["/api/v1/", "/api/scim/", "/api/auth/", "/api/cron/", "/api/signup", "/api/internal/", "/api/email/inbound", "/api/webhooks/", "/forge-sdk.js", "/rrweb-recorder.min.js", "/login", "/signup", "/preview-landing", "/join", "/shared", "/legal", "/feedback", "/auth/", "/_next", "/robots.txt", "/sitemap.xml", "/manifest.json"];
   const alwaysSkip = ALWAYS_SKIP.some((p) => path.startsWith(p));
 
   if (!alwaysSkip) {

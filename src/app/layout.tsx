@@ -28,13 +28,38 @@ const inter = Inter({
   subsets: ["latin"],
 });
 
+const siteUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100").replace(/\/$/, "");
+const siteDescription =
+  "Forge-Worx is issue tracking that ties every ticket to the code that shipped it — sprint boards, backlog, roadmap, and reporting for teams who'd rather be delivering than configuring.";
+
 export const metadata: Metadata = {
-  title: "Forge",
-  description: "Forge — issue tracking for your team",
+  metadataBase: new URL(siteUrl),
+  title: {
+    default: "Forge-Worx",
+    template: "%s · Forge-Worx",
+  },
+  description: siteDescription,
   manifest: "/manifest.json",
   icons: {
     icon: "/icons/icon.svg",
     apple: "/icons/icon.svg",
+  },
+  alternates: {
+    canonical: "/",
+  },
+  openGraph: {
+    type: "website",
+    url: siteUrl,
+    siteName: "Forge-Worx",
+    title: "Forge-Worx — Issue tracking tied to your code",
+    description: siteDescription,
+    images: [{ url: "/logo-384.png", width: 384, height: 384, alt: "Forge-Worx" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "Forge-Worx — Issue tracking tied to your code",
+    description: siteDescription,
+    images: ["/logo-384.png"],
   },
 };
 
