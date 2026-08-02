@@ -129,14 +129,20 @@ export async function sendAssignedEmail(opts: {
 }
 
 // ---------------------------------------------------------------------------
-// Admin-triggered password reset — sent via the app's own Resend pipeline
-// rather than Supabase Auth's built-in (unconfigured-SMTP) email delivery.
+// Password reset — a verification code entered directly in Forge, not a link to
+// click. Sent via the app's own Resend pipeline rather than Supabase Auth's
+// built-in (unconfigured-SMTP) email delivery. Whether it's self-service
+// (login page "Forgot password?") or admin-triggered (Admin → Members →
+// "Send password reset"), the recipient always ends up on the same in-app
+// screen — enter the code + a new password — never redirected out to click
+// something and get bounced back.
 // ---------------------------------------------------------------------------
 
-export async function sendPasswordResetEmail(opts: {
+export async function sendPasswordResetCodeEmail(opts: {
   tenantId?: string;
   toEmail: string;
-  resetUrl: string;
+  code: string;
+  triggeredByAdmin?: boolean;
 }): Promise<boolean> {
   const [resend, branding] = await Promise.all([
     getResendClient(),
@@ -149,21 +155,22 @@ export async function sendPasswordResetEmail(opts: {
   const tenantName = branding["email_display_name"] || "Forge-Worx";
   const primaryColor = branding["email_primary_color"] || "#b7452f";
   const fromName = branding["email_from_name"] || `${tenantName}${opts.tenantId ? " via Forge-Worx" : ""}`;
+  const context = opts.triggeredByAdmin
+    ? `An admin at ${tenantName} requested a password reset for your account.`
+    : `Use this code to reset your ${tenantName} password.`;
 
   await resend.emails.send({
     from: `${fromName} <notifications@forge.app>`,
     to: opts.toEmail,
-    subject: `Reset your ${tenantName} password`,
+    subject: `Your ${tenantName} password reset code`,
     html: `
       <div style="font-family:-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
         <h2 style="color:${primaryColor};margin:0 0 12px;">Reset your password</h2>
-        <p style="color:#333;font-size:14px;line-height:1.5;">
-          An admin at ${tenantName} requested a password reset for your account. Click below to choose a new password.
+        <p style="color:#333;font-size:14px;line-height:1.5;">${context} Enter it on the reset screen along with a new password — this code expires in 60 minutes.</p>
+        <p style="margin:24px 0;text-align:center;">
+          <span style="display:inline-block;background:#f4f2eb;border:1px solid #ddd8c9;border-radius:8px;padding:14px 28px;font-family:monospace;font-size:28px;font-weight:700;letter-spacing:0.3em;color:${primaryColor};">${opts.code}</span>
         </p>
-        <p style="margin:24px 0;">
-          <a href="${opts.resetUrl}" style="background:${primaryColor};color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:600;font-size:14px;">Reset password</a>
-        </p>
-        <p style="color:#999;font-size:12px;">If you didn't expect this, you can safely ignore this email.</p>
+        <p style="color:#999;font-size:12px;">If you didn't request this, you can safely ignore this email — your password won't change unless this code is entered.</p>
       </div>
     `,
   });

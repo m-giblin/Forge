@@ -4,7 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 
-type Screen = "credentials" | "totp" | "forgot";
+type Screen = "credentials" | "totp" | "forgot" | "forgot-code";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
@@ -82,7 +82,11 @@ function LoginForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const totpInputRef = useRef<HTMLInputElement>(null);
-  const [forgotSent, setForgotSent] = useState(false);
+  const [resetCode, setResetCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [resetDone, setResetDone] = useState(false);
+  const resetCodeInputRef = useRef<HTMLInputElement>(null);
 
   async function onForgotSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -91,6 +95,8 @@ function LoginForm() {
     // Goes through our own API (Admin API + Resend) rather than
     // supabase.auth.resetPasswordForEmail — that path depends on Supabase
     // Auth's own email delivery, which isn't configured for this project.
+    // This mints a verification code, not a link — entered on the next screen,
+    // never leaving Forge.
     const res = await fetch("/api/auth/forgot-password", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -102,8 +108,49 @@ function LoginForm() {
       return;
     }
     // Otherwise always show success — avoids leaking account existence.
-    setForgotSent(true);
+    setScreen("forgot-code");
   }
+
+  async function onResendCode() {
+    setError(null);
+    setLoading(true);
+    const res = await fetch("/api/auth/forgot-password", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email }),
+    });
+    setLoading(false);
+    if (res.status === 429) {
+      setError("Too many requests. Try again in a bit.");
+      return;
+    }
+    setResetCode("");
+  }
+
+  async function onResetPasswordSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) { setError("Passwords don't match."); return; }
+    if (newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
+
+    setError(null);
+    setLoading(true);
+    const res = await fetch("/api/auth/reset-password-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, code: resetCode, newPassword }),
+    });
+    setLoading(false);
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      setError(body.error || "Couldn't reset your password. Try again.");
+      return;
+    }
+    setResetDone(true);
+  }
+
+  useEffect(() => {
+    if (screen === "forgot-code") resetCodeInputRef.current?.focus();
+  }, [screen]);
 
   // The plain `autoFocus` prop is unreliable here — this is a state-driven
   // screen swap within the same mounted component, not a fresh page load, and
@@ -173,59 +220,154 @@ function LoginForm() {
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
             <h1 className="font-[family-name:var(--font-manrope)] text-2xl font-extrabold tracking-tight text-[#20201d]">Reset your password</h1>
-            <p className="mt-1 text-sm text-[#726e60]">Enter your email and we&rsquo;ll send you a reset link.</p>
+            <p className="mt-1 text-sm text-[#726e60]">Enter your email and we&rsquo;ll send you a verification code.</p>
           </div>
-          {forgotSent ? (
-            <div className="space-y-4 rounded-xl border border-[var(--fw-cream-border)] bg-white p-6 shadow-sm text-center">
-              <p className="text-sm text-[#4a473e]">
-                If an account exists for <span className="font-semibold">{email}</span>, a reset link is on its way.
-              </p>
+          <form
+            onSubmit={onForgotSubmit}
+            className="space-y-4 rounded-xl border border-[var(--fw-cream-border)] bg-white p-6 shadow-sm"
+          >
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#4a473e]">Email</label>
+              <input
+                type="email"
+                required
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-sm outline-none focus:border-[var(--fw-rust)] focus:ring-1 focus:ring-[var(--fw-rust)]"
+                placeholder="you@example.com"
+              />
+            </div>
+            {error && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p>
+            )}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-lg border border-[var(--fw-rust-border)] px-4 py-2 text-sm font-medium text-[#f2e9d8] transition disabled:opacity-50"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+            >
+              {loading ? "Sending…" : "Send code"}
+            </button>
+            <button
+              type="button"
+              onClick={() => { setScreen("credentials"); setError(null); }}
+              className="w-full text-center text-xs text-[#a19d90] hover:text-[#726e60]"
+            >
+              ← Back to sign in
+            </button>
+          </form>
+        </div>
+      </main>
+    );
+  }
+
+  if (screen === "forgot-code") {
+    if (resetDone) {
+      return (
+        <main className="flex min-h-screen items-center justify-center bg-[var(--fw-cream)] px-4 font-[family-name:var(--font-inter)]">
+          <div className="w-full max-w-sm">
+            <div className="mb-8 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[var(--fw-sidebar-3)] text-xl">✅</div>
+              <h1 className="font-[family-name:var(--font-manrope)] text-2xl font-extrabold tracking-tight text-[#20201d]">Password updated</h1>
+              <p className="mt-1 text-sm text-[#726e60]">Sign in with your new password.</p>
+            </div>
+            <div className="rounded-xl border border-[var(--fw-cream-border)] bg-white p-6 shadow-sm">
               <button
                 type="button"
-                onClick={() => { setScreen("credentials"); setForgotSent(false); }}
+                onClick={() => {
+                  setScreen("credentials"); setResetDone(false);
+                  setResetCode(""); setNewPassword(""); setConfirmPassword(""); setPassword(""); setError(null);
+                }}
                 className="w-full rounded-lg border border-[var(--fw-rust-border)] px-4 py-2 text-sm font-medium text-[#f2e9d8] transition"
                 style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
               >
                 Back to sign in
               </button>
             </div>
-          ) : (
-            <form
-              onSubmit={onForgotSubmit}
-              className="space-y-4 rounded-xl border border-[var(--fw-cream-border)] bg-white p-6 shadow-sm"
+          </div>
+        </main>
+      );
+    }
+
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[var(--fw-cream)] px-4 font-[family-name:var(--font-inter)]">
+        <div className="w-full max-w-sm">
+          <div className="mb-8 text-center">
+            <h1 className="font-[family-name:var(--font-manrope)] text-2xl font-extrabold tracking-tight text-[#20201d]">Check your email</h1>
+            <p className="mt-1 text-sm text-[#726e60]">
+              If an account exists for <span className="font-semibold">{email}</span>, a code is on its way. Enter it below with your new password.
+            </p>
+          </div>
+          <form
+            onSubmit={onResetPasswordSubmit}
+            className="space-y-4 rounded-xl border border-[var(--fw-cream-border)] bg-white p-6 shadow-sm"
+          >
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#4a473e]">Verification code</label>
+              <input
+                ref={resetCodeInputRef}
+                type="text"
+                inputMode="numeric"
+                maxLength={10}
+                required
+                value={resetCode}
+                onChange={(e) => setResetCode(e.target.value.replace(/\D/g, ""))}
+                className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2.5 text-center text-2xl font-mono tracking-[0.3em] outline-none focus:border-[var(--fw-rust)] focus:ring-1 focus:ring-[var(--fw-rust)]"
+                placeholder="Code from your email"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#4a473e]">New password</label>
+              <input
+                type="password"
+                required
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-sm outline-none focus:border-[var(--fw-rust)] focus:ring-1 focus:ring-[var(--fw-rust)]"
+                placeholder="At least 8 characters"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-sm font-medium text-[#4a473e]">Confirm password</label>
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-sm outline-none focus:border-[var(--fw-rust)] focus:ring-1 focus:ring-[var(--fw-rust)]"
+                placeholder="Repeat password"
+              />
+            </div>
+            {error && (
+              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p>
+            )}
+            <button
+              type="submit"
+              disabled={loading || resetCode.length < 6}
+              className="w-full rounded-lg border border-[var(--fw-rust-border)] px-4 py-2 text-sm font-medium text-[#f2e9d8] transition disabled:opacity-50"
+              style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
             >
-              <div>
-                <label className="mb-1 block text-sm font-medium text-[#4a473e]">Email</label>
-                <input
-                  type="email"
-                  required
-                  autoFocus
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-lg border border-[var(--fw-cream-border)] px-3 py-2 text-sm outline-none focus:border-[var(--fw-rust)] focus:ring-1 focus:ring-[var(--fw-rust)]"
-                  placeholder="you@example.com"
-                />
-              </div>
-              {error && (
-                <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{error}</p>
-              )}
+              {loading ? "Resetting…" : "Reset password"}
+            </button>
+            <div className="flex items-center justify-between">
               <button
-                type="submit"
+                type="button"
+                onClick={onResendCode}
                 disabled={loading}
-                className="w-full rounded-lg border border-[var(--fw-rust-border)] px-4 py-2 text-sm font-medium text-[#f2e9d8] transition disabled:opacity-50"
-                style={{ background: "linear-gradient(160deg,#9a5138,#6e3324)" }}
+                className="text-center text-xs text-[var(--fw-rust)] hover:underline disabled:opacity-50"
               >
-                {loading ? "Sending…" : "Send reset link"}
+                Resend code
               </button>
               <button
                 type="button"
                 onClick={() => { setScreen("credentials"); setError(null); }}
-                className="w-full text-center text-xs text-[#a19d90] hover:text-[#726e60]"
+                className="text-center text-xs text-[#a19d90] hover:text-[#726e60]"
               >
                 ← Back to sign in
               </button>
-            </form>
-          )}
+            </div>
+          </form>
         </div>
       </main>
     );
