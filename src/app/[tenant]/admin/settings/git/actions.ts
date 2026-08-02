@@ -5,6 +5,7 @@ import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role: git admin writes (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { gitIntegrationRepo } from "@/lib/repositories/gitIntegration";
+import { recordAudit } from "@/lib/audit";
 
 async function adminCtx(slug: string) {
   const ctx = await getTenantContext(slug);
@@ -28,6 +29,10 @@ export async function connectGitHubAction(slug: string): Promise<{ secret: strin
 
   await repo.createConnection(ctx.tenant.id, secret);
   revalidatePath(`/${slug}/admin/settings/git`);
+  await recordAudit({
+    tenantId: ctx.tenant.id, actorUserId: ctx.appUserId,
+    action: existing ? "github.reconnected" : "github.connected",
+  });
   return { secret };
 }
 
@@ -38,6 +43,7 @@ export async function disconnectGitHubAction(slug: string): Promise<void> {
   const conn = await repo.getConnection(ctx.tenant.id);
   if (conn) await repo.revokeConnection(ctx.tenant.id, conn.id);
   revalidatePath(`/${slug}/admin/settings/git`);
+  await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "github.disconnected" });
 }
 
 export async function addRepoLinkAction(slug: string, repoFullName: string, projectId: string): Promise<void> {
@@ -49,6 +55,10 @@ export async function addRepoLinkAction(slug: string, repoFullName: string, proj
   if (!conn) throw new Error("No active GitHub connection");
   await repo.addRepoLink(ctx.tenant.id, conn.id, repoFullName.trim(), projectId || null);
   revalidatePath(`/${slug}/admin/settings/git`);
+  await recordAudit({
+    tenantId: ctx.tenant.id, actorUserId: ctx.appUserId,
+    action: "github.repo_linked", target: repoFullName.trim(),
+  });
 }
 
 export async function removeRepoLinkAction(slug: string, linkId: string): Promise<void> {
@@ -56,4 +66,5 @@ export async function removeRepoLinkAction(slug: string, linkId: string): Promis
   const svc = createSupabaseServiceClient();
   await gitIntegrationRepo(svc).removeRepoLink(ctx.tenant.id, linkId);
   revalidatePath(`/${slug}/admin/settings/git`);
+  await recordAudit({ tenantId: ctx.tenant.id, actorUserId: ctx.appUserId, action: "github.repo_unlinked", target: linkId });
 }

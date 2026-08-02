@@ -6,6 +6,7 @@ import { projectsRepo } from "@/lib/repositories/projects";
 import { logger } from "@/lib/logger";
 import { grokComplete } from "@/lib/services/grokAi";
 import { getRateLimiter } from "@/lib/providers/rate-limiter";
+import { recordAudit } from "@/lib/audit";
 
 // Parse issue keys like FORGE-123, WEB-42, or TRAV2-66 from text. Must match
 // the actual project-key format (src/lib/services/projects.ts KEY_RE:
@@ -105,6 +106,11 @@ export async function handleGithubWebhook(
           if (issue.status !== "done") {
             await issuesRepo(svc).update(tenantId, issue.id, { status: "done" });
             logger.info("Auto-closed issue on PR merge", { tenantId, issueId: issue.id, key });
+            await recordAudit({
+              tenantId, actorUserId: null, actorLabel: `GitHub (${actorLogin || "unknown"})`,
+              action: "issue.auto_closed_by_pr", target: issue.id,
+              metadata: { key, repoFullName, prNumber, prUrl },
+            });
           }
         }
       }
@@ -233,6 +239,11 @@ Message: ${(commit.message ?? "").slice(0, 500)}`,
           commit_url: sha ? `https://github.com/${repoFullName}/commit/${sha}` : null,
         });
         logger.info("Deployment recorded", { tenantId, version, repoFullName });
+        await recordAudit({
+          tenantId, actorUserId: null, actorLabel: `GitHub (${actorLogin || "unknown"})`,
+          action: "deployment.recorded", target: repoFullName,
+          metadata: { version, sha },
+        });
       }
     } else if (eventType === "deployment_status") {
       // GitHub Deployments API — update or insert a deployment record.
@@ -259,6 +270,16 @@ Message: ${(commit.message ?? "").slice(0, 500)}`,
         commit_sha: sha,
         deployed_at: deploymentStatus.created_at ?? new Date().toISOString(),
       }, { onConflict: "tenant_id,environment,version,repo_full_name", ignoreDuplicates: false });
+      // Only worth a permanent audit entry once the deploy actually settles —
+      // an "in_progress" status will be immediately followed by a second
+      // deployment_status event (success/failure) for the same deployment.
+      if (state === "success" || state === "failure") {
+        await recordAudit({
+          tenantId, actorUserId: null, actorLabel: `GitHub (${actorLogin || "unknown"})`,
+          action: state === "success" ? "deployment.recorded" : "deployment.failed",
+          target: repoFullName, metadata: { version, sha, environment },
+        });
+      }
     }
   } catch (e) {
     logger.warn("Git webhook processing error", { tenantId, eventType, err: String(e) });
