@@ -68,5 +68,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: updateErr.message || "Couldn't update the password. Try again." }, { status: 500 });
   }
 
+  // Don't trust updateUserById's success blindly — confirm the new password
+  // actually works by attempting a real sign-in with it before telling the
+  // user it's done. Catches the case where the update "succeeds" but leaves
+  // the account unable to authenticate.
+  const { error: verifyErr } = await anon.auth.signInWithPassword({ email, password: newPassword });
+  if (verifyErr) {
+    return NextResponse.json(
+      { error: "Password was updated but sign-in verification failed. Try resetting again or contact support." },
+      { status: 500 }
+    );
+  }
+
   return NextResponse.json({ ok: true }, { status: 200 });
 }
