@@ -76,23 +76,55 @@ export default function Board({
   const [colHasMore, setColHasMore] = useState<Map<string, boolean>>(new Map());
   const [loadingMore, setLoadingMore] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [onlyMine, setOnlyMine] = useState(false);
-  const [filterPriorities, setFilterPriorities] = useState<Set<string>>(new Set());
-  const [filterAssignee, setFilterAssignee] = useState("");
-  const [filterType, setFilterType] = useState("");
-  const [filterCategory, setFilterCategory] = useState("");
-  const [showAging, setShowAging] = useState(false);
   const [collapsedCols, setCollapsedCols] = useState<Set<string>>(new Set());
 
   const CANONICAL_STATUS_ORDER = ["backlog", "todo", "in_progress", "in_review", "done"];
 
+  // Quick filters live in the URL (not useState) so they survive a full
+  // navigation — e.g. opening an issue then hitting the browser Back button
+  // unmounts this component; local state would silently reset (FORGE bug:
+  // "Only my issues" reverting to off after visiting an issue). groupBy
+  // already used this pattern; the rest didn't, so they had the same bug.
+  function setParam(key: string, value: string | null) {
+    const next = new URLSearchParams(searchParams.toString());
+    if (value === null || value === "") next.delete(key);
+    else next.set(key, value);
+    router.replace(`${pathname}?${next.toString()}`);
+  }
+
   const groupByParam = (searchParams.get("groupBy") ?? "status") as "status" | "assignee" | "priority";
   const groupBy = ["status", "assignee", "priority"].includes(groupByParam) ? groupByParam : "status";
   function setGroupBy(value: "status" | "assignee" | "priority") {
-    const next = new URLSearchParams(searchParams.toString());
-    if (value === "status") next.delete("groupBy");
-    else next.set("groupBy", value);
-    router.replace(`${pathname}?${next.toString()}`);
+    setParam("groupBy", value === "status" ? null : value);
+  }
+
+  const onlyMine = searchParams.get("mine") === "1";
+  function setOnlyMine(v: boolean) {
+    setParam("mine", v ? "1" : null);
+  }
+  const showAging = searchParams.get("aging") === "1";
+  function setShowAging(v: boolean) {
+    setParam("aging", v ? "1" : null);
+  }
+  const filterAssignee = searchParams.get("assignee") ?? "";
+  function setFilterAssignee(v: string) {
+    setParam("assignee", v || null);
+  }
+  const filterType = searchParams.get("type") ?? "";
+  function setFilterType(v: string) {
+    setParam("type", v || null);
+  }
+  const filterCategory = searchParams.get("category") ?? "";
+  function setFilterCategory(v: string) {
+    setParam("category", v || null);
+  }
+  const filterPriorities = useMemo(
+    () => new Set((searchParams.get("pri") ?? "").split(",").filter(Boolean)),
+    [searchParams]
+  );
+  function setFilterPriorities(fn: (prev: Set<string>) => Set<string>) {
+    const next = fn(filterPriorities);
+    setParam("pri", next.size > 0 ? [...next].join(",") : null);
   }
 
   const projectKey = (id: string) => projects.find((p) => p.id === id)?.key ?? "—";
@@ -382,7 +414,14 @@ export default function Board({
             .filter((i) => i.status === status.key)
             .sort((a, b) => a.position - b.position);
           const isFiltered = !!(search.trim() || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory);
-          const showLoadMore = !isFiltered && (colHasMore.get(status.key) ?? (total > issueLimit && colIssues.length >= Math.floor(issueLimit / orderedStatuses.length)));
+          // A column may hold far fewer than an even 1/Nth share of the
+          // truncated BOARD_LIMIT window (e.g. 28 of 200 in a 5-column
+          // board), so gating on "this column already looks full" hides the
+          // button precisely when it's needed (FORGE bug: newly-created
+          // issues past the global limit were undiscoverable). Show it for
+          // every column whenever the board is known to be truncated, until
+          // that column's own fetch confirms there's nothing more.
+          const showLoadMore = !isFiltered && (colHasMore.get(status.key) ?? total > issueLimit);
           const collapsed = collapsedCols.has(status.key);
 
           if (collapsed) {
