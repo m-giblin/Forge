@@ -81,12 +81,18 @@ export async function moveIssueAction(
   return { pendingChildCount: count ?? 0 };
 }
 
+/**
+ * Cursor-based (not offset-based) on purpose: the board supports drag-and-drop
+ * reordering, which rewrites `position` for the moved card and its neighbors.
+ * An offset/range query re-run after that shift can skip or repeat rows;
+ * "fetch everything after this exact position value" can't.
+ */
 export async function loadMoreForStatusAction(
   slug: string,
   projectId: string,
   status: string,
-  offset: number,
-): Promise<{ issues: Issue[]; hasMore: boolean }> {
+  afterPosition: number | null,
+): Promise<{ issues: Issue[]; hasMore: boolean; cursor: number | null }> {
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
 
@@ -95,17 +101,22 @@ export async function loadMoreForStatusAction(
   // Validate projectId belongs to this tenant before using it in the query
   const { data: proj } = await svc.from("projects").select("id").eq("id", projectId).eq("tenant_id", ctx.tenant.id).maybeSingle();
   if (!proj) throw new Error("Project not found");
-  const { data } = await svc
+  let q = svc
     .from("issues")
     .select("*")
     .eq("tenant_id", ctx.tenant.id)
     .eq("project_id", projectId)
     .eq("status", status)
     .order("position", { ascending: true })
-    .range(offset, offset + COLUMN_PAGE_SIZE - 1);
+    .limit(COLUMN_PAGE_SIZE + 1);
+  if (afterPosition !== null) q = q.gt("position", afterPosition);
+  const { data } = await q;
 
-  const issues = (data ?? []) as Issue[];
-  return { issues, hasMore: issues.length === COLUMN_PAGE_SIZE };
+  const rows = (data ?? []) as Issue[];
+  const hasMore = rows.length > COLUMN_PAGE_SIZE;
+  const issues = hasMore ? rows.slice(0, COLUMN_PAGE_SIZE) : rows;
+  const cursor = issues.length > 0 ? issues[issues.length - 1].position : afterPosition;
+  return { issues, hasMore, cursor };
 }
 
 export interface IssueDraft {

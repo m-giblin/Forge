@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getTenantContext } from "@/lib/auth";
-import { loadBoard, BOARD_LIMIT } from "@/lib/services/issues";
+import { loadBoard } from "@/lib/services/issues";
+import type { Issue } from "@/lib/repositories/issues";
+import { isUnassignedOverdue } from "@/lib/sla";
 import { listVisibleProjects } from "@/lib/services/projects";
 import { listMembers } from "@/lib/services/members";
 // eslint-disable-next-line no-restricted-imports -- service-role: sprint reads need cross-tenant visibility for admins (sec09)
@@ -32,20 +34,38 @@ export default async function BoardPage({
   if (!current) redirect(`/${slug}/projects`);
 
   const svc = createSupabaseServiceClient();
-  const [{ issues, total, projects, statuses, priorities, types, categories, customFields, templates }, members, allSprints] =
+  const [{ issues, columnInfo, projects, statuses, priorities, types, categories, customFields, templates }, members, allSprints] =
     await Promise.all([
       loadBoard(ctx.tenant.id, ctx.impersonating, current.id),
       listMembers(ctx.tenant.id, ctx.impersonating),
       sprintsRepo(svc).listForProject(ctx.tenant.id, current.id).catch(() => []),
     ]);
 
-
   const activeSprint = allSprints.find((s) => s.status === "active") ?? null;
   const plannedSprints = allSprints.filter((s) => s.status === "planned");
   const currentSprint = activeSprint ?? plannedSprints[0] ?? null;
-  const sprintIssues = currentSprint ? issues.filter((i) => i.sprint_id === currentSprint.id) : [];
-  const backlogIssues = issues.filter((i) => !i.sprint_id);
   const canEdit = ctx.role !== "viewer" && !ctx.impersonating;
+
+  // Dedicated queries, not derived from `issues` above — that set is now a
+  // fair-per-column PAGE for kanban display, not the full project, so it
+  // can't be trusted for sprint capacity/progress math or the "add from
+  // backlog" picker. Sprints and a project's unscheduled backlog are each
+  // reliably small (unlike "every issue in the project"), so fetching them
+  // directly and fully is cheap and keeps these numbers accurate regardless
+  // of how the kanban is paginated.
+  const [sprintIssuesRes, backlogIssuesRes, unassignedRes] = await Promise.all([
+    currentSprint
+      ? svc.from("issues").select("*").eq("tenant_id", ctx.tenant.id).eq("sprint_id", currentSprint.id).order("position", { ascending: true })
+      : Promise.resolve({ data: [] as Issue[] }),
+    svc.from("issues").select("*").eq("tenant_id", ctx.tenant.id).eq("project_id", current.id).is("sprint_id", null).order("position", { ascending: true }).limit(500),
+    // Small, targeted query (unassigned + not done) so the "needs an owner"
+    // warning is accurate project-wide, not limited to whatever page of
+    // issues the kanban happened to fetch.
+    svc.from("issues").select("*").eq("tenant_id", ctx.tenant.id).eq("project_id", current.id).is("assignee_id", null).neq("status", "done").order("created_at", { ascending: true }).limit(200),
+  ]);
+  const sprintIssues = (sprintIssuesRes.data ?? []) as Issue[];
+  const backlogIssues = (backlogIssuesRes.data ?? []) as Issue[];
+  const unassignedOverdue = ((unassignedRes.data ?? []) as Issue[]).filter((i) => isUnassignedOverdue(i));
 
   // Sprint capacity: estimated minutes vs logged minutes
   const estimatedMinutes = sprintIssues.reduce((s, i) => s + (i.time_estimate_minutes ?? 0), 0);
@@ -73,6 +93,7 @@ export default async function BoardPage({
         plannedSprints={plannedSprints}
         sprintIssues={sprintIssues}
         backlogIssues={backlogIssues}
+        unassignedOverdue={unassignedOverdue}
         canEdit={canEdit}
         estimatedMinutes={estimatedMinutes}
         loggedMinutes={loggedMinutes}
@@ -86,11 +107,10 @@ export default async function BoardPage({
         currentProject={{ id: current.id, key: current.key, name: current.name }}
         siblingProjects={visible.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
         initialIssues={boardIssues}
+        columnInfo={selectedSprint ? {} : columnInfo}
         sprints={allSprints}
         currentSprint={selectedSprint}
         activeSprintId={activeSprint?.id ?? null}
-        total={total}
-        issueLimit={BOARD_LIMIT}
         projects={projects}
         statuses={statuses}
         priorities={priorities}
