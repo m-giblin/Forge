@@ -417,8 +417,19 @@ export default function Board({
           });
         })() : groupBy === "status" ? orderedStatuses.map((status) => {
           const isBacklogCol = status.key === backlogStatusKey;
+          // Union, not a straight swap: an issue literally in this status
+          // (however it got there) must always show SOMEWHERE, or it goes
+          // invisible the same way TRAV2-202/203 did. sprint_id-null issues
+          // of any non-done status join it too, so the count still lines up
+          // with the Backlog page for the common case — but never at the
+          // cost of hiding a real status === backlogStatusKey card just
+          // because it's also been scheduled into a sprint (FORGE: TRAV2-214
+          // has status 'backlog' AND a sprint_id — it was disappearing from
+          // every column under the previous sprint_id-only definition).
           const colIssues = filtered
-            .filter((i) => (isBacklogCol ? i.sprint_id == null && i.status !== "done" : i.status === status.key))
+            .filter((i) => (isBacklogCol
+              ? i.status === backlogStatusKey || (i.sprint_id == null && i.status !== "done")
+              : i.status === status.key))
             .sort((a, b) => a.position - b.position);
           const isFiltered = !!(search.trim() || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory);
           // loadBoard() fetches each status's own fair page, so colHasMore is
