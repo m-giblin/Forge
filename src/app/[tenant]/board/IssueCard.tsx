@@ -10,7 +10,7 @@ type QuickEditProps = {
   issue: Issue;
   slug: string;
   prMap: Map<string, FieldOption>;
-  memMap: Map<string, string>;
+  memMap: Map<string, { label: string; color: string | null }>;
   onClose: () => void;
 };
 
@@ -108,7 +108,7 @@ function QuickEditPopover({ issue, slug, prMap, memMap, onClose }: QuickEditProp
           >
             Unassigned
           </button>
-          {members.map(([userId, name]) => (
+          {members.map(([userId, m]) => (
             <button
               key={userId}
               onClick={() => applyAssignee(userId)}
@@ -119,11 +119,11 @@ function QuickEditPopover({ issue, slug, prMap, memMap, onClose }: QuickEditProp
             >
               <span
                 className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[8px] font-semibold text-white"
-                style={{ backgroundColor: avatarColor(userId) }}
+                style={{ backgroundColor: avatarColor(userId, m.color) }}
               >
-                {initials(name)}
+                {initials(m.label)}
               </span>
-              <span className="truncate">{name}</span>
+              <span className="truncate">{m.label}</span>
             </button>
           ))}
         </div>
@@ -159,7 +159,7 @@ export default function IssueCard({
   canEdit: boolean;
   tyMap: Map<string, FieldOption>;
   prMap: Map<string, FieldOption>;
-  memMap: Map<string, string>;
+  memMap: Map<string, { label: string; color: string | null }>;
   catMap: Map<string, string>;
   onDragStart: () => void;
   onClickIssue: () => void;
@@ -229,13 +229,13 @@ export default function IssueCard({
         <div className="mt-2 flex items-center gap-1.5">
           <span
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white"
-            style={{ backgroundColor: avatarColor(issue.assignee_id) }}
-            title={memMap.get(issue.assignee_id) ?? "Assigned"}
+            style={{ backgroundColor: avatarColor(issue.assignee_id, memMap.get(issue.assignee_id)?.color) }}
+            title={memMap.get(issue.assignee_id)?.label ?? "Assigned"}
           >
-            {initials(memMap.get(issue.assignee_id) ?? "?")}
+            {initials(memMap.get(issue.assignee_id)?.label ?? "?")}
           </span>
           <span className="truncate text-xs text-neutral-400">
-            {memMap.get(issue.assignee_id) ?? "Assigned"}
+            {memMap.get(issue.assignee_id)?.label ?? "Assigned"}
           </span>
         </div>
       )}

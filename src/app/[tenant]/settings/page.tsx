@@ -4,6 +4,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import NotificationPrefsClient from "./NotificationPrefsClient";
 import SessionManagement from "./SessionManagement";
+import AvatarColorPicker from "./AvatarColorPicker";
 
 export default async function SettingsPage({
   params,
@@ -15,19 +16,33 @@ export default async function SettingsPage({
   if (!ctx) redirect("/");
 
   const supabase = await createSupabaseServerClient();
-  const [userRowRes, sessionRes] = await Promise.all([
-    supabase.from("users").select("notification_prefs").eq("id", ctx.appUserId).maybeSingle(),
+  // avatar_color (migration 0129) selected defensively — see the matching
+  // comment in lib/repositories/members.ts. Falls back to a select without
+  // it if the column doesn't exist yet, so this page works before and after
+  // the migration runs.
+  const [userRowRes0, sessionRes] = await Promise.all([
+    supabase.from("users").select("notification_prefs, avatar_color, name, email").eq("id", ctx.appUserId).maybeSingle(),
     supabase.auth.getUser(),
   ]);
+  const userRowRes = userRowRes0.error
+    ? await supabase.from("users").select("notification_prefs, name, email").eq("id", ctx.appUserId).maybeSingle()
+    : userRowRes0;
 
   const initialPrefs = (userRowRes.data?.notification_prefs as Record<string, boolean> | null) ?? {};
   const lastSignIn = sessionRes.data.user?.last_sign_in_at ?? null;
+  const initialAvatarColor = (userRowRes.data as { avatar_color?: string | null } | null)?.avatar_color ?? null;
+  const displayName = (userRowRes.data?.name as string | null) || (userRowRes.data?.email as string | null) || "You";
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 space-y-8">
       <div>
         <h1 className="mb-1 text-2xl font-bold text-neutral-900">Settings</h1>
         <p className="text-sm text-neutral-500">Manage your account preferences.</p>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-sm font-semibold text-neutral-700">Profile</h2>
+        <AvatarColorPicker slug={slug} userId={ctx.appUserId} name={displayName} initialColor={initialAvatarColor} />
       </div>
 
       <div>

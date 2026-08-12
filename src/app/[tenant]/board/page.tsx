@@ -118,7 +118,7 @@ export default async function BoardPage({
         categories={categories}
         customFields={customFields}
         templates={templates}
-        members={members.map((m) => ({ userId: m.userId, label: m.name || m.email }))}
+        members={members.map((m) => ({ userId: m.userId, label: m.name || m.email, avatarColor: m.avatarColor }))}
         meUserId={ctx.appUserId}
       />
       </Suspense>

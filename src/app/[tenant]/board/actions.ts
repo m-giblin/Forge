@@ -101,6 +101,7 @@ export async function loadMoreForStatusAction(
   // Validate projectId belongs to this tenant before using it in the query
   const { data: proj } = await svc.from("projects").select("id").eq("id", projectId).eq("tenant_id", ctx.tenant.id).maybeSingle();
   if (!proj) throw new Error("Project not found");
+
   let q = svc
     .from("issues")
     .select("*")

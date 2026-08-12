@@ -74,6 +74,33 @@ export default function BacklogClient({
     router.push(`/${slug}/backlog?project=${id}`);
   }
 
+  // Client-side CSV of exactly what's on screen — the global top-bar "Export
+  // report" link always goes to /reports regardless of page, which doesn't
+  // help someone who wants this specific unscheduled list. All the data is
+  // already loaded here, so no server round trip is needed.
+  function exportCsv() {
+    const statusLabel = new Map(statusOptions.map((s) => [s.key, s.label]));
+    const header = ["Key", "Title", "Type", "Priority", "Status", "Story Points", "Assignee"];
+    const escape = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const rows = issues.map((i) => [
+      `${project?.key ?? "?"}-${i.number}`,
+      i.title,
+      typeMap.get(i.type) ?? i.type,
+      priMap.get(i.priority)?.label ?? i.priority,
+      statusLabel.get(i.status) ?? i.status,
+      i.storyPoints != null ? String(i.storyPoints) : "",
+      i.assigneeId ? memberMap.get(i.assigneeId) ?? "" : "Unassigned",
+    ].map(escape).join(","));
+    const csv = [header.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `backlog-${project?.key ?? "export"}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function markReady(issue: Issue) {
     if (!readyStatus) return;
     setError(null);
@@ -114,6 +141,13 @@ export default function BacklogClient({
             >
               Refinement session
             </Link>
+            <button
+              onClick={exportCsv}
+              disabled={issues.length === 0}
+              className="shrink-0 whitespace-nowrap rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da] disabled:opacity-50"
+            >
+              ↓ Export CSV
+            </button>
           </>
         }
       />
