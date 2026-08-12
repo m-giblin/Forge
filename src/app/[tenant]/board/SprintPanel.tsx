@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import type { Sprint } from "@/lib/repositories/sprints";
 import type { Issue } from "@/lib/repositories/issues";
 import {
@@ -62,7 +63,7 @@ type CreateTab = "single" | "bulk" | "import";
 type Warning = { key: string; text: string; actionLabel: string; onAction: () => void };
 
 export default function SprintPanel({
-  slug, projectId, activeSprint, plannedSprints, sprintIssues, backlogIssues,
+  slug, projectId, activeSprint, plannedSprints, sprintIssues, backlogIssues, unassignedOverdue,
   canEdit, estimatedMinutes = 0, loggedMinutes = 0,
 }: {
   slug: string;
@@ -71,10 +72,14 @@ export default function SprintPanel({
   plannedSprints: Sprint[];
   sprintIssues: Issue[];
   backlogIssues: Issue[];
+  unassignedOverdue: Issue[];
   canEdit: boolean;
   estimatedMinutes?: number;
   loggedMinutes?: number;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [pending, startTransition] = useTransition();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [createTab, setCreateTab] = useState<CreateTab | null>(null);
@@ -82,15 +87,13 @@ export default function SprintPanel({
   const [error, setError] = useState<string | null>(null);
   const [alertExpanded, setAlertExpanded] = useState(false);
 
-  const [detailsOpen, setDetailsOpen] = useState(
-    () => typeof window !== "undefined" && localStorage.getItem("fw-sprint-details-open") === "1"
-  );
+  // URL-backed (not localStorage) so it survives opening an issue and coming
+  // back — same reasoning as Board.tsx's quick filters and collapsed columns.
+  const detailsOpen = searchParams.get("details") === "1";
   function toggleDetails() {
-    setDetailsOpen((v) => {
-      const next = !v;
-      localStorage.setItem("fw-sprint-details-open", next ? "1" : "0");
-      return next;
-    });
+    const next = new URLSearchParams(searchParams.toString());
+    if (detailsOpen) next.delete("details"); else next.set("details", "1");
+    router.replace(`${pathname}?${next.toString()}`);
   }
 
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -158,18 +161,22 @@ export default function SprintPanel({
     });
   }
 
-  // ── Consolidated alert bar — every warning collapses into one row ──
+  // ── Consolidated alert bar — every warning collapses into ONE row.
+  // This is the single alert bar for the whole board page (this component
+  // is the only one that renders one — Board.tsx used to have its own
+  // separate "unassigned past SLA" banner stacked on top of this one,
+  // which is exactly the "two pink bars" clutter this was supposed to
+  // avoid; that signal now lives here instead, as just another warning). ──
   const warnings: Warning[] = [];
+  if (unassignedOverdue.length > 0) {
+    warnings.push({
+      key: "unassigned-overdue",
+      text: `${unassignedOverdue.length} ticket${unassignedOverdue.length > 1 ? "s" : ""} unassigned past SLA.`,
+      actionLabel: "Review oldest",
+      onAction: () => router.push(`/${slug}/issues/${unassignedOverdue[0].id}`),
+    });
+  }
   if (sprint && sprint.status === "active") {
-    const unassignedInSprint = sprintIssues.filter((i) => !i.assignee_id);
-    if (unassignedInSprint.length > 0) {
-      warnings.push({
-        key: "unassigned",
-        text: `${unassignedInSprint.length} issue${unassignedInSprint.length > 1 ? "s" : ""} in this sprint ${unassignedInSprint.length > 1 ? "have" : "has"} no assignee.`,
-        actionLabel: "Assign now",
-        onAction: () => document.getElementById(`issue-row-${unassignedInSprint[0].id}`)?.scrollIntoView({ behavior: "smooth" }),
-      });
-    }
     if (days !== null && days <= 2 && total > 0 && done < total) {
       warnings.push({
         key: "ending",

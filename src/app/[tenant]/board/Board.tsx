@@ -7,7 +7,7 @@ import { type Issue } from "@/lib/repositories/issues";
 import { type Sprint } from "@/lib/repositories/sprints";
 import { type FieldOption, type Category, type CustomField } from "@/lib/repositories/fieldConfig";
 import { type IssueTemplate } from "@/lib/repositories/issueTemplates";
-import { isUnassignedOverdue } from "@/lib/sla";
+import { type BoardColumnInfo } from "@/lib/services/issues";
 import { avatarColor, initials } from "@/lib/ui/avatar";
 import { moveIssueAction, loadMoreForStatusAction } from "./actions";
 import { cascadeStatusToChildrenAction } from "../issues/[id]/actions";
@@ -26,8 +26,7 @@ export default function Board({
   currentProject,
   siblingProjects,
   initialIssues,
-  total,
-  issueLimit,
+  columnInfo,
   projects,
   statuses,
   priorities,
@@ -46,8 +45,7 @@ export default function Board({
   currentProject: Project;
   siblingProjects: Project[];
   initialIssues: Issue[];
-  total: number;
-  issueLimit: number;
+  columnInfo: Record<string, BoardColumnInfo>;
   projects: Project[];
   statuses: FieldOption[];
   priorities: FieldOption[];
@@ -72,11 +70,14 @@ export default function Board({
   const [, startTransition] = useTransition();
   const [cascadePending, setCascadePending] = useState<{ issueId: string; newStatus: string; count: number } | null>(null);
   const [cascading, startCascade] = useTransition();
-  const [colOffsets, setColOffsets] = useState<Map<string, number>>(new Map());
-  const [colHasMore, setColHasMore] = useState<Map<string, boolean>>(new Map());
+  const [colCursors, setColCursors] = useState<Map<string, number | null>>(
+    () => new Map(Object.entries(columnInfo).map(([k, v]) => [k, v.cursor]))
+  );
+  const [colHasMore, setColHasMore] = useState<Map<string, boolean>>(
+    () => new Map(Object.entries(columnInfo).map(([k, v]) => [k, v.hasMore]))
+  );
   const [loadingMore, setLoadingMore] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [collapsedCols, setCollapsedCols] = useState<Set<string>>(new Set());
 
   const CANONICAL_STATUS_ORDER = ["backlog", "todo", "in_progress", "in_review", "done"];
 
@@ -126,6 +127,18 @@ export default function Board({
     const next = fn(filterPriorities);
     setParam("pri", next.size > 0 ? [...next].join(",") : null);
   }
+  // Collapsed columns live in the URL for the same reason as the filters
+  // above: it survives opening an issue and coming back via the browser's
+  // history exactly the way the URL itself does, with none of the SSR/
+  // hydration-mismatch hazards a localStorage-backed useState carries.
+  const collapsedCols = useMemo(
+    () => new Set((searchParams.get("collapsed") ?? "").split(",").filter(Boolean)),
+    [searchParams]
+  );
+  function setCollapsedCols(fn: (prev: Set<string>) => Set<string>) {
+    const next = fn(collapsedCols);
+    setParam("collapsed", next.size > 0 ? [...next].join(",") : null);
+  }
 
   const projectKey = (id: string) => projects.find((p) => p.id === id)?.key ?? "—";
   const prMap = useMemo(() => new Map(priorities.map((o) => [o.key, o])), [priorities]);
@@ -143,7 +156,6 @@ export default function Board({
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statuses]);
-  const needsAssignment = useMemo(() => issues.filter((i) => isUnassignedOverdue(i)), [issues]);
 
   const filtered = useMemo(() => {
     let list = issues;
@@ -214,20 +226,18 @@ export default function Board({
   }
 
   async function loadMore(status: string) {
-    const offset = colOffsets.get(status) ?? issues.filter((i) => i.status === status).length;
+    const cursor = colCursors.get(status) ?? null;
     setLoadingMore((prev) => new Set(prev).add(status));
     try {
-      const { issues: more, hasMore } = await loadMoreForStatusAction(slug, currentProject.id, status, offset);
+      const { issues: more, hasMore, cursor: nextCursor } = await loadMoreForStatusAction(slug, currentProject.id, status, cursor);
       if (more.length > 0) {
         setIssues((prev) => {
           const existingIds = new Set(prev.map((i) => i.id));
           return [...prev, ...more.filter((i) => !existingIds.has(i.id))];
         });
-        setColOffsets((prev) => new Map(prev).set(status, offset + more.length));
-        setColHasMore((prev) => new Map(prev).set(status, hasMore));
-      } else {
-        setColHasMore((prev) => new Map(prev).set(status, false));
       }
+      setColCursors((prev) => new Map(prev).set(status, nextCursor));
+      setColHasMore((prev) => new Map(prev).set(status, hasMore));
     } finally {
       setLoadingMore((prev) => { const next = new Set(prev); next.delete(status); return next; });
     }
@@ -306,25 +316,6 @@ export default function Board({
           </button>
         )}
       </div>
-
-      {needsAssignment.length > 0 && (
-        <div className="flex shrink-0 items-center gap-2 border-b px-6 py-1.5 text-[12px]" style={{ borderColor: "#f0cfc9", backgroundColor: "#fbeae8", color: "#c0392b" }}>
-          <span className="font-bold">{needsAssignment.length}</span>
-          <span>ticket{needsAssignment.length > 1 ? "s" : ""} unassigned past SLA —</span>
-          <button
-            onClick={() => router.push(`/${slug}/issues/${needsAssignment[0].id}`)}
-            className="font-semibold underline hover:no-underline"
-          >
-            review oldest
-          </button>
-        </div>
-      )}
-
-      {total > issueLimit && (
-        <div className="shrink-0 border-b border-[#c9dceb] bg-[#eaf1f8] px-6 py-1.5 text-[12px] text-[#3a6ea8]">
-          Showing {issueLimit} of {total} issues — use &ldquo;Load more&rdquo; in each column to see the rest.
-        </div>
-      )}
 
       {cascadePending && (
         <div className="flex shrink-0 items-center justify-between border-b px-6 py-1.5 text-[12px]" style={{ borderColor: "#f0e3c9", backgroundColor: "#fdf1de", color: "#c9791d" }}>
@@ -414,14 +405,11 @@ export default function Board({
             .filter((i) => i.status === status.key)
             .sort((a, b) => a.position - b.position);
           const isFiltered = !!(search.trim() || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory);
-          // A column may hold far fewer than an even 1/Nth share of the
-          // truncated BOARD_LIMIT window (e.g. 28 of 200 in a 5-column
-          // board), so gating on "this column already looks full" hides the
-          // button precisely when it's needed (FORGE bug: newly-created
-          // issues past the global limit were undiscoverable). Show it for
-          // every column whenever the board is known to be truncated, until
-          // that column's own fetch confirms there's nothing more.
-          const showLoadMore = !isFiltered && (colHasMore.get(status.key) ?? total > issueLimit);
+          // loadBoard() fetches each status's own fair page, so colHasMore is
+          // known accurately from first paint — no guessing based on a
+          // shared global cutoff (FORGE: that guess previously hid the
+          // button on exactly the columns that needed it).
+          const showLoadMore = !isFiltered && (colHasMore.get(status.key) ?? false);
           const collapsed = collapsedCols.has(status.key);
 
           if (collapsed) {
@@ -464,7 +452,14 @@ export default function Board({
                   </button>
                 </span>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto">
+              <div
+                className="min-h-0 flex-1 overflow-y-auto"
+                onScroll={(e) => {
+                  if (!showLoadMore || loadingMore.has(status.key)) return;
+                  const el = e.currentTarget;
+                  if (el.scrollHeight - el.scrollTop - el.clientHeight < 120) loadMore(status.key);
+                }}
+              >
                 {colIssues.length === 0 ? (
                   <div className="rounded-lg border border-dashed border-[#ddd8c9] px-3 py-6 text-center text-[11.5px] text-[#c3bda9]">
                     Nothing here — drag a card over, or use + above
@@ -472,14 +467,13 @@ export default function Board({
                 ) : (
                   <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee showAging={showAging} />
                 )}
-                {showLoadMore && (
-                  <button
-                    onClick={() => loadMore(status.key)}
-                    disabled={loadingMore.has(status.key)}
-                    className="mt-2 w-full rounded-lg border border-dashed border-[#ddd8c9] py-1.5 text-[11px] text-[#a19d90] hover:border-[#a19d90] hover:text-[#4a473e] disabled:opacity-50 transition-colors"
-                  >
-                    {loadingMore.has(status.key) ? "Loading…" : "Load more"}
-                  </button>
+                {/* Fetch more automatically as you scroll near the bottom — no click
+                    needed, and always show where the list actually ends. */}
+                {loadingMore.has(status.key) && (
+                  <p className="mt-2 text-center text-[11px] text-[#a19d90]">Loading…</p>
+                )}
+                {!loadingMore.has(status.key) && colHasMore.get(status.key) === false && colIssues.length > 0 && (
+                  <p className="mt-2 text-center text-[10.5px] text-[#c3bda9]">— all {colIssues.length} loaded —</p>
                 )}
               </div>
             </div>

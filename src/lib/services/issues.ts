@@ -18,12 +18,15 @@ import { sanitizeCustomValues } from "@/lib/api/validateFields";
 
 export type Project = { id: string; key: string; name: string };
 
-export const BOARD_LIMIT = 200;
 export const COLUMN_PAGE_SIZE = 50;
+
+export type BoardColumnInfo = { hasMore: boolean; cursor: number | null };
 
 export type BoardData = {
   issues: Issue[];
-  total: number;
+  /** Per-status fetch state — which columns are already known to have more
+   * beyond what's in `issues`, and the position cursor to resume from. */
+  columnInfo: Record<string, BoardColumnInfo>;
   projects: Project[];
   statuses: FieldOption[];
   priorities: FieldOption[];
@@ -39,6 +42,17 @@ export type BoardData = {
  * issues are scoped to that project (the board is per-project). During
  * impersonation the caller (a super admin) isn't a member, so RLS would hide
  * everything — use the service-role client, still scoped to tenantId.
+ *
+ * Issues are fetched per-status (one bounded query per configured status,
+ * in parallel) rather than one query sharing a single global LIMIT across
+ * every status. A single shared budget lets whichever status has the most
+ * (or oldest) issues starve the others — a project with 150 Done issues and
+ * 10 Backlog issues would see the shared page fill with Done, leaving
+ * newly-created Backlog issues fetched last and pushed out entirely. This
+ * way every column gets its own fair page on first paint, regardless of how
+ * unevenly issues are distributed across statuses (FORGE: TRAV2-202/203
+ * existed but were invisible on the board once the project passed the old
+ * shared 200-row cap).
  */
 export async function loadBoard(
   tenantId: string,
@@ -52,16 +66,7 @@ export async function loadBoard(
   const supabase = createSupabaseServiceClient();
   const cfg = fieldConfigRepo(supabase);
 
-  let issueQuery = supabase
-    .from("issues")
-    .select("*", { count: "exact" })
-    .eq("tenant_id", tenantId)
-    .order("position", { ascending: true })
-    .limit(BOARD_LIMIT);
-  if (projectId) issueQuery = issueQuery.eq("project_id", projectId);
-
-  const [issuesRes, projects, options, categories, customFields, templates] = await Promise.all([
-    issueQuery,
+  const [projects, options, categories, customFields, templates] = await Promise.all([
     projectsRepo(supabase).listByTenant(tenantId),
     cfg.listOptions(tenantId),
     cfg.listCategories(tenantId),
@@ -69,11 +74,37 @@ export async function loadBoard(
     issueTemplatesRepo(supabase).list(tenantId),
   ]);
 
+  const statuses = options.filter((o) => o.field === "status");
+
+  const perStatus = await Promise.all(
+    statuses.map(async (s) => {
+      let q = supabase
+        .from("issues")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("status", s.key)
+        .order("position", { ascending: true })
+        // Fetch one extra row so "is there more" is known from this single
+        // query, with no separate count round-trip.
+        .limit(COLUMN_PAGE_SIZE + 1);
+      if (projectId) q = q.eq("project_id", projectId);
+      const { data } = await q;
+      const rows = (data ?? []) as Issue[];
+      const hasMore = rows.length > COLUMN_PAGE_SIZE;
+      const page = hasMore ? rows.slice(0, COLUMN_PAGE_SIZE) : rows;
+      const cursor = page.length > 0 ? page[page.length - 1].position : null;
+      return { key: s.key, issues: page, hasMore, cursor };
+    })
+  );
+
+  const columnInfo: Record<string, BoardColumnInfo> = {};
+  for (const p of perStatus) columnInfo[p.key] = { hasMore: p.hasMore, cursor: p.cursor };
+
   return {
-    issues: (issuesRes.data ?? []) as Issue[],
-    total: issuesRes.count ?? 0,
+    issues: perStatus.flatMap((p) => p.issues),
+    columnInfo,
     projects,
-    statuses: options.filter((o) => o.field === "status"),
+    statuses,
     priorities: options.filter((o) => o.field === "priority"),
     types: options.filter((o) => o.field === "type"),
     categories,
