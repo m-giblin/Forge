@@ -17,7 +17,7 @@ import BoardFilters from "./BoardFilters";
 import { useBoardRealtime } from "./useBoardRealtime";
 
 type Project = { id: string; key: string; name: string };
-type Member = { userId: string; label: string };
+type Member = { userId: string; label: string; avatarColor?: string | null };
 
 export default function Board({
   slug,
@@ -143,7 +143,7 @@ export default function Board({
   const projectKey = (id: string) => projects.find((p) => p.id === id)?.key ?? "—";
   const prMap = useMemo(() => new Map(priorities.map((o) => [o.key, o])), [priorities]);
   const tyMap = useMemo(() => new Map(types.map((o) => [o.key, o])), [types]);
-  const memMap = useMemo(() => new Map(members.map((m) => [m.userId, m.label])), [members]);
+  const memMap = useMemo(() => new Map(members.map((m) => [m.userId, { label: m.label, color: m.avatarColor ?? null }])), [members]);
   const catMap = useMemo(() => new Map(categories.map((c) => [c.id, c.name])), [categories]);
   const orderedStatuses = useMemo(() => {
     return [...statuses].sort((a, b) => {
@@ -157,6 +157,21 @@ export default function Board({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statuses]);
 
+  // Same "lowest-position non-done status" rule the dedicated Backlog page
+  // uses (src/app/[tenant]/backlog/page.tsx) to decide what counts as
+  // backlog — dynamic, not hardcoded to a status literally named "backlog".
+  // The Backlog column below renders by this same "unscheduled, not done"
+  // definition instead of a plain status match, so its count matches that
+  // page's count exactly: previously this column showed status === 'backlog'
+  // while the Backlog page showed "unscheduled (sprint_id null) and not
+  // done" — two different definitions that drift apart whenever an issue's
+  // status and sprint assignment disagree (FORGE: TRAV2-55/57/110 missing
+  // from one list or the other).
+  const backlogStatusKey = useMemo(() => {
+    const nonDone = statuses.filter((s) => s.key !== "done").sort((a, b) => a.position - b.position);
+    return nonDone[0]?.key ?? null;
+  }, [statuses]);
+
   const filtered = useMemo(() => {
     let list = issues;
     if (search.trim()) {
@@ -165,7 +180,7 @@ export default function Board({
         i.title.toLowerCase().includes(q) ||
         `${projectKey(i.project_id)}-${i.number}`.toLowerCase().includes(q) ||
         (i.description ?? "").toLowerCase().includes(q) ||
-        (i.assignee_id ? (memMap.get(i.assignee_id) ?? "").toLowerCase().includes(q) : false)
+        (i.assignee_id ? (memMap.get(i.assignee_id)?.label ?? "").toLowerCase().includes(q) : false)
       );
     }
     if (onlyMine && meUserId) list = list.filter((i) => i.assignee_id === meUserId);
@@ -401,15 +416,21 @@ export default function Board({
             );
           });
         })() : groupBy === "status" ? orderedStatuses.map((status) => {
+          const isBacklogCol = status.key === backlogStatusKey;
           const colIssues = filtered
-            .filter((i) => i.status === status.key)
+            .filter((i) => (isBacklogCol ? i.sprint_id == null && i.status !== "done" : i.status === status.key))
             .sort((a, b) => a.position - b.position);
           const isFiltered = !!(search.trim() || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory);
           // loadBoard() fetches each status's own fair page, so colHasMore is
           // known accurately from first paint — no guessing based on a
           // shared global cutoff (FORGE: that guess previously hid the
-          // button on exactly the columns that needed it).
-          const showLoadMore = !isFiltered && (colHasMore.get(status.key) ?? false);
+          // button on exactly the columns that needed it). The backlog
+          // column shows a broader "unscheduled, not done" set assembled
+          // from every other column's own fetch (see backlogStatusKey
+          // above), so its own load-more cursor doesn't describe that set —
+          // never show the button there rather than show one that resumes
+          // from the wrong place.
+          const showLoadMore = !isBacklogCol && !isFiltered && (colHasMore.get(status.key) ?? false);
           const collapsed = collapsedCols.has(status.key);
 
           if (collapsed) {
@@ -485,7 +506,7 @@ export default function Board({
             .filter((col) => col.issues.length > 0);
           const cols = [
             ...(unassigned.length > 0 ? [{ key: "__unassigned", label: "Unassigned", color: "#9CA3AF", issues: unassigned }] : []),
-            ...assigneeCols.map((col) => ({ key: col.member.userId, label: col.member.label, color: avatarColor(col.member.userId), issues: col.issues })),
+            ...assigneeCols.map((col) => ({ key: col.member.userId, label: col.member.label, color: avatarColor(col.member.userId, col.member.avatarColor), issues: col.issues })),
           ];
           return cols.map((col) => (
             <div key={col.key} className="flex w-56 min-w-[200px] shrink-0 flex-col rounded-xl bg-neutral-100/70 p-3 md:w-64">
@@ -526,7 +547,7 @@ function IssueCardList({
   slug: string;
   tyMap: Map<string, FieldOption>;
   prMap: Map<string, FieldOption>;
-  memMap: Map<string, string>;
+  memMap: Map<string, { label: string; color: string | null }>;
   catMap: Map<string, string>;
   onDragStart: (id: string) => void;
   onClickIssue: (id: string) => void;

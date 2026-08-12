@@ -13,16 +13,31 @@ export type MemberRow = {
   customRoleName: string | null;
   customRoleColor: string | null;
   createdAt: string;
+  avatarColor: string | null;
 };
 
 export function membersRepo(supabase: SupabaseClient) {
   return {
     async list(tenantId: string): Promise<MemberRow[]> {
-      const { data, error } = await supabase
+      // avatar_color (migration 0129) is selected defensively: until that
+      // migration runs, this column doesn't exist yet and Postgres errors
+      // the whole query — falling back to a select without it keeps every
+      // member-list consumer (Board, admin/members, etc.) working before
+      // and after the migration, with no separate deploy step required.
+      let { data, error } = await supabase
         .from("memberships")
-        .select("id, role, job_titles, custom_role_id, created_at, user:users!inner(id, email, name), custom_role:custom_roles(id, name, color)")
+        .select("id, role, job_titles, custom_role_id, created_at, user:users!inner(id, email, name, avatar_color), custom_role:custom_roles(id, name, color)")
         .eq("tenant_id", tenantId)
         .order("created_at", { ascending: true });
+      if (error) {
+        const fallback = await supabase
+          .from("memberships")
+          .select("id, role, job_titles, custom_role_id, created_at, user:users!inner(id, email, name), custom_role:custom_roles(id, name, color)")
+          .eq("tenant_id", tenantId)
+          .order("created_at", { ascending: true });
+        data = fallback.data as unknown as typeof data;
+        error = fallback.error;
+      }
       if (error) throw error;
       return (data ?? []).map((m) => {
         const u = Array.isArray(m.user) ? m.user[0] : m.user;
@@ -40,6 +55,7 @@ export function membersRepo(supabase: SupabaseClient) {
           customRoleName: cr?.name as string | null ?? null,
           customRoleColor: cr?.color as string | null ?? null,
           createdAt: m.created_at,
+          avatarColor: (u as { avatar_color?: string | null }).avatar_color ?? null,
         };
       });
     },
