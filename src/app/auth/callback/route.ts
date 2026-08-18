@@ -12,10 +12,21 @@ import { membersRepo } from "@/lib/repositories/members";
  *      ensure they have a membership in that tenant (upsert as member).
  *   2. Redirect to `next` (defaults to /).
  */
+// Only allow same-origin relative paths as a redirect target — mirrors the
+// check in lib/supabase/middleware.ts. `next` is an attacker-controllable
+// query param; without this, a value like "@evil.com" or "//evil.com"
+// concatenated onto `origin` builds a URL the browser follows off-site
+// (open redirect, usable for post-login phishing straight after a real
+// Google/Microsoft auth exchange makes the flow look legitimate).
+function safeNextPath(next: string): string {
+  if (!next.startsWith("/") || next.startsWith("//") || next.includes("\\")) return "/";
+  return next;
+}
+
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/";
+  const next = safeNextPath(searchParams.get("next") ?? "/");
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=missing_code`);
