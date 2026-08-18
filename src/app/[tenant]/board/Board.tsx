@@ -93,6 +93,12 @@ export default function Board({
     router.replace(`${pathname}?${next.toString()}`);
   }
 
+  // Forward the active quick filters so the issue page's breadcrumb can
+  // rebuild a board link that matches this URL, not a bare `?project=`.
+  function openIssue(id: string) {
+    router.push(`/${slug}/issues/${id}?${searchParams.toString()}`);
+  }
+
   const groupByParam = (searchParams.get("groupBy") ?? "status") as "status" | "assignee" | "priority";
   const groupBy = ["status", "assignee", "priority"].includes(groupByParam) ? groupByParam : "status";
   function setGroupBy(value: "status" | "assignee" | "priority") {
@@ -411,7 +417,7 @@ export default function Board({
                   </span>
                   <span className="text-xs text-neutral-400">{colIssues.length}</span>
                 </div>
-                <IssueCardList issues={colIssues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee showAging={showAging} />
+                <IssueCardList issues={colIssues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={openIssue} projectKey={projectKey} showAssignee showAging={showAging} />
               </div>
             );
           });
@@ -497,7 +503,7 @@ export default function Board({
                     Nothing here — drag a card over, or use + above
                   </div>
                 ) : (
-                  <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee showAging={showAging} />
+                  <IssueCardList issues={colIssues} canEdit={canEdit} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={openIssue} projectKey={projectKey} showAssignee showAging={showAging} />
                 )}
                 {/* Fetch more automatically as you scroll near the bottom — no click
                     needed, and always show where the list actually ends. */}
@@ -530,7 +536,7 @@ export default function Board({
                 </span>
                 <span className="text-xs text-neutral-400">{col.issues.length}</span>
               </div>
-              <IssueCardList issues={col.issues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={(id) => router.push(`/${slug}/issues/${id}`)} projectKey={projectKey} showAssignee={false} showAging={showAging} />
+              <IssueCardList issues={col.issues} canEdit={false} slug={slug} tyMap={tyMap} prMap={prMap} memMap={memMap} catMap={catMap} onDragStart={setDragId} onClickIssue={openIssue} projectKey={projectKey} showAssignee={false} showAging={showAging} />
             </div>
           ));
         })() : null}

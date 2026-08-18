@@ -82,7 +82,10 @@ export default function SecuritySettingsClient({
     }
     setSessionSaved(true);
     if (sessionTimerRef.current) clearTimeout(sessionTimerRef.current);
-    sessionTimerRef.current = setTimeout(() => setSessionSaved(false), 3000);
+    // The idle-timeout guard is mounted once in the tenant layout and doesn't
+    // re-read tenant_settings on client navigation, so a saved value only
+    // takes effect in this tab after a full reload.
+    sessionTimerRef.current = setTimeout(() => window.location.reload(), 800);
   }, [slug]);
 
   async function saveIpAllowlist() {
