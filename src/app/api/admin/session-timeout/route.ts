@@ -4,7 +4,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 
 const SETTING_KEY = "session_timeout_minutes";
-const DEFAULT_MINUTES = 30;
+const DEFAULT_MINUTES = 420;
 const MIN_MINUTES = 15;
 const MAX_MINUTES = 480; // 8 hours
 
