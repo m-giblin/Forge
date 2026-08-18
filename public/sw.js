@@ -28,6 +28,15 @@ self.addEventListener("fetch", (e) => {
   if (path.startsWith("/api/") || path.startsWith("/_next/") || path.startsWith("/auth/")) return;
 
   e.respondWith(
-    fetch(request).catch(() => caches.match(request) ?? caches.match("/"))
+    // `caches.match(...) ?? caches.match(...)` was the bug: caches.match()
+    // always returns a Promise (truthy), so ?? never actually fell through
+    // to the "/" fallback. Any route other than the two pre-cached SHELL
+    // paths resolved the first lookup to undefined, and respondWith(undefined)
+    // throws "Failed to convert value to 'Response'" — which surfaces to the
+    // page as the whole navigation failing as a network error, not just a
+    // missed cache. Chain with .then() so the fallback actually runs.
+    fetch(request).catch(() =>
+      caches.match(request).then((cached) => cached || caches.match("/"))
+    )
   );
 });
