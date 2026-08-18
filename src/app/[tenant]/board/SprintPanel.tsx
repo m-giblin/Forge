@@ -294,6 +294,15 @@ export default function SprintPanel({
               Sprint details
             </button>
 
+            {canEdit && (
+              <button
+                onClick={() => { setDropdownOpen(true); openEdit(sprint); }}
+                className="shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] hover:bg-[#eae6da]"
+              >
+                Edit
+              </button>
+            )}
+
             {canEdit && sprint.status === "planned" && (
               <button onClick={() => startSprint(sprint.id)} disabled={pending}
                 className="shrink-0 rounded-full bg-[#8c4632] px-[11px] py-[6px] text-[11.5px] font-semibold text-white hover:bg-[#7a3c2a] disabled:opacity-50">
