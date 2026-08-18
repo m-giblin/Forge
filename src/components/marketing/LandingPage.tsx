@@ -55,6 +55,7 @@ export default function LandingPage() {
 
           <nav className="hidden md:flex items-center gap-6 text-base text-[var(--fw-text-dim)]">
             <a href="#features" className="hover:text-[var(--fw-text-bright)] transition-colors font-medium">Features</a>
+            <a href="#pricing" className="hover:text-[var(--fw-text-bright)] transition-colors font-medium">Pricing</a>
             <a href="#how-it-works" className="hover:text-[var(--fw-text-bright)] transition-colors font-medium">How It Works</a>
             <a href="#faq" className="hover:text-[var(--fw-text-bright)] transition-colors font-medium">FAQ</a>
           </nav>
@@ -105,7 +106,9 @@ export default function LandingPage() {
             with gut feel. Start showing the data that wins trust.
           </p>
 
-          <WaitlistForm variant="hero" />
+          <div id="hero-waitlist">
+            <WaitlistForm variant="hero" />
+          </div>
 
           <div className="mt-5 flex items-center justify-center">
             <a
@@ -118,6 +121,52 @@ export default function LandingPage() {
 
         </div>
       </section>
+
+      {/* ── PRODUCT SHOT ─────────────────────────────────────── */}
+      <div className="relative z-[5] mx-auto max-w-5xl px-6" style={{ marginTop: "-56px" }}>
+        <div className="overflow-hidden rounded-[10px] border border-[var(--fw-cream-border)] bg-[#eeece4] shadow-[0_30px_70px_rgba(20,18,14,0.25)]">
+          <div className="flex items-center gap-2 border-b border-[#100f0d] bg-[#26241f] px-4 py-2.5">
+            <span className="h-[9px] w-[9px] rounded-full bg-[#c0392b]" />
+            <span className="h-[9px] w-[9px] rounded-full bg-[#c9791d]" />
+            <span className="h-[9px] w-[9px] rounded-full bg-[#3f7d4c]" />
+            <div className="flex-1 text-center text-[11.5px] text-[#736e5c]">app.forge-worx.com/board</div>
+          </div>
+          <div className="flex gap-3.5 bg-[#eeece4] px-6 py-5">
+            <div className="hidden w-[150px] shrink-0 flex-col gap-2 sm:flex">
+              <div className="h-[11px] w-[70%] rounded-[3px] bg-[#dcd7c8]" />
+              <div className="mt-1.5 h-2 w-[90%] rounded-[3px] bg-[#e3ded0]" />
+              <div className="h-2 w-[80%] rounded-[3px] bg-[#e3ded0]" />
+              <div className="h-2 w-[85%] rounded-[3px] bg-[#e3ded0]" />
+              <div className="h-2 w-[60%] rounded-[3px] bg-[#e3ded0]" />
+            </div>
+            <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+              {[
+                { color: "#3a6ea8", cards: [{ w: "80%", tag: "#eaf1f8", avatar: "#5c6a9e" }, { w: "60%", tag: "#f1efe9", avatar: "#3f7d4c" }] },
+                { color: "#c9791d", cards: [{ w: "70%", tag: "#fdf1de", avatar: "#b0567c" }, { w: "85%", tag: "#eaf1f8", avatar: "#c9791d" }] },
+                { color: "#7a4fa0", cards: [{ w: "65%", tag: "#f4ecfa", avatar: "#7a4fa0" }] },
+                { color: "#3f7d4c", cards: [{ w: "75%", tag: "#e9f3ea", avatar: "#3a8a94" }, { w: "50%", tag: "#f1efe9", avatar: "#5c6a9e" }] },
+              ].map((col, i) => (
+                <div key={i} className="flex flex-col gap-2">
+                  <div className="mb-0.5 flex items-center gap-1.5">
+                    <span className="inline-block h-[7px] w-[7px] rounded-full" style={{ background: col.color }} />
+                    <div className="h-2 w-[50px] rounded-[3px] bg-[#dcd7c8]" />
+                  </div>
+                  {col.cards.map((c, j) => (
+                    <div key={j} className="rounded-[5px] border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] p-2.5">
+                      <div className="mb-[7px] h-[7px] w-[40%] rounded-[2px] bg-[#d3cdbc]" />
+                      <div className="mb-[9px] h-2 rounded-[2px] bg-[#e3ded0]" style={{ width: c.w }} />
+                      <div className="flex items-center justify-between">
+                        <span className="h-3.5 w-3.5 rounded-[3px]" style={{ background: c.tag }} />
+                        <span className="h-[18px] w-[18px] rounded-full" style={{ background: c.avatar }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
 
       {/* ── THE CHALLENGER REFRAME ───────────────────────────── */}
       <section className="bg-[var(--fw-sidebar-2)] py-20">
@@ -299,6 +348,77 @@ export default function LandingPage() {
                 </div>
                 <h3 className="text-base font-bold text-[var(--fw-text-bright)] mb-2">{f.title}</h3>
                 <p className="text-sm text-[var(--fw-text-dim)] leading-relaxed">{f.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PRICING ──────────────────────────────────────────── */}
+      <section id="pricing" className="bg-[#eae6da] py-[70px]">
+        <div className="mx-auto max-w-4xl px-6">
+          <div className="mb-10 text-center">
+            <h2 className="font-[family-name:var(--font-manrope)] text-[28px] font-extrabold text-[#20201d] mb-2.5">
+              Simple pricing, built for small teams
+            </h2>
+            <p className="text-sm text-[#726e60]">No per-seat surprises. Switch plans anytime.</p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {[
+              {
+                name: "Starter", price: "$0", subtitle: "Up to 5 users",
+                features: ["Sprint board & backlog", "1 project", "Basic reporting"],
+                dark: false, btnLabel: "Join waitlist", href: "#hero-waitlist",
+              },
+              {
+                name: "Team", price: "$12", subtitle: "Per user / month",
+                features: ["Everything in Starter", "Unlimited projects", "Roadmap & reports", "Priority support"],
+                dark: true, btnLabel: "Join waitlist", href: "#hero-waitlist",
+              },
+              {
+                name: "Scale", price: "$24", subtitle: "Per user / month",
+                features: ["Everything in Team", "SSO & advanced permissions", "Audit log", "Dedicated onboarding"],
+                dark: false, btnLabel: "Talk to sales", href: "mailto:hello@forge-worx.com?subject=Scale%20plan",
+              },
+            ].map((p) => (
+              <div
+                key={p.name}
+                className={`rounded-[10px] px-6 py-[26px] ${
+                  p.dark
+                    ? "border border-[#100f0d] shadow-[0_20px_40px_rgba(20,18,14,0.2)]"
+                    : "border border-[var(--fw-cream-border)] bg-white"
+                }`}
+                style={p.dark ? { background: "linear-gradient(165deg,#26281f,#181a16)" } : undefined}
+              >
+                <div className={`mb-2 text-[13px] font-bold ${p.dark ? "text-[#e29a7e]" : "text-[#5c6a52]"}`}>{p.name}</div>
+                <div className="mb-1.5 flex items-baseline gap-1.5">
+                  <div className={`font-[family-name:var(--font-manrope)] text-[34px] font-extrabold ${p.dark ? "text-[#f2eee2]" : "text-[#20201d]"}`}>
+                    {p.price}
+                  </div>
+                  <div className={`text-[12.5px] ${p.dark ? "text-[#a39d89]" : "text-[#a19d90]"}`}>/ month</div>
+                </div>
+                <div className={`mb-5 text-[12.5px] ${p.dark ? "text-[#a39d89]" : "text-[#a19d90]"}`}>{p.subtitle}</div>
+                <div className="mb-6 flex flex-col gap-2.5">
+                  {p.features.map((f) => (
+                    <div key={f} className={`flex items-center gap-2 text-[12.5px] ${p.dark ? "text-[#d8d3c2]" : "text-[#4a473e]"}`}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={p.dark ? "#e29a7e" : "#5c6a52"} strokeWidth="3" className="shrink-0">
+                        <path d="M5 13l4 4L19 7" />
+                      </svg>
+                      {f}
+                    </div>
+                  ))}
+                </div>
+                <a
+                  href={p.href}
+                  className={`block rounded-[5px] py-[11px] text-center text-[13px] font-bold transition ${
+                    p.dark
+                      ? "border border-[#5e2c1f] text-[#f2e9d8] hover:brightness-110"
+                      : "border border-[var(--fw-cream-border)] text-[#20201d] hover:bg-[var(--fw-cream-bg)]"
+                  }`}
+                  style={p.dark ? { background: "linear-gradient(160deg,#9a5138,#6e3324)" } : undefined}
+                >
+                  {p.btnLabel}
+                </a>
               </div>
             ))}
           </div>
