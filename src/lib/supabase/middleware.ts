@@ -73,6 +73,9 @@ export async function updateSession(
     path.startsWith("/api/scim") ||
     path.startsWith("/api/auth/") ||
     path.startsWith("/api/signup") ||
+    // Pre-launch waitlist "Notify me" form on the public marketing page —
+    // called with no session, same as api/signup.
+    path.startsWith("/api/waitlist") ||
     path.startsWith("/api/cron/") ||
     path.startsWith("/api/email/inbound") ||
     path.startsWith("/api/webhooks/") ||

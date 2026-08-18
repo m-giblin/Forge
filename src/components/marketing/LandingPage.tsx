@@ -1,4 +1,5 @@
 import Link from "next/link";
+import WaitlistForm from "./WaitlistForm";
 
 const FAQS = [
   {
@@ -104,13 +105,12 @@ export default function LandingPage() {
             with gut feel. Start showing the data that wins trust.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <span className="w-full sm:w-auto cursor-not-allowed rounded-xl border border-[var(--fw-sidebar-border)] px-8 py-3.5 text-center text-base font-bold text-[var(--fw-text-dimmer)]">
-              Coming Soon
-            </span>
+          <WaitlistForm variant="hero" />
+
+          <div className="mt-5 flex items-center justify-center">
             <a
               href="#features"
-              className="w-full sm:w-auto rounded-xl border border-[#3a382f] px-8 py-3.5 text-base font-semibold text-[var(--fw-text-dim)] hover:border-[var(--fw-text-dimmer)] hover:text-[var(--fw-text-bright)] transition-all"
+              className="text-base font-semibold text-[var(--fw-text-dim)] hover:text-[var(--fw-text-bright)] transition-all"
             >
               See what&rsquo;s inside →
             </a>
@@ -375,14 +375,9 @@ export default function LandingPage() {
             Ship better. Report smarter.<br />Win more trust.
           </h2>
           <p className="text-[#e8d2c8] text-lg mb-8 max-w-xl mx-auto">
-            Self-serve signup opens soon. Want early access?{" "}
-            <a href="mailto:hello@forge-worx.com?subject=Early%20Access" className="underline underline-offset-2 hover:no-underline">
-              Reach out
-            </a>.
+            Self-serve signup opens soon. Leave your email and we&apos;ll let you know the moment it does.
           </p>
-          <span className="inline-block cursor-not-allowed rounded-xl bg-white/60 px-10 py-4 text-base font-bold text-[#6e3324]/70 shadow-xl shadow-black/20">
-            Coming Soon
-          </span>
+          <WaitlistForm />
           <p className="mt-4 text-[#e8d2c8] text-sm">
             Already a customer?{" "}
             <Link href="/login" className="text-white underline underline-offset-2 hover:no-underline">
