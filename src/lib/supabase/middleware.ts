@@ -97,11 +97,18 @@ export async function updateSession(
     path.startsWith("/design");
 
   if (!user && !isPublic) {
+    // Carry the original query string into `next` too, not just the
+    // pathname — otherwise every param a page relies on for persisted state
+    // (Sprint Board's collapsed columns, active filters, etc.) silently
+    // drops on any login/session-refresh round-trip. Confirmed live: a
+    // signed-out or session-expired hit on /travli/board?pri=medium came
+    // back from /login at plain /travli/board, no ?pri.
+    const safePath = path.startsWith("/") && !path.startsWith("//") ? path : "/";
+    const safeNext = safePath + request.nextUrl.search;
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    // M-3: only allow same-origin relative paths as redirect target (no open redirect)
-    const safePath = path.startsWith("/") && !path.startsWith("//") ? path : "/";
-    url.searchParams.set("next", safePath);
+    url.search = "";
+    url.searchParams.set("next", safeNext);
     return NextResponse.redirect(url);
   }
 
