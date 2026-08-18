@@ -247,9 +247,17 @@ export default function ReportBugButton() {
           description.trim(),
           pageUrl ? `**Page:** ${pageUrl}` : "",
           `**Severity:** ${severity}`,
+          // envMeta is a JSON diagnostics blob (UA, viewport, screen, url,
+          // timestamp) — routinely 250-400+ chars once stringified, well
+          // past the public API's environment field (max 200, meant for a
+          // short tag like "production"). It belongs in description, which
+          // allows up to 20,000 — cramming it into `environment` instead
+          // made every single bug report fail its own submission with a
+          // 422, every time (confirmed live).
+          envMeta ? `**Environment:**\n\`\`\`json\n${envMeta}\n\`\`\`` : "",
         ].filter(Boolean).join("\n\n");
 
-        const { id, key } = await reportBugAction({ title, description: desc, priority, environment: envMeta || undefined });
+        const { id, key } = await reportBugAction({ title, description: desc, priority });
 
         // Attach screenshot blob first (if any), then user files
         const allAttachments = new FormData();
