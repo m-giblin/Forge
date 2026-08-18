@@ -12,11 +12,13 @@ const TRIGGER_LABELS: Record<TriggerType, string> = {
   "issue.status_changed": "Status changed",
   "issue.assigned": "Issue assigned",
   "comment.created": "Comment added",
+  "sprint.completed": "Sprint completed",
+  "issue.idle": "Issue idle 5+ days",
 };
 
 const CONDITION_FIELDS = ["priority", "type", "status", "assignee_id", "labels"] as const;
 const CONDITION_OPS = ["is", "is_not", "contains", "is_empty"] as const;
-const ACTION_TYPES: ActionType[] = ["set_priority", "set_assignee", "add_label", "post_comment", "fire_webhook"];
+const ACTION_TYPES: ActionType[] = ["set_priority", "set_assignee", "add_label", "post_comment", "fire_webhook", "move_to_next_sprint"];
 
 const ACTION_LABELS: Record<ActionType, string> = {
   set_priority: "Set priority",
@@ -24,7 +26,11 @@ const ACTION_LABELS: Record<ActionType, string> = {
   add_label: "Add label",
   post_comment: "Post comment",
   fire_webhook: "Fire webhook URL",
+  move_to_next_sprint: "Move to next sprint",
 };
+
+// Actions with no free-text parameter — the value input is meaningless for these.
+const ACTION_NO_VALUE: Set<ActionType> = new Set(["move_to_next_sprint"]);
 
 const INPUT =
   "w-full rounded-[5px] border border-[#ddd8c9] bg-white px-2.5 py-1.5 text-[12.5px] text-[#20201d] placeholder-[#a19d90] focus:border-[#8c4632] focus:outline-none focus:ring-1 focus:ring-[#8c4632]";
@@ -247,20 +253,22 @@ export default function AutomationsClient({ slug, rules }: { slug: string; rules
                               </option>
                             ))}
                           </select>
-                          <input
-                            value={a.value}
-                            onChange={(e) => updateAction(i, { value: e.target.value })}
-                            placeholder={
-                              a.type === "fire_webhook"
-                                ? "https://hooks.example.com/..."
-                                : a.type === "post_comment"
-                                  ? "Comment text…"
-                                  : a.type === "add_label"
-                                    ? "bug, urgent, …"
-                                    : "value"
-                            }
-                            className={`flex-1 ${INPUT}`}
-                          />
+                          {!ACTION_NO_VALUE.has(a.type) && (
+                            <input
+                              value={a.value}
+                              onChange={(e) => updateAction(i, { value: e.target.value })}
+                              placeholder={
+                                a.type === "fire_webhook"
+                                  ? "https://hooks.example.com/..."
+                                  : a.type === "post_comment"
+                                    ? "Comment text…"
+                                    : a.type === "add_label"
+                                      ? "bug, urgent, …"
+                                      : "value"
+                              }
+                              className={`flex-1 ${INPUT}`}
+                            />
+                          )}
                           {actions.length > 1 && (
                             <button
                               type="button"
