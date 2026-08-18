@@ -7,7 +7,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import SecuritySettingsClient from "./SecuritySettingsClient";
 
 const SETTING_KEY = "session_timeout_minutes";
-const DEFAULT_MINUTES = 30;
+const DEFAULT_MINUTES = 420;
 
 export default async function SecuritySettingsPage({
   params,

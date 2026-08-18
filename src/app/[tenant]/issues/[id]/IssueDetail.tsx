@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { type Issue } from "@/lib/repositories/issues";
 import { type FieldOption, type Category, type Component, type CustomField } from "@/lib/repositories/fieldConfig";
@@ -128,6 +128,7 @@ export default function IssueDetail({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Shared timer state — synced between the inline Activity button and the sidebar panel
   const [sharedTimerAt, setSharedTimerAt] = useState<string | null>(initialTimerStartedAt ?? null);
@@ -416,7 +417,13 @@ export default function IssueDetail({
   const sideLabel = "mb-2 text-[10px] font-semibold uppercase tracking-wider text-neutral-500";
   const sideSection = "rounded-lg border border-neutral-200 bg-white p-4";
 
-  const boardHref = `/${slug}/board?project=${projectKey}`;
+  // Carries forward whatever quick filters were active on the board when the
+  // user opened this issue (Board.tsx's openIssue appends its own URL params
+  // here), so "Issues" behaves like the browser Back button instead of
+  // silently dropping the active filter pills.
+  const boardParams = new URLSearchParams(searchParams.toString());
+  boardParams.set("project", projectKey);
+  const boardHref = `/${slug}/board?${boardParams.toString()}`;
 
   return (
     <div className="overflow-clip rounded-xl border border-neutral-200 bg-white">

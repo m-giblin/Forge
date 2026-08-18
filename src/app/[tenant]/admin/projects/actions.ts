@@ -7,7 +7,11 @@ import { addProjectMember, removeProjectMember } from "@/lib/services/projects";
 import { recordAudit } from "@/lib/audit";
 import { projectsRepo } from "@/lib/repositories/projects";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+// eslint-disable-next-line no-restricted-imports -- service-role: tenant_settings write requires bypass of RLS
+import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { ctxCanDo } from "@/lib/rbac";
+
+const DEFAULT_PROJECT_SETTING_KEY = "default_project_id";
 
 function assertAdmin(ctx: { role: string; customRolePermissions: import("@/lib/rbac").RbacPermissionSet | null }) {
   const role = ctx.role as "owner" | "admin" | "member" | "viewer";
@@ -44,6 +48,38 @@ export async function removeProjectMemberAction(slug: string, projectId: string,
     metadata: { userId },
   });
   revalidatePath(`/${slug}/admin/projects`);
+}
+
+// projectId: null clears the default and falls back to alphabetical.
+export async function setDefaultProjectAction(slug: string, projectId: string | null) {
+  const ctx = await getTenantContext(slug);
+  if (!ctx) throw new Error("Not authorized");
+  assertAdmin(ctx);
+  const svc = createSupabaseServiceClient();
+  if (projectId === null) {
+    await svc
+      .from("tenant_settings")
+      .delete()
+      .eq("tenant_id", ctx.tenant.id)
+      .eq("key", DEFAULT_PROJECT_SETTING_KEY);
+  } else {
+    const { error } = await svc
+      .from("tenant_settings")
+      .upsert(
+        { tenant_id: ctx.tenant.id, key: DEFAULT_PROJECT_SETTING_KEY, value: projectId, updated_at: new Date().toISOString() },
+        { onConflict: "tenant_id,key" }
+      );
+    if (error) throw error;
+  }
+  await recordAudit({
+    tenantId: ctx.tenant.id,
+    actorUserId: ctx.appUserId,
+    action: "project.set_default",
+    target: projectId ?? "none",
+    metadata: {},
+  });
+  revalidatePath(`/${slug}/admin/projects`);
+  revalidatePath(`/${slug}/board`);
 }
 
 export async function deleteProjectAction(slug: string, projectId: string) {

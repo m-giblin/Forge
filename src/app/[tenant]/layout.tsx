@@ -85,7 +85,7 @@ export default async function TenantLayout({
   ]);
 
   const sessionTimeoutRaw = await getTenantSetting(ctx.tenant.id, "session_timeout_minutes");
-  const sessionTimeoutMinutes = sessionTimeoutRaw ? parseInt(sessionTimeoutRaw, 10) : 30;
+  const sessionTimeoutMinutes = sessionTimeoutRaw ? parseInt(sessionTimeoutRaw, 10) : 420;
 
   const [initialNotifications, unreadCount, unassignedCount, flags, userRow, visibleProjects, superAdminRow, planNotifications, figmaConfig] = await Promise.all([
     notificationsRepo(supabase).list(ctx.tenant.id, ctx.appUserId, { limit: 20, includeRead: false }),
@@ -240,7 +240,7 @@ export default async function TenantLayout({
       <CommandPalette slug={slug} />
       <GlobalKeys slug={slug} />
       <AiDisclosureBanner slug={slug} initiallyDismissed={aiDisclosureDismissed} />
-      <SessionTimeoutGuard timeoutMinutes={isNaN(sessionTimeoutMinutes) ? 30 : sessionTimeoutMinutes} />
+      <SessionTimeoutGuard timeoutMinutes={isNaN(sessionTimeoutMinutes) ? 420 : sessionTimeoutMinutes} />
       <Suspense fallback={null}>
         <EmberWidget slug={slug} />
       </Suspense>

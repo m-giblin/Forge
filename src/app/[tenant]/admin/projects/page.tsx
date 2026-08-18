@@ -6,6 +6,7 @@ import { listMembers } from "@/lib/services/members";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 // eslint-disable-next-line no-restricted-imports -- impersonation client-select: ctx.impersonating chooses service vs user JWT, all DB calls go through repos (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { getTenantSetting } from "@/lib/tenantSettings";
 import PageHeader from "@/components/patterns/PageHeader";
 import ProjectTeamsManager from "./ProjectTeamsManager";
 
@@ -16,9 +17,10 @@ export default async function AdminProjectsPage({ params }: { params: Promise<{ 
   const readOnly = !(ctx.role === "owner" || ctx.role === "admin");
 
   const client = ctx.impersonating ? createSupabaseServiceClient() : await createSupabaseServerClient();
-  const [projects, members] = await Promise.all([
+  const [projects, members, defaultProjectId] = await Promise.all([
     projectsRepo(client).listByTenant(ctx.tenant.id),
     listMembers(ctx.tenant.id, ctx.impersonating),
+    getTenantSetting(ctx.tenant.id, "default_project_id"),
   ]);
 
   // Each project's current team (small N of projects — fine to fan out).
@@ -40,6 +42,7 @@ export default async function AdminProjectsPage({ params }: { params: Promise<{ 
           projects={projects.map((p) => ({ id: p.id, key: p.key, name: p.name }))}
           members={members.map((m) => ({ userId: m.userId, label: m.name || m.email }))}
           teamMap={teamMap}
+          defaultProjectId={defaultProjectId}
         />
       </div>
     </div>

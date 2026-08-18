@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { addProjectMemberAction, removeProjectMemberAction, deleteProjectAction } from "./actions";
+import { addProjectMemberAction, removeProjectMemberAction, deleteProjectAction, setDefaultProjectAction } from "./actions";
 import { createProjectAction } from "@/app/[tenant]/actions";
 import FormGrid from "@/components/patterns/admin/FormGrid";
 
@@ -29,18 +29,35 @@ export default function ProjectTeamsManager({
   projects: initialProjects,
   members,
   teamMap: initialTeamMap,
+  defaultProjectId,
 }: {
   slug: string;
   readOnly: boolean;
   projects: Project[];
   members: Member[];
   teamMap: Record<string, string[]>;
+  defaultProjectId: string | null;
 }) {
   const router = useRouter();
   const [teams, setTeams] = useState<Record<string, string[]>>(initialTeamMap);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [defaultId, setDefaultId] = useState<string | null>(defaultProjectId);
+  const [defaultPending, startDefaultTransition] = useTransition();
+
+  function toggleDefault(projectId: string) {
+    setError(null);
+    const next = defaultId === projectId ? null : projectId;
+    startDefaultTransition(async () => {
+      try {
+        await setDefaultProjectAction(slug, next);
+        setDefaultId(next);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to set default project");
+      }
+    });
+  }
 
   // New project form state
   const [showForm, setShowForm] = useState(false);
@@ -197,7 +214,26 @@ export default function ProjectTeamsManager({
             <div className="flex items-center gap-2">
               <span className="rounded-[4px] bg-[#f1efe9] px-2 py-0.5 font-mono text-[11px] font-semibold text-[#726e60]">{p.key}</span>
               <span className="text-[12.5px] font-semibold text-[#20201d]">{p.name}</span>
-              <span className="ml-auto text-[11px] text-[#a19d90]">{team.length} member{team.length === 1 ? "" : "s"}</span>
+              {defaultId === p.id && (
+                <span className="rounded-full bg-[#fdf1de] px-2 py-0.5 text-[10.5px] font-semibold text-[#c9791d]">Default</span>
+              )}
+              <span className="ml-auto text-[11px] text-[#a19d90]">
+                {team.length} member{team.length === 1 ? "" : "s"}
+              </span>
+              {!readOnly && (
+                <button
+                  onClick={() => toggleDefault(p.id)}
+                  disabled={defaultPending}
+                  className={`rounded-[4px] px-2 py-1 text-[11px] font-medium transition disabled:opacity-50 ${
+                    defaultId === p.id
+                      ? "text-[#c9791d] hover:bg-[#fdf1de]"
+                      : "text-[#a19d90] hover:bg-[#f1efe9] hover:text-[#4a473e]"
+                  }`}
+                  title={defaultId === p.id ? "Unset as default project" : "Open this project by default on the Sprint Board"}
+                >
+                  {defaultId === p.id ? "★ Default" : "Set as default"}
+                </button>
+              )}
               {!readOnly && (
                 deletingId === p.id ? (
                   <div className="ml-2 flex items-center gap-2">
