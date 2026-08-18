@@ -3,6 +3,7 @@ import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { automationRulesRepo, type TriggerType, type Condition, type Action } from "@/lib/repositories/automationRules";
 import { issuesRepo, type Issue } from "@/lib/repositories/issues";
 import { issueActivityRepo } from "@/lib/repositories/issueActivity";
+import { sprintsRepo } from "@/lib/repositories/sprints";
 import { logger } from "@/lib/logger";
 import { validateWebhookUrl } from "@/lib/api/ssrfGuard";
 
@@ -56,6 +57,21 @@ async function runAction(action: Action, issue: IssueContext, tenantId: string):
         parentId: null,
       });
       break;
+
+    case "move_to_next_sprint": {
+      // "Next" = the soonest-starting still-planned sprint in the issue's
+      // project — the same rollover a human does by hand after completing a
+      // sprint with leftover work. No-op (not an error) if there isn't one
+      // yet; nothing to roll into.
+      const sprints = await sprintsRepo(svc).listForProject(tenantId, issue.project_id);
+      const next = sprints
+        .filter((s) => s.status === "planned")
+        .sort((a, b) => (a.startDate ?? "").localeCompare(b.startDate ?? ""))[0];
+      if (next) {
+        await issuesRepo(svc).update(tenantId, issue.id, { sprint_id: next.id });
+      }
+      break;
+    }
 
     case "fire_webhook": {
       const guard = await validateWebhookUrl(action.value ?? "");

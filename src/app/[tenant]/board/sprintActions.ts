@@ -9,6 +9,8 @@ import { sprintsRepo, type Sprint } from "@/lib/repositories/sprints";
 import { notifyChatSprintEvent } from "@/lib/services/chatNotifications";
 import { notificationsRepo } from "@/lib/repositories/notifications";
 import { grokComplete } from "@/lib/services/grokAi";
+import { runAutomations } from "@/lib/services/automation";
+import type { Issue } from "@/lib/repositories/issues";
 
 function assertCanEdit(ctx: Parameters<typeof ctxCanDo>[0]) {
   if (!ctxCanDo(ctx, "manage_sprints")) throw new Error("You don't have permission to manage sprints.");
@@ -175,14 +177,23 @@ export async function completeSprintAction(slug: string, sprintId: string): Prom
         .eq("id", sprint.project_id)
         .maybeSingle();
 
-      // Count velocity
+      // Full rows (not just status) — the sprint.completed automation
+      // trigger below needs real Issue objects to evaluate rule conditions
+      // and run actions against (e.g. move_to_next_sprint).
       const { data: issues } = await db
         .from("issues")
-        .select("status")
+        .select("*")
         .eq("tenant_id", ctx.tenant.id)
         .eq("sprint_id", sprintId);
       const totalIssues = issues?.length ?? 0;
       const doneIssues = (issues ?? []).filter((i) => i.status === "done" || i.status === "closed").length;
+
+      // Fire the sprint.completed automation trigger once per issue still
+      // left in the sprint — the natural pairing here is "move to next
+      // sprint" for whatever didn't get finished, same rollover a human
+      // does by hand.
+      const notDone = (issues ?? []).filter((i) => i.status !== "done" && i.status !== "closed") as Issue[];
+      await Promise.allSettled(notDone.map((issue) => runAutomations(ctx.tenant.id, "sprint.completed", issue)));
 
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3100";
 

@@ -4,7 +4,9 @@ export type TriggerType =
   | "issue.created"
   | "issue.status_changed"
   | "issue.assigned"
-  | "comment.created";
+  | "comment.created"
+  | "sprint.completed"
+  | "issue.idle";
 
 export type ConditionOperator = "is" | "is_not" | "contains" | "is_empty";
 
@@ -19,7 +21,8 @@ export type ActionType =
   | "set_assignee"
   | "add_label"
   | "post_comment"
-  | "fire_webhook";
+  | "fire_webhook"
+  | "move_to_next_sprint";
 
 export type Action = {
   type: ActionType;
