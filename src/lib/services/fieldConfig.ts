@@ -61,12 +61,12 @@ export async function safeListComponents(supabase: SupabaseClient, tenantId: str
 }
 
 /** All config for a tenant, grouped. `impersonating` → service-role (support view). */
-export async function getTenantSchema(tenantId: string, impersonating = false): Promise<TenantSchema> {
+export async function getTenantSchema(tenantId: string, impersonating = false, projectId?: string): Promise<TenantSchema> {
   const supabase = impersonating ? createSupabaseServiceClient() : await createSupabaseServerClient();
   const repo = fieldConfigRepo(supabase);
   const [options, categories, components, customFields, tenantRow] = await Promise.all([
     repo.listOptions(tenantId),
-    repo.listCategories(tenantId),
+    repo.listCategories(tenantId, projectId),
     safeListComponents(supabase, tenantId),
     safeListCustomFields(supabase, tenantId),
     supabase.from("tenants").select("restrict_status_transitions").eq("id", tenantId).maybeSingle(),

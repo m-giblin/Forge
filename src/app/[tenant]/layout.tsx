@@ -124,9 +124,10 @@ export default async function TenantLayout({
   const initials = (ctx.email ?? "?").slice(0, 2).toUpperCase();
 
   return (
-    <div className="flex min-h-screen bg-[#f4f2eb]">
+    <div className="flex min-h-screen flex-col bg-[#f4f2eb]">
       {ctx.impersonating && <ImpersonationBanner tenantName={ctx.tenant.name} />}
 
+    <div className="flex flex-1">
       {/* ── Mobile nav (hamburger + drawer) — hidden on md+ ── */}
       <MobileSidebar
         slug={slug}
@@ -256,6 +257,7 @@ export default async function TenantLayout({
         )}
         {children}
       </div>
+    </div>
 
       {process.env.FORGE_SELF_API_KEY && <ReportBugButton />}
       <CommandPalette slug={slug} />

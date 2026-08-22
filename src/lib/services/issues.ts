@@ -69,7 +69,7 @@ export async function loadBoard(
   const [projects, options, categories, customFields, templates] = await Promise.all([
     projectsRepo(supabase).listByTenant(tenantId),
     cfg.listOptions(tenantId),
-    cfg.listCategories(tenantId),
+    cfg.listCategories(tenantId, projectId),
     safeListCustomFields(supabase, tenantId),
     issueTemplatesRepo(supabase).list(tenantId),
   ]);
