@@ -7,6 +7,7 @@ import { issuesRepo } from "@/lib/repositories/issues";
 import { fireWebhook } from "@/lib/services/webhooks";
 import { runAutomations } from "@/lib/services/automation";
 import { logger } from "@/lib/logger";
+import { resolveFieldValues } from "@/lib/api/validateFields";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,21 @@ export async function PATCH(req: Request) {
 
     const supabase = createSupabaseServiceClient();
     const repo = issuesRepo(supabase);
+
+    // FORGE-24: status/priority/type are tenant-configurable, not a fixed DB
+    // enum — validate against tenant_field_options here too, same as the
+    // single-issue create/update routes already do. Without this, a bulk
+    // PATCH could silently write a status/priority/type value that isn't one
+    // of the tenant's configured options, breaking board columns/filters that
+    // assume issue.status is always a known key.
+    if (patch.status !== undefined || patch.priority !== undefined || patch.type !== undefined) {
+      const resolved = await resolveFieldValues(supabase, tenantId, {
+        status: patch.status,
+        priority: patch.priority,
+        type: patch.type,
+      });
+      if (!resolved.ok) return apiError("invalid_request", resolved.message);
+    }
 
     // Verify all IDs belong to this tenant before updating — prevents silent cross-tenant probing
     const { data: owned } = await supabase
