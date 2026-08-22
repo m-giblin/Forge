@@ -4,6 +4,7 @@ import { ctxCanDo } from "@/lib/rbac";
 // eslint-disable-next-line no-restricted-imports -- service-role required: workspace-wide aggregate view, not scoped to caller's own issues (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { membersRepo } from "@/lib/repositories/members";
+import { INACTIVE_ISSUE_PROJECT_STATUSES } from "@/lib/repositories/projects";
 import DashboardsClient, { type StatCard, type StatusSlice, type ThroughputDay, type WorkloadRow } from "./DashboardsClient";
 
 const STATUS_LABEL: Record<string, string> = {
@@ -35,7 +36,7 @@ export default async function DashboardsPage({ params }: { params: Promise<{ ten
   const svc = createSupabaseServiceClient();
 
   const [projectRows, memberRows] = await Promise.all([
-    svc.from("projects").select("id").eq("tenant_id", ctx.tenant.id).neq("status", "archived"),
+    svc.from("projects").select("id").eq("tenant_id", ctx.tenant.id).not("status", "in", `(${INACTIVE_ISSUE_PROJECT_STATUSES.join(",")})`),
     membersRepo(svc).list(ctx.tenant.id),
   ]);
 

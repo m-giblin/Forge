@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { projectsRepo } from "@/lib/repositories/projects";
 import PageHeader from "@/components/patterns/PageHeader";
 import AssignedWorkList, { type AssignedIssue } from "./AssignedWorkList";
 
@@ -13,6 +14,9 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
 
   const sevenDaysAgo = new Date(new Date().setDate(new Date().getDate() - 7)).toISOString();
 
+  // FORGE-190: closed/archived projects shouldn't keep nagging their assignees.
+  const activeProjectIds = await projectsRepo(supabase).listActiveIds(ctx.tenant.id);
+
   const [openRes, doneRes, meRes] = await Promise.all([
     supabase
       .from("issues")
@@ -20,6 +24,7 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
       .eq("assignee_id", ctx.appUserId)
       .eq("tenant_id", ctx.tenant.id)
       .neq("status", "done")
+      .in("project_id", activeProjectIds)
       .order("updated_at", { ascending: false }),
     supabase
       .from("issues")
@@ -27,6 +32,7 @@ export default async function AssignedPage({ params }: { params: Promise<{ tenan
       .eq("assignee_id", ctx.appUserId)
       .eq("tenant_id", ctx.tenant.id)
       .eq("status", "done")
+      .in("project_id", activeProjectIds)
       .gte("updated_at", sevenDaysAgo),
     supabase.from("users").select("full_name, email").eq("id", ctx.appUserId).maybeSingle(),
   ]);

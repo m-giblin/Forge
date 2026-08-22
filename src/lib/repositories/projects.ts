@@ -4,6 +4,16 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // come from the intake form — "dates trigger everything".
 export type ProjectStatus = "active" | "on_hold" | "closed" | "archived";
 
+/**
+ * Statuses whose issues should stop surfacing on personal/cross-project
+ * views (My Work, My Day, Inbox, Reports, Workload, Calendar, Timeline) —
+ * FORGE-190. Deliberately narrower than "not visible in the project list"
+ * (listByTenant/listForMember still show closed projects for retro/reporting
+ * purposes) — this is specifically "should an assignee still be nagged about
+ * this on their personal board."
+ */
+export const INACTIVE_ISSUE_PROJECT_STATUSES: ProjectStatus[] = ["closed", "archived"];
+
 export type Project = {
   id: string;
   key: string;
@@ -132,6 +142,17 @@ export function projectsRepo(supabase: SupabaseClient) {
         .order("key");
       if (error) throw error;
       return (data ?? []) as Project[];
+    },
+
+    /** IDs of projects whose issues should still surface on personal/cross-project views (FORGE-190) — i.e. not closed or archived. */
+    async listActiveIds(tenantId: string): Promise<string[]> {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id")
+        .eq("tenant_id", tenantId)
+        .not("status", "in", `(${INACTIVE_ISSUE_PROJECT_STATUSES.join(",")})`);
+      if (error) throw error;
+      return (data ?? []).map((row) => row.id as string);
     },
 
     /** Projects a specific user is a team member of (non-admin landing view). Excludes archived and the system fallback project. */

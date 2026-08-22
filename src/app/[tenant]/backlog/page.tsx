@@ -4,6 +4,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { fieldConfigRepo } from "@/lib/repositories/fieldConfig";
 import { membersRepo } from "@/lib/repositories/members";
+import { INACTIVE_ISSUE_PROJECT_STATUSES } from "@/lib/repositories/projects";
 import BacklogClient from "./BacklogClient";
 
 export default async function BacklogPage({
@@ -24,7 +25,7 @@ export default async function BacklogPage({
     .select("id, key, name")
     .eq("tenant_id", ctx.tenant.id)
     .eq("is_system_fallback", false)
-    .not("status", "eq", "archived")
+    .not("status", "in", `(${INACTIVE_ISSUE_PROJECT_STATUSES.join(",")})`)
     .order("name");
 
   const projects = (projectRows ?? []) as { id: string; key: string; name: string }[];

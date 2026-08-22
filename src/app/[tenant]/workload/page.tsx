@@ -4,6 +4,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { membersRepo } from "@/lib/repositories/members";
 import { memberAvailabilityRepo } from "@/lib/repositories/memberAvailability";
+import { INACTIVE_ISSUE_PROJECT_STATUSES } from "@/lib/repositories/projects";
 import WorkloadHeatmapClient, { type HeatMember, type HeatIssue } from "./WorkloadHeatmapClient";
 
 export default async function WorkloadPage({
@@ -32,16 +33,17 @@ export default async function WorkloadPage({
     };
   });
 
-  // Projects
+  // Projects — FORGE-190: closed/archived projects drop off the workload view entirely.
   const { data: projectRows } = await svc
     .from("projects")
     .select("id, key, name")
     .eq("tenant_id", ctx.tenant.id)
-    .neq("status", "archived");
+    .not("status", "in", `(${INACTIVE_ISSUE_PROJECT_STATUSES.join(",")})`);
 
   const projectMap = new Map(
     (projectRows ?? []).map((p) => [p.id as string, { key: p.key as string, name: p.name as string }])
   );
+  const activeProjectIds = [...projectMap.keys()];
 
   // All non-done issues with dates (16 weeks window)
   const windowStart = new Date();
@@ -62,6 +64,7 @@ export default async function WorkloadPage({
     .select("id, number, title, status, priority, assignee_id, start_date, due_date, project_id, time_estimate_minutes, story_points")
     .eq("tenant_id", ctx.tenant.id)
     .neq("status", "done")
+    .in("project_id", activeProjectIds)
     .order("start_date");
 
   const issues: HeatIssue[] = (issueRows ?? [])
