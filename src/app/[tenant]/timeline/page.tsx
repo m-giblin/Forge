@@ -4,6 +4,7 @@ import { getTenantContext } from "@/lib/auth";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { membersRepo } from "@/lib/repositories/members";
 import { memberAvailabilityRepo } from "@/lib/repositories/memberAvailability";
+import { INACTIVE_ISSUE_PROJECT_STATUSES } from "@/lib/repositories/projects";
 import TimelineClient, {
   type TLIssue,
   type TLMember,
@@ -43,12 +44,12 @@ export default async function TimelinePage({
     };
   });
 
-  // Projects
+  // Projects — FORGE-190: closed/archived projects drop off the timeline entirely.
   const { data: projectRows } = await svc
     .from("projects")
     .select("id, key, name")
     .eq("tenant_id", ctx.tenant.id)
-    .neq("status", "archived");
+    .not("status", "in", `(${INACTIVE_ISSUE_PROJECT_STATUSES.join(",")})`);
 
   const projectMap = new Map(
     (projectRows ?? []).map((p) => [
@@ -56,6 +57,7 @@ export default async function TimelinePage({
       { key: p.key as string, name: p.name as string },
     ])
   );
+  const activeProjectIds = [...projectMap.keys()];
 
   // All non-done issues
   const { data: issueRows } = await svc
@@ -65,6 +67,7 @@ export default async function TimelinePage({
     )
     .eq("tenant_id", ctx.tenant.id)
     .neq("status", "done")
+    .in("project_id", activeProjectIds)
     .order("project_id")
     .order("number");
 
@@ -94,6 +97,7 @@ export default async function TimelinePage({
     .from("issues")
     .select("id, number, title, status, start_date, due_date, project_id, type, parent_id")
     .eq("tenant_id", ctx.tenant.id)
+    .in("project_id", activeProjectIds)
     .order("project_id", { ascending: true });
 
   const tlEpics: TLEpic[] = (epicRollupRows ?? [])

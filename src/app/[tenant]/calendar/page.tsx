@@ -3,6 +3,7 @@ import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { membersRepo } from "@/lib/repositories/members";
+import { INACTIVE_ISSUE_PROJECT_STATUSES } from "@/lib/repositories/projects";
 import CalendarClient, { type CalIssue, type CalSprint, type CalMember } from "./CalendarClient";
 
 export default async function CalendarPage({
@@ -27,16 +28,17 @@ export default async function CalendarPage({
     };
   });
 
-  // Projects for color/key
+  // Projects for color/key — FORGE-190: closed/archived projects drop off entirely.
   const { data: projectRows } = await svc
     .from("projects")
     .select("id, key, name")
     .eq("tenant_id", ctx.tenant.id)
-    .neq("status", "archived");
+    .not("status", "in", `(${INACTIVE_ISSUE_PROJECT_STATUSES.join(",")})`);
 
   const projectMap = new Map(
     (projectRows ?? []).map((p) => [p.id as string, { key: p.key as string, name: p.name as string }])
   );
+  const activeProjectIds = [...projectMap.keys()];
 
   // Issues with dates (3 months back, 6 months forward)
   const rangeStart = new Date();
@@ -50,6 +52,7 @@ export default async function CalendarPage({
     .eq("tenant_id", ctx.tenant.id)
     .or(`due_date.gte.${rangeStart.toISOString().slice(0, 10)},start_date.gte.${rangeStart.toISOString().slice(0, 10)}`)
     .lte("due_date", rangeEnd.toISOString().slice(0, 10))
+    .in("project_id", activeProjectIds)
     .order("due_date", { ascending: true });
 
   const issues: CalIssue[] = (issueRows ?? []).map((r) => {

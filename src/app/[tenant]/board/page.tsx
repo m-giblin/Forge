@@ -7,6 +7,7 @@ import { isUnassignedOverdue } from "@/lib/sla";
 import { listVisibleProjects } from "@/lib/services/projects";
 import { listMembers } from "@/lib/services/members";
 import { getTenantSetting } from "@/lib/tenantSettings";
+import { getCurrentProjectId } from "@/lib/currentProject";
 // eslint-disable-next-line no-restricted-imports -- service-role: sprint reads need cross-tenant visibility for admins (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { sprintsRepo } from "@/lib/repositories/sprints";
@@ -26,13 +27,20 @@ export default async function BoardPage({
   if (!ctx) redirect("/");
 
   // The board is per-project. Resolve which project the user is looking at.
+  // Precedence: explicit ?project= (deep link) > the user's sticky selector
+  // (FORGE-188) > tenant-configured default (Admin > Projects) > first
+  // project alphabetically.
   const visible = await listVisibleProjects(ctx.tenant.id, ctx.appUserId, ctx.role, ctx.impersonating);
-  const defaultProjectId = projectKey ? null : await getTenantSetting(ctx.tenant.id, "default_project_id");
-  const current = projectKey
-    ? visible.find((p) => p.key === projectKey)
-    // Tenant-configured default (Admin > Projects), falling back to the
-    // first project alphabetically if unset or no longer visible.
-    : (defaultProjectId && visible.find((p) => p.id === defaultProjectId)) || visible[0];
+  const stickySelection = projectKey ? null : await getCurrentProjectId(ctx.tenant.id);
+  const defaultProjectId =
+    projectKey || (stickySelection && stickySelection !== "all")
+      ? null
+      : await getTenantSetting(ctx.tenant.id, "default_project_id");
+  const current =
+    (projectKey && visible.find((p) => p.key === projectKey)) ||
+    (stickySelection && stickySelection !== "all" && visible.find((p) => p.id === stickySelection)) ||
+    (defaultProjectId && visible.find((p) => p.id === defaultProjectId)) ||
+    visible[0];
 
   // No projects exist at all → send to projects page to create one
   if (!current) redirect(`/${slug}/projects`);

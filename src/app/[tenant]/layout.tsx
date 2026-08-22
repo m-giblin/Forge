@@ -24,7 +24,10 @@ import GearMenu from "@/components/GearMenu";
 import WorkspaceSidebarNav from "@/components/WorkspaceSidebarNav";
 import WorkspaceTopBar from "@/components/WorkspaceTopBar";
 import CollapsibleSidebarShell from "@/components/CollapsibleSidebarShell";
+import ProjectSwitcher from "@/components/ProjectSwitcher";
 import { getTenantSetting } from "@/lib/tenantSettings";
+import { getCurrentProjectId } from "@/lib/currentProject";
+import { listVisibleProjects } from "@/lib/services/projects";
 
 function trialDaysRemaining(trialEndsAt: string | null): number | null {
   if (!trialEndsAt) return null;
@@ -87,18 +90,32 @@ export default async function TenantLayout({
   const sessionTimeoutRaw = await getTenantSetting(ctx.tenant.id, "session_timeout_minutes");
   const sessionTimeoutMinutes = sessionTimeoutRaw ? parseInt(sessionTimeoutRaw, 10) : 420;
 
-  const [initialNotifications, unreadCount, unassignedCount, flags, userRow, visibleProjects, superAdminRow, planNotifications, figmaConfig] = await Promise.all([
+  const [initialNotifications, unreadCount, unassignedCount, flags, userRow, projectList, superAdminRow, planNotifications, figmaConfig, currentProjectSelection, defaultProjectId] = await Promise.all([
     notificationsRepo(supabase).list(ctx.tenant.id, ctx.appUserId, { limit: 20, includeRead: false }),
     notificationsRepo(supabase).unreadCount(ctx.tenant.id, ctx.appUserId),
     issuesRepo(svc).countUnassigned(ctx.tenant.id),
     loadTenantFlags(ctx.tenant.id),
     (async () => { try { return await supabase.from("users").select("email_digest, ai_disclosure_dismissed_at").eq("id", ctx.appUserId).maybeSingle(); } catch { return { data: null }; } })(),
-    (async () => { try { const { data } = await svc.from("projects").select("id", { count: "exact" }).eq("tenant_id", ctx.tenant.id).not("status", "eq", "archived"); return data?.length ?? 0; } catch { return 0; } })(),
+    listVisibleProjects(ctx.tenant.id, ctx.appUserId, ctx.role, ctx.impersonating).catch(() => []),
     (async () => { try { const { data } = await svc.from("super_admins").select("user_id").eq("user_id", ctx.appUserId).maybeSingle(); return data; } catch { return null; } })(),
     (async () => { try { const { data } = await svc.from("tenant_notifications").select("id, title, feature_key").eq("tenant_id", ctx.tenant.id).is("read_at", null).order("created_at", { ascending: false }).limit(3); return data ?? []; } catch { return []; } })(),
     getFigmaConfig(ctx.tenant.id).catch(() => ({ enabled: false, teamUrl: "" })),
+    getCurrentProjectId(ctx.tenant.id),
+    getTenantSetting(ctx.tenant.id, "default_project_id"),
   ]);
   const figmaUrl = figmaConfig.enabled && figmaConfig.teamUrl ? figmaConfig.teamUrl : null;
+  const visibleProjects = projectList.length;
+  // Sticky selector precedence: explicit cookie choice > tenant admin default > "All Projects".
+  // "all" is a valid, distinct cookie value (user explicitly chose it) vs. null (never chosen).
+  const resolvedProjectId =
+    currentProjectSelection === "all"
+      ? null
+      : currentProjectSelection
+        ? projectList.find((p) => p.id === currentProjectSelection)?.id ?? null
+        : defaultProjectId && projectList.some((p) => p.id === defaultProjectId)
+          ? defaultProjectId
+          : null;
+  const currentProject = projectList.find((p) => p.id === resolvedProjectId) ?? null;
   const emailDigest = (userRow.data as Record<string, unknown> | null)?.email_digest !== false;
   const aiDisclosureDismissed = !!(userRow.data as Record<string, unknown> | null)?.ai_disclosure_dismissed_at;
   const isAdmin = ctx.role === "owner" || ctx.role === "admin" || ctx.impersonating;
@@ -107,9 +124,10 @@ export default async function TenantLayout({
   const initials = (ctx.email ?? "?").slice(0, 2).toUpperCase();
 
   return (
-    <div className="flex min-h-screen bg-[#f4f2eb]">
+    <div className="flex min-h-screen flex-col bg-[#f4f2eb]">
       {ctx.impersonating && <ImpersonationBanner tenantName={ctx.tenant.name} />}
 
+    <div className="flex flex-1">
       {/* ── Mobile nav (hamburger + drawer) — hidden on md+ ── */}
       <MobileSidebar
         slug={slug}
@@ -146,18 +164,22 @@ export default async function TenantLayout({
           </p>
         </div>
 
-        {/* Workspace switcher */}
-        <div className="mx-3.5 my-3.5 flex shrink-0 items-center gap-2.5 rounded-[5px] border border-[#34362c] bg-[var(--fw-sidebar-2)] px-2.5 py-[9px]">
-          <div
-            className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded border border-[#3a1e15] text-[11px] font-extrabold text-[#efe6d0]"
-            style={{ background: "linear-gradient(135deg,var(--fw-rust-dark),var(--fw-rust-border))" }}
-          >
-            {(ctx.tenant.name || "?").slice(0, 2).toUpperCase()}
+        {/* Workspace switcher — tenant identity + sticky project selector (FORGE-188) in one card */}
+        <div className="relative mx-3.5 my-3.5 shrink-0 rounded-[5px] border border-[#4a4d3f] bg-[#20221b] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className="flex items-center gap-2.5 px-2.5 py-[9px]">
+            <div
+              className="flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded border border-[#3a1e15] text-[11px] font-extrabold text-[#efe6d0]"
+              style={{ background: "linear-gradient(135deg,var(--fw-rust-dark),var(--fw-rust-border))" }}
+            >
+              {(ctx.tenant.name || "?").slice(0, 2).toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[12.5px] font-bold text-[var(--fw-text-bright)]">{ctx.tenant.name}</p>
+              <p className="truncate text-[10.5px] text-[var(--fw-text-dimmer)] capitalize">{ctx.role}</p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[12.5px] font-bold text-[var(--fw-text-bright)]">{ctx.tenant.name}</p>
-            <p className="truncate text-[10.5px] text-[var(--fw-text-dimmer)] capitalize">{ctx.role}</p>
-          </div>
+          <div className="h-px bg-[#4a4d3f]" />
+          <ProjectSwitcher slug={slug} projects={projectList} current={currentProject} />
         </div>
 
         <WorkspaceSidebarNav
@@ -235,6 +257,7 @@ export default async function TenantLayout({
         )}
         {children}
       </div>
+    </div>
 
       {process.env.FORGE_SELF_API_KEY && <ReportBugButton />}
       <CommandPalette slug={slug} />

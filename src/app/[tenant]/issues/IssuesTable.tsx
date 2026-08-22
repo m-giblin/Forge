@@ -70,7 +70,9 @@ export default function IssuesTable({
   const priorityFilter = params.get("priority") ?? "all";
   const typeFilter = params.get("type") ?? "all";
   const assigneeFilter = params.get("assignee") ?? "all";
-  const projectFilter = params.get("project") ?? "all";
+  // Falls back to the sticky project selector (FORGE-188) when the URL has no
+  // explicit ?project=, so a shared/bookmarked link still wins over it.
+  const projectFilter = params.get("project") ?? currentProjectId ?? "all";
 
   const setParam = useCallback((key: string, value: string) => {
     const next = new URLSearchParams(params.toString());

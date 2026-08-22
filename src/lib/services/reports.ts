@@ -39,6 +39,12 @@ export async function loadReports(
 ): Promise<ReportsData> {
   const supabase = impersonating ? createSupabaseServiceClient() : await createSupabaseServerClient();
 
+  // FORGE-190: the default "All projects" aggregate view excludes closed/archived
+  // projects' issues. An explicit projectId (someone deliberately picked a specific
+  // project, closed or not, to review its retro) always wins — same "explicit
+  // choice beats default filter" precedent as the Board/Issues sticky selector.
+  const activeProjectIds = projectId ? null : await projectsRepo(supabase).listActiveIds(tenantId);
+
   let q = supabase
     .from("issues")
     .select("id, number, title, status, priority, type, assignee_id, labels, created_at, updated_at")
@@ -47,6 +53,7 @@ export async function loadReports(
     .lte("created_at", to.toISOString());
 
   if (projectId) q = q.eq("project_id", projectId);
+  else if (activeProjectIds) q = q.in("project_id", activeProjectIds);
 
   const { data: issues } = await q;
   const rows = issues ?? [];
@@ -60,6 +67,7 @@ export async function loadReports(
     .gte("updated_at", from.toISOString())
     .lte("updated_at", to.toISOString());
   if (projectId) doneQ = doneQ.eq("project_id", projectId);
+  else if (activeProjectIds) doneQ = doneQ.in("project_id", activeProjectIds);
   const { data: doneIssues } = await doneQ;
   const doneRows = doneIssues ?? [];
 

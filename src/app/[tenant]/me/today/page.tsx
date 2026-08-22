@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getTenantContext } from "@/lib/auth";
 // eslint-disable-next-line no-restricted-imports -- service-role: cross-project issue read for current user (sec09)
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
+import { projectsRepo } from "@/lib/repositories/projects";
 import SectionGroup from "@/components/patterns/SectionGroup";
 import MyDayIssueRow, { type FocusIssue } from "./MyDayIssueRow";
 
@@ -24,6 +25,9 @@ export default async function MyTodayPage({ params }: { params: Promise<{ tenant
   const svc = createSupabaseServiceClient();
   const today = new Date().toISOString().slice(0, 10);
 
+  // FORGE-190: closed/archived projects shouldn't keep nagging their assignees.
+  const activeProjectIds = await projectsRepo(svc).listActiveIds(ctx.tenant.id);
+
   // All issues assigned to me that are not done/closed/archived
   const { data: rows } = await svc
     .from("issues")
@@ -31,6 +35,7 @@ export default async function MyTodayPage({ params }: { params: Promise<{ tenant
     .eq("tenant_id", ctx.tenant.id)
     .eq("assignee_id", ctx.appUserId)
     .not("status", "in", '("done","closed","archived")')
+    .in("project_id", activeProjectIds)
     .order("due_date", { ascending: true, nullsFirst: false })
     .limit(100);
 

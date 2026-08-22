@@ -5,6 +5,7 @@ import { loadBoard } from "@/lib/services/issues";
 import { listMembers } from "@/lib/services/members";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { savedViewsRepo } from "@/lib/repositories/savedViews";
+import { getCurrentProjectId } from "@/lib/currentProject";
 import IssuesTable from "./IssuesTable";
 
 export default async function IssuesPage({ params }: { params: Promise<{ tenant: string }> }) {
@@ -13,10 +14,11 @@ export default async function IssuesPage({ params }: { params: Promise<{ tenant:
   if (!ctx) redirect("/");
 
   const supabase = await createSupabaseServerClient();
-  const [board, members, savedViews] = await Promise.all([
+  const [board, members, savedViews, stickyProjectId] = await Promise.all([
     loadBoard(ctx.tenant.id, ctx.impersonating),
     listMembers(ctx.tenant.id, ctx.impersonating),
     savedViewsRepo(supabase).list(ctx.tenant.id).catch(() => []),
+    getCurrentProjectId(ctx.tenant.id),
   ]);
 
   const { issues, projects, statuses, priorities, types, customFields } = board;
@@ -38,6 +40,7 @@ export default async function IssuesPage({ params }: { params: Promise<{ tenant:
         canDelete={canDelete}
         readOnly={readOnly}
         savedViews={savedViews}
+        currentProjectId={stickyProjectId && stickyProjectId !== "all" ? stickyProjectId : null}
       />
       </Suspense>
     </main>

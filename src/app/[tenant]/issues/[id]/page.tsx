@@ -32,7 +32,7 @@ export default async function IssuePage({ params }: { params: Promise<{ tenant: 
     );
   }
 
-  const schema = await getTenantSchema(ctx.tenant.id, ctx.impersonating);
+  const schema = await getTenantSchema(ctx.tenant.id, ctx.impersonating, issue.project_id);
   const client = ctx.impersonating ? createSupabaseServiceClient() : await createSupabaseServerClient();
   const svcClient = createSupabaseServiceClient();
   const [project, members, activity, attachments, watchers] = await Promise.all([
