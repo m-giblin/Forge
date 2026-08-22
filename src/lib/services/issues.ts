@@ -14,7 +14,7 @@ import { issueAssigneesRepo } from "@/lib/repositories/issueAssignees";
 import { fireWebhook } from "@/lib/services/webhooks";
 import { triageIssue } from "@/lib/services/triage";
 import { runAutomations } from "@/lib/services/automation";
-import { sanitizeCustomValues } from "@/lib/api/validateFields";
+import { sanitizeCustomValues, resolveFieldValues } from "@/lib/api/validateFields";
 
 export type Project = { id: string; key: string; name: string };
 
@@ -137,18 +137,25 @@ export async function createIssue(input: {
   const project = await projectsRepo(supabase).getById(input.tenantId, input.projectId);
   if (project?.status === "archived") throw new Error("This project is archived. Reactivate it to add new issues.");
 
-  // Fill any unspecified status/priority/type from the tenant's configured defaults.
-  const defs = await fieldConfigRepo(supabase).listDefaults(input.tenantId);
-  const def = (f: string) => defs.find((d) => d.field === f)?.key;
+  // FORGE-24: validate any explicit status/priority/type against the tenant's
+  // configured options (same check the REST API already applies) — the UI's
+  // <select> normally only offers valid values, but that's not a server-side
+  // guarantee. Also fills unspecified fields from the tenant's defaults.
+  const resolved = await resolveFieldValues(supabase, input.tenantId, {
+    status: input.status ?? null,
+    priority: input.priority ?? null,
+    type: input.type ?? null,
+  });
+  if (!resolved.ok) throw new Error(resolved.message);
 
   const issue = await issuesRepo(supabase).create({
     tenant_id: input.tenantId,
     project_id: input.projectId,
     title: input.title,
     description: input.description ?? null,
-    status: input.status ?? def("status") ?? "todo",
-    priority: input.priority ?? def("priority") ?? "medium",
-    type: input.type ?? def("type") ?? "bug",
+    status: input.status ?? resolved.defaults.status ?? "todo",
+    priority: input.priority ?? resolved.defaults.priority ?? "medium",
+    type: input.type ?? resolved.defaults.type ?? "bug",
     category_id: input.categoryId ?? null,
     custom_values: sanitizeCustomValues(input.customValues),
     reporter_id: input.reporterId ?? null,
@@ -219,6 +226,10 @@ export async function moveIssue(
   const supabase = await createSupabaseServerClient();
   const repo = issuesRepo(supabase);
   const before = await repo.get(tenantId, id);
+  // FORGE-24: board drag-and-drop is a separate mutation entrypoint from
+  // updateIssue — validate the target status here too, not just adjacency.
+  const resolved = await resolveFieldValues(supabase, tenantId, { status });
+  if (!resolved.ok) throw new Error(resolved.message);
   if (before) await assertValidStatusTransition(supabase, tenantId, before.status, status);
   const patch: { status: IssueStatus; position?: number } = { status };
   if (typeof position === "number") patch.position = position;
@@ -273,6 +284,19 @@ export async function updateIssue(
   const repo = issuesRepo(supabase);
   const before = await repo.get(tenantId, id);
   if (!before) throw new Error("Issue not found.");
+
+  // FORGE-24: validate against the tenant's configured options — adjacency
+  // (assertValidStatusTransition below) only checks *how* status moves, not
+  // whether status/priority/type are valid keys at all, and priority/type had
+  // no server-side check whatsoever before this.
+  if (patch.status !== undefined || patch.priority !== undefined || patch.type !== undefined) {
+    const resolved = await resolveFieldValues(supabase, tenantId, {
+      status: patch.status,
+      priority: patch.priority,
+      type: patch.type,
+    });
+    if (!resolved.ok) throw new Error(resolved.message);
+  }
 
   if (patch.status !== undefined) await assertValidStatusTransition(supabase, tenantId, before.status, patch.status);
 
