@@ -280,18 +280,36 @@ export default function Board({
         <span className="shrink-0 rounded bg-[var(--fw-cream)] px-1.5 py-0.5 font-mono text-[11px] font-semibold text-[#4a473e]">
           {currentProject.key}
         </span>
-        <h1 className="shrink-0 font-[family-name:var(--font-manrope)] text-[14px] font-extrabold text-[#20201d]">{currentProject.name}</h1>
-        {siblingProjects.length > 1 && (
+        {siblingProjects.length > 1 ? (
           <select
             value={currentProject.key}
-            onChange={(e) => router.push(`/${slug}/board?project=${e.target.value}`)}
-            className="shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e] outline-none"
+            onChange={async (e) => {
+              const key = e.target.value;
+              const picked = siblingProjects.find((p) => p.key === key);
+              // Same sticky selection as the sidebar switcher (FORGE-188) — picking a
+              // project here is a real switch, not a page-local peek, so it should
+              // persist after navigating away too, not silently revert. Awaited so the
+              // cookie is set before navigating — otherwise the sidebar (a server
+              // component reading the cookie fresh on each request) could render with
+              // the stale value on this very navigation.
+              if (picked) {
+                await fetch("/api/current-project", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ slug, projectId: picked.id }),
+                });
+              }
+              router.push(`/${slug}/board?project=${key}`);
+            }}
+            className="shrink-0 rounded-full border border-[var(--fw-cream-border)] bg-[var(--fw-cream)] px-[11px] py-[6px] text-[13px] font-extrabold text-[#20201d] outline-none"
             aria-label="Switch project"
           >
             {siblingProjects.map((p) => (
-              <option key={p.id} value={p.key}>{p.key} — {p.name}</option>
+              <option key={p.id} value={p.key}>{p.name}</option>
             ))}
           </select>
+        ) : (
+          <h1 className="shrink-0 font-[family-name:var(--font-manrope)] text-[14px] font-extrabold text-[#20201d]">{currentProject.name}</h1>
         )}
 
         <span className="flex-1" />
