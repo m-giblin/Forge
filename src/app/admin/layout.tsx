@@ -10,20 +10,26 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const sa = await requireSuperAdmin();
   if (!sa) redirect("/");
 
-  // MFA is mandatory for every super admin, no exceptions — this account has
-  // cross-tenant power, unlike the per-tenant require_mfa toggle in
-  // [tenant]/layout.tsx which is opt-in per workspace.
-  const supabaseForMfa = await createSupabaseServerClient();
-  const { data: aal } = await supabaseForMfa.auth.mfa.getAuthenticatorAssuranceLevel();
-  if ((aal?.currentLevel ?? "aal1") !== "aal2") {
-    redirect(`/mfa-required?next=${encodeURIComponent("/admin")}`);
-  }
-
   const svc = createSupabaseServiceClient();
-  const [{ count: openTickets }, { count: tenantCount }] = await Promise.all([
+
+  // Platform-admin MFA used to be hardcoded mandatory (no exceptions, since
+  // this account has cross-tenant power, unlike the per-tenant require_mfa
+  // toggle in [tenant]/layout.tsx). Turned into a real feature flag —
+  // `platform_mfa_required` in platform_settings, same on/off mechanism as
+  // the Admin → Feature Access kill switches — so it can be switched back on
+  // later without a code change. Defaults OFF (missing row = not required).
+  const [{ data: mfaSetting }, { count: openTickets }, { count: tenantCount }] = await Promise.all([
+    svc.from("platform_settings").select("value").eq("key", "platform_mfa_required").maybeSingle(),
     svc.from("support_tickets").select("id", { count: "exact", head: true }).eq("status", "open"),
     svc.from("tenants").select("id", { count: "exact", head: true }),
   ]);
+  if (mfaSetting?.value === "true") {
+    const supabaseForMfa = await createSupabaseServerClient();
+    const { data: aal } = await supabaseForMfa.auth.mfa.getAuthenticatorAssuranceLevel();
+    if ((aal?.currentLevel ?? "aal1") !== "aal2") {
+      redirect(`/mfa-required?next=${encodeURIComponent("/admin")}`);
+    }
+  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f8fafc", fontFamily: "var(--font-inter), -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" }}>
