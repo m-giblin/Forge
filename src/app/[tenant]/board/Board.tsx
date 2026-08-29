@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import Link from "next/link";
 import { type Issue } from "@/lib/repositories/issues";
@@ -92,6 +92,20 @@ export default function Board({
     else next.set(key, value);
     router.replace(`${pathname}?${next.toString()}`);
   }
+
+  // The top bar's "+ New issue" link only sets ?new=1 in the URL — it doesn't
+  // remount this component when you're already on Board, so the useState
+  // initializer above never re-runs and the form silently failed to open.
+  // Watch for the param instead, and strip it right after so the link stays
+  // clickable again (rather than becoming a no-op once the URL already has
+  // ?new=1) and a page refresh/back-navigation doesn't force the form open.
+  useEffect(() => {
+    if (searchParams.get("new") === "1") {
+      setShowForm(true); // eslint-disable-line react-hooks/set-state-in-effect -- syncing a one-shot ?new=1 URL trigger into local modal-open state; see TriageCard.tsx for the same precedent
+      setParam("new", null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Forward the active quick filters so the issue page's breadcrumb can
   // rebuild a board link that matches this URL, not a bare `?project=`.
@@ -342,18 +356,9 @@ export default function Board({
             📄 Export Sprint Report
           </a>
         )}
-        {/* The global top bar's rust "New issue" button (?new=1) already opens this
-            form, so we don't duplicate a second "+ New issue" CTA here — this button
-            only appears once the form is open, to close it. */}
-        {canEdit && showForm && (
-          <button
-            onClick={() => setShowForm((s) => !s)}
-            className="shrink-0 whitespace-nowrap rounded-full px-[11px] py-[6px] text-[11.5px] font-semibold text-[#4a473e]"
-            style={{ background: "var(--fw-cream)", border: "1px solid var(--fw-cream-border)" }}
-          >
-            Close
-          </button>
-        )}
+        {/* The global top bar's rust "New issue" button (?new=1) opens this as a
+            modal (NewIssueForm) — no second "+ New issue" CTA needed here, and
+            the modal has its own close controls (✕ / backdrop click). */}
       </div>
 
       {cascadePending && (
@@ -417,6 +422,7 @@ export default function Board({
             upsert(issue);
             setShowForm(false);
           }}
+          onClose={() => setShowForm(false)}
         />
       )}
 

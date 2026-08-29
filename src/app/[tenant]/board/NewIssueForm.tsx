@@ -25,6 +25,7 @@ export default function NewIssueForm({
   sprints,
   members,
   onCreated,
+  onClose,
 }: {
   slug: string;
   projects: Project[];
@@ -36,6 +37,7 @@ export default function NewIssueForm({
   sprints: Sprint[];
   members: Member[];
   onCreated: (issue: Issue) => void;
+  onClose: () => void;
 }) {
   const [title, setTitle] = useState("");
   const [projectId, setProjectId] = useState(projects[0]?.id ?? "");
@@ -126,7 +128,15 @@ export default function NewIssueForm({
   }
 
   return (
-    <div className="mb-4 rounded-xl border border-neutral-200 bg-white p-4 shadow-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4" onClick={onClose}>
+      <div
+        className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-neutral-200 bg-white p-4 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-neutral-900">New issue</h2>
+          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-600">✕</button>
+        </div>
       {showTemplates && (
         <div className="mb-3 pb-3 border-b border-neutral-100">
           <p className="text-xs font-semibold text-neutral-500 mb-2">Quick templates</p>
@@ -299,6 +309,7 @@ export default function NewIssueForm({
         </div>
       )}
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      </div>
     </div>
   );
 }

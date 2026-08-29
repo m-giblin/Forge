@@ -14,7 +14,7 @@ export default async function FlagsPage() {
     listTenants(),
     repo.listFlags().catch(() => []),
     repo.listOverrides().catch(() => []),
-    svc.from("platform_settings").select("key, value").in("key", ["maintenance_mode", "ai_disabled"]),
+    svc.from("platform_settings").select("key, value").in("key", ["maintenance_mode", "ai_disabled", "platform_mfa_required"]),
   ]);
   const settingsMap: Record<string, string> = {};
   for (const row of (settingsResult.data ?? []) as { key: string; value: string }[]) {

@@ -16,8 +16,9 @@ const FLAG_DESCRIPTIONS: Record<string, string> = {
 };
 
 const KILL_SWITCHES: Array<{ key: string; label: string; desc: string }> = [
-  { key: "maintenance_mode", label: "Maintenance Mode",    desc: "Blocks all tenant access with a maintenance banner" },
-  { key: "ai_disabled",      label: "Disable AI Globally", desc: "Kills all AI features across every workspace" },
+  { key: "maintenance_mode",     label: "Maintenance Mode",         desc: "Blocks all tenant access with a maintenance banner" },
+  { key: "ai_disabled",          label: "Disable AI Globally",      desc: "Kills all AI features across every workspace" },
+  { key: "platform_mfa_required", label: "Require Platform Admin MFA", desc: "Off = /admin is reachable without 2FA. Does not affect per-tenant MFA (set separately under each workspace's Security settings)." },
 ];
 
 export default function FeatureFlagsConsole({
