@@ -177,21 +177,6 @@ export default function Board({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statuses]);
 
-  // Same "lowest-position non-done status" rule the dedicated Backlog page
-  // uses (src/app/[tenant]/backlog/page.tsx) to decide what counts as
-  // backlog — dynamic, not hardcoded to a status literally named "backlog".
-  // The Backlog column below renders by this same "unscheduled, not done"
-  // definition instead of a plain status match, so its count matches that
-  // page's count exactly: previously this column showed status === 'backlog'
-  // while the Backlog page showed "unscheduled (sprint_id null) and not
-  // done" — two different definitions that drift apart whenever an issue's
-  // status and sprint assignment disagree (FORGE: TRAV2-55/57/110 missing
-  // from one list or the other).
-  const backlogStatusKey = useMemo(() => {
-    const nonDone = statuses.filter((s) => s.key !== "done").sort((a, b) => a.position - b.position);
-    return nonDone[0]?.key ?? null;
-  }, [statuses]);
-
   const filtered = useMemo(() => {
     let list = issues;
     if (search.trim()) {
@@ -446,32 +431,21 @@ export default function Board({
             );
           });
         })() : groupBy === "status" ? orderedStatuses.map((status) => {
-          const isBacklogCol = status.key === backlogStatusKey;
-          // Union, not a straight swap: an issue literally in this status
-          // (however it got there) must always show SOMEWHERE, or it goes
-          // invisible the same way TRAV2-202/203 did. sprint_id-null issues
-          // of any non-done status join it too, so the count still lines up
-          // with the Backlog page for the common case — but never at the
-          // cost of hiding a real status === backlogStatusKey card just
-          // because it's also been scheduled into a sprint (FORGE: TRAV2-214
-          // has status 'backlog' AND a sprint_id — it was disappearing from
-          // every column under the previous sprint_id-only definition).
+          // Plain status match, like every column — a prior version unioned
+          // in every sprint-less non-done issue here too (to mirror the
+          // dedicated Backlog page's broader "unscheduled" definition), but
+          // that meant any To Do/In Progress/etc. issue without a sprint
+          // rendered in BOTH its real column and this one (FORGE: TRAV2-280
+          // through 283 duplicated between Backlog and To Do). The dedicated
+          // Backlog page (src/app/[tenant]/backlog/page.tsx) still shows the
+          // broader "all unscheduled, not done" set on its own — that's fine
+          // there since it's a standalone view, not a second column sitting
+          // next to each issue's real status on the same board.
           const colIssues = filtered
-            .filter((i) => (isBacklogCol
-              ? i.status === backlogStatusKey || (i.sprint_id == null && i.status !== "done")
-              : i.status === status.key))
+            .filter((i) => i.status === status.key)
             .sort((a, b) => a.position - b.position);
           const isFiltered = !!(search.trim() || filterPriorities.size > 0 || filterAssignee || filterType || filterCategory);
-          // loadBoard() fetches each status's own fair page, so colHasMore is
-          // known accurately from first paint — no guessing based on a
-          // shared global cutoff (FORGE: that guess previously hid the
-          // button on exactly the columns that needed it). The backlog
-          // column shows a broader "unscheduled, not done" set assembled
-          // from every other column's own fetch (see backlogStatusKey
-          // above), so its own load-more cursor doesn't describe that set —
-          // never show the button there rather than show one that resumes
-          // from the wrong place.
-          const showLoadMore = !isBacklogCol && !isFiltered && (colHasMore.get(status.key) ?? false);
+          const showLoadMore = !isFiltered && (colHasMore.get(status.key) ?? false);
           const collapsed = collapsedCols.has(status.key);
 
           if (collapsed) {
