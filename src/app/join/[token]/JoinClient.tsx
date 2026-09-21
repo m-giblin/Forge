@@ -30,14 +30,14 @@ export default function JoinClient({
   function accept() {
     setError(null);
     startTransition(async () => {
-      try {
-        const { slug } = await acceptInviteAction(token);
-        // Hard navigation, not router.push: a client transition can hang on
-        // "Joining…" while the destination RSC compiles/loads (esp. over LAN).
-        window.location.assign(`/${slug}/board`);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Could not accept invite");
+      const result = await acceptInviteAction(token);
+      if ("error" in result) {
+        setError(result.error);
+        return;
       }
+      // Hard navigation, not router.push: a client transition can hang on
+      // "Joining…" while the destination RSC compiles/loads (esp. over LAN).
+      window.location.assign(`/${result.slug}/board`);
     });
   }
 
@@ -45,22 +45,22 @@ export default function JoinClient({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      try {
-        const supabase = createSupabaseBrowserClient();
-        // Sign-up provisions an auto-confirmed account server-side (the invite
-        // vouches for the email), then we sign in to establish the session.
-        if (mode === "signup") {
-          await provisionInvitedAccountAction(token, email, password);
-        }
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          setError(error.message);
+      // Sign-up provisions an auto-confirmed account server-side (the invite
+      // vouches for the email), then we sign in to establish the session.
+      if (mode === "signup") {
+        const result = await provisionInvitedAccountAction(token, email, password);
+        if ("error" in result) {
+          setError(result.error);
           return;
         }
-        router.refresh(); // server re-renders; signed-in branch shows the Accept button
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Could not continue");
       }
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        setError(error.message);
+        return;
+      }
+      router.refresh(); // server re-renders; signed-in branch shows the Accept button
     });
   }
 
