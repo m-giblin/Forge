@@ -67,6 +67,13 @@ export default function Board({
   const [issues, setIssues] = useState<Issue[]>(initialIssues);
   const [dragId, setDragId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(searchParams.get("new") === "1");
+  // Shown briefly after a create: link to the new issue, plus any attachment that didn't upload.
+  const [created, setCreated] = useState<{ id: string; number: number; uploadErrors: string[] } | null>(null);
+  useEffect(() => {
+    if (!created || created.uploadErrors.length) return;
+    const t = setTimeout(() => setCreated(null), 8000);
+    return () => clearTimeout(t);
+  }, [created]);
   const [, startTransition] = useTransition();
   const [cascadePending, setCascadePending] = useState<{ issueId: string; newStatus: string; count: number } | null>(null);
   const [cascading, startCascade] = useTransition();
@@ -396,6 +403,7 @@ export default function Board({
         <NewIssueForm
           slug={slug}
           projects={[currentProject]}
+          statuses={statuses}
           priorities={priorities}
           types={types}
           categories={categories}
@@ -403,12 +411,28 @@ export default function Board({
           templates={templates}
           sprints={sprints}
           members={members}
-          onCreated={(issue) => {
+          parentOptions={issues
+            .filter((i) => i.project_id === currentProject.id && i.status !== "done")
+            .sort((a, b) => b.number - a.number)
+            .map((i) => ({ id: i.id, number: i.number, title: i.title }))}
+          onCreated={(issue, uploadErrors) => {
             upsert(issue);
             setShowForm(false);
+            setCreated({ id: issue.id, number: issue.number, uploadErrors });
           }}
           onClose={() => setShowForm(false)}
         />
+      )}
+
+      {created && (
+        <div role="status" className={`mx-6 mt-3 flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm ${created.uploadErrors.length ? "border-amber-300 bg-amber-50 text-amber-900" : "border-emerald-200 bg-emerald-50 text-emerald-900"}`}>
+          <span>
+            Created {currentProject.key}-{created.number}.{" "}
+            <Link href={`/${slug}/issues/${created.id}`} className="font-medium underline">Open it</Link>
+            {created.uploadErrors.length > 0 && <> · Some files didn&apos;t attach: {created.uploadErrors.join("; ")}</>}
+          </span>
+          <button onClick={() => setCreated(null)} className="text-xs opacity-60 hover:opacity-100" aria-label="Dismiss">✕</button>
+        </div>
       )}
 
       <div data-ember-tour="board-columns" className="flex min-h-0 flex-1 gap-3 overflow-x-auto px-6 py-4">

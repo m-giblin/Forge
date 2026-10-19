@@ -2,13 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
-import { createIssue, moveIssue, COLUMN_PAGE_SIZE } from "@/lib/services/issues";
+import { createIssue, moveIssue, updateIssue, COLUMN_PAGE_SIZE } from "@/lib/services/issues";
 import type { Issue, IssuePriority, IssueStatus, IssueType } from "@/lib/repositories/issues";
 import { ctxCanDo } from "@/lib/rbac";
 import { canDo } from "@/lib/permissions";
 // eslint-disable-next-line no-restricted-imports -- service-role required for child-count and load-more reads
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
-import { grokComplete } from "@/lib/services/grokAi";
 
 // Every action re-checks tenant membership server-side. The client cannot be
 // trusted; authorization lives here + RLS, never in the UI.
@@ -25,6 +24,11 @@ export async function createIssueAction(
     customValues?: Record<string, unknown>;
     sprintId?: string | null;
     assigneeId?: string | null;
+    status?: string;
+    startDate?: string | null;
+    dueDate?: string | null;
+    storyPoints?: number | null;
+    parentId?: string | null;
   }
 ) {
   const ctx = await getTenantContext(slug);
@@ -41,6 +45,13 @@ export async function createIssueAction(
   const { data: proj } = await svcForCheck.from("projects").select("id").eq("id", input.projectId).eq("tenant_id", ctx.tenant.id).maybeSingle();
   if (!proj) throw new Error("Project not found");
 
+  // Parent must be an issue in this same tenant and project — checked before
+  // anything is created so a bad parent never leaves a half-made issue.
+  if (input.parentId) {
+    const { data: parent } = await svcForCheck.from("issues").select("id").eq("id", input.parentId).eq("tenant_id", ctx.tenant.id).eq("project_id", input.projectId).maybeSingle();
+    if (!parent) throw new Error("Parent issue not found in this project");
+  }
+
   const issue = await createIssue({
     tenantId: ctx.tenant.id,
     projectId: input.projectId,
@@ -53,9 +64,24 @@ export async function createIssueAction(
     reporterId: ctx.appUserId,
     sprintId: input.sprintId,
     assigneeId: input.assigneeId,
+    status: input.status,
   });
+
+  // The rest of the "More details" fields go through the same validated
+  // update path the issue page uses, so the rules live in one place.
+  const extras: Parameters<typeof updateIssue>[2] = {};
+  if (input.startDate) extras.startDate = input.startDate;
+  if (input.dueDate) extras.dueDate = input.dueDate;
+  if (input.storyPoints != null && Number.isFinite(input.storyPoints)) extras.storyPoints = input.storyPoints;
+  let result = Object.keys(extras).length ? await updateIssue(ctx.tenant.id, issue.id, extras, { userId: ctx.appUserId, label: ctx.email }) : issue;
+
+  if (input.parentId) {
+    const { error } = await svcForCheck.from("issues").update({ parent_id: input.parentId }).eq("id", issue.id).eq("tenant_id", ctx.tenant.id);
+    if (error) throw new Error("Issue created, but the parent couldn't be set");
+    result = { ...result, parent_id: input.parentId };
+  }
   revalidatePath(`/${slug}/board`);
-  return issue;
+  return result;
 }
 
 export async function moveIssueAction(
@@ -118,45 +144,6 @@ export async function loadMoreForStatusAction(
   const issues = hasMore ? rows.slice(0, COLUMN_PAGE_SIZE) : rows;
   const cursor = issues.length > 0 ? issues[issues.length - 1].position : afterPosition;
   return { issues, hasMore, cursor };
-}
-
-export interface IssueDraft {
-  title: string;
-  description: string;
-  priority: IssuePriority;
-  type: IssueType;
-}
-
-export async function draftIssueFromDescriptionAction(
-  slug: string,
-  rawDescription: string
-): Promise<IssueDraft> {
-  const ctx = await getTenantContext(slug);
-  if (!ctx) throw new Error("Not authorized");
-
-  const system = `You are an issue tracker assistant. Given a raw description of a problem or task, extract structured issue fields. Respond ONLY with a JSON object, no prose.`;
-  const user = `Description: "${rawDescription.slice(0, 1000)}"\n\nExtract: {"title": "<concise title under 80 chars>", "description": "<cleaned-up description with context>", "priority": "<low|medium|high|urgent>", "type": "<bug|feature|task|question>"}`;
-
-  try {
-    const text = await grokComplete(ctx.tenant.id,
-      [{ role: "system", content: system }, { role: "user", content: user }],
-      { temperature: 0.2, maxTokens: 400, feature: "draft_issue" },
-    );
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]) as Partial<IssueDraft>;
-      return {
-        title: (parsed.title ?? rawDescription.slice(0, 80)).slice(0, 80),
-        description: parsed.description ?? rawDescription,
-        priority: (["low", "medium", "high", "urgent"].includes(parsed.priority ?? "") ? parsed.priority : "medium") as IssuePriority,
-        type: (["bug", "feature", "task", "question"].includes(parsed.type ?? "") ? parsed.type : "bug") as IssueType,
-      };
-    }
-  } catch {
-    // fall through to fallback (covers missing key + any API failure)
-  }
-
-  return { title: rawDescription.slice(0, 80), description: rawDescription, priority: "medium", type: "bug" };
 }
 
 export async function quickEditIssueAction(
