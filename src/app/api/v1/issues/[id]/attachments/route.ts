@@ -6,6 +6,8 @@ import { enforce } from "@/lib/api/gate";
 import { createSupabaseServiceClient } from "@/lib/supabase/service";
 import { issueAttachmentsRepo } from "@/lib/repositories/issueAttachments";
 import { issuesRepo } from "@/lib/repositories/issues";
+import { ALLOWED_ATTACHMENT_TYPES, resolveAttachmentType, storageContentType } from "@/lib/attachmentTypes";
+import { matchesFileSignature } from "@/lib/services/fileSignature";
 
 export const runtime = "nodejs";
 
@@ -17,14 +19,7 @@ const QUOTA_BYTES = 100 * 1024 * 1024; // 100 MB / month
 // the plain-file list and render it as its own prominent "Session Replay" card.
 export const REPLAY_CONTENT_TYPE = "application/x-forge-replay+json";
 
-const ALLOWED_TYPES = new Set([
-  "image/png", "image/jpeg", "image/gif", "image/webp",
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/msword", "application/vnd.ms-excel",
-  REPLAY_CONTENT_TYPE,
-]);
+const ALLOWED_TYPES = new Set([...ALLOWED_ATTACHMENT_TYPES, REPLAY_CONTENT_TYPE]);
 
 /**
  * POST /api/v1/issues/:id/attachments
@@ -62,8 +57,11 @@ export async function POST(
     return apiError("invalid_request", 'Missing "file" field in form data.');
   }
 
-  if (!ALLOWED_TYPES.has(file.type)) {
-    return apiError("invalid_request", `File type "${file.type}" is not allowed.`);
+  // Session replays keep their own type; everything else is resolved the
+  // same way as UI uploads (a text extension wins over the reported type).
+  const contentType = file.type === REPLAY_CONTENT_TYPE ? REPLAY_CONTENT_TYPE : resolveAttachmentType(file.name, file.type);
+  if (!contentType || !ALLOWED_TYPES.has(contentType)) {
+    return apiError("invalid_request", `File type "${file.type || file.name}" is not allowed.`);
   }
   if (file.size > MAX_BYTES) {
     return apiError("invalid_request", "File exceeds the 10 MB limit.");
@@ -89,9 +87,13 @@ export async function POST(
 
   // Stream file to Supabase Storage
   const bytes = await file.arrayBuffer();
+  // FORGE-198: same content check as UI uploads (this path previously had none).
+  if (contentType !== REPLAY_CONTENT_TYPE && !matchesFileSignature(new Uint8Array(bytes), contentType, true)) {
+    return apiError("invalid_request", "This file's content doesn't match its declared type.");
+  }
   const { error: uploadError } = await svc.storage
     .from(BUCKET)
-    .upload(storagePath, bytes, { contentType: file.type, upsert: false });
+    .upload(storagePath, bytes, { contentType: storageContentType(contentType), upsert: false });
   if (uploadError) {
     return NextResponse.json({ error: "upload_failed", message: uploadError.message }, { status: 500 });
   }
@@ -102,7 +104,7 @@ export async function POST(
     tenantId,
     issueId,
     filename: file.name,
-    contentType: file.type,
+    contentType,
     sizeBytes: file.size,
     storagePath,
     // API-key uploads have no associated user row — uploaded_by is nullable

@@ -7,20 +7,12 @@ import { type FieldOption, type Category, type CustomField } from "@/lib/reposit
 import { type IssueTemplate } from "@/lib/repositories/issueTemplates";
 import { createIssueAction } from "./actions";
 import { requestUploadUrlAction, confirmUploadAction } from "../issues/[id]/actions";
+import { ATTACHMENT_ACCEPT, ATTACHMENT_TYPES_LABEL, MAX_ATTACHMENT_BYTES, resolveAttachmentType, storageContentType } from "@/lib/attachmentTypes";
 
 type Project = { id: string; key: string; name: string };
 type Member = { userId: string; label: string };
 type ParentOption = { id: string; number: number; title: string };
 
-// Same limits the issue page's attachment panel enforces (and the server re-checks).
-const ALLOWED_FILE_TYPES = [
-  "image/png", "image/jpeg", "image/gif", "image/webp",
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/msword", "application/vnd.ms-excel",
-];
-const MAX_FILE_BYTES = 10 * 1024 * 1024;
 // Same scale the issue page offers.
 const STORY_POINTS = [1, 2, 3, 5, 8, 13, 21];
 
@@ -29,9 +21,11 @@ function defaultKey(opts: FieldOption[]): string {
 }
 
 async function uploadFile(slug: string, issueId: string, file: File): Promise<string | null> {
+  const type = resolveAttachmentType(file.name, file.type);
+  if (!type) return `${file.name}: file type not supported`;
   try {
-    const { attachmentId, signedUrl } = await requestUploadUrlAction(slug, issueId, file.name, file.type, file.size);
-    const res = await fetch(signedUrl, { method: "PUT", headers: { "Content-Type": file.type }, body: file });
+    const { attachmentId, signedUrl } = await requestUploadUrlAction(slug, issueId, file.name, type, file.size);
+    const res = await fetch(signedUrl, { method: "PUT", headers: { "Content-Type": storageContentType(type) }, body: file });
     if (!res.ok) return `${file.name}: upload failed (${res.status})`;
     const confirmed = await confirmUploadAction(slug, attachmentId);
     return confirmed.ok ? null : `${file.name}: ${confirmed.error}`;
@@ -118,8 +112,8 @@ export default function NewIssueForm({
     if (!list) return;
     const next: File[] = [];
     for (const f of Array.from(list)) {
-      if (!ALLOWED_FILE_TYPES.includes(f.type)) { setError(`${f.name}: file type not supported.`); continue; }
-      if (f.size > MAX_FILE_BYTES) { setError(`${f.name}: exceeds 10 MB limit.`); continue; }
+      if (!resolveAttachmentType(f.name, f.type)) { setError(`${f.name}: file type not supported.`); continue; }
+      if (f.size > MAX_ATTACHMENT_BYTES) { setError(`${f.name}: exceeds 10 MB limit.`); continue; }
       next.push(f);
     }
     setFiles((cur) => [...cur, ...next]);
@@ -347,8 +341,8 @@ export default function NewIssueForm({
             onClick={() => fileInput.current?.click()}
             className={`cursor-pointer rounded-lg border border-dashed px-3 py-2 text-xs transition-colors ${dragOver ? "border-[#b7452f] bg-[#f5e3dd] text-[#8c4632]" : "border-neutral-300 text-neutral-500 hover:bg-neutral-50"}`}
           >
-            📎 Drop files here or click to attach (images, PDF, Word, Excel · 10 MB max)
-            <input ref={fileInput} type="file" multiple accept={ALLOWED_FILE_TYPES.join(",")} className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
+            📎 Drop files here or click to attach ({ATTACHMENT_TYPES_LABEL} · 10 MB max)
+            <input ref={fileInput} type="file" multiple accept={ATTACHMENT_ACCEPT} className="hidden" onChange={(e) => { addFiles(e.target.files); e.target.value = ""; }} />
           </div>
           {files.length > 0 && (
             <ul className="space-y-1">

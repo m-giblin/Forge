@@ -13,18 +13,12 @@ import { attachmentPinsRepo, type AttachmentPin } from "@/lib/repositories/attac
 import { issueWatchersRepo } from "@/lib/repositories/issueWatchers";
 import { issueLinksRepo } from "@/lib/repositories/issueLinks";
 import { issueRiskGatesRepo } from "@/lib/repositories/issueRiskGates";
-import { matchesFileSignature, SIGNATURE_CHECK_BYTES } from "@/lib/services/fileSignature";
-import { publicEnv, serverEnv } from "@/lib/env";
+import { verifyStoredFile } from "@/lib/services/verifyStoredFile";
+import { ALLOWED_ATTACHMENT_TYPES, MAX_ATTACHMENT_BYTES, resolveAttachmentType } from "@/lib/attachmentTypes";
 
 const BUCKET = "issue-attachments";
 const QUOTA_BYTES = 100 * 1024 * 1024; // 100 MB / month per tenant
-const ALLOWED_TYPES = new Set([
-  "image/png", "image/jpeg", "image/gif", "image/webp",
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/msword", "application/vnd.ms-excel",
-]);
+const ALLOWED_TYPES = new Set(ALLOWED_ATTACHMENT_TYPES);
 
 export async function updateIssueAction(slug: string, id: string, patch: IssuePatch) {
   const ctx = await getTenantContext(slug);
@@ -111,8 +105,10 @@ export async function requestUploadUrlAction(
   const ctx = await getTenantContext(slug);
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot upload files.");
-  if (!ALLOWED_TYPES.has(contentType)) throw new Error("File type not allowed.");
-  if (sizeBytes > 10 * 1024 * 1024) throw new Error("File exceeds 10 MB limit.");
+  // The client sends the type resolveAttachmentType gave it; anything else
+  // (e.g. "text/html" on a .md file) is refused.
+  if (!ALLOWED_TYPES.has(contentType) || resolveAttachmentType(filename, contentType) !== contentType) throw new Error("File type not allowed.");
+  if (sizeBytes > MAX_ATTACHMENT_BYTES) throw new Error("File exceeds 10 MB limit.");
 
   const svc = createSupabaseServiceClient();
   const repo = issueAttachmentsRepo(svc);
@@ -173,26 +169,13 @@ export async function confirmUploadAction(
   const attachment = await repo.getById(ctx.tenant.id, attachmentId);
   if (!attachment) throw new Error("Attachment not found.");
 
-  // The storage SDK's download() doesn't expose a Range header, so this reads
-  // just the first few bytes directly against the Storage REST API instead of
-  // pulling the whole (up to 10MB) object down just to check its magic number.
-  const { NEXT_PUBLIC_SUPABASE_URL } = publicEnv();
-  const { SUPABASE_SERVICE_ROLE_KEY } = serverEnv();
-  const objectUrl = `${NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/${BUCKET}/${attachment.storagePath}`;
-  const res = await fetch(objectUrl, {
-    headers: {
-      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-      Range: `bytes=0-${SIGNATURE_CHECK_BYTES - 1}`,
-    },
-  });
-  if (!res.ok) {
+  const check = await verifyStoredFile(BUCKET, attachment.storagePath, attachment.contentType, attachment.sizeBytes);
+  if (check === "missing") {
     // Object didn't land (e.g. the client's upload actually failed) — clean up the row.
     await repo.delete(ctx.tenant.id, attachmentId);
     return { ok: false, error: "Upload could not be verified. Please try again." };
   }
-
-  const head = new Uint8Array(await res.arrayBuffer());
-  if (!matchesFileSignature(head, attachment.contentType)) {
+  if (check === "mismatch") {
     await svc.storage.from(BUCKET).remove([attachment.storagePath]);
     await repo.delete(ctx.tenant.id, attachmentId);
     return { ok: false, error: "This file's content doesn't match its declared type and was rejected." };

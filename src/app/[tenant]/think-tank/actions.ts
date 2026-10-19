@@ -1,5 +1,7 @@
 "use server";
 
+import { ALLOWED_ATTACHMENT_TYPES, resolveAttachmentType } from "@/lib/attachmentTypes";
+import { verifyStoredFile } from "@/lib/services/verifyStoredFile";
 import { revalidatePath } from "next/cache";
 import { getTenantContext } from "@/lib/auth";
 import { createIdea, updateIdea } from "@/lib/services/thinkTank";
@@ -123,6 +125,24 @@ export async function addIdeaCommentAction(
 
   const supabase = await createSupabaseServerClient();
   const svc = createSupabaseServiceClient();
+
+  // FORGE-198: files go straight from the browser to Storage, so check each
+  // one's real content before it's attached (same check as issue uploads).
+  if (attachmentIds && attachmentIds.length > 0) {
+    const { data: pending } = await svc
+      .from("idea_comment_attachments")
+      .select("id, storage_path, content_type, size_bytes, filename")
+      .in("id", attachmentIds)
+      .eq("tenant_id", ctx.tenant.id)
+      .is("comment_id", null);
+    for (const a of (pending ?? []) as { id: string; storage_path: string; content_type: string; size_bytes: number; filename: string }[]) {
+      if ((await verifyStoredFile(STORAGE_BUCKET, a.storage_path, a.content_type, a.size_bytes)) !== "ok") {
+        await svc.storage.from(STORAGE_BUCKET).remove([a.storage_path]);
+        await svc.from("idea_comment_attachments").delete().eq("id", a.id).eq("tenant_id", ctx.tenant.id);
+        throw new Error(`"${a.filename}" doesn't match its file type and was removed. Your comment wasn't posted.`);
+      }
+    }
+  }
 
   const [comment, idea] = await Promise.all([
     ideaCommentsRepo(supabase).add({
@@ -503,14 +523,7 @@ export async function toggleVoteAction(
 // Attachment upload / download
 // ---------------------------------------------------------------------------
 
-const ALLOWED_TYPES = new Set([
-  "image/png", "image/jpeg", "image/gif", "image/webp",
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/msword",
-  "application/vnd.ms-excel",
-]);
+const ALLOWED_TYPES = new Set(ALLOWED_ATTACHMENT_TYPES);
 const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
 const MONTHLY_QUOTA_BYTES = 100 * 1024 * 1024; // 100 MB
 const STORAGE_BUCKET = "idea-attachments";
@@ -530,7 +543,7 @@ export async function prepareAttachmentUploadAction(
   if (!ctx) throw new Error("Not authorized");
   if (ctx.role === "viewer") throw new Error("Viewers cannot upload files.");
 
-  if (!ALLOWED_TYPES.has(contentType)) throw new Error("File type not allowed.");
+  if (!ALLOWED_TYPES.has(contentType) || resolveAttachmentType(filename, contentType) !== contentType) throw new Error("File type not allowed.");
   if (sizeBytes > MAX_FILE_BYTES) throw new Error("File exceeds 10 MB limit.");
 
   const svc = createSupabaseServiceClient();

@@ -1,5 +1,6 @@
 "use client";
 
+import { ATTACHMENT_ACCEPT, isTextAttachmentType, resolveAttachmentType, storageContentType } from "@/lib/attachmentTypes";
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -15,11 +16,7 @@ import type { IdeaComment, IdeaCommentAttachment } from "@/lib/repositories/idea
 
 const EDIT_WINDOW_MS = 15 * 60 * 1000;
 
-const ACCEPT_TYPES =
-  "image/png,image/jpeg,image/gif,image/webp,application/pdf," +
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document," +
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet," +
-  "application/msword,application/vnd.ms-excel";
+const ACCEPT_TYPES = ATTACHMENT_ACCEPT;
 
 function relTime(iso: string): string {
   const s = Math.round((Date.now() - new Date(iso).getTime()) / 1000);
@@ -44,6 +41,7 @@ function fmtBytes(n: number): string {
 function fileIcon(contentType: string): string {
   if (contentType.startsWith("image/")) return "🖼️";
   if (contentType === "application/pdf") return "📄";
+  if (isTextAttachmentType(contentType)) return "🗒️";
   return "📎";
 }
 
@@ -389,13 +387,13 @@ export default function IdeaComments({
             slug,
             ideaId,
             sf.file.name,
-            sf.file.type,
+            resolveAttachmentType(sf.file.name, sf.file.type) ?? sf.file.type,
             sf.file.size
           );
           const res = await fetch(signedUrl, {
             method: "PUT",
             body: sf.file,
-            headers: { "Content-Type": sf.file.type },
+            headers: { "Content-Type": storageContentType(resolveAttachmentType(sf.file.name, sf.file.type) ?? sf.file.type) },
           });
           if (!res.ok) throw new Error(`Upload failed for ${sf.file.name}.`);
           attachmentIds.push(attachmentId);

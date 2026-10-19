@@ -9,14 +9,9 @@ import {
   deleteAttachmentAction,
 } from "./actions";
 import AttachmentProofingModal from "./AttachmentProofingModal";
+import { ATTACHMENT_ACCEPT, ATTACHMENT_TYPES_LABEL, MAX_ATTACHMENT_BYTES, isTextAttachmentType, resolveAttachmentType, storageContentType } from "@/lib/attachmentTypes";
 
-const ALLOWED = [
-  "image/png", "image/jpeg", "image/gif", "image/webp",
-  "application/pdf",
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  "application/msword", "application/vnd.ms-excel",
-];
+
 
 function formatBytes(b: number) {
   if (b < 1024) return `${b} B`;
@@ -27,6 +22,7 @@ function formatBytes(b: number) {
 function fileIcon(contentType: string) {
   if (contentType.startsWith("image/")) return "🖼";
   if (contentType === "application/pdf") return "📄";
+  if (isTextAttachmentType(contentType)) return "🗒";
   if (contentType.includes("word")) return "📝";
   if (contentType.includes("excel") || contentType.includes("spreadsheet")) return "📊";
   return "📎";
@@ -54,11 +50,12 @@ export default function IssueAttachments({
   async function handleFiles(files: FileList | File[]) {
     const arr = Array.from(files);
     for (const file of arr) {
-      if (!ALLOWED.includes(file.type)) {
+      const type = resolveAttachmentType(file.name, file.type);
+      if (!type) {
         setUploading((u) => [...u, { name: file.name, progress: 0, error: "File type not supported." }]);
         continue;
       }
-      if (file.size > 10 * 1024 * 1024) {
+      if (file.size > MAX_ATTACHMENT_BYTES) {
         setUploading((u) => [...u, { name: file.name, progress: 0, error: "Exceeds 10 MB limit." }]);
         continue;
       }
@@ -68,14 +65,14 @@ export default function IssueAttachments({
 
       try {
         const { attachmentId, signedUrl, storagePath } = await requestUploadUrlAction(
-          slug, issueId, file.name, file.type, file.size
+          slug, issueId, file.name, type, file.size
         );
 
         // Upload directly to Supabase Storage via signed URL.
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open("PUT", signedUrl);
-          xhr.setRequestHeader("Content-Type", file.type);
+          xhr.setRequestHeader("Content-Type", storageContentType(type));
           xhr.upload.onprogress = (e) => {
             if (e.lengthComputable) {
               const pct = Math.round((e.loaded / e.total) * 100);
@@ -101,7 +98,7 @@ export default function IssueAttachments({
           id: attachmentId,
           issueId,
           filename: file.name,
-          contentType: file.type,
+          contentType: type,
           sizeBytes: file.size,
           storagePath,
           uploadedBy: null,
@@ -244,13 +241,13 @@ export default function IssueAttachments({
             <p className="text-xs text-neutral-500">
               Drop files here or <span className="text-blue-600 font-medium">browse</span>
             </p>
-            <p className="text-[11px] text-neutral-400">PNG, JPG, GIF, PDF, Word, Excel · Max 10 MB</p>
+            <p className="text-[11px] text-neutral-400">{ATTACHMENT_TYPES_LABEL} · Max 10 MB</p>
           </div>
           <input
             ref={inputRef}
             type="file"
             multiple
-            accept={ALLOWED.join(",")}
+            accept={ATTACHMENT_ACCEPT}
             className="hidden"
             onChange={(e) => e.target.files && handleFiles(e.target.files)}
           />
